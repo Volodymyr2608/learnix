@@ -1,5 +1,5 @@
-import { BookOpen } from "lucide-react";
 import Link from "next/link";
+import Logo from "@/app/_components/_shared/Logo";
 import { Button } from "@/app/_components/_shared/ui/button";
 
 export function Header() {
@@ -7,10 +7,7 @@ export function Header() {
 		<header className="border-border border-b bg-background">
 			<div className="container mx-auto flex h-16 items-center justify-between px-4">
 				<div className="flex items-center gap-8">
-					<Link className="flex items-center gap-2" href="/">
-						<BookOpen className="h-6 w-6" />
-						<span className="font-semibold text-xl">Learnix</span>
-					</Link>
+					<Logo />
 
 					<nav className="hidden items-center gap-6 md:flex">
 						<Link

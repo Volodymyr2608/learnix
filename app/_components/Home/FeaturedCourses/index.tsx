@@ -64,10 +64,12 @@ const FeaturedCourses = () => {
 							className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg"
 							key={course.id}
 						>
-							<div className="aspect-video overflow-hidden">
+							<div className="relative aspect-video overflow-hidden">
 								<Image
 									alt={course.title}
 									className="h-full w-full object-cover"
+									fill
+									sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
 									src={course.image || "/placeholder.svg"}
 								/>
 							</div>
