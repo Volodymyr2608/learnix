@@ -1,20 +1,18 @@
-import {Header} from "@/app/_components/Header";
 import Footer from "@/app/_components/Footer";
+import { Header } from "@/app/_components/Header";
 
 const PageLayout = ({
- children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) => {
-  return (
-    <>
-      <Header />
-      <main>
-        {children}
-      </main>
-      <Footer />
-    </>
-  )
-}
+	return (
+		<>
+			<Header />
+			<main>{children}</main>
+			<Footer />
+		</>
+	);
+};
 
-export default PageLayout
+export default PageLayout;

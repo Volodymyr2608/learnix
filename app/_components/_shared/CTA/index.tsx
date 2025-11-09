@@ -1,33 +1,35 @@
-import { ArrowRight } from "lucide-react"
-import {Button} from "@/app/_components/_shared/ui/button";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/app/_components/_shared/ui/button";
 
 const CTASection = () => {
-  return (
-    <section className="py-24 px-4">
-      <div className="container mx-auto max-w-7xl">
-        <div className="bg-primary rounded-2xl p-12 md:p-16 text-center text-primary-foreground">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Ready to Start Learning?</h2>
-          <p className="text-lg md:text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-            Join over 50,000 students and start your journey to success today. Get access to all courses with a free
-            trial.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="text-lg">
-              Start Free Trial
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-lg border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary bg-transparent"
-            >
-              View Pricing
-            </Button>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
+	return (
+		<section className="px-4 py-24">
+			<div className="container mx-auto max-w-7xl">
+				<div className="rounded-2xl bg-primary p-12 text-center text-primary-foreground md:p-16">
+					<h2 className="mb-4 font-bold text-4xl md:text-5xl">
+						Ready to Start Learning?
+					</h2>
+					<p className="mx-auto mb-8 max-w-2xl text-lg opacity-90 md:text-xl">
+						Join over 50,000 students and start your journey to success today.
+						Get access to all courses with a free trial.
+					</p>
+					<div className="flex flex-col justify-center gap-4 sm:flex-row">
+						<Button className="text-lg" size="lg" variant="secondary">
+							Start Free Trial
+							<ArrowRight className="ml-2 h-5 w-5" />
+						</Button>
+						<Button
+							className="border-primary-foreground bg-transparent text-lg text-primary-foreground hover:bg-primary-foreground hover:text-primary"
+							size="lg"
+							variant="outline"
+						>
+							View Pricing
+						</Button>
+					</div>
+				</div>
+			</div>
+		</section>
+	);
+};
 
 export default CTASection;

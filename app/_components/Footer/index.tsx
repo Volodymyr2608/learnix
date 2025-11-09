@@ -1,145 +1,210 @@
-import Link from "next/link"
-import { Facebook, Twitter, Instagram, Linkedin, Youtube } from "lucide-react"
+import { Facebook, Instagram, Linkedin, Twitter, Youtube } from "lucide-react";
+import Link from "next/link";
 
 const Footer = () => {
-  return (
-    <footer className="bg-muted/50 border-t">
-      <div className="container mx-auto max-w-7xl px-4 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-          <div>
-            <h3 className="font-semibold mb-4">Platform</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/courses" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Browse Courses
-                </Link>
-              </li>
-              <li>
-                <Link href="/programs" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Learning Paths
-                </Link>
-              </li>
-              <li>
-                <Link href="/instructors" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Become Instructor
-                </Link>
-              </li>
-              <li>
-                <Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Pricing
-                </Link>
-              </li>
-            </ul>
-          </div>
+	return (
+		<footer className="border-t bg-muted/50">
+			<div className="container mx-auto max-w-7xl px-4 py-12">
+				<div className="mb-8 grid grid-cols-2 gap-8 md:grid-cols-4">
+					<div>
+						<h3 className="mb-4 font-semibold">Platform</h3>
+						<ul className="space-y-2">
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/courses"
+								>
+									Browse Courses
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/programs"
+								>
+									Learning Paths
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/instructors"
+								>
+									Become Instructor
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/pricing"
+								>
+									Pricing
+								</Link>
+							</li>
+						</ul>
+					</div>
 
-          <div>
-            <h3 className="font-semibold mb-4">Company</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link href="/careers" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Careers
-                </Link>
-              </li>
-              <li>
-                <Link href="/blog" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Blog
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Contact
-                </Link>
-              </li>
-            </ul>
-          </div>
+					<div>
+						<h3 className="mb-4 font-semibold">Company</h3>
+						<ul className="space-y-2">
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/about"
+								>
+									About Us
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/careers"
+								>
+									Careers
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/blog"
+								>
+									Blog
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/contact"
+								>
+									Contact
+								</Link>
+							</li>
+						</ul>
+					</div>
 
-          <div>
-            <h3 className="font-semibold mb-4">Resources</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/help" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Help Center
-                </Link>
-              </li>
-              <li>
-                <Link href="/community" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Community
-                </Link>
-              </li>
-              <li>
-                <Link href="/guides" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Guides
-                </Link>
-              </li>
-              <li>
-                <Link href="/webinars" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Webinars
-                </Link>
-              </li>
-            </ul>
-          </div>
+					<div>
+						<h3 className="mb-4 font-semibold">Resources</h3>
+						<ul className="space-y-2">
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/help"
+								>
+									Help Center
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/community"
+								>
+									Community
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/guides"
+								>
+									Guides
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/webinars"
+								>
+									Webinars
+								</Link>
+							</li>
+						</ul>
+					</div>
 
-          <div>
-            <h3 className="font-semibold mb-4">Legal</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/cookies" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Cookie Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/accessibility" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Accessibility
-                </Link>
-              </li>
-            </ul>
-          </div>
-        </div>
+					<div>
+						<h3 className="mb-4 font-semibold">Legal</h3>
+						<ul className="space-y-2">
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/terms"
+								>
+									Terms of Service
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/privacy"
+								>
+									Privacy Policy
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/cookies"
+								>
+									Cookie Policy
+								</Link>
+							</li>
+							<li>
+								<Link
+									className="text-muted-foreground transition-colors hover:text-foreground"
+									href="/accessibility"
+								>
+									Accessibility
+								</Link>
+							</li>
+						</ul>
+					</div>
+				</div>
 
-        <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-muted-foreground text-sm">© 2025 EduPlatform. All rights reserved.</div>
+				<div className="flex flex-col items-center justify-between gap-4 border-t pt-8 md:flex-row">
+					<div className="text-muted-foreground text-sm">
+						© 2025 EduPlatform. All rights reserved.
+					</div>
 
-          <div className="flex gap-4">
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Facebook className="w-5 h-5" />
-              <span className="sr-only">Facebook</span>
-            </Link>
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Twitter className="w-5 h-5" />
-              <span className="sr-only">Twitter</span>
-            </Link>
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Instagram className="w-5 h-5" />
-              <span className="sr-only">Instagram</span>
-            </Link>
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Linkedin className="w-5 h-5" />
-              <span className="sr-only">LinkedIn</span>
-            </Link>
-            <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-              <Youtube className="w-5 h-5" />
-              <span className="sr-only">YouTube</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-    </footer>
-  )
-}
+					<div className="flex gap-4">
+						<Link
+							className="text-muted-foreground transition-colors hover:text-foreground"
+							href="#"
+						>
+							<Facebook className="h-5 w-5" />
+							<span className="sr-only">Facebook</span>
+						</Link>
+						<Link
+							className="text-muted-foreground transition-colors hover:text-foreground"
+							href="#"
+						>
+							<Twitter className="h-5 w-5" />
+							<span className="sr-only">Twitter</span>
+						</Link>
+						<Link
+							className="text-muted-foreground transition-colors hover:text-foreground"
+							href="#"
+						>
+							<Instagram className="h-5 w-5" />
+							<span className="sr-only">Instagram</span>
+						</Link>
+						<Link
+							className="text-muted-foreground transition-colors hover:text-foreground"
+							href="#"
+						>
+							<Linkedin className="h-5 w-5" />
+							<span className="sr-only">LinkedIn</span>
+						</Link>
+						<Link
+							className="text-muted-foreground transition-colors hover:text-foreground"
+							href="#"
+						>
+							<Youtube className="h-5 w-5" />
+							<span className="sr-only">YouTube</span>
+						</Link>
+					</div>
+				</div>
+			</div>
+		</footer>
+	);
+};
 
 export default Footer;
