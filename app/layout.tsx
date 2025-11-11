@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { TRPCReactProvider } from "../lib/trpc/react";
+import { TRPCReactProvider } from "@/trpc/react";
 
 import "styles/globals.css";
 

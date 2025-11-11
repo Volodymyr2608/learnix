@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/server/better-auth";
+import { auth } from "@/server/better-auth";
 
 export const googleAction = async () => {
 	const res = await auth.api.signInSocial({
