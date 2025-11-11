@@ -15,7 +15,12 @@ const useSignUp = () => {
 	});
 
 	const handleSubmit = async (data: SignUpData) => {
-		await signup.mutateAsync(data);
+		const res = await signup.mutateAsync(data);
+
+    if (!res.success) {
+      console.error(res.message, '');
+      return;
+    }
 
 		// router.push("/dashboard");
 	};

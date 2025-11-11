@@ -49,6 +49,7 @@ model Post {
 
 model User {
   id            String    @id @default(cuid())
+  name          String //@db.Text
   email         String
   emailVerified Boolean   @default(false)
   image         String? //@db.Text
@@ -63,7 +64,7 @@ model User {
 }
 
 model Session {
-  id        String   @id
+  id        String   @id @default(cuid())
   expiresAt DateTime
   token     String
   createdAt DateTime @default(now())

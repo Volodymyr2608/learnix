@@ -6,7 +6,7 @@ export class AuthService {
 	async signUp(
 		data: SignUpData,
 	): Promise<{ success: true } | { success: false; message: string }> {
-		const { email } = data;
+		const { email, name, password, confirmPassword } = data;
 		const existing = await userRepository.findFirst({ email });
 
 		if (existing) {

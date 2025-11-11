@@ -1,13 +1,7 @@
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { signUpSchema } from "@/server/entities/user";
-// import { authService } from "@/server/services/authService";
+import { authService } from "@/server/services/authService";
 
 export const userRouter = createTRPCRouter({
-	signUp: publicProcedure.input(signUpSchema).mutation(async ({ input }) => {
-		console.log("Muttation", input);
-
-		// authService.signUp(input)
-
-		return { message: "User created successfully" };
-	}),
+	signUp: publicProcedure.input(signUpSchema).mutation(async ({ input }) => authService.signUp(input)),
 });
