@@ -1,9 +1,13 @@
 import { z } from "zod";
+import {
+	doesPasswordMatch,
+	onPasswordMismatch,
+} from "@/lib/utils/doesPasswordMatch";
 import { UserSchema } from "@/prisma/zod";
 import {
 	emailSchema,
 	nameSchema,
-	passwordRepetitionSchema,
+	passwordSchema,
 } from "@/server/entities/base";
 
 export const UserDto = UserSchema;
@@ -27,8 +31,12 @@ export type UserUpdateDto = z.infer<typeof UserUpdateDto>;
  */
 
 export const signUpSchema = z
-	.object({ email: emailSchema })
-	.extend({ name: nameSchema })
-	.extend(passwordRepetitionSchema);
+	.object({
+		email: emailSchema,
+		name: nameSchema,
+		password: passwordSchema,
+		confirmPassword: passwordSchema,
+	})
+	.refine(doesPasswordMatch, onPasswordMismatch);
 
 export type SignUpData = z.infer<typeof signUpSchema>;

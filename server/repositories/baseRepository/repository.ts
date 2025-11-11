@@ -1,9 +1,9 @@
-import type Paginator from "@/server/repositories/baseRepository/paginator";
+// import type Paginator from "@/server/repositories/baseRepository/paginator";
 
 export type Filter = Record<string, unknown>;
 export type OrderBy = Record<string, "asc" | "desc">;
 
-export interface Repository<T, TCreateDto, TUpdateDto> {
+export interface Repository<T, TCreateDto, _TUpdateDto> {
 	create(data: TCreateDto): Promise<T>;
 	// update(id: string, dto: TUpdateDto, idField: string): Promise<T>;
 	// delete(id: string, softDelete?: boolean): Promise<boolean>;

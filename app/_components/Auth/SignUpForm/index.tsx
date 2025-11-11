@@ -1,46 +1,64 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import FormField from "@/app/_components/_shared/Form/FormField";
+import { useForm } from "react-hook-form";
+import ControlledField from "@/app/_components/_shared/Form/ControlledField";
 import { Button } from "@/app/_components/_shared/ui/button";
+import { FieldGroup } from "@/app/_components/_shared/ui/field";
 import AuthFormLayout from "@/app/_components/Auth/AuthFormLayout";
+import useSignUp from "@/app/_components/Auth/SignUpForm/hooks/useSignUp";
+import { signUpSchema } from "@/server/entities/user";
 
 const SignUpForm = () => {
-	const isPending = false;
+	const { isPending, handleSubmit: onSubmit } = useSignUp();
+
+	const { handleSubmit, control } = useForm({
+		resolver: zodResolver(signUpSchema),
+		defaultValues: {
+			name: "",
+			email: "",
+			password: "",
+			confirmPassword: "",
+		},
+	});
 
 	return (
 		<AuthFormLayout
 			description="Start your learning journey today"
 			title="Create an account"
 		>
-			<form className="space-y-3">
-				<FormField
-					label="Full Name"
-					name="name"
-					placeholder="John Doe"
-					// error={state.errors?.name?.errors[0]}
-				/>
-				<FormField
-					label="Email"
-					name="email"
-					placeholder="name@example.com"
-					// error={state.errors?.email?.errors[0]}
-				/>
-				<FormField
-					label="Password"
-					name="password"
-					placeholder="••••••••"
-					type="password"
-					// error={state.errors?.password?.errors[0]}
-				/>
-				<FormField
-					label="Confirm Password"
-					name="confirmPassword"
-					placeholder="••••••••"
-					type="password"
-					// error={state.errors?.confirmPassword?.errors[0]}
-				/>
+			<form className="space-y-3" onSubmit={handleSubmit(onSubmit)}>
+				<FieldGroup className="gap-4">
+					<ControlledField
+						control={control}
+						label="Full Name"
+						name="name"
+						placeholder="John Doe"
+					/>
+					<ControlledField
+						control={control}
+						label="Email"
+						name="email"
+						placeholder="name@example.com"
+					/>
+					<ControlledField
+						control={control}
+						label="Password"
+						name="password"
+						placeholder="••••••••"
+						type="password"
+					/>
+					<ControlledField
+						control={control}
+						label="Confirm Password"
+						name="confirmPassword"
+						placeholder="••••••••"
+						type="password"
+					/>
+				</FieldGroup>
+
 				<Button className="w-full" disabled={isPending} type="submit">
 					{isPending ? (
 						<>
