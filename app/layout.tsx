@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { TRPCReactProvider } from "@/trpc/client";
 
+import { Toaster } from "@/app/_components/_shared/ui/sonner"
+
 import "styles/globals.css";
 
 export const metadata: Metadata = {
@@ -32,6 +34,7 @@ export default function RootLayout({
 		>
 			<body>
 				<TRPCReactProvider>{children}</TRPCReactProvider>
+        <Toaster/>
 			</body>
 		</html>
 	);

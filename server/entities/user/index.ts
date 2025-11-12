@@ -13,13 +13,22 @@ import {
 export const UserDto = UserSchema;
 
 export const UserCreateDto = UserSchema.pick({
-	passwordHash: true,
+	name: true,
 	email: true,
-});
+})
 export type UserCreateDto = z.infer<typeof UserCreateDto>;
 
+export const UserCreatePayload = UserSchema.pick({
+  name: true,
+  email: true,
+}).extend({
+  hashedPassword: z.string(),
+});
+export type UserCreatePayload = z.infer<typeof UserCreatePayload>;
+
 export const UserUpdateDto = UserDto.pick({
-	passwordHash: true,
+  name: true,
+  email: true,
 	emailVerified: true,
 	image: true,
 }).partial();

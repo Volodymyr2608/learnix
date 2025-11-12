@@ -1,6 +1,7 @@
 // import { useRouter } from "next/navigation";
 import type { SignUpData } from "@/server/entities/user";
 import { api } from "@/trpc/client";
+import {toast} from "sonner";
 
 const useSignUp = () => {
 	// const router = useRouter();
@@ -17,10 +18,11 @@ const useSignUp = () => {
 	const handleSubmit = async (data: SignUpData) => {
 		const res = await signup.mutateAsync(data);
 
-    if (!res.success) {
-      console.error(res.message, '');
-      return;
-    }
+		if (!res.success) {
+			console.error(res.message, "");
+      toast.error(res.message)
+			return;
+		}
 
 		// router.push("/dashboard");
 	};

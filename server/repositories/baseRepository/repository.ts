@@ -13,6 +13,7 @@ export interface Repository<T, TCreateDto, _TUpdateDto> {
 		orderBy?: OrderBy,
 		include?: object | null,
 	): Promise<T | null>;
+  transaction<R>(callback: (prismaClient: unknown) => Promise<R>): Promise<R>;
 	// findMany(filter?: Filter, skip?: number, take?: number, orderBy?: OrderBy): Promise<T[]>;
 	// count(filter?: Filter): Promise<number>;
 	// paginate(perPage?: number, page?: number, filter?: Filter, orderBy?: OrderBy): Promise<Paginator<T>>;
