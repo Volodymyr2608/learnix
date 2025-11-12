@@ -1,7 +1,8 @@
 // import { useRouter } from "next/navigation";
+
+import { toast } from "sonner";
 import type { SignUpData } from "@/server/entities/user";
 import { api } from "@/trpc/client";
-import {toast} from "sonner";
 
 const useSignUp = () => {
 	// const router = useRouter();
@@ -20,7 +21,7 @@ const useSignUp = () => {
 
 		if (!res.success) {
 			console.error(res.message, "");
-      toast.error(res.message)
+			toast.error(res.message);
 			return;
 		}
 

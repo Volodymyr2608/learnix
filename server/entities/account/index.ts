@@ -1,17 +1,17 @@
-import {AccountSchema} from "@/prisma/zod";
-import {z} from "zod/index";
+import type { z } from "zod/index";
+import { AccountSchema } from "@/prisma/zod";
 
 export const AccountCreateDto = AccountSchema.pick({
-  providerId: true,
-  accountId: true,
-  password: true,
-  userId: true,
+	providerId: true,
+	accountId: true,
+	password: true,
+	userId: true,
 });
 
 export type AccountCreateDto = z.infer<typeof AccountCreateDto>;
 
 export const AccountUpdateDto = AccountSchema.pick({
-  password: true,
+	password: true,
 }).partial();
 
 export type AccountUpdateDto = z.infer<typeof AccountUpdateDto>;

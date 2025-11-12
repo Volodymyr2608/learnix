@@ -77,16 +77,18 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		}
 	}
 
-  public async transaction<R>(callback: (prismaClient: unknown) => Promise<R>): Promise<R> {
-    try {
-      this.logger?.info('Starting transaction');
-      const result = await prisma.$transaction(callback);
-      this.logger?.info('Transaction completed successfully');
-      return result;
-    } catch (error) {
-      return this.handleError(error, 'execute transaction');
-    }
-  }
+	public async transaction<R>(
+		callback: (prismaClient: unknown) => Promise<R>,
+	): Promise<R> {
+		try {
+			this.logger?.info("Starting transaction");
+			const result = await prisma.$transaction(callback);
+			this.logger?.info("Transaction completed successfully");
+			return result;
+		} catch (error) {
+			return this.handleError(error, "execute transaction");
+		}
+	}
 
 	protected buildFilter(filter: Filter = {}): Filter {
 		const baseFilter = this.isSoftDelete ? { deletedAt: null } : {};
