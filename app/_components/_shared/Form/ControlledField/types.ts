@@ -4,7 +4,7 @@ import type { Input } from "@/app/_components/_shared/ui/input";
 export type ControlledFieldProps<T extends FieldValues> = {
 	control: Control<T>;
 	name: Path<T>;
-	label: string;
+	label: React.ReactNode;
 	placeholder?: string;
 	type?: "text" | "email" | "password";
 	autoComplete?: string;

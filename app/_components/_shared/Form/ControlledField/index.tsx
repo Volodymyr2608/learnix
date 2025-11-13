@@ -24,9 +24,13 @@ const ControlledField = <T extends FieldValues>({
 			name={name}
 			render={({ field, fieldState }) => (
 				<Field className="gap-2" data-invalid={fieldState.invalid}>
-					<FieldLabel className="leading-none" htmlFor={name}>
-						{label}
-					</FieldLabel>
+					{typeof label === "string" ? (
+						<FieldLabel className="leading-none" htmlFor={name}>
+							{label}
+						</FieldLabel>
+					) : (
+						label
+					)}
 
 					{type === "text" && (
 						<Input

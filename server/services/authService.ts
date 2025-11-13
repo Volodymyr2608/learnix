@@ -1,7 +1,7 @@
-import { hashSync } from "@/lib/utils/hashSync";
-import type { SignUpData } from "@/server/entities/user";
+import { headers } from "next/headers";
+import { auth } from "@/server/better-auth";
+import type { SignInData, SignUpData } from "@/server/entities/user";
 import { userRepository } from "@/server/repositories/userRepository";
-// import {hashSync} from "@/lib/utils/hashSync";
 
 export class AuthService {
 	async signUp(
@@ -14,10 +14,23 @@ export class AuthService {
 			return { success: false, message: "This email is already registered" };
 		}
 
-		await userRepository.createUser({
-			email,
-			name,
-			hashedPassword: hashSync(password),
+		await auth.api.signUpEmail({
+			body: {
+				name,
+				email,
+				password,
+			},
+		});
+
+		return { success: true };
+	}
+
+	async signIn(
+		data: SignInData,
+	): Promise<{ success: true } | { success: false; message: string }> {
+		await auth.api.signInEmail({
+			body: data,
+			headers: await headers(),
 		});
 
 		return { success: true };

@@ -3,9 +3,9 @@ import SignUpForm from "@/app/_components/Auth/SignUpForm";
 import { APP_NAME } from "@/lib/constants/projectName";
 
 const author = {
-	position: "Software Engineer",
-	name: "Sarah Johnson",
-	quote: `${APP_NAME} has transformed the way I approach learning. The courses are engaging, and the instructors are world-class.`,
+	name: "Michael Chen",
+	position: "Product Designer",
+	quote: `"Join thousands of learners who are advancing their careers and achieving their goals with ${APP_NAME}"`,
 };
 
 const SignUpPage = () => {

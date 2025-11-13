@@ -49,3 +49,6 @@ export const signUpSchema = z
 	.refine(doesPasswordMatch, onPasswordMismatch);
 
 export type SignUpData = z.infer<typeof signUpSchema>;
+
+export const signInSchema = signUpSchema.pick({ email: true, password: true });
+export type SignInData = z.infer<typeof signUpSchema>;

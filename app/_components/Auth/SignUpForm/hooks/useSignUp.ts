@@ -1,31 +1,26 @@
-// import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { toast } from "sonner";
 import type { SignUpData } from "@/server/entities/user";
 import { api } from "@/trpc/client";
 
 const useSignUp = () => {
-	// const router = useRouter();
+	const router = useRouter();
 	const signup = api.user.signUp.useMutation({
 		onSuccess: () => {
-			// router.push("/dashboard");
-			// toast(TOAST_MESSAGES['SEND_VERIFICATION_EMAIL_SUCCESS']);
+			toast("Account created successfully.");
+
+			setTimeout(() => {
+				router.push("/sign-in");
+			}, 2000);
 		},
-		onError: (error) => {
-			console.log(error);
+		onError: () => {
+			toast.error("Failed to create account. Please try again later.");
 		},
 	});
 
 	const handleSubmit = async (data: SignUpData) => {
-		const res = await signup.mutateAsync(data);
-
-		if (!res.success) {
-			console.error(res.message, "");
-			toast.error(res.message);
-			return;
-		}
-
-		// router.push("/dashboard");
+		await signup.mutateAsync(data);
 	};
 
 	return { handleSubmit, isPending: signup.isPending };

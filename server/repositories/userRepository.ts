@@ -35,7 +35,6 @@ export default class UserRepository extends BaseRepository<
 				providerId: "email",
 			});
 
-			console.log({ user, account });
 			return { user, account };
 		});
 	}
