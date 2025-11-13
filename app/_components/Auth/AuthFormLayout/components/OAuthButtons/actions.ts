@@ -1,13 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
 import { auth } from "@/server/better-auth";
 
 export const googleAction = async () => {
 	const res = await auth.api.signInSocial({
 		body: {
 			provider: "google",
-			callbackURL: "/",
+			callbackURL: DASHBOARD_URLS.DASHBOARD,
 		},
 	});
 	if (!res.url) {
@@ -20,7 +21,7 @@ export const githubAction = async () => {
 	const res = await auth.api.signInSocial({
 		body: {
 			provider: "github",
-			callbackURL: "/",
+			callbackURL: DASHBOARD_URLS.DASHBOARD,
 		},
 	});
 	if (!res.url) {

@@ -1,25 +1,24 @@
 import { useRouter } from "next/navigation";
-
 import { toast } from "sonner";
+import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
+import { authClient } from "@/server/better-auth/client";
 import type { SignUpData } from "@/server/entities/user";
-import { api } from "@/trpc/client";
 
 const useSignIn = () => {
 	const router = useRouter();
-	const signin = api.user.signIn.useMutation({
-		onSuccess: () => {
-			router.push("/dashboard");
-		},
-		onError: () => {
-			toast.error("Failed to sign in. Please try again later.");
-		},
-	});
 
-	const handleSubmit = async (data: SignUpData) => {
-		await signin.mutateAsync(data);
+	const handleSubmit = async (userPayload: SignUpData) => {
+		const { error } = await authClient.signIn.email(userPayload);
+
+		if (error) {
+			toast.error("Failed to sign in. Please try again later.");
+			return;
+		}
+
+		router.push(DASHBOARD_URLS.DASHBOARD);
 	};
 
-	return { handleSubmit, isPending: signin.isPending };
+	return { handleSubmit, isPending: false };
 };
 
 export default useSignIn;
