@@ -1,6 +1,5 @@
-import { headers } from "next/headers";
 import { auth } from "@/server/better-auth";
-import type { SignInData, SignUpData } from "@/server/entities/user";
+import type { SignUpData } from "@/server/entities/user";
 import { userRepository } from "@/server/repositories/userRepository";
 
 export class AuthService {
@@ -20,17 +19,6 @@ export class AuthService {
 				email,
 				password,
 			},
-		});
-
-		return { success: true };
-	}
-
-	async signIn(
-		data: SignInData,
-	): Promise<{ success: true } | { success: false; message: string }> {
-		await auth.api.signInEmail({
-			body: data,
-			headers: await headers(),
 		});
 
 		return { success: true };
