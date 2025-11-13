@@ -1,0 +1,28 @@
+import { TRPCError } from "@trpc/server";
+import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
+import { signInSchema, signUpSchema } from "@/server/entities/user";
+import { authService } from "@/server/services/authService";
+
+export const userRouter = createTRPCRouter({
+	signUp: publicProcedure.input(signUpSchema).mutation(async ({ input }) => {
+		try {
+			return await authService.signUp(input);
+		} catch (error) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: error.message,
+			});
+		}
+	}),
+
+	signIn: publicProcedure.input(signInSchema).mutation(async ({ input }) => {
+		try {
+			return await authService.signIn(input);
+		} catch (error) {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: error.message,
+			});
+		}
+	}),
+});
