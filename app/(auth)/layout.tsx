@@ -8,10 +8,10 @@ export default async function AuthLayout({
 }: {
 	children: ReactNode;
 }) {
-	const { user } = await getSession();
+	const res = await getSession();
 
-	if (user) {
-		redirect(DASHBOARD_URLS.DASHBOARD);
+	if (res) {
+		redirect(DASHBOARD_URLS.dashboard);
 	}
 
 	return <>{children}</>;

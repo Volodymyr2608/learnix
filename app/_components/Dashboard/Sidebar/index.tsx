@@ -18,7 +18,7 @@ const DashboardSidebar = async () => {
 				<div className="flex h-16 items-center border-sidebar-border border-b px-6">
 					<Link
 						className="flex items-center gap-2"
-						href={DASHBOARD_URLS.DASHBOARD}
+						href={DASHBOARD_URLS.dashboard}
 					>
 						<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
 							<GraduationCap className="h-5 w-5 text-sidebar-primary-foreground" />

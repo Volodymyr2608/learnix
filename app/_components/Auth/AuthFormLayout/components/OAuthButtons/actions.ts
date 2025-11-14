@@ -8,7 +8,7 @@ export const googleAction = async () => {
 	const res = await auth.api.signInSocial({
 		body: {
 			provider: "google",
-			callbackURL: DASHBOARD_URLS.DASHBOARD,
+			callbackURL: DASHBOARD_URLS.dashboard,
 		},
 	});
 	if (!res.url) {
@@ -21,7 +21,7 @@ export const githubAction = async () => {
 	const res = await auth.api.signInSocial({
 		body: {
 			provider: "github",
-			callbackURL: DASHBOARD_URLS.DASHBOARD,
+			callbackURL: DASHBOARD_URLS.dashboard,
 		},
 	});
 	if (!res.url) {

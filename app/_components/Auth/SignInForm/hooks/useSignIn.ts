@@ -15,7 +15,7 @@ const useSignIn = () => {
 			return;
 		}
 
-		router.push(DASHBOARD_URLS.DASHBOARD);
+		router.push(DASHBOARD_URLS.dashboard);
 	};
 
 	return { handleSubmit, isPending: false };

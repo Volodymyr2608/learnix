@@ -27,17 +27,17 @@ interface NavItem {
 const navItems: NavItem[] = [
 	{
 		title: "Dashboard",
-		href: DASHBOARD_URLS.DASHBOARD,
+		href: DASHBOARD_URLS.dashboard,
 		icon: LayoutDashboard,
 	},
 	{
 		title: "My Courses",
-		href: "/instructor/courses",
+		href: DASHBOARD_URLS.courses,
 		icon: BookOpen,
 	},
 	{
 		title: "Create Course",
-		href: "/instructor/courses/new",
+		href: DASHBOARD_URLS.createCourse,
 		icon: PlusCircle,
 	},
 	{
