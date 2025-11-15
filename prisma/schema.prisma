@@ -118,7 +118,8 @@ enum CourseStatus {
 model Course {
   id            String   @id @default(cuid())
   title         String
-  description   String
+  subtitle      String?
+  description   String   @db.Text
   category      String
   level         String
   language      String
@@ -165,7 +166,7 @@ model Lesson {
 
   description String?
   videoUrl    String? @map("video_url")
-  content     String?
+  content     String? @db.Text
   resources   Json?
 
   order     Int
