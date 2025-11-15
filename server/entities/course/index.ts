@@ -1,34 +1,39 @@
-import { z } from "zod";
+import type { z } from "zod";
+import { CourseSchema, LessonSchema, SectionSchema } from "@/prisma/zod";
 
-export const lessonSchema = z.object({
-	title: z.string().min(1),
-	duration: z.string().optional(),
-	videoUrl: z.string().optional(),
+const LessonCreateDto = LessonSchema.pick({
+	title: true,
+	duration: true,
+	sectionId: true,
 });
 
-export const sectionSchema = z.object({
-	title: z.string().min(1),
-	lessons: z.array(lessonSchema).min(1),
+export type LessonCreateDto = z.infer<typeof LessonCreateDto>;
+
+const SectionCreateDto = SectionSchema.pick({
+	title: true,
+	courseId: true,
+	order: true,
 });
 
-export const courseSchema = z.object({
-	title: z.string().min(3),
-	subtitle: z.string().optional(),
-	description: z.string().min(10),
-	category: z.string().min(1),
-	level: z.string().min(1),
-	language: z.string().min(1),
-	duration: z.string().min(1),
-	price: z.string().min(1),
-	originalPrice: z.string().optional(),
-	objectives: z.array(z.string().min(1)).min(4),
-	requirements: z.array(z.string().min(1)).min(2),
-	sections: z.array(sectionSchema).min(1),
+export type SectionCreateDto = z.infer<typeof SectionCreateDto>;
 
-	thumbnailFile: z.any().optional(),
-	previewVideoFile: z.any().optional(),
-
-	status: z.enum(["draft", "published"]).default("draft"),
+export const CreateCourseDto = CourseSchema.pick({
+	title: true,
+	subtitle: true,
+	description: true,
+	category: true,
+	level: true,
+	language: true,
+	duration: true,
+	price: true,
+	originalPrice: true,
+	objectives: true,
+	requirements: true,
+	sections: true,
+	status: true,
+	thumbnailUrl: true,
+	previewVideoUrl: true,
+	instructorId: true,
 });
 
-export type CourseForm = z.infer<typeof courseSchema>;
+export type CreateCourseDto = z.infer<typeof CreateCourseDto>;
