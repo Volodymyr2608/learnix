@@ -1,7 +1,16 @@
 "use client";
 
-import { GripVertical, Plus, Save, Trash2, Upload } from "lucide-react";
+import {
+	Edit,
+	Eye,
+	GripVertical,
+	Plus,
+	Save,
+	Trash2,
+	Upload,
+} from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
@@ -22,12 +31,13 @@ import {
 	SelectValue,
 } from "@/app/_components/_shared/ui/select";
 import { Textarea } from "@/app/_components/_shared/ui/textarea";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
-// interface EditCourseFormProps {
-// 	courseId: string;
-// }
+interface EditCourseFormProps {
+	courseId: string;
+}
 
-export function EditCourseForm() {
+export function EditCourseForm({ courseId }: EditCourseFormProps) {
 	const [sections, setSections] = useState([
 		{
 			id: 1,
@@ -434,6 +444,36 @@ export function EditCourseForm() {
 															value={lesson.duration}
 														/>
 													</div>
+													<Button
+														asChild
+														size="icon"
+														title="Preview lesson as student"
+														variant="outline"
+													>
+														<Link
+															href={INSTRUCTOR_URLS.previewLesson(
+																courseId,
+																lesson.id.toString(),
+															)}
+														>
+															<Eye className="h-4 w-4" />
+														</Link>
+													</Button>
+													<Button
+														asChild
+														size="icon"
+														title="Edit lesson content (video, text, resources, quiz)"
+														variant="outline"
+													>
+														<Link
+															href={INSTRUCTOR_URLS.editLesson(
+																courseId,
+																lesson.id.toString(),
+															)}
+														>
+															<Edit className="h-4 w-4" />
+														</Link>
+													</Button>
 													<Button
 														onClick={() => removeLesson(section.id, lesson.id)}
 														size="icon"

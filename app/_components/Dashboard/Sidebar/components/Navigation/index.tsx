@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type React from "react";
-import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { cn } from "@/lib/utils/cn";
 
 interface NavItem {
@@ -27,17 +27,17 @@ interface NavItem {
 const navItems: NavItem[] = [
 	{
 		title: "Dashboard",
-		href: DASHBOARD_URLS.dashboard,
+		href: INSTRUCTOR_URLS.dashboard,
 		icon: LayoutDashboard,
 	},
 	{
 		title: "My Courses",
-		href: DASHBOARD_URLS.courses,
+		href: INSTRUCTOR_URLS.courses,
 		icon: BookOpen,
 	},
 	{
 		title: "Create Course",
-		href: DASHBOARD_URLS.createCourse,
+		href: INSTRUCTOR_URLS.createCourse,
 		icon: PlusCircle,
 	},
 	{

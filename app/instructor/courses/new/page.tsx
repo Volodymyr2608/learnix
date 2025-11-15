@@ -1,15 +1,6 @@
 "use client";
 
-import {
-	ArrowLeft,
-	Eye,
-	GripVertical,
-	Plus,
-	Save,
-	Trash2,
-	Upload,
-} from "lucide-react";
-import Link from "next/link";
+import { GripVertical, Plus, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
@@ -30,7 +21,6 @@ import {
 	SelectValue,
 } from "@/app/_components/_shared/ui/select";
 import { Textarea } from "@/app/_components/_shared/ui/textarea";
-import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
 
 export default function InstructorNewCoursePage() {
 	const [sections, setSections] = useState([
@@ -90,34 +80,6 @@ export default function InstructorNewCoursePage() {
 	return (
 		<div className="space-y-6">
 			{/* Header */}
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-4">
-					<Link href={DASHBOARD_URLS.courses}>
-						<Button size="icon" variant="ghost">
-							<ArrowLeft className="h-4 w-4" />
-						</Button>
-					</Link>
-					<div>
-						<h1 className="font-bold text-3xl tracking-tight">
-							Create New Course
-						</h1>
-						<p className="text-muted-foreground">
-							Fill in the details to create your course
-						</p>
-					</div>
-				</div>
-				<div className="flex gap-2">
-					<Button variant="outline">
-						<Eye className="mr-2 h-4 w-4" />
-						Preview
-					</Button>
-					<Button variant="outline">Save as Draft</Button>
-					<Button>
-						<Save className="mr-2 h-4 w-4" />
-						Publish Course
-					</Button>
-				</div>
-			</div>
 
 			<div className="grid gap-6 lg:grid-cols-3">
 				{/* Main Content */}

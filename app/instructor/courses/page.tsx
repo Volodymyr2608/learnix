@@ -13,7 +13,7 @@ import {
 import { Input } from "@/app/_components/_shared/ui/input";
 import WithAuthProtection from "@/app/_components/_shared/WithAuthProtection";
 import DeleteCourseButton from "@/app/_components/Course/DeleteCourseButton";
-import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 export default function CoursesPage() {
 	const courses = [
@@ -71,7 +71,7 @@ export default function CoursesPage() {
 						</p>
 					</div>
 					<Button asChild>
-						<Link href={DASHBOARD_URLS.createCourse}>
+						<Link href={INSTRUCTOR_URLS.createCourse}>
 							<Plus className="mr-2 h-4 w-4" />
 							Create New Course
 						</Link>
@@ -191,7 +191,7 @@ export default function CoursesPage() {
 										variant="outline"
 									>
 										<Link
-											href={DASHBOARD_URLS.editCourse(course.id.toString())}
+											href={INSTRUCTOR_URLS.editCourse(course.id.toString())}
 										>
 											<Edit className="mr-2 h-4 w-4" />
 											Edit
@@ -203,7 +203,7 @@ export default function CoursesPage() {
 										variant="outline"
 									>
 										<Link
-											href={DASHBOARD_URLS.previewCourse(course.id.toString())}
+											href={INSTRUCTOR_URLS.previewCourse(course.id.toString())}
 										>
 											<Eye className="mr-2 h-4 w-4" />
 											Preview

@@ -1,6 +1,6 @@
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { authClient } from "@/server/better-auth/client";
 import type { SignUpData } from "@/server/entities/user";
 
@@ -15,7 +15,7 @@ const useSignIn = () => {
 			return;
 		}
 
-		router.push(DASHBOARD_URLS.dashboard);
+		router.push(INSTRUCTOR_URLS.dashboard);
 	};
 
 	return { handleSubmit, isPending: false };

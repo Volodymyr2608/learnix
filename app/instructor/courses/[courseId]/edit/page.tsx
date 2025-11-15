@@ -4,7 +4,7 @@ import { ArrowLeft, Eye } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { EditCourseForm } from "@/app/_components/Course/EditCourseForm";
-import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 export default async function InstructorEditCoursePage({
 	params,
@@ -18,7 +18,7 @@ export default async function InstructorEditCoursePage({
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-4">
-					<Link href={DASHBOARD_URLS.courses}>
+					<Link href={INSTRUCTOR_URLS.courses}>
 						<Button size="icon" variant="ghost">
 							<ArrowLeft className="h-4 w-4" />
 						</Button>
@@ -30,7 +30,7 @@ export default async function InstructorEditCoursePage({
 				</div>
 				<div className="flex gap-2">
 					<Button asChild variant="outline">
-						<Link href={DASHBOARD_URLS.previewCourse(courseId)}>
+						<Link href={INSTRUCTOR_URLS.previewCourse(courseId)}>
 							<Eye className="mr-2 h-4 w-4" />
 							Preview
 						</Link>

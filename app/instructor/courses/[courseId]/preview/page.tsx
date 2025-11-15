@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
-import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 export default async function InstructorCoursePreviewPage({
 	params,
@@ -25,7 +25,7 @@ export default async function InstructorCoursePreviewPage({
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-4">
-					<Link href={DASHBOARD_URLS.courses}>
+					<Link href={INSTRUCTOR_URLS.courses}>
 						<Button size="icon" variant="ghost">
 							<ArrowLeft className="h-4 w-4" />
 						</Button>
@@ -38,7 +38,7 @@ export default async function InstructorCoursePreviewPage({
 					</div>
 				</div>
 				<Button asChild>
-					<Link href={DASHBOARD_URLS.editCourse(courseId) as string}>
+					<Link href={INSTRUCTOR_URLS.editCourse(courseId) as string}>
 						<Edit className="mr-2 h-4 w-4" />
 						Edit Course
 					</Link>
