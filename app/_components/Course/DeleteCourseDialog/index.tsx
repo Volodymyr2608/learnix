@@ -18,7 +18,7 @@ interface DeleteCourseDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	courseTitle: string;
-	courseId: number;
+	courseId: string;
 }
 
 export function DeleteCourseDialog({
