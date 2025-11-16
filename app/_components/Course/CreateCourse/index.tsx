@@ -31,6 +31,7 @@ const CreateCourse = () => {
 			originalPrice: "",
 			thumbnail: undefined,
 			previewVideo: undefined,
+			objectives: [{ value: "" }, { value: "" }, { value: "" }, { value: "" }],
 		},
 	});
 

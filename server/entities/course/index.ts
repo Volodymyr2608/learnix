@@ -51,6 +51,13 @@ export const courseSchema = z.object({
 		.refine((file) => !file || file.size <= 100 * 1024 * 1024, {
 			message: "Video must be smaller than 100MB",
 		}),
+	objectives: z
+		.array(
+			z.object({
+				value: z.string().min(1, "Objective cannot be empty"),
+			}),
+		)
+		.min(4, "At least 4 learning objectives are required"),
 });
 
 export const CreateCourseDto = CourseSchema.pick({
