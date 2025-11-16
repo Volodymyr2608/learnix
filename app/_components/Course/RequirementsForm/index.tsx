@@ -1,4 +1,6 @@
 import { Plus, Trash2 } from "lucide-react";
+import { Controller, useFieldArray, useFormContext } from "react-hook-form";
+import FormField from "@/app/_components/_shared/Form/FormField";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {
 	Card,
@@ -7,9 +9,18 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import { Input } from "@/app/_components/_shared/ui/input";
 
 const RequirementsForm = () => {
+	const {
+		control,
+		formState: { errors },
+	} = useFormContext();
+
+	const { fields, append, remove } = useFieldArray({
+		control,
+		name: "requirements",
+	});
+
 	return (
 		<Card>
 			<CardHeader>
@@ -19,15 +30,53 @@ const RequirementsForm = () => {
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				{[1, 2].map((i) => (
-					<div className="flex gap-2" key={i}>
-						<Input placeholder={`Requirement ${i}`} />
-						<Button size="icon" variant="ghost">
-							<Trash2 className="h-4 w-4" />
-						</Button>
-					</div>
-				))}
-				<Button className="w-full bg-transparent" variant="outline">
+				{fields.map((requirement, index) => {
+					const name = `requirements.${index}.value`;
+
+					return (
+						<div className="flex gap-2" key={requirement.id}>
+							<Controller
+								control={control}
+								name={name}
+								render={({ field }) => {
+									const { value: requirement, ...rest } = field;
+									const errorMessage = Array.isArray(errors.requirements)
+										? errors.requirements?.[index]?.value.message
+										: undefined;
+
+									return (
+										<FormField
+											{...rest}
+											error={
+												typeof errorMessage === "string"
+													? errorMessage
+													: undefined
+											}
+											label={null}
+											placeholder={`Requirement ${index + 1}`}
+											value={requirement.value}
+										/>
+									);
+								}}
+							/>
+							<Button
+								disabled={fields.length <= 2}
+								onClick={() => remove(index)}
+								size="icon"
+								type="button"
+								variant="ghost"
+							>
+								<Trash2 className="h-4 w-4" />
+							</Button>
+						</div>
+					);
+				})}
+				<Button
+					className="w-full bg-transparent"
+					onClick={() => append({ value: "" })}
+					type="button"
+					variant="outline"
+				>
 					<Plus className="mr-2 h-4 w-4" />
 					Add Requirement
 				</Button>

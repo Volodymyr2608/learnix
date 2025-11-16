@@ -58,6 +58,13 @@ export const courseSchema = z.object({
 			}),
 		)
 		.min(4, "At least 4 learning objectives are required"),
+	requirements: z
+		.array(
+			z.object({
+				value: z.string().min(1, "Requirement cannot be empty"),
+			}),
+		)
+		.min(2, "At least 2 requirements are required"),
 });
 
 export const CreateCourseDto = CourseSchema.pick({

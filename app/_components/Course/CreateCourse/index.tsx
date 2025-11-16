@@ -32,6 +32,7 @@ const CreateCourse = () => {
 			thumbnail: undefined,
 			previewVideo: undefined,
 			objectives: [{ value: "" }, { value: "" }, { value: "" }, { value: "" }],
+			requirements: [{ value: "" }, { value: "" }],
 		},
 	});
 

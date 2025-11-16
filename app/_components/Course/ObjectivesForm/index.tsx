@@ -40,7 +40,9 @@ const LearningObjectivesForm = () => {
 								name={name}
 								render={({ field }) => {
 									const { value: objective, ...rest } = field;
-                  const errorMessage = Array.isArray(errors.objectives) ? errors.objectives?.[index]?.value.message : undefined
+									const errorMessage = Array.isArray(errors.objectives)
+										? errors.objectives?.[index]?.value.message
+										: undefined;
 
 									return (
 										<FormField
