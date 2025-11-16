@@ -65,6 +65,22 @@ export const courseSchema = z.object({
 			}),
 		)
 		.min(2, "At least 2 requirements are required"),
+	sections: z
+		.array(
+			z.object({
+				title: z.string().min(1, "Section title is required"),
+
+				lessons: z
+					.array(
+						z.object({
+							title: z.string().min(1, "Lesson title is required"),
+							duration: z.string().optional(),
+						}),
+					)
+					.min(1, "At least 1 lesson is required per section"),
+			}),
+		)
+		.min(1, "At least 1 section is required"),
 });
 
 export const CreateCourseDto = CourseSchema.pick({

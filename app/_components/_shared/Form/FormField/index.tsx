@@ -5,18 +5,20 @@ import {
 	FieldLabel,
 } from "@/app/_components/_shared/ui/field";
 import { Input } from "@/app/_components/_shared/ui/input";
+import { cn } from "@/lib/utils/cn";
 
 const FormField = ({
 	name,
 	label,
 	error,
 	type = "text",
+	fieldClassName,
 	...props
 }: FormFieldProps) => {
 	const isInvalid = !!error;
 
 	return (
-		<Field className="gap-2" data-invalid={isInvalid}>
+		<Field className={cn("gap-2", fieldClassName)} data-invalid={isInvalid}>
 			{typeof label === "string" ? (
 				<FieldLabel className="leading-none" htmlFor={name}>
 					{label}
