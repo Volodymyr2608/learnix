@@ -2,12 +2,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { authClient } from "@/server/better-auth/client";
-import type { SignUpData } from "@/server/entities/user";
+import type { SignInData } from "@/server/entities/user";
 
 const useSignIn = () => {
 	const router = useRouter();
 
-	const handleSubmit = async (userPayload: SignUpData) => {
+	const handleSubmit = async (userPayload: SignInData) => {
 		const { error } = await authClient.signIn.email(userPayload);
 
 		if (error) {

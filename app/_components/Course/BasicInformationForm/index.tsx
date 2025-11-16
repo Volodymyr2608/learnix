@@ -30,14 +30,22 @@ const BasicInformationForm = () => {
 			<CardContent className="space-y-4">
 				<FormField
 					{...register("title")}
-					error={errors.title?.message}
+					error={
+						typeof errors.title?.message === "string"
+							? errors.title?.message
+							: undefined
+					}
 					label="Course Title *"
 					placeholder="e.g., Complete Web Development Bootcamp"
 				/>
 
 				<FormField
 					{...register("subtitle")}
-					error={errors.subtitle?.message}
+					error={
+						typeof errors.subtitle?.message === "string"
+							? errors.subtitle?.message
+							: undefined
+					}
 					label="Subtitle"
 					placeholder="e.g., Learn HTML, CSS, JavaScript, React, Node.js and more"
 				/>
@@ -99,7 +107,11 @@ const BasicInformationForm = () => {
 					<FormField
 						{...register("duration")}
 						autoComplete="off"
-						error={errors.duration?.message}
+						error={
+							typeof errors.duration?.message === "string"
+								? errors.duration?.message
+								: undefined
+						}
 						label="Total Duration (hours) *"
 						placeholder="e.g., 52"
 						type="number"

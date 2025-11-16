@@ -7,10 +7,17 @@ export const userRouter = createTRPCRouter({
 	signUp: publicProcedure.input(signUpSchema).mutation(async ({ input }) => {
 		try {
 			return await authService.signUp(input);
-		} catch (error) {
+		} catch (error: unknown) {
+			if (error instanceof Error) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: error.message,
+				});
+			}
+
 			throw new TRPCError({
 				code: "BAD_REQUEST",
-				message: error.message,
+				message: "Unknown error",
 			});
 		}
 	}),

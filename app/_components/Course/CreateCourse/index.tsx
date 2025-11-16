@@ -29,11 +29,13 @@ const CreateCourse = () => {
 			duration: "",
 			price: "",
 			originalPrice: "",
+			thumbnail: undefined,
+			previewVideo: undefined,
 		},
 	});
 
-	const onSaveAsDraft = (data) => {
-		console.log("Saving as draft...", data);
+	const onSaveAsDraft = () => {
+		console.log("Saving as draft...");
 	};
 
 	const onPublishCourse = () => {

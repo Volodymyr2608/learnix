@@ -10,4 +10,5 @@ export type ControlledTextareaProps<T extends FieldValues> = {
 	maxLength?: number;
 	minLength?: number;
 	required?: boolean;
+	textareaProps?: React.ComponentProps<"textarea">;
 };

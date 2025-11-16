@@ -4,10 +4,11 @@ import Navigation from "@/app/_components/Dashboard/Sidebar/components/Navigatio
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import getInitials from "@/lib/utils/user/getInitials";
 import getUserName from "@/lib/utils/user/getUserName";
+import requireAuth from "@/lib/utils/user/requireAuth";
 import { getSession } from "@/server/better-auth/server";
 
 const DashboardSidebar = async () => {
-	const { user } = await getSession();
+	const { user } = requireAuth(await getSession());
 
 	const { name } = user;
 

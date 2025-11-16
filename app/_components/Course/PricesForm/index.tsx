@@ -24,7 +24,11 @@ const PricesForm = () => {
 				<FormField
 					{...register("price")}
 					autoComplete="off"
-					error={errors.price?.message}
+					error={
+						typeof errors.price?.message === "string"
+							? errors.price?.message
+							: undefined
+					}
 					label="Price (USD) *"
 					placeholder="89.99"
 					type="number"
@@ -34,7 +38,11 @@ const PricesForm = () => {
 					<FormField
 						{...register("originalPrice")}
 						autoComplete="off"
-						error={errors.originalPrice?.message}
+						error={
+							typeof errors.originalPrice?.message === "string"
+								? errors.originalPrice?.message
+								: undefined
+						}
 						label="Original Price (Optional)"
 						placeholder="199.99"
 						type="number"

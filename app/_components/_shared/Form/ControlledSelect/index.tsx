@@ -37,7 +37,7 @@ const ControlledSelect = <T extends FieldValues>({
 						onValueChange={field.onChange}
 						value={field.value}
 					>
-						<SelectTrigger id={id}>
+						<SelectTrigger aria-invalid={fieldState.invalid} id={id}>
 							<SelectValue placeholder={placeholder} />
 						</SelectTrigger>
 						<SelectContent>
