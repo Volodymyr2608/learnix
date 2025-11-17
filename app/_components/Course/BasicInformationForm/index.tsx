@@ -18,7 +18,7 @@ const BasicInformationForm = () => {
 		control,
 		formState: { errors },
 	} = useFormContext();
-	console.log(errors);
+
 	return (
 		<Card>
 			<CardHeader>

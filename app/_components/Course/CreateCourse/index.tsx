@@ -3,7 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Eye, Save } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
 import BasicInformationForm from "@/app/_components/Course/BasicInformationForm";
 import CourseMediaForm from "@/app/_components/Course/CourseMediaForm";
@@ -14,9 +16,23 @@ import RequirementsForm from "@/app/_components/Course/RequirementsForm";
 import StatusCourse from "@/app/_components/Course/StatusCourse";
 import Tips from "@/app/_components/Course/Tips";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
-import { courseSchema } from "@/server/entities/course";
+import { authClient } from "@/server/better-auth/client";
+import { type CoursePayload, courseSchema } from "@/server/entities/course";
+import { api } from "@/trpc/client";
 
 const CreateCourse = () => {
+	const session = authClient.useSession();
+	const router = useRouter();
+	const createCourse = api.course.create.useMutation({
+		onSuccess: () => {
+			toast.success("Course created successfully");
+			router.push(INSTRUCTOR_URLS.courses);
+		},
+		onError: (err) => {
+			toast.error(err.message);
+		},
+	});
+
 	const methods = useForm({
 		resolver: zodResolver(courseSchema),
 		defaultValues: {
@@ -42,8 +58,28 @@ const CreateCourse = () => {
 		},
 	});
 
-	const onSaveAsDraft = () => {
-		console.log("Saving as draft...");
+	const onSaveAsDraft = async (data: CoursePayload) => {
+		const {
+			objectives: objList,
+			requirements: reqList,
+			previewVideo,
+			thumbnail,
+			...rest
+		} = data;
+
+		console.log(previewVideo, thumbnail);
+
+		const objectives = objList.map(({ value }) => value.trim());
+		const requirements = reqList.map(({ value }) => value.trim());
+
+		await createCourse.mutateAsync({
+			...rest,
+			objectives,
+			requirements,
+			status: "draft",
+			instructorId: session.data.user.id,
+			thumbnailUrl: "http://localhost:3000/web-development-concept.png",
+		});
 	};
 
 	const onPublishCourse = () => {

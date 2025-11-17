@@ -1,21 +1,24 @@
 import { z } from "zod";
 import { CourseSchema, LessonSchema, SectionSchema } from "@/prisma/zod";
 
-const LessonCreateDto = LessonSchema.pick({
-	title: true,
-	duration: true,
-	sectionId: true,
-});
+const lessonSchema = z
+	.array(
+		z.object({
+			title: z.string().min(1, "Lesson title is required"),
+			duration: z.string().optional(),
+		}),
+	)
+	.min(1, "At least 1 lesson is required per section");
 
-export type LessonCreateDto = z.infer<typeof LessonCreateDto>;
+const sectionsSchema = z
+	.array(
+		z.object({
+			title: z.string().min(1, "Section title is required"),
 
-const SectionCreateDto = SectionSchema.pick({
-	title: true,
-	courseId: true,
-	order: true,
-});
-
-export type SectionCreateDto = z.infer<typeof SectionCreateDto>;
+			lessons: lessonSchema,
+		}),
+	)
+	.min(1, "At least 1 section is required");
 
 export const courseSchema = z.object({
 	title: z
@@ -65,40 +68,50 @@ export const courseSchema = z.object({
 			}),
 		)
 		.min(2, "At least 2 requirements are required"),
-	sections: z
-		.array(
-			z.object({
-				title: z.string().min(1, "Section title is required"),
-
-				lessons: z
-					.array(
-						z.object({
-							title: z.string().min(1, "Lesson title is required"),
-							duration: z.string().optional(),
-						}),
-					)
-					.min(1, "At least 1 lesson is required per section"),
-			}),
-		)
-		.min(1, "At least 1 section is required"),
+	sections: sectionsSchema,
 });
 
-export const CreateCourseDto = CourseSchema.pick({
+export type CoursePayload = z.infer<typeof courseSchema>;
+
+export const CourseDto = CourseSchema.pick({
 	title: true,
-	// subtitle: true,
-	// description: true,
+	subtitle: true,
+	description: true,
 	category: true,
-	// level: true,
-	// language: true,
-	// duration: true,
-	// price: true,
-	// originalPrice: true,
-	// objectives: true,
-	// requirements: true,
-	// status: true,
-	// thumbnailUrl: true,
-	// previewVideoUrl: true,
-	// instructorId: true,
+	level: true,
+	language: true,
+	duration: true,
+	price: true,
+	originalPrice: true,
+	objectives: true,
+	requirements: true,
+	status: true,
+	thumbnailUrl: true,
+	instructorId: true,
 });
 
-export type CreateCourseDto = z.infer<typeof CreateCourseDto>;
+const SectionCreateDto = SectionSchema.pick({
+	title: true,
+	courseId: true,
+	order: true,
+});
+
+export type SectionCreateDto = z.infer<typeof SectionCreateDto>;
+export type SectionUpdateDto = z.infer<typeof SectionCreateDto>;
+
+const LessonCreateDto = LessonSchema.pick({
+	title: true,
+	duration: true,
+	sectionId: true,
+	order: true,
+});
+
+export type LessonCreateDto = z.infer<typeof LessonCreateDto>;
+export type LessonUpdateDto = z.infer<typeof LessonCreateDto>;
+
+export const CourseFullCreateDto = CourseDto.extend({
+	sections: sectionsSchema,
+});
+
+export type CourseCreateDto = z.infer<typeof CourseDto>;
+export type CourseUpdateDto = z.infer<typeof CourseDto>;
