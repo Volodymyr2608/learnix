@@ -3,6 +3,15 @@
 export type Filter = Record<string, unknown>;
 export type OrderBy = Record<string, "asc" | "desc">;
 
+export type FindManyArgs = {
+	where: Filter;
+	skip?: number;
+	take?: number;
+	orderBy?: OrderBy;
+	include?: object | null;
+	select?: object | null;
+};
+
 export interface Repository<T, TCreateDto, _TUpdateDto> {
 	create(data: TCreateDto): Promise<T>;
 	// update(id: string, dto: TUpdateDto, idField: string): Promise<T>;
@@ -14,7 +23,7 @@ export interface Repository<T, TCreateDto, _TUpdateDto> {
 		include?: object | null,
 	): Promise<T | null>;
 	transaction<R>(callback: (prismaClient: unknown) => Promise<R>): Promise<R>;
-	// findMany(filter?: Filter, skip?: number, take?: number, orderBy?: OrderBy): Promise<T[]>;
+	findMany(props: FindManyArgs): Promise<T[]>;
 	// count(filter?: Filter): Promise<number>;
 	// paginate(perPage?: number, page?: number, filter?: Filter, orderBy?: OrderBy): Promise<Paginator<T>>;
 }

@@ -2,6 +2,7 @@ import { db as prisma } from "@/server/db";
 import type { PrismaModel } from "@/server/repositories/baseRepository/prismaModel";
 import type {
 	Filter,
+	FindManyArgs,
 	OrderBy,
 	Repository,
 } from "@/server/repositories/baseRepository/repository";
@@ -74,6 +75,35 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 			return result as T | null;
 		} catch (error) {
 			return this.handleError(error, "find first entity", { where, orderBy });
+		}
+	}
+
+	public async findMany({
+		where = {},
+		skip,
+		take,
+		orderBy,
+		include,
+		select,
+	}: FindManyArgs): Promise<T[]> {
+		try {
+			this.logger?.debug("Finding entities", { where, skip, take, orderBy });
+			const result = await this.repo.findMany({
+				where: this.buildFilter(where),
+				skip: skip ?? undefined,
+				take: take ?? undefined,
+				orderBy: orderBy ?? undefined,
+				include,
+				select,
+			});
+			return result as T[];
+		} catch (error) {
+			return this.handleError(error, "find entities", {
+				where,
+				skip,
+				take,
+				orderBy,
+			});
 		}
 	}
 

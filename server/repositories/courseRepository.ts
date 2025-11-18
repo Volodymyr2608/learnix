@@ -54,6 +54,21 @@ export default class CourseRepository extends BaseRepository<
 			};
 		});
 	}
+
+	async getOwnCourses(userId: string) {
+		return await this.findMany({
+			where: {
+				instructorId: userId,
+			},
+			select: {
+				id: true,
+				title: true,
+				status: true,
+				updatedAt: true,
+				thumbnailUrl: true,
+			},
+		});
+	}
 }
 
 export const courseRepository = new CourseRepository();
