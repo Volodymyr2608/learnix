@@ -9,7 +9,13 @@ export type FindManyArgs = {
 	take?: number;
 	orderBy?: OrderBy;
 	include?: object | null;
-	select?: object | null;
+	select?: Record<string, boolean | object>;
+};
+
+export type FindFirstArgs = {
+	where: Filter;
+	orderBy?: OrderBy;
+	include: object | null;
 };
 
 export interface Repository<T, TCreateDto, _TUpdateDto> {

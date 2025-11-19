@@ -69,6 +69,17 @@ export default class CourseRepository extends BaseRepository<
 			},
 		});
 	}
+
+	async getCourseByIdAndInstructorId(courseId: string, instructorId: string) {
+		return await this.findFirst({
+			where: { id: courseId, instructorId: instructorId },
+			include: {
+				sections: {
+					include: { lessons: true },
+				},
+			},
+		});
+	}
 }
 
 export const courseRepository = new CourseRepository();

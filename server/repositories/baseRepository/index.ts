@@ -2,8 +2,8 @@ import { db as prisma } from "@/server/db";
 import type { PrismaModel } from "@/server/repositories/baseRepository/prismaModel";
 import type {
 	Filter,
+	FindFirstArgs,
 	FindManyArgs,
-	OrderBy,
 	Repository,
 } from "@/server/repositories/baseRepository/repository";
 
@@ -61,11 +61,11 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		}
 	}
 
-	public async findFirst(
-		where: Filter = {},
-		orderBy?: OrderBy,
-		include: object | null = {},
-	): Promise<T | null> {
+	public async findFirst({
+		where = {},
+		orderBy,
+		include = {},
+	}: FindFirstArgs): Promise<T | null> {
 		try {
 			const result = await this.repo.findFirst({
 				where: this.buildFilter(where),
