@@ -1,7 +1,7 @@
 import { Search } from "lucide-react";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Input } from "@/app/_components/_shared/ui/input";
-import CourseCard from "@/app/_components/Course/CourseCard";
+import CourseCard from "@/app/_components/Course/components/CourseCard";
 import { api } from "@/trpc/server";
 
 const OwnCourses = async () => {

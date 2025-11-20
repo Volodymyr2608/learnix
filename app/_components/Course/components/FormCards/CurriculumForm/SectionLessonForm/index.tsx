@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import FormField from "@/app/_components/_shared/Form/FormField";
 import { Button } from "@/app/_components/_shared/ui/button";
-import type { SectionLessonFormProps } from "@/app/_components/Course/CurriculumForm/SectionLessonForm/types";
+import type { SectionLessonFormProps } from "@/app/_components/Course/components/FormCards/CurriculumForm/SectionLessonForm/types";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 const SectionLessonForm = ({

@@ -8,8 +8,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import SectionLessonForm from "@/app/_components/Course/CurriculumForm/SectionLessonForm";
-import type { CurriculumFormProps } from "@/app/_components/Course/CurriculumForm/types";
+import SectionLessonForm from "@/app/_components/Course/components/FormCards/CurriculumForm/SectionLessonForm";
+import type { CurriculumFormProps } from "@/app/_components/Course/components/FormCards/CurriculumForm/types";
 
 const CurriculumForm = ({ isEdit, courseId }: CurriculumFormProps) => {
 	const {

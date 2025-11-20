@@ -114,6 +114,7 @@ const BasicInformationForm = ({ isEdit = false }) => {
 								? errors.duration?.message
 								: undefined
 						}
+						fieldClassName="[&>*]:w-fit"
 						label="Total Duration (hours) *"
 						placeholder="e.g., 52"
 						type="number"

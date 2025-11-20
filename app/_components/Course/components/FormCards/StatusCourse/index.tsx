@@ -5,7 +5,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import type { StatusProps } from "@/app/_components/Course/StatusCourse/types";
+import type { StatusProps } from "@/app/_components/Course/components/FormCards/StatusCourse/types";
 import { STATUS_COURSE } from "@/lib/constants/statusCourse";
 import { STATUS_VARIANT } from "@/lib/constants/statusVariants";
 

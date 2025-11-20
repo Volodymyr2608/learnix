@@ -1,10 +1,10 @@
 import WithAuthProtection from "@/app/_components/_shared/WithAuthProtection";
-import CreateCourse from "@/app/_components/Course/CreateCourse";
+import CourseBuilder from "@/app/_components/Course/components/CourseBuilder";
 
 export default function InstructorNewCoursePage() {
 	return (
 		<WithAuthProtection>
-			<CreateCourse />
+			<CourseBuilder mode="create" />
 		</WithAuthProtection>
 	);
 }

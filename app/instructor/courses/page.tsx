@@ -2,8 +2,8 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
 import WithAuthProtection from "@/app/_components/_shared/WithAuthProtection";
-import OwnCourses from "@/app/_components/Course/OwnCourses";
-import OwnCoursesStats from "@/app/_components/Course/OwnCoursesStats";
+import OwnCourses from "@/app/_components/Course/components/OwnCourses";
+import OwnCoursesStats from "@/app/_components/Course/components/OwnCoursesStats";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 export default async function CoursesPage() {

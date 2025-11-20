@@ -10,8 +10,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import type { CourseCardProps } from "@/app/_components/Course/CourseCard/types";
-import DeleteCourseButton from "@/app/_components/Course/DeleteCourseButton";
+import type { CourseCardProps } from "@/app/_components/Course/components/CourseCard/types";
+import DeleteCourseButton from "@/app/_components/Course/components/DeleteCourseButton";
 import { STATUS_COURSE } from "@/lib/constants/statusCourse";
 import { STATUS_VARIANT } from "@/lib/constants/statusVariants";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";

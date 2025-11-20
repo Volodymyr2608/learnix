@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
-import { LessonContentEditor } from "@/app/_components/Course/Lesson/LessonContentEditor";
+import { LessonContentEditor } from "@/app/_components/Course/components/Lesson/LessonContentEditor";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 export default async function InstructorLessonEditorPage({

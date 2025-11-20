@@ -3,8 +3,8 @@
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/app/_components/_shared/ui/button";
-import type { DeleteCourseButtonProps } from "@/app/_components/Course/DeleteCourseButton/types";
-import { DeleteCourseDialog } from "@/app/_components/Course/DeleteCourseDialog";
+import type { DeleteCourseButtonProps } from "@/app/_components/Course/components/DeleteCourseButton/types";
+import { DeleteCourseDialog } from "@/app/_components/Course/components/DeleteCourseDialog";
 
 const DeleteCourseButton = ({ course }: DeleteCourseButtonProps) => {
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
