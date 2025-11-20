@@ -1,6 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { CourseSchema } from "@/prisma/zod";
-import { CourseFullCreateDto } from "@/server/entities/course";
+import {
+	CourseFullCreateDto,
+	CourseFullUpdateDto,
+} from "@/server/entities/course";
 import { courseRepository } from "@/server/repositories/courseRepository";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -10,6 +13,26 @@ export const courseRouter = createTRPCRouter({
 		.mutation(async ({ input }) => {
 			try {
 				return await courseRepository.createCourse(input);
+			} catch (error: unknown) {
+				if (error instanceof Error) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: error.message,
+					});
+				}
+
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Unknown error",
+				});
+			}
+		}),
+
+	update: protectedProcedure
+		.input(CourseFullUpdateDto)
+		.mutation(async ({ input }) => {
+			try {
+				return await courseRepository.updateCourse(input.id, input);
 			} catch (error: unknown) {
 				if (error instanceof Error) {
 					throw new TRPCError({

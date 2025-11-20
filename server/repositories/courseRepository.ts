@@ -2,6 +2,7 @@ import type { Course } from "@/generated/prisma";
 import type {
 	CourseCreateDto,
 	CourseFullCreateDto,
+	CourseFullUpdateDto,
 	CourseUpdateDto,
 } from "@/server/entities/course";
 import BaseRepository from "@/server/repositories/baseRepository";
@@ -35,6 +36,42 @@ export default class CourseRepository extends BaseRepository<
 			for (const [i, sectionData] of sections.entries()) {
 				const section = await this.sectionRepository.create({
 					courseId: course.id,
+					title: sectionData.title,
+					order: i + 1,
+				});
+
+				for (const [j, lessonData] of sectionData.lessons.entries()) {
+					await this.lessonRepository.create({
+						sectionId: section.id,
+						title: lessonData.title,
+						duration: lessonData.duration,
+						order: j + 1,
+					});
+				}
+			}
+
+			return {
+				success: true,
+			};
+		});
+	}
+
+	async updateCourse(courseId: string, coursePayload: CourseFullUpdateDto) {
+		return this.transaction(async () => {
+			const { sections, ...rest } = coursePayload;
+
+			// 1. Update main course
+			await this.update(courseId, rest as CourseUpdateDto);
+
+			// 2. Remove old sections + lessons (cascade or manual)
+			await this.sectionRepository.deleteMany({
+				courseId,
+			});
+
+			// 3. Re-create sections + lessons
+			for (const [i, sectionData] of sections.entries()) {
+				const section = await this.sectionRepository.create({
+					courseId,
 					title: sectionData.title,
 					order: i + 1,
 				});

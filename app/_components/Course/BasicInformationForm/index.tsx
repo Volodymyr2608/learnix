@@ -12,19 +12,21 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 
-const BasicInformationForm = () => {
+const BasicInformationForm = ({ isEdit = false }) => {
 	const {
 		register,
 		control,
 		formState: { errors },
 	} = useFormContext();
-
+	console.log(errors);
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Basic Information</CardTitle>
 				<CardDescription>
-					Enter the basic details of your course
+					{isEdit
+						? "Update the basic details of your course"
+						: "Enter the basic details of your course"}
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">

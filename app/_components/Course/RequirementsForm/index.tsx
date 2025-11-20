@@ -39,7 +39,7 @@ const RequirementsForm = () => {
 								control={control}
 								name={name}
 								render={({ field }) => {
-									const { value: requirement, ...rest } = field;
+									const { value, ...rest } = field;
 									const errorMessage = Array.isArray(errors.requirements)
 										? errors.requirements?.[index]?.value.message
 										: undefined;
@@ -54,7 +54,7 @@ const RequirementsForm = () => {
 											}
 											label={null}
 											placeholder={`Requirement ${index + 1}`}
-											value={requirement.value}
+											value={value}
 										/>
 									);
 								}}

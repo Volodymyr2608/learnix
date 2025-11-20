@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { CourseSchema, LessonSchema, SectionSchema } from "@/prisma/zod";
+import type { Section } from "@/generated/prisma";
+import {
+	type Course,
+	CourseSchema,
+	LessonSchema,
+	SectionSchema,
+} from "@/prisma/zod";
 
 const lessonSchema = z
 	.array(
@@ -38,10 +44,11 @@ export const courseSchema = z.object({
 	originalPrice: z.string().optional(),
 	thumbnail: z
 		.instanceof(File, { message: "Thumbnail is required" })
-		.refine((file) => file.type.startsWith("image/"), {
+		.optional()
+		.refine((file) => !file || file.type.startsWith("image/"), {
 			message: "Thumbnail must be an image file",
 		})
-		.refine((file) => file.size <= 2 * 1024 * 1024, {
+		.refine((file) => !file || file.size <= 2 * 1024 * 1024, {
 			message: "Thumbnail must be smaller than 2MB",
 		}),
 
@@ -113,5 +120,16 @@ export const CourseFullCreateDto = CourseDto.extend({
 	sections: sectionsSchema,
 });
 
+export const CourseFullUpdateDto = CourseDto.extend({
+	id: z.string(),
+	sections: sectionsSchema,
+});
+
 export type CourseCreateDto = z.infer<typeof CourseDto>;
-export type CourseUpdateDto = z.infer<typeof CourseDto>;
+export type CourseUpdateDto = z.infer<typeof CourseDto> & {
+	id: Course["id"];
+};
+
+export type FullCourse = Course & {
+	sections: Section[];
+};

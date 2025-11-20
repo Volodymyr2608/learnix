@@ -133,7 +133,7 @@ const CreateCourse = () => {
 
 					<div className="space-y-6">
 						<PricesForm />
-						<StatusCourse />
+						<StatusCourse status="draft" />
 						<Tips />
 					</div>
 				</div>

@@ -12,7 +12,7 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 
-const LearningObjectivesForm = () => {
+const LearningObjectivesForm = ({ isEdit = false }) => {
 	const {
 		control,
 		formState: { errors },
@@ -27,7 +27,11 @@ const LearningObjectivesForm = () => {
 		<Card>
 			<CardHeader>
 				<CardTitle>What Students Will Learn</CardTitle>
-				<CardDescription>Add learning objectives (at least 4)</CardDescription>
+				<CardDescription>
+					{isEdit
+						? "Update learning objectives"
+						: "Add learning objectives (at least 4)"}
+				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{fields.map((objective, index) => {
@@ -39,7 +43,8 @@ const LearningObjectivesForm = () => {
 								control={control}
 								name={name}
 								render={({ field }) => {
-									const { value: objective, ...rest } = field;
+									const { value, ...rest } = field;
+
 									const errorMessage = Array.isArray(errors.objectives)
 										? errors.objectives?.[index]?.value.message
 										: undefined;
@@ -54,7 +59,7 @@ const LearningObjectivesForm = () => {
 											}
 											label={null}
 											placeholder={`Learning objective ${index + 1}`}
-											value={objective.value}
+											value={value}
 										/>
 									);
 								}}

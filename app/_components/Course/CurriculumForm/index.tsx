@@ -9,8 +9,9 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import SectionLessonForm from "@/app/_components/Course/CurriculumForm/SectionLessonForm";
+import type { CurriculumFormProps } from "@/app/_components/Course/CurriculumForm/types";
 
-const CurriculumForm = () => {
+const CurriculumForm = ({ isEdit, courseId }: CurriculumFormProps) => {
 	const {
 		control,
 		formState: { errors },
@@ -30,12 +31,16 @@ const CurriculumForm = () => {
 			<CardHeader>
 				<CardTitle>Course Curriculum</CardTitle>
 				<CardDescription>
-					Organize your course content into sections and lessons
+					{isEdit
+						? "Update your course content structure"
+						: "Organize your course content into sections and lessons"}
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{sections.map((section, index) => (
 					<SectionLessonForm
+						courseId={courseId}
+						isEdit={isEdit}
 						key={section.id}
 						removeSection={removeSection}
 						sectionId={section.id}

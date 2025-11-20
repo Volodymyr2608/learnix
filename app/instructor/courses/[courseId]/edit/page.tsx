@@ -1,10 +1,10 @@
-"use client";
-
 import { ArrowLeft, Eye } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { EditCourseForm } from "@/app/_components/Course/EditCourseForm";
+import courseAdapter from "@/lib/adapters/course/courseAdapter";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import getCourseById from "@/lib/requests/course/getCourseById";
 
 export default async function InstructorEditCoursePage({
 	params,
@@ -12,6 +12,16 @@ export default async function InstructorEditCoursePage({
 	params: Promise<{ courseId: string }>;
 }) {
 	const { courseId } = await params;
+
+	const course = await getCourseById(courseId);
+
+	if (!course) {
+		return {
+			notFound: true,
+		};
+	}
+
+	console.log(course);
 
 	return (
 		<div className="space-y-6">
@@ -39,10 +49,10 @@ export default async function InstructorEditCoursePage({
 			</div>
 
 			<div className="rounded-lg bg-blue-50 p-4 text-blue-900 text-sm dark:bg-blue-950 dark:text-blue-100">
-				Editing: <strong>Complete Web Development Bootcamp</strong>
+				Editing: <strong>{course.title}</strong>
 			</div>
 
-			<EditCourseForm courseId={courseId} />
+			<EditCourseForm course={courseAdapter(course)} />
 		</div>
 	);
 }

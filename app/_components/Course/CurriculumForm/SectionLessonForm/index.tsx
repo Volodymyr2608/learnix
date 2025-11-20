@@ -1,12 +1,16 @@
-import { GripVertical, Plus, Trash2 } from "lucide-react";
+import { Edit, Eye, GripVertical, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import FormField from "@/app/_components/_shared/Form/FormField";
 import { Button } from "@/app/_components/_shared/ui/button";
 import type { SectionLessonFormProps } from "@/app/_components/Course/CurriculumForm/SectionLessonForm/types";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 const SectionLessonForm = ({
 	sectionIndex,
 	removeSection,
+	isEdit,
+	courseId,
 }: SectionLessonFormProps) => {
 	const {
 		control,
@@ -92,6 +96,40 @@ const SectionLessonForm = ({
 											placeholder="Duration (e.g., 15:30)"
 										/>
 									</div>
+									{isEdit && courseId && (
+										<>
+											<Button
+												asChild
+												size="icon"
+												title="Preview lesson as student"
+												variant="outline"
+											>
+												<Link
+													href={INSTRUCTOR_URLS.previewLesson(
+														courseId,
+														lesson.id.toString(),
+													)}
+												>
+													<Eye className="h-4 w-4" />
+												</Link>
+											</Button>
+											<Button
+												asChild
+												size="icon"
+												title="Edit lesson content (video, text, resources, quiz)"
+												variant="outline"
+											>
+												<Link
+													href={INSTRUCTOR_URLS.editLesson(
+														courseId,
+														lesson.id.toString(),
+													)}
+												>
+													<Edit className="h-4 w-4" />
+												</Link>
+											</Button>
+										</>
+									)}
 									<Button
 										onClick={() => removeLesson(lessonIndex)}
 										size="icon"
