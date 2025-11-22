@@ -63,7 +63,9 @@ const SectionLessonForm = ({
 							const section =
 								Array.isArray(errors.sections) && errors.sections[sectionIndex];
 							const lessonData =
-								Array.isArray(section.lessons) && section.lessons[lessonIndex];
+								section &&
+								Array.isArray(section.lessons) &&
+								section.lessons[lessonIndex];
 							const isTitleError =
 								lessonData && typeof lessonData.title?.message === "string";
 							const isDurationError =

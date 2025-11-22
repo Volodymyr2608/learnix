@@ -8,7 +8,7 @@ import type {
 import { courseSchema } from "@/server/entities/course";
 
 export const getDefaultCourseValues = (course?: CourseAdapted) => ({
-	title: "",
+	title: course?.title ?? "",
 	subtitle: course?.subtitle ?? "",
 	description: course?.description ?? "",
 	category: course?.category ?? "",

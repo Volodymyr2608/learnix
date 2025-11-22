@@ -9,6 +9,9 @@ import { authClient } from "@/server/better-auth/client";
 import type { CourseSchemaInput } from "@/server/entities/course";
 import { api } from "@/trpc/client";
 
+import { prepareCoursePayload } from "../../helpers/preparePayload";
+import { validateProceed } from "../../helpers/validateProceed";
+
 const CreateCourseActions = () => {
 	const { handleSubmit } = useFormContext<CourseSchemaInput>();
 	const session = authClient.useSession();
@@ -24,40 +27,37 @@ const CreateCourseActions = () => {
 	});
 
 	const onSaveAsDraft = async (data: CourseSchemaInput) => {
-		const {
-			objectives: objList,
-			requirements: reqList,
-			previewVideo,
-			thumbnail,
-			subtitle,
-			originalPrice,
-			...rest
-		} = data;
-
-		console.log(previewVideo, thumbnail);
-
-		const objectives = objList.map(({ value }) => value.trim());
-		const requirements = reqList.map(({ value }) => value.trim());
-
-		if (!session.data?.user.id) {
-			console.error("User id is missing");
-			return;
-		}
-
-		await createCourse.mutateAsync({
-			...rest,
-			subtitle: subtitle ?? null,
-			originalPrice: originalPrice ?? null,
-			objectives,
-			requirements,
-			status: STATUS_COURSE_LIST.DRAFT,
-			instructorId: session.data.user.id,
-			thumbnailUrl: "/web-development-concept.png",
+		const validated = validateProceed({
+			instructorId: session.data?.user.id,
 		});
+
+		if (!validated) return;
+
+		const payload = prepareCoursePayload({
+			data,
+			finalStatus: STATUS_COURSE_LIST.DRAFT,
+			instructorId: validated.instructorId,
+			isNew: true,
+		});
+
+		await createCourse.mutateAsync(payload);
 	};
 
-	const onPublishCourse = () => {
-		console.log("Publishing course...");
+	const onPublishCourse = async (data: CourseSchemaInput) => {
+		const validated = validateProceed({
+			instructorId: session.data?.user.id,
+		});
+
+		if (!validated) return;
+
+		const payload = prepareCoursePayload({
+			data,
+			finalStatus: STATUS_COURSE_LIST.PUBLISHED,
+			instructorId: validated.instructorId,
+			isNew: true,
+		});
+
+		await createCourse.mutateAsync(payload);
 	};
 
 	return (
@@ -66,10 +66,17 @@ const CreateCourseActions = () => {
 				<Eye className="mr-2 h-4 w-4" />
 				Preview
 			</Button>
-			<Button onClick={handleSubmit(onSaveAsDraft)} variant="outline">
+			<Button
+				disabled={createCourse.isPending}
+				onClick={handleSubmit(onSaveAsDraft)}
+				variant="outline"
+			>
 				Save as Draft
 			</Button>
-			<Button onClick={handleSubmit(onPublishCourse)}>
+			<Button
+				disabled={createCourse.isPending}
+				onClick={handleSubmit(onPublishCourse)}
+			>
 				<Save className="mr-2 h-4 w-4" />
 				Publish Course
 			</Button>
