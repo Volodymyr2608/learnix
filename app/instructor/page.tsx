@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
 import WithAuthProtection from "@/app/_components/_shared/WithAuthProtection";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 export default function DashboardPage() {
 	return (
@@ -25,7 +26,7 @@ export default function DashboardPage() {
 						</p>
 					</div>
 					<Button asChild>
-						<Link href="/instructor/courses/new">Create New Course</Link>
+						<Link href={INSTRUCTOR_URLS.createCourse}>Create New Course</Link>
 					</Button>
 				</div>
 

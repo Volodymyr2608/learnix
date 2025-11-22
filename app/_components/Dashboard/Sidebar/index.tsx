@@ -1,13 +1,14 @@
 import { GraduationCap } from "lucide-react";
 import Link from "next/link";
 import Navigation from "@/app/_components/Dashboard/Sidebar/components/Navigation";
-import DASHBOARD_URLS from "@/lib/constants/urls/dashboardUrls";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import getInitials from "@/lib/utils/user/getInitials";
 import getUserName from "@/lib/utils/user/getUserName";
+import requireAuth from "@/lib/utils/user/requireAuth";
 import { getSession } from "@/server/better-auth/server";
 
 const DashboardSidebar = async () => {
-	const { user } = await getSession();
+	const { user } = requireAuth(await getSession());
 
 	const { name } = user;
 
@@ -18,7 +19,7 @@ const DashboardSidebar = async () => {
 				<div className="flex h-16 items-center border-sidebar-border border-b px-6">
 					<Link
 						className="flex items-center gap-2"
-						href={DASHBOARD_URLS.DASHBOARD}
+						href={INSTRUCTOR_URLS.dashboard}
 					>
 						<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
 							<GraduationCap className="h-5 w-5 text-sidebar-primary-foreground" />

@@ -16,8 +16,8 @@ datasource db {
 }
 
 generator zod {
-  provider = "zod-prisma-types"
-  output   = "./zod" // default is ./generated/zod
+  provider                         = "zod-prisma-types"
+  output                           = "./zod" // default is ./generated/zod
   // useMultipleFiles                 = true // default is false
   // writeBarrelFiles                 = false // default is true
   // createInputTypes                 = false // default is true
@@ -26,8 +26,8 @@ generator zod {
   // addIncludeType                   = false // default is true
   // addSelectType                    = false // default is true
   // validateWhereUniqueInput         = false // default is true
-  // createOptionalDefaultValuesTypes = true // default is false
-  // createRelationValuesTypes        = true // default is false
+  createOptionalDefaultValuesTypes = true // default is false
+  createRelationValuesTypes        = true // default is false
   // createPartialTypes               = true // default is false
   // useDefaultValidators             = false // default is true
   // coerceDate                       = false // default is true
@@ -58,6 +58,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   posts         Post[]
+  courses       Course[]
 
   @@unique([email])
   @@map("users")
@@ -107,4 +108,87 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verifications")
+}
+
+enum CourseStatus {
+  draft
+  published
+}
+
+model Course {
+  id            String   @id @default(cuid())
+  title         String
+  subtitle      String?
+  description   String   @db.Text
+  category      String
+  level         String
+  language      String
+  duration      String
+  price         String
+  originalPrice String?  @map("original_price")
+  objectives    String[]
+  requirements  String[]
+
+  status      CourseStatus @default(draft)
+  publishedAt DateTime?    @map("published_at")
+
+  thumbnailUrl    String? @map("thumbnail_url")
+  previewVideoUrl String? @map("preview_video_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  instructorId String
+  instructor   User   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  sections Section[]
+
+  @@map("courses")
+}
+
+model Section {
+  id    String @id @default(cuid())
+  title String
+  order Int
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  lessons Lesson[]
+
+  @@map("sections")
+}
+
+model Lesson {
+  id       String  @id @default(cuid())
+  title    String
+  duration String?
+
+  description String?
+  videoUrl    String? @map("video_url")
+  content     String? @db.Text
+  resources   Json?
+
+  order     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  quizzes Quiz[]
+
+  @@map("lessons")
+}
+
+model Quiz {
+  id       String   @id @default(cuid())
+  question String
+  options  String[]
+  correct  String
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("quizzes")
 }

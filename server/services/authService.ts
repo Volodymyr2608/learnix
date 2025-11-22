@@ -7,7 +7,7 @@ export class AuthService {
 		data: SignUpData,
 	): Promise<{ success: true } | { success: false; message: string }> {
 		const { email, name, password } = data;
-		const existing = await userRepository.findFirst({ email });
+		const existing = await userRepository.findFirst({ where: { email } });
 
 		if (existing) {
 			return { success: false, message: "This email is already registered" };

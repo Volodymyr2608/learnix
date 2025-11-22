@@ -1,4 +1,4 @@
-import type { z } from "zod/index";
+import type { z } from "zod";
 import { AccountSchema } from "@/prisma/zod";
 
 export const AccountCreateDto = AccountSchema.pick({

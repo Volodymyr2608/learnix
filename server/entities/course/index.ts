@@ -1,0 +1,135 @@
+import { z } from "zod";
+import type { Course } from "@/generated/prisma";
+import type { CourseWithRelations } from "@/prisma/zod";
+import { CourseSchema, LessonSchema, SectionSchema } from "@/prisma/zod";
+
+const lessonSchema = z
+	.array(
+		z.object({
+			title: z.string().min(1, "Lesson title is required"),
+			duration: z.string().nullable().optional(),
+		}),
+	)
+	.min(1, "At least 1 lesson is required per section");
+
+const sectionsSchema = z
+	.array(
+		z.object({
+			title: z.string().min(1, "Section title is required"),
+
+			lessons: lessonSchema,
+		}),
+	)
+	.min(1, "At least 1 section is required");
+
+export const courseSchema = z.object({
+	title: z
+		.string()
+		.min(3, "Title must be at least 3 characters")
+		.max(50, "Title must be less than 50 characters"),
+	subtitle: z.string().nullable().optional(),
+	description: z
+		.string()
+		.min(10, "Description must be at least 10 characters")
+		.max(200, "Description must be less than 200 characters"),
+	category: z.string().min(1, "Category is mandatory"),
+	level: z.string().min(1, "Level is mandatory"),
+	language: z.string().min(1, "Language is mandatory"),
+	duration: z.string().min(1, "Duration is mandatory"),
+	price: z.string().min(1, "Price is mandatory"),
+	originalPrice: z.string().nullable().optional(),
+	thumbnail: z
+		.instanceof(File, { message: "Thumbnail is required" })
+		.optional()
+		.refine((file) => !file || file.type.startsWith("image/"), {
+			message: "Thumbnail must be an image file",
+		})
+		.refine((file) => !file || file.size <= 2 * 1024 * 1024, {
+			message: "Thumbnail must be smaller than 2MB",
+		}),
+
+	previewVideo: z
+		.instanceof(File)
+		.optional()
+		.refine((file) => !file || file.type.startsWith("video/"), {
+			message: "Preview must be a video file",
+		})
+		.refine((file) => !file || file.size <= 100 * 1024 * 1024, {
+			message: "Video must be smaller than 100MB",
+		}),
+	objectives: z
+		.array(
+			z.object({
+				value: z.string().min(1, "Objective cannot be empty"),
+			}),
+		)
+		.min(4, "At least 4 learning objectives are required"),
+	requirements: z
+		.array(
+			z.object({
+				value: z.string().min(1, "Requirement cannot be empty"),
+			}),
+		)
+		.min(2, "At least 2 requirements are required"),
+	sections: sectionsSchema,
+});
+
+export type CourseSchemaInput = z.input<typeof courseSchema>;
+export type CourseSchemaOutput = z.output<typeof courseSchema>;
+export type CoursePayload = z.infer<typeof courseSchema>;
+
+export const CourseDto = CourseSchema.pick({
+	title: true,
+	subtitle: true,
+	description: true,
+	category: true,
+	level: true,
+	language: true,
+	duration: true,
+	price: true,
+	originalPrice: true,
+	objectives: true,
+	requirements: true,
+	status: true,
+	thumbnailUrl: true,
+	instructorId: true,
+});
+
+const SectionCreateDto = SectionSchema.pick({
+	title: true,
+	courseId: true,
+	order: true,
+});
+
+export type SectionCreateDto = z.infer<typeof SectionCreateDto>;
+export type SectionUpdateDto = z.infer<typeof SectionCreateDto>;
+
+const LessonCreateDto = LessonSchema.pick({
+	title: true,
+	duration: true,
+	sectionId: true,
+	order: true,
+});
+
+export type LessonCreateDto = z.infer<typeof LessonCreateDto>;
+export type LessonUpdateDto = z.infer<typeof LessonCreateDto>;
+
+export const CourseFullCreateDto = CourseDto.extend({
+	sections: sectionsSchema,
+});
+
+export type CourseFullCreateDto = z.infer<typeof CourseFullCreateDto>;
+
+export const CourseFullUpdateDto = CourseDto.extend({
+	id: z.string(),
+	sections: sectionsSchema,
+});
+
+export type CourseFullUpdateDto = z.infer<typeof CourseFullUpdateDto>;
+
+export type CourseCreateDto = z.infer<typeof CourseDto>;
+export type CourseUpdateDto = z.infer<typeof CourseDto> & {
+	id: Course["id"];
+};
+
+export type FullCourse = CourseWithRelations;
