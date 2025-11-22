@@ -44,7 +44,7 @@ export default class CourseRepository extends BaseRepository<
 					await this.lessonRepository.create({
 						sectionId: section.id,
 						title: lessonData.title,
-						duration: lessonData.duration,
+						duration: lessonData.duration ?? null,
 						order: j + 1,
 					});
 				}
@@ -80,7 +80,7 @@ export default class CourseRepository extends BaseRepository<
 					await this.lessonRepository.create({
 						sectionId: section.id,
 						title: lessonData.title,
-						duration: lessonData.duration,
+						duration: lessonData.duration ?? null,
 						order: j + 1,
 					});
 				}

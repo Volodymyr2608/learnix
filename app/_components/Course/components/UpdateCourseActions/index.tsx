@@ -3,13 +3,21 @@ import { useRouter } from "next/navigation";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
+import type { UpdateCourseActionsProps } from "@/app/_components/Course/components/UpdateCourseActions/types";
+import { STATUS_COURSE_LIST } from "@/lib/constants/statusCourse";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { authClient } from "@/server/better-auth/client";
-import type { CoursePayload } from "@/server/entities/course";
+import type {
+	CoursePayload,
+	CourseSchemaInput,
+} from "@/server/entities/course";
 import { api } from "@/trpc/client";
 
-const UpdateCourseActions = () => {
-	const { handleSubmit } = useFormContext();
+const UpdateCourseActions = ({
+	courseId,
+	status,
+}: UpdateCourseActionsProps) => {
+	const { handleSubmit } = useFormContext<CourseSchemaInput>();
 
 	const session = authClient.useSession();
 	const router = useRouter();
@@ -23,12 +31,24 @@ const UpdateCourseActions = () => {
 		},
 	});
 
-	const onSaveChanges = async (data: CoursePayload) => {
+	const onSaveChanges = async (data: CourseSchemaInput) => {
+		if (!courseId) {
+			console.error("Course id not exist");
+			return;
+		}
+
+		if (!session.data?.user.id) {
+			console.error("User id is missing");
+			return;
+		}
+
 		const {
 			objectives: objList,
 			requirements: reqList,
 			previewVideo,
 			thumbnail,
+			subtitle,
+			originalPrice,
 			...rest
 		} = data;
 
@@ -39,21 +59,35 @@ const UpdateCourseActions = () => {
 
 		await updateCourse.mutateAsync({
 			...rest,
-			id: course.id,
+			id: courseId,
 			objectives,
 			requirements,
-			status: course.status,
+			status,
 			instructorId: session.data.user.id,
 			thumbnailUrl: "/web-development-concept.png",
+			subtitle: subtitle ?? null,
+			originalPrice: originalPrice ?? null,
 		});
 	};
 
 	const onPublishCourse = async (data: CoursePayload) => {
+		if (!courseId) {
+			console.error("Course id not exist");
+			return;
+		}
+
+		if (!session.data?.user.id) {
+			console.error("User id is missing");
+			return;
+		}
+
 		const {
 			objectives: objList,
 			requirements: reqList,
 			previewVideo,
 			thumbnail,
+			subtitle,
+			originalPrice,
 			...rest
 		} = data;
 
@@ -64,12 +98,14 @@ const UpdateCourseActions = () => {
 
 		await updateCourse.mutateAsync({
 			...rest,
-			id: course.id,
+			id: courseId,
 			objectives,
 			requirements,
-			status: "published",
+			status: STATUS_COURSE_LIST.PUBLISHED,
 			instructorId: session.data.user.id,
 			thumbnailUrl: "/web-development-concept.png",
+			subtitle: subtitle ?? null,
+			originalPrice: originalPrice ?? null,
 		});
 	};
 

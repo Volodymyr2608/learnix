@@ -1,17 +1,13 @@
 import { z } from "zod";
-import type { Section } from "@/generated/prisma";
-import {
-	type Course,
-	CourseSchema,
-	LessonSchema,
-	SectionSchema,
-} from "@/prisma/zod";
+import type { Course } from "@/generated/prisma";
+import type { CourseWithRelations } from "@/prisma/zod";
+import { CourseSchema, LessonSchema, SectionSchema } from "@/prisma/zod";
 
 const lessonSchema = z
 	.array(
 		z.object({
 			title: z.string().min(1, "Lesson title is required"),
-			duration: z.string().optional(),
+			duration: z.string().nullable().optional(),
 		}),
 	)
 	.min(1, "At least 1 lesson is required per section");
@@ -31,7 +27,7 @@ export const courseSchema = z.object({
 		.string()
 		.min(3, "Title must be at least 3 characters")
 		.max(50, "Title must be less than 50 characters"),
-	subtitle: z.string().optional(),
+	subtitle: z.string().nullable().optional(),
 	description: z
 		.string()
 		.min(10, "Description must be at least 10 characters")
@@ -41,7 +37,7 @@ export const courseSchema = z.object({
 	language: z.string().min(1, "Language is mandatory"),
 	duration: z.string().min(1, "Duration is mandatory"),
 	price: z.string().min(1, "Price is mandatory"),
-	originalPrice: z.string().optional(),
+	originalPrice: z.string().nullable().optional(),
 	thumbnail: z
 		.instanceof(File, { message: "Thumbnail is required" })
 		.optional()
@@ -78,6 +74,8 @@ export const courseSchema = z.object({
 	sections: sectionsSchema,
 });
 
+export type CourseSchemaInput = z.input<typeof courseSchema>;
+export type CourseSchemaOutput = z.output<typeof courseSchema>;
 export type CoursePayload = z.infer<typeof courseSchema>;
 
 export const CourseDto = CourseSchema.pick({
@@ -120,16 +118,18 @@ export const CourseFullCreateDto = CourseDto.extend({
 	sections: sectionsSchema,
 });
 
+export type CourseFullCreateDto = z.infer<typeof CourseFullCreateDto>;
+
 export const CourseFullUpdateDto = CourseDto.extend({
 	id: z.string(),
 	sections: sectionsSchema,
 });
+
+export type CourseFullUpdateDto = z.infer<typeof CourseFullUpdateDto>;
 
 export type CourseCreateDto = z.infer<typeof CourseDto>;
 export type CourseUpdateDto = z.infer<typeof CourseDto> & {
 	id: Course["id"];
 };
 
-export type FullCourse = Course & {
-	sections: Section[];
-};
+export type FullCourse = CourseWithRelations;

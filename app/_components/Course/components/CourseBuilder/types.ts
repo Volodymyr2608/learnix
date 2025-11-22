@@ -7,7 +7,7 @@ type EditCourse = {
 
 type CreateCourse = {
 	mode: "create";
-	course: null;
+	course: undefined;
 };
 
 export type CourseBuilderProps = CreateCourse | EditCourse;

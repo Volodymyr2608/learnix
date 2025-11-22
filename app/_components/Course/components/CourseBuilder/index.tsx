@@ -114,7 +114,10 @@ const CourseBuilder = ({ course, mode }: CourseBuilderProps) => {
 						{isEdit ? (
 							<>
 								<StatsCourse />
-								<UpdateCourseActions />
+								<UpdateCourseActions
+									courseId={course?.id}
+									status={course?.status ?? STATUS_COURSE_LIST.DRAFT}
+								/>
 							</>
 						) : (
 							<Tips />

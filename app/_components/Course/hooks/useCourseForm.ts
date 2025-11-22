@@ -1,10 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { CourseAdapted } from "@/lib/adapters/course/courseAdapter";
+import type {
+	CourseSchemaInput,
+	CourseSchemaOutput,
+} from "@/server/entities/course";
 import { courseSchema } from "@/server/entities/course";
 
 export const getDefaultCourseValues = (course?: CourseAdapted) => ({
-	title: course?.title ?? "",
+	title: "",
 	subtitle: course?.subtitle ?? "",
 	description: course?.description ?? "",
 	category: course?.category ?? "",
@@ -28,7 +32,7 @@ export const getDefaultCourseValues = (course?: CourseAdapted) => ({
 });
 
 export const useCourseForm = (course?: CourseAdapted) => {
-	return useForm({
+	return useForm<CourseSchemaInput, unknown, CourseSchemaOutput>({
 		resolver: zodResolver(courseSchema),
 		defaultValues: getDefaultCourseValues(course),
 	});

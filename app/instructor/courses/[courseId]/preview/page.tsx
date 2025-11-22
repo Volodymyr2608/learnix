@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
@@ -25,12 +26,8 @@ export default async function InstructorCoursePreviewPage({
 	const course = await getCourseById(courseId);
 
 	if (!course) {
-		return {
-			notFound: true,
-		};
+		notFound();
 	}
-
-	console.log(course);
 
 	return (
 		<div className="space-y-6">

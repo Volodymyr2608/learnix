@@ -15,7 +15,7 @@ export type FindManyArgs = {
 export type FindFirstArgs = {
 	where: Filter;
 	orderBy?: OrderBy;
-	include: object | null;
+	include?: object | null;
 };
 
 export interface Repository<T, TCreateDto, TUpdateDto> {

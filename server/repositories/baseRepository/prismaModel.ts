@@ -2,7 +2,12 @@ import type { Filter } from "@/server/repositories/baseRepository/repository";
 
 export type PrismaModel = {
 	create: (args: { data: unknown }) => Promise<unknown>;
+	createMany?: (args: { data: unknown[] }) => Promise<{ count: number }>;
 	update: (args: { where: Filter; data: unknown }) => Promise<unknown>;
+	updateMany?: (args: {
+		where: Filter;
+		data: unknown;
+	}) => Promise<{ count: number }>;
 	findUniqueOrThrow: (args: {
 		where: Filter;
 		include: object | null | undefined;
@@ -22,4 +27,6 @@ export type PrismaModel = {
 	}) => Promise<unknown[]>;
 	count: (args: { where: Filter }) => Promise<number>;
 	delete: (args: { where: { id: string } }) => Promise<unknown>;
+	deleteMany?: (args: { where: Filter }) => Promise<{ count: number }>;
+	aggregate: (args: object) => Promise<unknown>;
 };

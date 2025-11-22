@@ -1,6 +1,8 @@
 "use client";
 
-const CourseFormLayout = ({ children }) => {
+import type { PropsWithChildren } from "react";
+
+const CourseFormLayout = ({ children }: PropsWithChildren) => {
 	return <form className="space-y-6">{children}</form>;
 };
 

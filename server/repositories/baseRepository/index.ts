@@ -133,7 +133,7 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 			if (!this.repo.updateMany) {
 				// Fallback to individual updates if updateMany is not available
 				const results = await Promise.all(
-					(await this.findMany(filter)).map((entity: T) => {
+					(await this.findMany({ where: filter })).map((entity: T) => {
 						// @ts-expect-error
 						if (entity && typeof entity.id !== "undefined") {
 							return this.repo.update({

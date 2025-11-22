@@ -3,13 +3,14 @@ import { useRouter } from "next/navigation";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
+import { STATUS_COURSE_LIST } from "@/lib/constants/statusCourse";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { authClient } from "@/server/better-auth/client";
-import type { CoursePayload } from "@/server/entities/course";
+import type { CourseSchemaInput } from "@/server/entities/course";
 import { api } from "@/trpc/client";
 
 const CreateCourseActions = () => {
-	const { handleSubmit } = useFormContext();
+	const { handleSubmit } = useFormContext<CourseSchemaInput>();
 	const session = authClient.useSession();
 	const router = useRouter();
 	const createCourse = api.course.create.useMutation({
@@ -22,12 +23,14 @@ const CreateCourseActions = () => {
 		},
 	});
 
-	const onSaveAsDraft = async (data: CoursePayload) => {
+	const onSaveAsDraft = async (data: CourseSchemaInput) => {
 		const {
 			objectives: objList,
 			requirements: reqList,
 			previewVideo,
 			thumbnail,
+			subtitle,
+			originalPrice,
 			...rest
 		} = data;
 
@@ -36,13 +39,20 @@ const CreateCourseActions = () => {
 		const objectives = objList.map(({ value }) => value.trim());
 		const requirements = reqList.map(({ value }) => value.trim());
 
+		if (!session.data?.user.id) {
+			console.error("User id is missing");
+			return;
+		}
+
 		await createCourse.mutateAsync({
 			...rest,
+			subtitle: subtitle ?? null,
+			originalPrice: originalPrice ?? null,
 			objectives,
 			requirements,
-			status: "draft",
+			status: STATUS_COURSE_LIST.DRAFT,
 			instructorId: session.data.user.id,
-			thumbnailUrl: "http://localhost:3000/web-development-concept.png",
+			thumbnailUrl: "/web-development-concept.png",
 		});
 	};
 
