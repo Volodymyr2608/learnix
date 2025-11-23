@@ -4,7 +4,7 @@ import CourseBuilder from "@/app/_components/Course/components/CourseBuilder";
 export default function InstructorNewCoursePage() {
 	return (
 		<WithAuthProtection>
-			<CourseBuilder course={undefined} mode="create" />
+			<CourseBuilder mode="create" />
 		</WithAuthProtection>
 	);
 }
