@@ -3,14 +3,13 @@ import { useRouter } from "next/navigation";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
+import type { CourseStatus } from "@/generated/prisma";
 import { STATUS_COURSE_LIST } from "@/lib/constants/statusCourse";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { authClient } from "@/server/better-auth/client";
 import type { CourseSchemaInput } from "@/server/entities/course";
 import { api } from "@/trpc/client";
-
 import { prepareCoursePayload } from "../../helpers/preparePayload";
-import { validateProceed } from "../../helpers/validateProceed";
 
 const CreateCourseActions = () => {
 	const { handleSubmit } = useFormContext<CourseSchemaInput>();
@@ -26,34 +25,18 @@ const CreateCourseActions = () => {
 		},
 	});
 
-	const onSaveAsDraft = async (data: CourseSchemaInput) => {
-		const validated = validateProceed({
-			instructorId: session.data?.user.id,
-		});
+	const onSubmit = async (data: CourseSchemaInput, status: CourseStatus) => {
+		const instructorId = session.data?.user.id;
 
-		if (!validated) return;
-
-		const payload = prepareCoursePayload({
-			data,
-			finalStatus: STATUS_COURSE_LIST.DRAFT,
-			instructorId: validated.instructorId,
-			isNew: true,
-		});
-
-		await createCourse.mutateAsync(payload);
-	};
-
-	const onPublishCourse = async (data: CourseSchemaInput) => {
-		const validated = validateProceed({
-			instructorId: session.data?.user.id,
-		});
-
-		if (!validated) return;
+		if (!instructorId) {
+			console.error("Instructor id is missing");
+			return null;
+		}
 
 		const payload = prepareCoursePayload({
 			data,
-			finalStatus: STATUS_COURSE_LIST.PUBLISHED,
-			instructorId: validated.instructorId,
+			finalStatus: status,
+			instructorId: instructorId,
 			isNew: true,
 		});
 
@@ -68,14 +51,18 @@ const CreateCourseActions = () => {
 			</Button>
 			<Button
 				disabled={createCourse.isPending}
-				onClick={handleSubmit(onSaveAsDraft)}
+				onClick={handleSubmit((d: CourseSchemaInput) =>
+					onSubmit(d, STATUS_COURSE_LIST.DRAFT),
+				)}
 				variant="outline"
 			>
 				Save as Draft
 			</Button>
 			<Button
 				disabled={createCourse.isPending}
-				onClick={handleSubmit(onPublishCourse)}
+				onClick={handleSubmit((d: CourseSchemaInput) =>
+					onSubmit(d, STATUS_COURSE_LIST.PUBLISHED),
+				)}
 			>
 				<Save className="mr-2 h-4 w-4" />
 				Publish Course
