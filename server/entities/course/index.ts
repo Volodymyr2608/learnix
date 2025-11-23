@@ -51,6 +51,7 @@ export const courseSchema = z.object({
 	previewVideo: z
 		.instanceof(File)
 		.optional()
+		.nullable()
 		.refine((file) => !file || file.type.startsWith("video/"), {
 			message: "Preview must be a video file",
 		})
@@ -92,6 +93,7 @@ export const CourseDto = CourseSchema.pick({
 	requirements: true,
 	status: true,
 	thumbnailUrl: true,
+	previewVideoUrl: true,
 	instructorId: true,
 });
 
@@ -120,9 +122,8 @@ export const CourseFullCreateDto = CourseDto.extend({
 
 export type CourseFullCreateDto = z.infer<typeof CourseFullCreateDto>;
 
-export const CourseFullUpdateDto = CourseDto.extend({
+export const CourseFullUpdateDto = CourseFullCreateDto.extend({
 	id: z.string(),
-	sections: sectionsSchema,
 });
 
 export type CourseFullUpdateDto = z.infer<typeof CourseFullUpdateDto>;

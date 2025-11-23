@@ -1,8 +1,12 @@
 import { Eye, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
+import type { CourseActionStatus } from "@/app/_components/Course/constants/courseActionStatus";
+import { COURSE_ACTION_STATUS } from "@/app/_components/Course/constants/courseActionStatus";
+import uploadMedia from "@/app/_components/Course/helpers/uploadMedia";
 import type { CourseStatus } from "@/generated/prisma";
 import { STATUS_COURSE_LIST } from "@/lib/constants/statusCourse";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
@@ -15,6 +19,11 @@ const CreateCourseActions = () => {
 	const { handleSubmit } = useFormContext<CourseSchemaInput>();
 	const session = authClient.useSession();
 	const router = useRouter();
+
+	const [status, setStatus] = useState<CourseActionStatus>(
+		COURSE_ACTION_STATUS.IDLE,
+	);
+
 	const createCourse = api.course.create.useMutation({
 		onSuccess: () => {
 			toast.success("Course created successfully");
@@ -23,9 +32,18 @@ const CreateCourseActions = () => {
 		onError: (err) => {
 			toast.error(err.message);
 		},
+		onSettled: () => {
+			setStatus(() => COURSE_ACTION_STATUS.IDLE);
+		},
 	});
 
 	const onSubmit = async (data: CourseSchemaInput, status: CourseStatus) => {
+		setStatus(
+			status === STATUS_COURSE_LIST.DRAFT
+				? COURSE_ACTION_STATUS.SAVING
+				: COURSE_ACTION_STATUS.PUBLISHING,
+		);
+
 		const instructorId = session.data?.user.id;
 
 		if (!instructorId) {
@@ -40,8 +58,33 @@ const CreateCourseActions = () => {
 			isNew: true,
 		});
 
-		await createCourse.mutateAsync(payload);
+		const { thumbnail, previewVideo, ...rest } = payload;
+
+		const [thumbnailUrl, previewVideoUrl] = await Promise.all([
+			thumbnail ? uploadMedia(thumbnail as File) : Promise.resolve(null),
+			previewVideo ? uploadMedia(previewVideo as File) : Promise.resolve(null),
+		]);
+
+		if (thumbnail && !thumbnailUrl) {
+			toast.error("Thumbnail upload failed");
+			setStatus(COURSE_ACTION_STATUS.IDLE);
+			return;
+		}
+
+		if (previewVideo && !previewVideoUrl) {
+			toast.error("Preview video upload failed");
+			setStatus(COURSE_ACTION_STATUS.IDLE);
+			return;
+		}
+
+		await createCourse.mutateAsync({
+			...rest,
+			thumbnailUrl,
+			previewVideoUrl,
+		});
 	};
+
+	const isDisabled = status !== COURSE_ACTION_STATUS.IDLE;
 
 	return (
 		<div className="flex gap-2">
@@ -50,22 +93,24 @@ const CreateCourseActions = () => {
 				Preview
 			</Button>
 			<Button
-				disabled={createCourse.isPending}
+				disabled={isDisabled}
 				onClick={handleSubmit((d: CourseSchemaInput) =>
 					onSubmit(d, STATUS_COURSE_LIST.DRAFT),
 				)}
 				variant="outline"
 			>
-				Save as Draft
+				{status === COURSE_ACTION_STATUS.SAVING ? "Saving…" : "Save as Draft"}
 			</Button>
 			<Button
-				disabled={createCourse.isPending}
+				disabled={isDisabled}
 				onClick={handleSubmit((d: CourseSchemaInput) =>
 					onSubmit(d, STATUS_COURSE_LIST.PUBLISHED),
 				)}
 			>
 				<Save className="mr-2 h-4 w-4" />
-				Publish Course
+				{status === COURSE_ACTION_STATUS.PUBLISHING
+					? "Publishing…"
+					: "Publish Course"}
 			</Button>
 		</div>
 	);

@@ -10,6 +10,8 @@ import type LessonRepository from "@/server/repositories/lessonRepository";
 import { lessonRepository } from "@/server/repositories/lessonRepository";
 import type SectionRepository from "@/server/repositories/sectionRepository";
 import { sectionRepository } from "@/server/repositories/sectionRepository";
+import type VercelService from "@/server/services/vercelService";
+import { vercelService } from "@/server/services/vercelService";
 
 export default class CourseRepository extends BaseRepository<
 	Course,
@@ -20,11 +22,13 @@ export default class CourseRepository extends BaseRepository<
 
 	private sectionRepository: SectionRepository;
 	private lessonRepository: LessonRepository;
+	private vercelService: VercelService;
 
 	constructor() {
 		super();
 		this.sectionRepository = sectionRepository;
 		this.lessonRepository = lessonRepository;
+		this.vercelService = vercelService;
 	}
 
 	async createCourse(coursePayload: CourseFullCreateDto) {
@@ -59,6 +63,28 @@ export default class CourseRepository extends BaseRepository<
 	async updateCourse(courseId: string, coursePayload: CourseFullUpdateDto) {
 		return this.transaction(async () => {
 			const { sections, ...rest } = coursePayload;
+
+			const currentCourse = await this.findFirst({
+				where: { id: courseId },
+			});
+
+			if (!currentCourse) throw new Error("Course not found");
+
+			if (currentCourse.thumbnailUrl) {
+				if (rest.thumbnailUrl !== currentCourse.thumbnailUrl) {
+					await this.vercelService.deleteFileFromVercelStorage(
+						currentCourse.thumbnailUrl,
+					);
+				}
+			}
+
+			if (currentCourse.previewVideoUrl) {
+				if (rest.previewVideoUrl !== currentCourse.previewVideoUrl) {
+					await this.vercelService.deleteFileFromVercelStorage(
+						currentCourse.previewVideoUrl,
+					);
+				}
+			}
 
 			// 1. Update main course
 			await this.update(courseId, rest as CourseUpdateDto);

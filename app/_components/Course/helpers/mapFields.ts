@@ -4,15 +4,7 @@ export const mapList = (list: { value: string }[]) =>
 	list.map((item) => item.value.trim());
 
 export const extractCommonFields = (data: CourseSchemaInput) => {
-	const {
-		objectives,
-		requirements,
-		subtitle,
-		originalPrice,
-		// previewVideo,
-		// thumbnail,
-		...rest
-	} = data;
+	const { objectives, requirements, subtitle, originalPrice, ...rest } = data;
 
 	return {
 		rest,
