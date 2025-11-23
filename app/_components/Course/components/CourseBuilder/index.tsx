@@ -1,16 +1,5 @@
 "use client";
 
-import { Upload } from "lucide-react";
-import Image from "next/image";
-import { Button } from "@/app/_components/_shared/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/app/_components/_shared/ui/card";
-import { Label } from "@/app/_components/_shared/ui/label";
 import type { CourseBuilderProps } from "@/app/_components/Course/components/CourseBuilder/types";
 import CourseFormProvider from "@/app/_components/Course/components/CourseFormProvider";
 import CourseFormHeader from "@/app/_components/Course/components/CourseFormProvider/components/CourseFormHeader";
@@ -59,48 +48,10 @@ const CourseBuilder = ({ course, mode }: CourseBuilderProps) => {
 					<ColumnLayout className="lg:col-span-2">
 						<BasicInformationForm isEdit={isEdit} />
 
-						{isEdit ? (
-							<Card>
-								<CardHeader>
-									<CardTitle>Course Media</CardTitle>
-									<CardDescription>
-										Update course thumbnail and preview video
-									</CardDescription>
-								</CardHeader>
-								<CardContent className="space-y-4">
-									<div className="space-y-2">
-										<Label>Current Thumbnail</Label>
-										<div className="relative aspect-video w-full overflow-hidden rounded-lg border">
-											<Image
-												alt="Course thumbnail"
-												className="h-full w-full object-cover"
-												fill
-												src="/web-development-concept.png"
-											/>
-										</div>
-										<Button size="sm" variant="outline">
-											<Upload className="mr-2 h-4 w-4" />
-											Change Thumbnail
-										</Button>
-									</div>
-
-									<div className="space-y-2">
-										<Label>Preview Video</Label>
-										<div className="cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors hover:border-primary">
-											<Upload className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-											<p className="text-muted-foreground text-sm">
-												Click to upload or drag and drop
-											</p>
-											<p className="mt-1 text-muted-foreground text-xs">
-												MP4, MOV up to 100MB
-											</p>
-										</div>
-									</div>
-								</CardContent>
-							</Card>
-						) : (
-							<CourseMediaForm />
-						)}
+						<CourseMediaForm
+							previewVideoUrl={course?.previewVideoUrl ?? null}
+							thumbnailUrl={course?.thumbnailUrl ?? null}
+						/>
 
 						<LearningObjectivesForm isEdit={isEdit} />
 						<RequirementsForm />
@@ -116,7 +67,9 @@ const CourseBuilder = ({ course, mode }: CourseBuilderProps) => {
 								<StatsCourse />
 								<UpdateCourseActions
 									courseId={course?.id}
+									previewVideoUrl={course?.previewVideoUrl ?? null}
 									status={course?.status ?? STATUS_COURSE_LIST.DRAFT}
+									thumbnailUrl={course?.thumbnailUrl ?? null}
 								/>
 							</>
 						) : (

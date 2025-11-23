@@ -9,11 +9,16 @@ const config = {
 	images: {
 		remotePatterns: [
 			{
-				protocol: "http",
-				hostname: "localhost",
+				protocol: "https",
+				hostname: "jhutb95vm6eik0be.public.blob.vercel-storage.com",
+				port: "",
+			},
+			{
+				protocol: "https",
+				hostname: "lh3.googleusercontent.com",
+				port: "",
 			},
 		],
-		domains: ["localhost"],
 	},
 };
 

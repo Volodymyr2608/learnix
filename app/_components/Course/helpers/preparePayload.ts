@@ -21,12 +21,11 @@ export const prepareCoursePayload = (params: {
 
 	return {
 		...rest,
-		...(isNew ? {} : { id: courseId }), // id only for update
+		...(isNew ? {} : { id: courseId }),
 		instructorId,
 		status: finalStatus,
 		objectives: mappedObjectives,
 		requirements: mappedRequirements,
-		thumbnailUrl: "/web-development-concept.png",
 		subtitle,
 		originalPrice,
 	};
