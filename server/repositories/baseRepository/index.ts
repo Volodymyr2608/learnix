@@ -205,6 +205,30 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		}
 	}
 
+	public async delete(
+		id: string,
+		softDelete: boolean = this.isSoftDelete,
+	): Promise<boolean> {
+		try {
+			this.logger?.info("Deleting entity", { id, softDelete });
+			if (softDelete) {
+				await this.repo.update({
+					where: { id },
+					data: { deletedAt: new Date() } as unknown as TUpdateDto,
+				});
+			} else {
+				// Direct call to repo.delete instead of forceDelete to avoid nested error messages
+				await this.repo.delete({ where: { id } });
+			}
+			return true;
+		} catch (error) {
+			return this.handleError(error, `delete entity with ID ${id}`, {
+				id,
+				softDelete,
+			});
+		}
+	}
+
 	public async transaction<R>(
 		callback: (prismaClient: unknown) => Promise<R>,
 	): Promise<R> {

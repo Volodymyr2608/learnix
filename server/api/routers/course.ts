@@ -48,6 +48,26 @@ export const courseRouter = createTRPCRouter({
 			}
 		}),
 
+	delete: protectedProcedure
+		.input(CourseSchema.shape.id)
+		.mutation(async ({ input }) => {
+			try {
+				return await courseRepository.deleteCourse(input, true);
+			} catch (error: unknown) {
+				if (error instanceof Error) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: error.message,
+					});
+				}
+
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Unknown error",
+				});
+			}
+		}),
+
 	getOwnCourses: protectedProcedure.query(async ({ ctx }) => {
 		try {
 			return await courseRepository.getOwnCourses(ctx.session.user.id);

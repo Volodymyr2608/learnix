@@ -1,7 +1,12 @@
 import { z } from "zod";
 import type { Course } from "@/generated/prisma";
 import type { CourseWithRelations } from "@/prisma/zod";
-import { CourseSchema, LessonSchema, SectionSchema } from "@/prisma/zod";
+import {
+	CourseSchema,
+	LessonSchema,
+	QuizSchema,
+	SectionSchema,
+} from "@/prisma/zod";
 
 const lessonSchema = z
 	.array(
@@ -116,6 +121,17 @@ const LessonCreateDto = LessonSchema.pick({
 export type LessonCreateDto = z.infer<typeof LessonCreateDto>;
 export type LessonUpdateDto = z.infer<typeof LessonCreateDto>;
 
+const QuizCreateDto = QuizSchema.pick({
+	question: true,
+	answer: true,
+	correct: true,
+	lessonId: true,
+	options: true,
+});
+
+export type QuizCreateDto = z.infer<typeof QuizCreateDto>;
+export type QuizUpdateDto = z.infer<typeof QuizCreateDto>;
+
 export const CourseFullCreateDto = CourseDto.extend({
 	sections: sectionsSchema,
 });
@@ -131,6 +147,7 @@ export type CourseFullUpdateDto = z.infer<typeof CourseFullUpdateDto>;
 export type CourseCreateDto = z.infer<typeof CourseDto>;
 export type CourseUpdateDto = z.infer<typeof CourseDto> & {
 	id: Course["id"];
+	deletedAt?: Course["deletedAt"];
 };
 
 export type FullCourse = CourseWithRelations;

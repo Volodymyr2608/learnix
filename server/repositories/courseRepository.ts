@@ -8,6 +8,8 @@ import type {
 import BaseRepository from "@/server/repositories/baseRepository";
 import type LessonRepository from "@/server/repositories/lessonRepository";
 import { lessonRepository } from "@/server/repositories/lessonRepository";
+import type QuizRepository from "@/server/repositories/quizRepository";
+import { quizRepository } from "@/server/repositories/quizRepository";
 import type SectionRepository from "@/server/repositories/sectionRepository";
 import { sectionRepository } from "@/server/repositories/sectionRepository";
 import type VercelService from "@/server/services/vercelService";
@@ -23,12 +25,14 @@ export default class CourseRepository extends BaseRepository<
 	private sectionRepository: SectionRepository;
 	private lessonRepository: LessonRepository;
 	private vercelService: VercelService;
+	private quizRepository: QuizRepository;
 
 	constructor() {
 		super();
 		this.sectionRepository = sectionRepository;
 		this.lessonRepository = lessonRepository;
 		this.vercelService = vercelService;
+		this.quizRepository = quizRepository;
 	}
 
 	async createCourse(coursePayload: CourseFullCreateDto) {
@@ -86,15 +90,12 @@ export default class CourseRepository extends BaseRepository<
 				}
 			}
 
-			// 1. Update main course
 			await this.update(courseId, rest as CourseUpdateDto);
 
-			// 2. Remove old sections + lessons (cascade or manual)
 			await this.sectionRepository.deleteMany({
 				courseId,
 			});
 
-			// 3. Re-create sections + lessons
 			for (const [i, sectionData] of sections.entries()) {
 				const section = await this.sectionRepository.create({
 					courseId,
@@ -118,19 +119,69 @@ export default class CourseRepository extends BaseRepository<
 		});
 	}
 
+	public async deleteCourse(
+		id: string,
+		softDelete: boolean = this.isSoftDelete,
+	): Promise<boolean> {
+		try {
+			this.logger?.info("Deleting course", { id, softDelete });
+
+			if (softDelete) {
+				const now = new Date();
+
+				return this.transaction(async () => {
+					await this.update(id, { deletedAt: now } as CourseUpdateDto);
+
+					await this.sectionRepository.updateMany(
+						{ courseId: id },
+						{ deletedAt: now },
+					);
+					await this.lessonRepository.updateMany(
+						{ section: { courseId: id } },
+						{ deletedAt: now },
+					);
+					await this.quizRepository.updateMany(
+						{ lesson: { section: { courseId: id } } },
+						{ deletedAt: now },
+					);
+
+					return true;
+				});
+			}
+
+			await this.delete(id);
+
+			return true;
+		} catch (error) {
+			return this.handleError(error, `delete course with ID ${id}`, {
+				id,
+				softDelete,
+			});
+		}
+	}
+
 	async getOwnCourses(userId: string) {
-		return await this.findMany({
-			where: {
-				instructorId: userId,
-			},
-			select: {
-				id: true,
-				title: true,
-				status: true,
-				updatedAt: true,
-				thumbnailUrl: true,
-			},
-		});
+		try {
+			this.logger?.info("Get own courses", { userId });
+
+			return await this.findMany({
+				where: {
+					instructorId: userId,
+					deletedAt: null,
+				},
+				select: {
+					id: true,
+					title: true,
+					status: true,
+					updatedAt: true,
+					thumbnailUrl: true,
+				},
+			});
+		} catch (error) {
+			return this.handleError(error, `Get own course with user id ${userId}`, {
+				userId,
+			});
+		}
 	}
 
 	async getCourseByIdAndInstructorId(courseId: string, instructorId: string) {
