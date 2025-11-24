@@ -1,7 +1,9 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {
 	Dialog,
@@ -13,6 +15,7 @@ import {
 } from "@/app/_components/_shared/ui/dialog";
 import { Input } from "@/app/_components/_shared/ui/input";
 import { Label } from "@/app/_components/_shared/ui/label";
+import { api } from "@/trpc/client";
 
 interface DeleteCourseDialogProps {
 	open: boolean;
@@ -25,21 +28,30 @@ export function DeleteCourseDialog({
 	open,
 	onOpenChange,
 	courseTitle,
+	courseId,
 }: DeleteCourseDialogProps) {
+	const router = useRouter();
 	const [confirmText, setConfirmText] = useState("");
-	const [isDeleting, setIsDeleting] = useState(false);
+	const deleteCourse = api.course.delete.useMutation({
+		onSuccess: async () => {
+			toast.success("Course deleted successfully.");
+			router.refresh();
+		},
+		onError: (error) => {
+			toast.error(error.message);
+		},
+	});
 
 	const handleDelete = async () => {
 		if (confirmText !== "course") return;
 
-		setIsDeleting(true);
-		// Simulate API call
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-		setIsDeleting(false);
+		await deleteCourse.mutateAsync(courseId);
+
 		onOpenChange(false);
 		setConfirmText("");
-		// Show success message or redirect
 	};
+
+	const isDeleting = deleteCourse.isPending;
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
