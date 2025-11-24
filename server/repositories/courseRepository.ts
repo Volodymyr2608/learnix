@@ -86,15 +86,12 @@ export default class CourseRepository extends BaseRepository<
 				}
 			}
 
-			// 1. Update main course
 			await this.update(courseId, rest as CourseUpdateDto);
 
-			// 2. Remove old sections + lessons (cascade or manual)
 			await this.sectionRepository.deleteMany({
 				courseId,
 			});
 
-			// 3. Re-create sections + lessons
 			for (const [i, sectionData] of sections.entries()) {
 				const section = await this.sectionRepository.create({
 					courseId,
