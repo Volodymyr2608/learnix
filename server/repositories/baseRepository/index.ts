@@ -229,6 +229,15 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		}
 	}
 
+	public async count(filter: Filter = {}): Promise<number> {
+		try {
+			this.logger?.debug("Counting entities", { filter });
+			return this.repo.count({ where: this.buildFilter(filter) });
+		} catch (error) {
+			return this.handleError(error, "count entities", { filter });
+		}
+	}
+
 	public async transaction<R>(
 		callback: (prismaClient: unknown) => Promise<R>,
 	): Promise<R> {

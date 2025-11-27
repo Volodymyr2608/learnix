@@ -32,6 +32,6 @@ export interface Repository<T, TCreateDto, TUpdateDto> {
 	findMany(props: FindManyArgs): Promise<T[]>;
 	deleteMany(filter: Filter, softDelete: boolean): Promise<number>;
 	updateMany(filter: Filter, data: object): Promise<number>;
-	// count(filter?: Filter): Promise<number>;
+	count(filter?: Filter): Promise<number>;
 	// paginate(perPage?: number, page?: number, filter?: Filter, orderBy?: OrderBy): Promise<Paginator<T>>;
 }

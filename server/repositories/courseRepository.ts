@@ -1,4 +1,5 @@
 import type { Course } from "@/generated/prisma";
+import { CourseStatus } from "@/generated/prisma";
 import type {
 	CourseCreateDto,
 	CourseFullCreateDto,
@@ -184,7 +185,7 @@ export default class CourseRepository extends BaseRepository<
 		}
 	}
 
-	async getCourseByIdAndInstructorId(courseId: string, instructorId: string) {
+	async getOwnCourse(courseId: string, instructorId: string) {
 		return await this.findFirst({
 			where: { id: courseId, instructorId: instructorId },
 			include: {
@@ -193,6 +194,59 @@ export default class CourseRepository extends BaseRepository<
 				},
 			},
 		});
+	}
+
+	async getCoursesStats(instructorId: string) {
+		try {
+			this.logger?.info("Getting course stats", { instructorId });
+
+			const now = new Date();
+
+			const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+			const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+			const mainStats = await this.transaction(async () => {
+				const draft = await this.count({
+					status: CourseStatus.draft,
+					instructorId,
+					deletedAt: null,
+				});
+
+				const published = await this.count({
+					status: CourseStatus.published,
+					instructorId,
+					deletedAt: null,
+				});
+
+				const lastCourses = await this.count({
+					createdAt: {
+						gte: startOfMonth,
+						lte: endOfMonth,
+					},
+					instructorId,
+					deletedAt: null,
+				});
+
+				return {
+					draft,
+					published,
+					lastCourses,
+				};
+			});
+
+			return {
+				...mainStats,
+				total: mainStats.draft + mainStats.published,
+			};
+		} catch (error) {
+			return this.handleError(
+				error,
+				`Get courses stats with instructor id ${instructorId}`,
+				{
+					instructorId,
+				},
+			);
+		}
 	}
 }
 
