@@ -90,7 +90,7 @@ export const courseRouter = createTRPCRouter({
 		.input(CourseSchema.shape.id)
 		.query(async ({ ctx, input }) => {
 			try {
-				const course = await courseRepository.getCourseByIdAndInstructorId(
+				const course = await courseRepository.getOwnCourse(
 					input,
 					ctx.session.user.id,
 				);
@@ -121,4 +121,22 @@ export const courseRouter = createTRPCRouter({
 				});
 			}
 		}),
+
+	getCoursesStats: protectedProcedure.query(async ({ ctx }) => {
+		try {
+			return await courseRepository.getCoursesStats(ctx.session.user.id);
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: error.message,
+				});
+			}
+
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Unknown error",
+			});
+		}
+	}),
 });

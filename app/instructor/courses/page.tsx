@@ -6,7 +6,7 @@ import OwnCourses from "@/app/_components/Course/components/OwnCourses";
 import OwnCoursesStats from "@/app/_components/Course/components/OwnCoursesStats";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
-export default async function CoursesPage() {
+const CoursesPage = () => {
 	return (
 		<WithAuthProtection>
 			<div className="space-y-6">
@@ -30,4 +30,6 @@ export default async function CoursesPage() {
 			</div>
 		</WithAuthProtection>
 	);
-}
+};
+
+export default CoursesPage;
