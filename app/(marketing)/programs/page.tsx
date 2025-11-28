@@ -122,7 +122,7 @@ const ProgramsPage = () => {
 								className="transition-shadow hover:shadow-lg"
 								key={program.id}
 							>
-								<div className="aspect-video w-full overflow-hidden rounded-t-lg">
+								<div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
 									<Image
 										alt={program.title}
 										className="h-full w-full object-cover"
