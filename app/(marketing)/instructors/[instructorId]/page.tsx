@@ -371,7 +371,7 @@ export default async function InstructorProfilePage({
 					<div className="space-y-6">
 						{reviews.map((review) => (
 							<Card className="p-6" key={review.id}>
-								<div className="flex gap-4">
+								<div className="flex gap-4 relative">
 									<Image
 										alt={review.student}
 										className="h-12 w-12 rounded-full object-cover"
