@@ -3,6 +3,7 @@ import type { Filter } from "@/server/repositories/baseRepository/repository";
 export type PrismaModel = {
 	create: (args: { data: unknown }) => Promise<unknown>;
 	createMany?: (args: { data: unknown[] }) => Promise<{ count: number }>;
+	createManyAndReturn?: (args: { data: unknown[] }) => Promise<unknown>;
 	update: (args: { where: Filter; data: unknown }) => Promise<unknown>;
 	updateMany?: (args: {
 		where: Filter;

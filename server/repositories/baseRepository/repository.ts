@@ -1,4 +1,4 @@
-// import type Paginator from "@/server/repositories/baseRepository/paginator";
+import type Paginator from "@/server/repositories/baseRepository/paginator";
 
 export type Filter = Record<string, unknown>;
 export type OrderBy = Record<string, "asc" | "desc">;
@@ -20,9 +20,15 @@ export type FindFirstArgs = {
 
 export interface Repository<T, TCreateDto, TUpdateDto> {
 	create(data: TCreateDto): Promise<T>;
+	bulkCreate(dtos: TCreateDto[]): Promise<number>;
+	createManyAndReturn(dtos: TCreateDto[]): Promise<T[]>;
 	update(id: string, dto: TUpdateDto, idField: string): Promise<T>;
-	// delete(id: string, softDelete?: boolean): Promise<boolean>;
-	// findOne(id: string, include: object | null | undefined, idField: string): Promise<T>;
+	bulkUpdate(ids: string[], dto: TUpdateDto): Promise<number>;
+	findOne(
+		id: string,
+		include: object | null | undefined,
+		idField: string,
+	): Promise<T>;
 	findFirst(
 		filter?: Filter,
 		orderBy?: OrderBy,
@@ -30,8 +36,17 @@ export interface Repository<T, TCreateDto, TUpdateDto> {
 	): Promise<T | null>;
 	transaction<R>(callback: (prismaClient: unknown) => Promise<R>): Promise<R>;
 	findMany(props: FindManyArgs): Promise<T[]>;
+	delete(id: string, softDelete?: boolean): Promise<boolean>;
+	forceDelete(id: string): Promise<boolean>;
 	deleteMany(filter: Filter, softDelete: boolean): Promise<number>;
+	bulkDelete(ids: string[], softDelete?: boolean): Promise<number>;
 	updateMany(filter: Filter, data: object): Promise<number>;
 	count(filter?: Filter): Promise<number>;
-	// paginate(perPage?: number, page?: number, filter?: Filter, orderBy?: OrderBy): Promise<Paginator<T>>;
+	restore(id: string): Promise<T>;
+	paginate(
+		perPage?: number,
+		page?: number,
+		filter?: Filter,
+		orderBy?: OrderBy,
+	): Promise<Paginator<T>>;
 }

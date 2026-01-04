@@ -1,9 +1,11 @@
 import { db as prisma } from "@/server/db";
+import type Paginator from "@/server/repositories/baseRepository/paginator";
 import type { PrismaModel } from "@/server/repositories/baseRepository/prismaModel";
 import type {
 	Filter,
 	FindFirstArgs,
 	FindManyArgs,
+	OrderBy,
 	Repository,
 } from "@/server/repositories/baseRepository/repository";
 
@@ -52,12 +54,18 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		return prisma;
 	}
 
-	public async create(dto: TCreateDto): Promise<T> {
+	public async findOne(
+		id: string,
+		include: object | null | undefined = {},
+		idField: string = "id",
+	): Promise<T> {
 		try {
-			this.logger?.info("Creating entity", { dto });
-			return (await this.repo.create({ data: dto })) as Promise<T>;
+			return (await this.repo.findUniqueOrThrow({
+				where: { [idField]: id },
+				include,
+			})) as Promise<T>;
 		} catch (error) {
-			return this.handleError(error, "create entity", { dto });
+			return this.handleError(error, `find entity with ID ${id}`, { id });
 		}
 	}
 
@@ -107,6 +115,55 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		}
 	}
 
+	public async create(dto: TCreateDto): Promise<T> {
+		try {
+			this.logger?.info("Creating entity", { dto });
+			return (await this.repo.create({ data: dto })) as Promise<T>;
+		} catch (error) {
+			return this.handleError(error, "create entity", { dto });
+		}
+	}
+
+	public async bulkCreate(dtos: TCreateDto[]): Promise<number> {
+		try {
+			this.logger?.info("Bulk creating entities", { count: dtos.length });
+
+			if (!this.repo.createMany) {
+				// Fallback to individual creates if createMany is not available
+				const results = await Promise.all(dtos.map((dto) => this.create(dto)));
+				return results.length;
+			}
+
+			const result = await this.repo.createMany({
+				data: dtos as unknown as unknown[],
+			});
+			return result.count;
+		} catch (error) {
+			return this.handleError(error, "bulk create entities", {
+				count: dtos.length,
+			});
+		}
+	}
+
+	public async createManyAndReturn(dtos: TCreateDto[]): Promise<T[]> {
+		try {
+			this.logger?.info("Creating entities", { count: dtos.length });
+
+			if (!this.repo.createManyAndReturn) {
+				// Fallback to individual creates if createMany is not available
+				return await Promise.all(dtos.map((dto) => this.create(dto)));
+			}
+
+			return (await this.repo.createManyAndReturn({ data: dtos })) as Promise<
+				T[]
+			>;
+		} catch (error) {
+			return this.handleError(error, "crete many and return entities", {
+				count: dtos.length,
+			});
+		}
+	}
+
 	public async update(
 		id: string,
 		dto: TUpdateDto,
@@ -123,6 +180,28 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 				id,
 				dto,
 			});
+		}
+	}
+
+	public async bulkUpdate(ids: string[], dto: TUpdateDto): Promise<number> {
+		try {
+			this.logger?.info("Bulk updating entities", { ids, dto });
+
+			if (!this.repo.updateMany) {
+				// Fallback to individual updates if updateMany is not available
+				const results = await Promise.all(
+					ids.map((id) => this.update(id, dto)),
+				);
+				return results.length;
+			}
+
+			const result = await this.repo.updateMany({
+				where: { id: { in: ids } },
+				data: dto as unknown as unknown,
+			});
+			return result.count;
+		} catch (error) {
+			return this.handleError(error, "bulk update entities", { ids, dto });
 		}
 	}
 
@@ -158,6 +237,85 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 			return result.count;
 		} catch (error) {
 			return this.handleError(error, "update entities", { filter, data });
+		}
+	}
+
+	public async delete(
+		id: string,
+		softDelete: boolean = this.isSoftDelete,
+	): Promise<boolean> {
+		try {
+			this.logger?.info("Deleting entity", { id, softDelete });
+			if (softDelete) {
+				await this.repo.update({
+					where: { id },
+					data: { deletedAt: new Date() } as unknown as TUpdateDto,
+				});
+			} else {
+				// Direct call to repo.delete instead of forceDelete to avoid nested error messages
+				await this.repo.delete({ where: { id } });
+			}
+			return true;
+		} catch (error) {
+			return this.handleError(error, `delete entity with ID ${id}`, {
+				id,
+				softDelete,
+			});
+		}
+	}
+
+	public async forceDelete(id: string): Promise<boolean> {
+		try {
+			this.logger?.info("Force deleting entity", { id });
+			await this.repo.delete({ where: { id } });
+			return true;
+		} catch (error) {
+			return this.handleError(error, `force delete entity with ID ${id}`, {
+				id,
+			});
+		}
+	}
+
+	public async bulkDelete(
+		ids: string[],
+		softDelete: boolean = this.isSoftDelete,
+	): Promise<number> {
+		try {
+			this.logger?.info("Bulk deleting entities", { ids, softDelete });
+
+			if (softDelete) {
+				if (!this.repo.updateMany) {
+					// Fallback to individual soft deletes
+					const results = await Promise.all(
+						ids.map((id) => this.delete(id, true)),
+					);
+					return results.filter(Boolean).length;
+				}
+
+				const result = await this.repo.updateMany({
+					where: { id: { in: ids } },
+					data: { deletedAt: new Date() } as unknown as unknown,
+				});
+				return result.count;
+			} else {
+				if (!this.repo.deleteMany) {
+					// Fallback to individual hard deletes
+					const results = await Promise.all(
+						ids.map((id) => this.forceDelete(id)),
+					);
+					return results.filter(Boolean).length;
+				}
+
+				const result = await this.repo.deleteMany({
+					where: { id: { in: ids } },
+				});
+				return result.count;
+			}
+		} catch (error) {
+			return this.handleError(error, "bulk delete entities", {
+				ids,
+				softDelete,
+			});
 		}
 	}
 
@@ -205,36 +363,77 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		}
 	}
 
-	public async delete(
-		id: string,
-		softDelete: boolean = this.isSoftDelete,
-	): Promise<boolean> {
-		try {
-			this.logger?.info("Deleting entity", { id, softDelete });
-			if (softDelete) {
-				await this.repo.update({
-					where: { id },
-					data: { deletedAt: new Date() } as unknown as TUpdateDto,
-				});
-			} else {
-				// Direct call to repo.delete instead of forceDelete to avoid nested error messages
-				await this.repo.delete({ where: { id } });
-			}
-			return true;
-		} catch (error) {
-			return this.handleError(error, `delete entity with ID ${id}`, {
-				id,
-				softDelete,
-			});
-		}
-	}
-
 	public async count(filter: Filter = {}): Promise<number> {
 		try {
 			this.logger?.debug("Counting entities", { filter });
 			return this.repo.count({ where: this.buildFilter(filter) });
 		} catch (error) {
 			return this.handleError(error, "count entities", { filter });
+		}
+	}
+
+	public async paginate(
+		perPage: number = 10,
+		page: number = 1,
+		filter: Filter = {},
+		orderBy: OrderBy = { id: "asc" },
+	): Promise<Paginator<T>> {
+		try {
+			this.logger?.debug("Paginating entities", {
+				perPage,
+				page,
+				filter,
+				orderBy,
+			});
+			const total = await this.count(filter);
+			const result = await this.repo.findMany({
+				where: this.buildFilter(filter),
+				skip: (page - 1) * perPage,
+				take: perPage,
+				orderBy,
+			});
+			const data = result as T[];
+
+			return {
+				data,
+				total,
+				currentPage: page,
+				lastPage: Math.ceil(total / perPage),
+				perPage,
+				from: (page - 1) * perPage,
+				to: (page - 1) * perPage + data.length,
+			};
+		} catch (error) {
+			return this.handleError(error, "paginate entities", {
+				perPage,
+				page,
+				filter,
+				orderBy,
+			});
+		}
+	}
+
+	public async restore(id: string): Promise<T> {
+		try {
+			if (!this.isSoftDelete) {
+				this.logger?.error("Restore not supported", { id });
+				throw new Error("Restore not supported for this repository");
+			}
+
+			this.logger?.info("Restoring entity", { id });
+			return (await this.repo.update({
+				where: { id },
+				data: { deletedAt: null } as unknown as TUpdateDto,
+			})) as Promise<T>;
+		} catch (error) {
+			// Special case for restore not supported error
+			if (
+				error instanceof Error &&
+				error.message === "Restore not supported for this repository"
+			) {
+				throw error; // Just rethrow without additional formatting
+			}
+			return this.handleError(error, `restore entity with ID ${id}`, { id });
 		}
 	}
 

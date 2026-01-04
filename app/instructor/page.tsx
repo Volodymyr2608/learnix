@@ -10,12 +10,11 @@ import {
 import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
-import WithAuthProtection from "@/app/_components/_shared/WithAuthProtection";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 export default function DashboardPage() {
 	return (
-		<WithAuthProtection>
+		<>
 			<div className="space-y-6">
 				{/* Header */}
 				<div className="flex items-center justify-between">
@@ -238,6 +237,6 @@ export default function DashboardPage() {
 					</div>
 				</Card>
 			</div>
-		</WithAuthProtection>
+		</>
 	);
 }

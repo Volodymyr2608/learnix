@@ -5,6 +5,7 @@ import {
 	CourseFullUpdateDto,
 } from "@/server/entities/course";
 import { courseRepository } from "@/server/repositories/courseRepository";
+import { courseService } from "@/server/services/course.service";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const courseRouter = createTRPCRouter({
@@ -12,18 +13,12 @@ export const courseRouter = createTRPCRouter({
 		.input(CourseFullCreateDto)
 		.mutation(async ({ input }) => {
 			try {
-				return await courseRepository.createCourse(input);
+				return await courseService.createCourse(input);
 			} catch (error: unknown) {
-				if (error instanceof Error) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: error.message,
-					});
-				}
-
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					message: "Unknown error",
+					// @ts-expect-error
+					message: error.message,
 				});
 			}
 		}),
@@ -32,18 +27,12 @@ export const courseRouter = createTRPCRouter({
 		.input(CourseFullUpdateDto)
 		.mutation(async ({ input }) => {
 			try {
-				return await courseRepository.updateCourse(input.id, input);
+				return await courseService.updateCourse(input.id, input);
 			} catch (error: unknown) {
-				if (error instanceof Error) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: error.message,
-					});
-				}
-
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					message: "Unknown error",
+					// @ts-expect-error
+					message: error.message,
 				});
 			}
 		}),
