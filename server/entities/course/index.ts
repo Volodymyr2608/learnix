@@ -7,10 +7,12 @@ import {
 	QuizSchema,
 	SectionSchema,
 } from "@/prisma/zod";
+import type { Merge } from "@/server/types/merge";
 
 const lessonSchema = z
 	.array(
 		z.object({
+			id: z.string().optional(),
 			title: z.string().min(1, "Lesson title is required"),
 			duration: z.string().nullable().optional(),
 		}),
@@ -20,6 +22,7 @@ const lessonSchema = z
 const sectionsSchema = z
 	.array(
 		z.object({
+			id: z.string().optional(),
 			title: z.string().min(1, "Section title is required"),
 
 			lessons: lessonSchema,
@@ -108,8 +111,12 @@ const SectionCreateDto = SectionSchema.pick({
 	order: true,
 });
 
+const SectionUpdateDto = SectionCreateDto.omit({
+	courseId: true,
+});
+
 export type SectionCreateDto = z.infer<typeof SectionCreateDto>;
-export type SectionUpdateDto = z.infer<typeof SectionCreateDto>;
+export type SectionUpdateDto = z.infer<typeof SectionUpdateDto>;
 
 const LessonCreateDto = LessonSchema.pick({
 	title: true,
@@ -118,8 +125,12 @@ const LessonCreateDto = LessonSchema.pick({
 	order: true,
 });
 
+const LessonUpdateDto = LessonCreateDto.omit({
+	sectionId: true,
+});
+
 export type LessonCreateDto = z.infer<typeof LessonCreateDto>;
-export type LessonUpdateDto = z.infer<typeof LessonCreateDto>;
+export type LessonUpdateDto = z.infer<typeof LessonUpdateDto>;
 
 const QuizCreateDto = QuizSchema.pick({
 	question: true,
@@ -151,3 +162,8 @@ export type CourseUpdateDto = z.infer<typeof CourseDto> & {
 };
 
 export type FullCourse = CourseWithRelations;
+
+export type CourseWithSections = Merge<
+	Course,
+	{ sections: CourseWithRelations["sections"] }
+>;

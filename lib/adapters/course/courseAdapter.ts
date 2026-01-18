@@ -10,8 +10,10 @@ const courseAdapter = (course: FullCourse) => {
 		objectives: objectives.map((objective) => ({ value: objective })),
 		requirements: requirements.map((requirement) => ({ value: requirement })),
 		sections: sections.map((section) => ({
+			id: section.id,
 			title: section.title,
 			lessons: section.lessons.map((lesson) => ({
+				id: lesson.id,
 				title: lesson.title,
 				duration: lesson.duration,
 			})),

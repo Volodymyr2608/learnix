@@ -182,7 +182,7 @@ const CoursesPage = () => {
 						{courses.map((course) => (
 							<Link href={`/courses/${course.id}`} key={course.id}>
 								<Card className="h-full cursor-pointer transition-shadow hover:shadow-lg">
-									<div className="aspect-video w-full overflow-hidden rounded-t-lg relative">
+									<div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
 										<Image
 											alt={course.title}
 											className="h-full w-full object-cover transition-transform hover:scale-105"

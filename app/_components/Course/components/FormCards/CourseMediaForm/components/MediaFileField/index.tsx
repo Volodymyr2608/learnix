@@ -107,7 +107,6 @@ const MediaFileField = ({
 		};
 	}, [previewUrl, previewType]);
 
-	console.log(formState.errors);
 	return (
 		<div className="space-y-2">
 			<FieldLabel

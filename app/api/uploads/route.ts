@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import VercelService from "@/server/services/vercelService";
+import VercelService from "@/server/services/vercel.service";
 
 export async function POST(req: NextRequest) {
 	try {

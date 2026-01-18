@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { use } from "react";
 import PageLayout from "@/app/_components/_shared/Layouts/PageLayout";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
@@ -371,7 +370,7 @@ export default async function InstructorProfilePage({
 					<div className="space-y-6">
 						{reviews.map((review) => (
 							<Card className="p-6" key={review.id}>
-								<div className="flex gap-4 relative">
+								<div className="relative flex gap-4">
 									<Image
 										alt={review.student}
 										className="h-12 w-12 rounded-full object-cover"
