@@ -1,9 +1,10 @@
-import { Eye, Save } from "lucide-react";
+import { Eye, Save, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
+import AIChatBuilderDialog from "@/app/_components/Course/components/AIChatBuilderDialog";
 import type { CourseActionStatus } from "@/app/_components/Course/constants/courseActionStatus";
 import { COURSE_ACTION_STATUS } from "@/app/_components/Course/constants/courseActionStatus";
 import uploadMedia from "@/app/_components/Course/helpers/uploadMedia";
@@ -20,6 +21,7 @@ const CreateCourseActions = () => {
 	const session = authClient.useSession();
 	const router = useRouter();
 
+	const [showChatBuilder, setShowChatBuilder] = useState(false);
 	const [status, setStatus] = useState<CourseActionStatus>(
 		COURSE_ACTION_STATUS.IDLE,
 	);
@@ -84,35 +86,55 @@ const CreateCourseActions = () => {
 		});
 	};
 
+	const handleAIGenerate = (content: any) => {
+		console.log(content);
+	};
+
 	const isDisabled = status !== COURSE_ACTION_STATUS.IDLE;
 
 	return (
-		<div className="flex gap-2">
-			<Button variant="outline">
-				<Eye className="mr-2 h-4 w-4" />
-				Preview
-			</Button>
-			<Button
-				disabled={isDisabled}
-				onClick={handleSubmit((d: CourseSchemaInput) =>
-					onSubmit(d, STATUS_COURSE_LIST.DRAFT),
-				)}
-				variant="outline"
-			>
-				{status === COURSE_ACTION_STATUS.SAVING ? "Saving…" : "Save as Draft"}
-			</Button>
-			<Button
-				disabled={isDisabled}
-				onClick={handleSubmit((d: CourseSchemaInput) =>
-					onSubmit(d, STATUS_COURSE_LIST.PUBLISHED),
-				)}
-			>
-				<Save className="mr-2 h-4 w-4" />
-				{status === COURSE_ACTION_STATUS.PUBLISHING
-					? "Publishing…"
-					: "Publish Course"}
-			</Button>
-		</div>
+		<>
+			<div className="flex gap-2">
+				<Button
+					className="bg-gradient-to-r from-primary to-primary/80"
+					onClick={() => setShowChatBuilder(true)}
+					type="button"
+				>
+					<Sparkles className="mr-2 h-4 w-4" />
+					AI Assistant
+				</Button>
+				<Button variant="outline">
+					<Eye className="mr-2 h-4 w-4" />
+					Preview
+				</Button>
+				<Button
+					disabled={isDisabled}
+					onClick={handleSubmit((d: CourseSchemaInput) =>
+						onSubmit(d, STATUS_COURSE_LIST.DRAFT),
+					)}
+					variant="outline"
+				>
+					{status === COURSE_ACTION_STATUS.SAVING ? "Saving…" : "Save as Draft"}
+				</Button>
+				<Button
+					disabled={isDisabled}
+					onClick={handleSubmit((d: CourseSchemaInput) =>
+						onSubmit(d, STATUS_COURSE_LIST.PUBLISHED),
+					)}
+				>
+					<Save className="mr-2 h-4 w-4" />
+					{status === COURSE_ACTION_STATUS.PUBLISHING
+						? "Publishing…"
+						: "Publish Course"}
+				</Button>
+			</div>
+
+			<AIChatBuilderDialog
+				onApply={handleAIGenerate}
+				onOpenChange={setShowChatBuilder}
+				open={showChatBuilder}
+			/>
+		</>
 	);
 };
 
