@@ -164,7 +164,7 @@ class CourseService {
 		) {
 			vercelService.deleteFileFromVercelStorage(existing.thumbnailUrl);
 		} else {
-			delete result.thumbnailUrl;
+			result.thumbnailUrl = null;
 		}
 
 		// preview video updates
@@ -175,7 +175,7 @@ class CourseService {
 		) {
 			vercelService.deleteFileFromVercelStorage(existing.previewVideoUrl);
 		} else {
-			delete result.previewVideoUrl;
+			result.previewVideoUrl = null;
 		}
 
 		return result;
@@ -256,6 +256,8 @@ class CourseService {
 							});
 							continue;
 						}
+
+						if (!updatedSec) continue;
 
 						await lessonRepository.create({
 							sectionId: updatedSec.id,
