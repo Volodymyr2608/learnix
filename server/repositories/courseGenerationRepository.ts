@@ -16,7 +16,11 @@ export default class CourseGenerationRepository extends BaseRepository<
 > {
 	protected readonly model = "courseGeneration";
 
-	async updateContent(id: string, step: DraftStepType, stepData?: Prisma.JsonObject) {
+	async updateContent(
+		id: string,
+		step: DraftStepType,
+		stepData?: Prisma.JsonObject,
+	) {
 		const record = await this.findOne(id);
 		const existingContent = (record?.content as Prisma.JsonObject) || {};
 		const nextStep = STEPS_MAP[step]?.next;
