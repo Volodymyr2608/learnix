@@ -205,3 +205,25 @@ model Quiz {
   @@index([deletedAt])
   @@map("quizzes")
 }
+
+enum DraftStep {
+  basic
+  objectives
+  requirements
+  curriculum
+}
+
+model CourseGeneration {
+  id           String    @id @default(cuid())
+  instructorId String    @map("instructor_id")
+  topic        String?
+  step         DraftStep @default(basic)
+  content      Json      @default("{}")
+  chatHistory  Json[]    @default([])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([instructorId])
+  @@map("course_generations")
+}
