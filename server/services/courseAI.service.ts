@@ -61,11 +61,15 @@ export class CourseAIService {
 	async *streamChatResponse({
 		courseGeneration,
 		userMessage,
+		signal,
 	}: {
 		courseGeneration: CourseGeneration;
 		userMessage: string;
+		signal?: AbortSignal;
 	}) {
 		const model = this.getModel();
+
+		if (signal?.aborted) return;
 
 		const systemPrompt = buildSystemPrompt({
 			step: courseGeneration.step,
@@ -91,20 +95,27 @@ export class CourseAIService {
 		];
 
 		try {
-			const stream = await model.stream(messages);
+			const stream = await model.stream(messages, { signal });
 
 			for await (const chunk of stream) {
+				if (signal?.aborted) return;
+
 				const token = chunk.content?.toString();
+
 				if (token) {
 					yield { type: "token", value: token };
 				}
 			}
 
-			yield {
-				type: "actions",
-				currentStep: courseGeneration.step,
-			};
+			if (!signal?.aborted) {
+				yield {
+					type: "actions",
+					currentStep: courseGeneration.step,
+				};
+			}
 		} catch (error) {
+			if (signal?.aborted) return;
+
 			logger.error("STREAM_CHAT_ERROR", error);
 			yield { type: "error", message: "Something went wrong" };
 		}
