@@ -43,8 +43,7 @@ export const useCourseStepFlow = ({
 			if (!nextStepId) return;
 
 			await simulateTyping(
-				STEP_MESSAGES[nextStepId] ??
-					"Let's continue building your course.",
+				STEP_MESSAGES[nextStepId] ?? "Let's continue building your course.",
 				assistantMessage.id,
 			);
 			return;

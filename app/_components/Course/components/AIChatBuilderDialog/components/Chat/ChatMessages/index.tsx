@@ -21,8 +21,13 @@ const ChatMessages = ({ messages, isTyping, ...props }: ChatMessagesProps) => {
 	return (
 		<ScrollArea className="max-h-[calc(85vh-220px)] flex-1 overflow-y-auto p-4">
 			<div className="space-y-4">
-				{messages.map((message) => (
-					<ChatMessage key={message.id} message={message} {...props} />
+				{messages.map((message, index) => (
+					<ChatMessage
+						isLastMessage={index === messages.length - 1}
+						key={message.id}
+						message={message}
+						{...props}
+					/>
 				))}
 
 				{isTyping && messages[messages.length - 1]?.role !== "assistant" && (

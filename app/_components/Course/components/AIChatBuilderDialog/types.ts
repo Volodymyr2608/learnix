@@ -1,3 +1,5 @@
+import type { DraftStep } from "@/generated/prisma";
+
 export interface CourseData {
 	title: string;
 	subtitle: string;
@@ -6,9 +8,8 @@ export interface CourseData {
 	level: string;
 	language: string;
 	duration: string;
-	price: string;
-	objectives: string[];
-	requirements: string[];
+	objectives: { value: string }[];
+	requirements: { value: string }[];
 	curriculum: {
 		id: number;
 		title: string;
@@ -23,7 +24,7 @@ export interface Message {
 	isStreaming?: boolean;
 	suggestions?: string[];
 	showActions?: boolean;
-	blockType?: "basic" | "objectives" | "requirements" | "curriculum";
+	step?: DraftStep;
 }
 
 export interface AIChatBuilderDialogProps {

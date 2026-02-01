@@ -23,9 +23,9 @@ const ObjectivesCard = ({ objectives, completed }: ObjectiveCardProps) => {
 				{objectives.length > 0 ? (
 					<ul className="space-y-1.5">
 						{objectives.map((obj) => (
-							<li className="flex items-start gap-2" key={obj}>
+							<li className="flex items-start gap-2" key={obj.value}>
 								<Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-500" />
-								<span>{obj}</span>
+								<span>{obj.value}</span>
 							</li>
 						))}
 					</ul>

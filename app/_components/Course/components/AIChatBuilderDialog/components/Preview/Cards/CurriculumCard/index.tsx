@@ -23,7 +23,7 @@ const CurriculumCard = ({ curriculum, completed }: CurriculumCardProps) => {
 				{curriculum.length > 0 ? (
 					<div className="space-y-3">
 						{curriculum.map((section, i) => (
-							<div key={section.id}>
+							<div key={section.title}>
 								<div className="flex items-center gap-2 font-medium">
 									<span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary text-xs">
 										Section {i + 1}
@@ -34,7 +34,7 @@ const CurriculumCard = ({ curriculum, completed }: CurriculumCardProps) => {
 									{section.lessons.map((lesson) => (
 										<li
 											className="flex items-center justify-between text-muted-foreground"
-											key={lesson.id}
+											key={lesson.title}
 										>
 											<span className="flex items-center gap-1.5">
 												<GraduationCap className="h-3 w-3" />

@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from "react";
 import type { Message } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
 
 export interface ChatPanelProps {
@@ -5,7 +6,7 @@ export interface ChatPanelProps {
 	input: string;
 	isTyping: boolean;
 	onSend: () => void;
-	onInputChange: (v: string) => void;
+	onInputChange: Dispatch<SetStateAction<string>>;
 	onSuggestionClick: (v: string) => void;
 	onAcceptBlock: (block: string) => void;
 	onRegenerateBlock: (block: string) => void;

@@ -2,4 +2,5 @@ import type { ChatMessagesProps } from "@/app/_components/Course/components/AICh
 
 export type ChatMessageProps = Omit<ChatMessagesProps, "messages"> & {
 	message: ChatMessagesProps["messages"][number];
+	isLastMessage: boolean;
 };

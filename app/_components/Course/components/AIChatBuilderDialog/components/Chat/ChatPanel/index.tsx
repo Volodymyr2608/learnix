@@ -29,7 +29,7 @@ const ChatPanel = ({
 
 			<ChatInput
 				disabled={isTyping}
-				onChange={onInputChange}
+				onInputChange={onInputChange}
 				onSend={onSend}
 				value={input}
 			/>
