@@ -8,7 +8,6 @@ export const initialCourseData: CourseData = {
 	level: "",
 	language: "English",
 	duration: "",
-	price: "",
 	objectives: [],
 	requirements: [],
 	curriculum: [],
