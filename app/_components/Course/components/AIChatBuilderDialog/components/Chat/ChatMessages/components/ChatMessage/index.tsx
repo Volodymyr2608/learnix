@@ -1,6 +1,8 @@
 import { Bot, Check, RefreshCw, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/app/_components/_shared/ui/button";
 import type { ChatMessageProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatMessages/components/ChatMessage/types";
+import { cn } from "@/lib/utils/cn";
 
 const ChatMessage = ({
 	message,
@@ -14,24 +16,28 @@ const ChatMessage = ({
 
 	return (
 		<div className={`flex gap-3 ${isUser ? "justify-end" : ""}`}>
-			{message.role === "assistant" && (
+			{!isUser && (
 				<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
 					<Bot className="h-4 w-4 text-primary" />
 				</div>
 			)}
 
-			<div className={`max-w-[80%] ${isUser ? "order-first" : ""}`}>
+			<div className={cn("max-w-[80%]", { "order-first": isUser })}>
 				<div
-					className={`rounded-2xl px-4 py-2.5 ${
-						isUser ? "bg-primary text-primary-foreground" : "bg-muted"
-					}`}
+					className={cn("rounded-2xl bg-muted px-4 py-2.5", {
+						"bg-primary text-primary-foreground": isUser,
+					})}
 				>
-					<p className="whitespace-pre-wrap text-sm">
-						{message.content}
+					<div className="prose prose-sm m-0 text-sm">
+						{isUser ? (
+							message.content
+						) : (
+							<ReactMarkdown>{message.content}</ReactMarkdown>
+						)}
 						{message.isStreaming && (
 							<span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-current" />
 						)}
-					</p>
+					</div>
 				</div>
 
 				{/* Suggestions */}
@@ -81,7 +87,7 @@ const ChatMessage = ({
 					)}
 			</div>
 
-			{message.role === "user" && (
+			{isUser && (
 				<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary">
 					<User className="h-4 w-4" />
 				</div>

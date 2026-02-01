@@ -1,8 +1,8 @@
 export const STEP_MESSAGES: Record<string, string> = {
 	objectives:
-		"Excellent! Now let's define what students will learn. I'll create clear learning objectives for your course. I can start?",
+		"Awesome! We've got the Basic Info for your course. Are you ready to move on to defining the learning objectives? Just reply “yes” to continue, and we’ll generate clear objectives for your students.",
 	requirements:
-		"Perfect! Next, let's set the prerequisites. I'll suggest what students should know before taking your course. I can start?",
+		"Perfect! We've outlined the learning objectives. Shall we move on to setting the prerequisites for your students? Reply “yes” to continue, and I'll suggest what they should know before starting your course.",
 	curriculum:
-		"Great! Now for the exciting part - let's build your course structure. I'll create sections and lessons. I can start?",
+		"Great! We've defined the prerequisites. Ready to create your course structure with sections and lessons? Reply “yes” to continue, and we’ll start building it together.",
 };

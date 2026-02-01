@@ -10,15 +10,17 @@ export const useTypingSimulation = (
 		setIsTyping(true);
 		let buffer = "";
 
-		for (const char of text) {
-			buffer += char;
+		const chunkSize = 2;
+		for (let i = 0; i < text.length; i += chunkSize) {
+			buffer += text.slice(i, i + chunkSize);
+
 			updateMessage(messageId, (m) => ({
 				...m,
 				content: buffer,
 				isStreaming: true,
 			}));
 
-			await new Promise((r) => setTimeout(r, 15));
+			await new Promise((r) => setTimeout(r, Math.random() * 10 + 1));
 		}
 
 		updateMessage(messageId, (m) => ({ ...m, isStreaming: false }));
