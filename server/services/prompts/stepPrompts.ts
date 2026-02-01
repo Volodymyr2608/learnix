@@ -8,12 +8,14 @@ const DRAFT_STEPS = {
 export const STEP_PROMPTS = {
 	[DRAFT_STEPS.BASIC]: `
     Focus: General course information.
-    Task: Generate or update 'title', 'subtitle', 'description', 'category', 'level', and 'language'.
+    Task: Generate or update 'title', 'subtitle', 'description', 'category', 'level', 'language' and 'duration'.
     Requirements:
     - Title should be catchy (max 60 chars).
-    - Description should be a professional summary (min 200 chars).
-    - Level must be one of: Beginner, Intermediate, Advanced, or All Levels.
-    - Category should be a standard industry niche.
+    - Description should be a professional summary (50-500 chars).
+    - Level must be one of the following exact values: "Beginner", "Intermediate", "Advanced", or "All".
+		- Category must be one of the following exact values: "Development", "Design", "Business", "Marketing", or "Data-science".
+		- Language must be one of the following exact values: "English", "Spanish", "French", or "German".
+		- Duration should be a number representing hours as a decimal (e.g., 3.5), with a minimum of 0.5 and a maximum of 40.
   `,
 
 	[DRAFT_STEPS.OBJECTIVES]: `

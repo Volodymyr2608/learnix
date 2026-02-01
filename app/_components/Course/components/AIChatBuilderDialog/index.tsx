@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFormContext } from "react-hook-form";
+import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/app/_components/_shared/ui/dialog";
 import ChatPanel from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatPanel";
 import PreviewPanel from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/PreviewPanel";
@@ -16,12 +18,13 @@ import type {
 	CourseData,
 } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
 import type { DraftStep } from "@/generated/prisma";
+import type { CourseSchemaInput } from "@/server/entities/course";
 
 const AIChatBuilderDialog = ({
 	open,
 	onOpenChange,
-	onApply,
 }: AIChatBuilderDialogProps) => {
+	const { reset } = useFormContext<CourseSchemaInput>();
 	const [currentStep, setCurrentStep] = useState(0);
 	const [courseData, setCourseData] = useState<CourseData>(initialCourseData);
 	const [completedSteps, setCompletedSteps] = useState<DraftStep[]>([]);
@@ -61,9 +64,10 @@ const AIChatBuilderDialog = ({
 
 	const handleRegenerateBlock = async () => {};
 
-	const handleApply = () => {
-		onApply(courseData);
+	const handleApply = (data) => {
+		reset(data);
 		handleClose();
+		toast.success("✨ Course info updated");
 	};
 
 	const handleClose = () => {

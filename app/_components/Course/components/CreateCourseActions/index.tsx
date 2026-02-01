@@ -86,10 +86,6 @@ const CreateCourseActions = () => {
 		});
 	};
 
-	const handleAIGenerate = (content: any) => {
-		console.log(content);
-	};
-
 	const isDisabled = status !== COURSE_ACTION_STATUS.IDLE;
 
 	return (
@@ -130,7 +126,6 @@ const CreateCourseActions = () => {
 			</div>
 
 			<AIChatBuilderDialog
-				onApply={handleAIGenerate}
 				onOpenChange={setShowChatBuilder}
 				open={showChatBuilder}
 			/>

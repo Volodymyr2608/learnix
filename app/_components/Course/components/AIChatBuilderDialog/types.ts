@@ -30,5 +30,4 @@ export interface Message {
 export interface AIChatBuilderDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onApply: (data: CourseData) => void;
 }

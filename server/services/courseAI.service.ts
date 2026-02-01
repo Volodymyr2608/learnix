@@ -41,21 +41,23 @@ export class CourseAIService {
 				chatHistory: [],
 			});
 		} catch (error) {
-			console.error(
-				"[Course AI service] Get or create course generation",
-				error,
-			);
-			throw error;
+			logger.error(error);
+			throw new Error("[Course AI service] failed to create course generation");
 		}
 	}
 
 	async saveMessage(id: string, message: MessageShape) {
-		const entity = await courseGenerationRepository.findOne(id);
-		const updatedChatHistory = [...(entity.chatHistory || []), message];
+		try {
+			const entity = await courseGenerationRepository.findOne(id);
+			const updatedChatHistory = [...(entity.chatHistory || []), message];
 
-		return await courseGenerationRepository.update(id, {
-			chatHistory: updatedChatHistory,
-		});
+			return await courseGenerationRepository.update(id, {
+				chatHistory: updatedChatHistory,
+			});
+		} catch (e) {
+			logger.error(e);
+			throw new Error("[Course AI service] Error saving message");
+		}
 	}
 
 	async *streamChatResponse({
@@ -142,8 +144,9 @@ export class CourseAIService {
 			const stepValidator = getValidatorForStep(step);
 
 			return stepValidator.parse(rawJson);
-		} catch (e) {
-			console.error("[Course AI service] Get error", e);
+		} catch (error) {
+			logger.error(error);
+			throw new Error("[Course AI service] failed to extract step data");
 		}
 	}
 }

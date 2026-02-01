@@ -1,7 +1,7 @@
 import { DraftStep } from "@/generated/prisma";
 import { courseSchema } from "@/server/entities/course";
 
-export function getValidatorForStep(step: DraftStep) {
+export const getValidatorForStep = (step: DraftStep) => {
 	switch (step) {
 		case DraftStep.basic:
 			return courseSchema.pick({
@@ -22,4 +22,4 @@ export function getValidatorForStep(step: DraftStep) {
 		default:
 			throw new Error("Invalid step");
 	}
-}
+};

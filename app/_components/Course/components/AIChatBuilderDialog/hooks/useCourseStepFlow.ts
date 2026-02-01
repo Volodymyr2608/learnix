@@ -1,10 +1,10 @@
 import type { Dispatch, SetStateAction } from "react";
-import { useCommitCourseStep } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCommitCourseStepю";
 import type { DraftStep } from "@/generated/prisma";
 import { STEP_MESSAGES } from "../constants/stepMessages";
 import { STEPS } from "../constants/steps";
 import type { Message } from "../types";
 import { createAssistantMessage } from "../utils/messageFactory";
+import { useCommitCourseStep } from "./useCommitCourseStep";
 
 type UseCourseStepFlowProps = {
 	currentStep: number;
@@ -34,23 +34,21 @@ export const useCourseStepFlow = ({
 		const assistantMessage = createAssistantMessage();
 		addMessage(assistantMessage);
 
-		if (nextStep < STEPS.length) {
-			if (!courseGenerationId) return;
+		await commitStep.mutateAsync({ courseGenerationId });
 
-			await commitStep.mutateAsync({ courseGenerationId });
-
-			const nextStepId = STEPS[nextStep]?.id;
-			if (!nextStepId) return;
-
+		if (nextStep >= STEPS.length) {
 			await simulateTyping(
-				STEP_MESSAGES[nextStepId] ?? "Let's continue building your course.",
+				"Your course draft is complete! You can review everything in the preview panel.",
 				assistantMessage.id,
 			);
 			return;
 		}
 
+		const nextStepId = STEPS[nextStep]?.id;
+		if (!nextStepId) return;
+
 		await simulateTyping(
-			"Your course draft is complete! You can review everything in the preview panel.",
+			STEP_MESSAGES[nextStepId] ?? "Let's continue building your course.",
 			assistantMessage.id,
 		);
 	};

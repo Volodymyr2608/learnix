@@ -1,11 +1,15 @@
+import type { Message } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
 import {
 	createAssistantMessage,
 	createUserMessage,
 } from "../utils/messageFactory";
 
 type UseChatActions = {
-	addMessage: (m: any) => void;
-	streamAssistantMessage: Function;
+	addMessage: (m: Message) => void;
+	streamAssistantMessage: (
+		payload: { userMessage: string; courseGenerationId?: string },
+		messageId: string,
+	) => Promise<void>;
 	courseGenerationId?: string;
 	setInput: (v: string) => void;
 };

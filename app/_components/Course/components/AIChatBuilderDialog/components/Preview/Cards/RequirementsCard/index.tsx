@@ -6,7 +6,6 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import NotYetGenerated from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/NotYetGenerated";
-import type { ObjectiveCardProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/ObjectivesCard/types";
 import type { RequirementsCardProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/RequirementsCard/types";
 import { cn } from "@/lib/utils/cn";
 

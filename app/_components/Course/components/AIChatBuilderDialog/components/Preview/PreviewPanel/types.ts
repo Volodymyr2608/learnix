@@ -4,5 +4,5 @@ export type PreviewPanelProps = {
 	courseGenerationId?: string;
 	courseData: CourseData;
 	completedSteps: string[];
-	onApply: () => void;
+	onApply: (data: unknown) => void;
 };

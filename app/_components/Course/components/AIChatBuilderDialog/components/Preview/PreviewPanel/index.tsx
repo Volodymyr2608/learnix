@@ -1,4 +1,3 @@
-import { toast } from "sonner";
 import { ScrollArea } from "@/app/_components/_shared/ui/scroll-area";
 import BasicInfoCard from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/BasicInfoCard";
 import CurriculumCard from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/CurriculumCard";
@@ -27,7 +26,7 @@ const PreviewPanel = ({
 		<div className="flex w-[400px] flex-col bg-muted/20">
 			<PreviewHeader
 				canApply={completedSteps.length === STEPS.length}
-				onApply={onApply}
+				onApply={() => onApply(data?.sectionsData)}
 			/>
 
 			<ScrollArea className="max-h-[calc(85vh-65px)] flex-1 overflow-y-auto p-4">

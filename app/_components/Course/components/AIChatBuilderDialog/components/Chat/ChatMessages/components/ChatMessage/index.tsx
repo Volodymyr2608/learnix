@@ -67,7 +67,9 @@ const ChatMessage = ({
 							<Button
 								className="h-8"
 								disabled={isTyping}
-								onClick={() => onAcceptBlock(message.step!)}
+								onClick={() =>
+									message.step ? onAcceptBlock(message.step) : undefined
+								}
 								size="sm"
 							>
 								<Check className="mr-1.5 h-3.5 w-3.5" />
@@ -76,7 +78,9 @@ const ChatMessage = ({
 							<Button
 								className="h-8 bg-transparent"
 								disabled={isTyping}
-								onClick={() => onRegenerateBlock(message.step!)}
+								onClick={() =>
+									message.step ? onRegenerateBlock(message.step) : undefined
+								}
 								size="sm"
 								variant="outline"
 							>

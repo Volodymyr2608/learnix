@@ -31,8 +31,8 @@ export const extractStepDataPrompt = ({
     5. CONTENT CONSTRAINTS:
         - "description" MUST be no longer than 500 characters.
         - "objectives" MUST contain AT LEAST 4 items. Each objective must be clear, specific, and concise.
-        - "requirements" MUST contain AT LEAST 2 items. Each requirement must be realistic and relevant to the course.
-        
+        - "requirements" MUST include ALL items mentioned in the chat history. If there are fewer than 2, infer additional realistic requirements based on the course topic.
+
     6. CURRICULUM STRUCTURE RULES:
         - "sections" MUST contain AT LEAST 1 section
         - Each section MUST have:
