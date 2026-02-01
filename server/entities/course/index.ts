@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Course } from "@/generated/prisma";
 import type { CourseWithRelations } from "@/prisma/zod";
 import {
+	CourseGenerationSchema,
 	CourseSchema,
 	LessonSchema,
 	QuizSchema,
@@ -39,7 +40,7 @@ export const courseSchema = z.object({
 	description: z
 		.string()
 		.min(10, "Description must be at least 10 characters")
-		.max(200, "Description must be less than 200 characters"),
+		.max(500, "Description must be less than 500 characters"),
 	category: z.string().min(1, "Category is mandatory"),
 	level: z.string().min(1, "Level is mandatory"),
 	language: z.string().min(1, "Language is mandatory"),
@@ -166,4 +167,29 @@ export type FullCourse = CourseWithRelations;
 export type CourseWithSections = Merge<
 	Course,
 	{ sections: CourseWithRelations["sections"] }
+>;
+
+export const processStepSchema = z.object({
+	courseGenerationId: z.string(),
+});
+
+export const AIUpdateSchema = z.object({
+	updatedData: z.record(z.string(), z.any()),
+	messageToUser: z.string(),
+});
+
+const CourseGenerationCreateShema = CourseGenerationSchema.pick({
+	instructorId: true,
+	step: true,
+	content: true,
+	chatHistory: true,
+});
+
+const CourseGenerationUpdateShema = CourseGenerationCreateShema.extend({});
+
+export type CourseGenerationCreateDto = z.infer<
+	typeof CourseGenerationCreateShema
+>;
+export type CourseGenerationUpdateDto = Partial<
+	z.infer<typeof CourseGenerationUpdateShema>
 >;
