@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Course } from "@/generated/prisma";
 import type { CourseWithRelations } from "@/prisma/zod";
 import {
+	CourseGenerationMessageSchema,
 	CourseGenerationSchema,
 	CourseSchema,
 	LessonSchema,
@@ -182,7 +183,6 @@ const CourseGenerationCreateShema = CourseGenerationSchema.pick({
 	instructorId: true,
 	step: true,
 	content: true,
-	chatHistory: true,
 });
 
 const CourseGenerationUpdateShema = CourseGenerationCreateShema.extend({});
@@ -192,4 +192,23 @@ export type CourseGenerationCreateDto = z.infer<
 >;
 export type CourseGenerationUpdateDto = Partial<
 	z.infer<typeof CourseGenerationUpdateShema>
+>;
+
+const CourseGenerationMessageCreateShema = CourseGenerationMessageSchema.pick({
+	generationId: true,
+	step: true,
+	content: true,
+	role: true,
+});
+
+const CourseGenerationMessageUpdateShema = CourseGenerationCreateShema.extend(
+	{},
+);
+
+export type CourseGenerationMessageCreateDto = z.infer<
+	typeof CourseGenerationMessageCreateShema
+>;
+
+export type CourseGenerationMessageUpdateDto = Partial<
+	z.infer<typeof CourseGenerationMessageUpdateShema>
 >;

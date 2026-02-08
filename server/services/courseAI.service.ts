@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { type CourseGeneration, DraftStep } from "@/generated/prisma";
+import { courseGenerationMessageRepository } from "@/server/repositories/courseGenerationMessageRepository";
 import { courseGenerationRepository } from "@/server/repositories/courseGenerationRepository";
 import { logger } from "@/server/utils/logger";
 import { isMessageShape, type MessageShape } from "./guards/isMessageShape";
@@ -38,7 +39,6 @@ export class CourseAIService {
 				instructorId: userId,
 				step: DraftStep.basic,
 				content: {},
-				chatHistory: [],
 			});
 		} catch (error) {
 			logger.error(error);
@@ -46,13 +46,19 @@ export class CourseAIService {
 		}
 	}
 
-	async saveMessage(id: string, message: MessageShape) {
+	async saveMessage(generationId: string, message: MessageShape) {
 		try {
-			const entity = await courseGenerationRepository.findOne(id);
-			const updatedChatHistory = [...(entity.chatHistory || []), message];
+			return await courseGenerationMessageRepository.transaction(async () => {
+				const newMessage = await courseGenerationMessageRepository.create({
+					generationId,
+					role: message.role,
+					content: message.content,
+					step: message.step,
+				});
 
-			return await courseGenerationRepository.update(id, {
-				chatHistory: updatedChatHistory,
+				await courseGenerationRepository.update(generationId, {});
+
+				return newMessage;
 			});
 		} catch (e) {
 			logger.error(e);
@@ -78,17 +84,17 @@ export class CourseAIService {
 			currentCourseData: courseGeneration.content as Record<string, unknown>,
 		});
 
-		const chatHistoryData = Array.isArray(courseGeneration.chatHistory)
-			? courseGeneration.chatHistory
-			: [];
+		const lastMessages = await courseGenerationMessageRepository.findMany({
+			where: { generationId: courseGeneration.id },
+			orderBy: { createdAt: "asc" },
+			take: 6,
+		});
 
-		const history: MessageShape[] = chatHistoryData
-			.filter(isMessageShape)
-			.slice(-6)
-			.map((msg) => ({
-				role: msg.role,
-				content: msg.content,
-			}));
+		const history = lastMessages.filter(isMessageShape).map((msg) => ({
+			role: msg.role,
+			content: msg.content,
+			step: msg.step,
+		}));
 
 		const messages = [
 			{ role: "system", content: systemPrompt },
@@ -132,7 +138,16 @@ export class CourseAIService {
 			});
 
 			const step = courseGen.step;
-			const history = JSON.stringify(courseGen.chatHistory.slice(-3));
+			const lastMessages = await courseGenerationMessageRepository.findMany({
+				where: { generationId: courseGen.id },
+				orderBy: { createdAt: "asc" },
+				take: 3,
+			});
+
+			const history = lastMessages
+				.filter(isMessageShape)
+				.map((msg) => `[${msg.role}]: ${msg.content}`)
+				.join("\n");
 
 			const systemPrompt = extractStepDataPrompt({ step, history });
 

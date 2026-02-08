@@ -1,12 +1,16 @@
-export type MessageShape = { role: "user" | "assistant"; content: string };
+import type { CourseGenerationMessage, DraftStep } from "@/generated/prisma";
+import type { ChatRoleType } from "@/prisma/zod";
 
-export const isMessageShape = (val: unknown): val is MessageShape => {
-	if (typeof val !== "object" || val === null) return false;
+export type MessageShape = {
+	role: ChatRoleType;
+	content: string;
+	step: DraftStep;
+};
 
-	const obj = val as Record<string, unknown>;
-
+export const isMessageShape = (courseGenMessage: CourseGenerationMessage) => {
 	return (
-		(obj.role === "user" || obj.role === "assistant") &&
-		typeof obj.content === "string"
+		(courseGenMessage.role === "user" ||
+			courseGenMessage.role === "assistant") &&
+		typeof courseGenMessage.content === "string"
 	);
 };

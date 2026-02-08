@@ -23,6 +23,12 @@ export async function POST(req: Request) {
 		userId: session.user.id,
 	});
 
+	await courseAIService.saveMessage(courseGeneration.id, {
+		role: "user",
+		content: userMessage,
+		step: courseGeneration.step,
+	});
+
 	const stream = new ReadableStream<Uint8Array>({
 		async start(controller) {
 			const encoder = new TextEncoder();
@@ -67,6 +73,7 @@ export async function POST(req: Request) {
 					await courseAIService.saveMessage(courseGeneration.id, {
 						role: "assistant",
 						content: assistantFullText,
+						step: courseGeneration.step,
 					});
 
 					send({ type: "done" });

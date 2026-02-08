@@ -31,10 +31,11 @@ export const courseAIRouter = createTRPCRouter({
 					data: extractedData,
 				};
 			} catch (error) {
+				console.error(error);
 				throw new TRPCError({
 					code: "BAD_REQUEST",
 					// @ts-expect-error
-					message: error.message,
+					message: "Failed to process step",
 				});
 			}
 		}),
