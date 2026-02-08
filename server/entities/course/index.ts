@@ -174,15 +174,16 @@ export const processStepSchema = z.object({
 	courseGenerationId: z.string(),
 });
 
-export const AIUpdateSchema = z.object({
-	updatedData: z.record(z.string(), z.any()),
-	messageToUser: z.string(),
+export const UpdateCourseGenerationStatusSchema = CourseGenerationSchema.pick({
+	id: true,
+	status: true,
 });
 
 const CourseGenerationCreateShema = CourseGenerationSchema.pick({
 	instructorId: true,
 	step: true,
 	content: true,
+	status: true,
 });
 
 const CourseGenerationUpdateShema = CourseGenerationCreateShema.extend({});

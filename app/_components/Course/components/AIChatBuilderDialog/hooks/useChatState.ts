@@ -1,4 +1,6 @@
 import { useCallback, useState } from "react";
+import { WELCOME_MESSAGE } from "@/app/_components/Course/components/AIChatBuilderDialog/constants/welcomeMessage";
+import type { CourseGenerationMessage } from "@/prisma/zod";
 import type { Message } from "../types";
 
 export const useChatState = () => {
@@ -21,6 +23,19 @@ export const useChatState = () => {
 		setInput("");
 	}, []);
 
+	const initializeMessages = useCallback(
+		(initialMessages: CourseGenerationMessage[] = []) => {
+			const adaptedMessages: Message[] = initialMessages.map((message) => ({
+				id: message.id,
+				role: message.role,
+				content: message.content,
+			}));
+
+			setMessages([WELCOME_MESSAGE, ...adaptedMessages]);
+		},
+		[],
+	);
+
 	return {
 		messages,
 		setMessages,
@@ -29,5 +44,6 @@ export const useChatState = () => {
 		addMessage,
 		updateMessage,
 		resetChat,
+		initializeMessages,
 	};
 };

@@ -12,6 +12,7 @@ const PreviewPanel = ({
 	courseGenerationId,
 	completedSteps,
 	onApply,
+	isApplyPending,
 }: PreviewPanelProps) => {
 	const { data } = api.courseAI.getGenerationStatus.useQuery(
 		{
@@ -26,6 +27,7 @@ const PreviewPanel = ({
 		<div className="flex w-[400px] flex-col bg-muted/20">
 			<PreviewHeader
 				canApply={completedSteps.length === STEPS.length}
+				isApplyPending={isApplyPending}
 				onApply={() => onApply(data?.sectionsData)}
 			/>
 

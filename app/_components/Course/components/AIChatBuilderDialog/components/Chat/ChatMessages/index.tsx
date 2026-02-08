@@ -24,6 +24,7 @@ const ChatMessages = ({ messages, isTyping, ...props }: ChatMessagesProps) => {
 				{messages.map((message, index) => (
 					<ChatMessage
 						isLastMessage={index === messages.length - 1}
+						isTyping={isTyping}
 						key={message.id}
 						message={message}
 						{...props}

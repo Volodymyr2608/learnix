@@ -1,4 +1,8 @@
 import type { DraftStep } from "@/generated/prisma";
+import type {
+	ChatRoleSchema,
+	CourseGenerationWithRelations,
+} from "@/prisma/zod";
 
 export interface CourseData {
 	title: string;
@@ -19,7 +23,7 @@ export interface CourseData {
 
 export interface Message {
 	id: string;
-	role: "assistant" | "user";
+	role: ChatRoleSchema;
 	content: string;
 	isStreaming?: boolean;
 	suggestions?: string[];
@@ -30,4 +34,5 @@ export interface Message {
 export interface AIChatBuilderDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	activeCourseGeneration: CourseGenerationWithRelations | null;
 }

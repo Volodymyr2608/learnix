@@ -6,11 +6,10 @@ import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/app/_components/_shared/ui/dialog";
 import ChatPanel from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatPanel";
 import PreviewPanel from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/PreviewPanel";
-import { initialCourseData } from "@/app/_components/Course/components/AIChatBuilderDialog/constants/initialCourseData";
-import { WELCOME_MESSAGE } from "@/app/_components/Course/components/AIChatBuilderDialog/constants/welcomeMessage";
 import { useChatActions } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useChatActions";
 import { useChatState } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useChatState";
 import { useChatStreaming } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useChatStreaming";
+import { useCourseGenerationStatus } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCourseGenerationStatus";
 import { useCourseStepFlow } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCourseStepFlow";
 import { useTypingSimulation } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useTypingSimulation";
 import type {
@@ -24,15 +23,24 @@ import type { CourseSchemaInput } from "@/server/entities/course";
 const AIChatBuilderDialog = ({
 	open,
 	onOpenChange,
+	activeCourseGeneration,
 }: AIChatBuilderDialogProps) => {
 	const { reset } = useFormContext<CourseSchemaInput>();
 	const [currentStep, setCurrentStep] = useState(0);
-	const [courseData, setCourseData] = useState<CourseData>(initialCourseData);
 	const [completedSteps, setCompletedSteps] = useState<DraftStep[]>([]);
-	const [courseGenerationId, setCourseGenerationId] = useState<string>();
+	const [courseGenerationId, setCourseGenerationId] = useState<
+		string | undefined
+	>(activeCourseGeneration?.id);
 
-	const { messages, addMessage, updateMessage, resetChat, input, setInput } =
-		useChatState();
+	const {
+		initializeMessages,
+		messages,
+		addMessage,
+		updateMessage,
+		resetChat,
+		input,
+		setInput,
+	} = useChatState();
 
 	const { simulateTyping, isTyping } = useTypingSimulation(updateMessage);
 
@@ -59,13 +67,19 @@ const AIChatBuilderDialog = ({
 
 	useEffect(() => {
 		if (open && messages.length === 0) {
-			addMessage(WELCOME_MESSAGE);
+			initializeMessages(activeCourseGeneration?.messages);
 		}
-	}, [open, addMessage, messages.length]);
+	}, [open, initializeMessages, messages, activeCourseGeneration]);
+
+	const { setStatus, isPending: isApplyPending } = useCourseGenerationStatus();
 
 	const handleRegenerateBlock = async () => {};
 
-	const handleApply = (data: CourseData) => {
+	const handleApply = async (data: CourseData) => {
+		if (courseGenerationId) {
+			await setStatus(courseGenerationId, "completed");
+		}
+
 		reset(adaptCourse(data));
 		handleClose();
 		toast.success("✨ Course data successfully applied ");
@@ -76,7 +90,6 @@ const AIChatBuilderDialog = ({
 		resetChat();
 		setCurrentStep(0);
 		setCompletedSteps([]);
-		setCourseData(initialCourseData);
 	};
 
 	return (
@@ -98,8 +111,8 @@ const AIChatBuilderDialog = ({
 
 					<PreviewPanel
 						completedSteps={completedSteps}
-						courseData={courseData}
 						courseGenerationId={courseGenerationId}
+						isApplyPending={isApplyPending}
 						onApply={handleApply}
 					/>
 				</div>
