@@ -17,6 +17,7 @@ import type {
 	AIChatBuilderDialogProps,
 	CourseData,
 } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
+import { adaptCourse } from "@/app/_components/Course/components/AIChatBuilderDialog/utils/adaptCourse";
 import type { DraftStep } from "@/generated/prisma";
 import type { CourseSchemaInput } from "@/server/entities/course";
 
@@ -64,10 +65,10 @@ const AIChatBuilderDialog = ({
 
 	const handleRegenerateBlock = async () => {};
 
-	const handleApply = (data) => {
-		reset(data);
+	const handleApply = (data: CourseData) => {
+		reset(adaptCourse(data));
 		handleClose();
-		toast.success("✨ Course info updated");
+		toast.success("✨ Course data successfully applied ");
 	};
 
 	const handleClose = () => {

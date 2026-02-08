@@ -5,9 +5,6 @@ export const useCommitCourseStep = () => {
 	const utils = api.useUtils();
 
 	const commitStep = api.courseAI.processStep.useMutation({
-		onSuccess: () => {
-			toast.success("Course part saved successfully");
-		},
 		onError: (err) => {
 			toast.error(err.message);
 		},
