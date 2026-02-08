@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/app/_components/_shared/ui/dialog";
 import ChatPanel from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatPanel";
 import PreviewPanel from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/PreviewPanel";
+import { STEPS } from "@/app/_components/Course/components/AIChatBuilderDialog/constants/steps";
 import { useChatActions } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useChatActions";
 import { useChatState } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useChatState";
 import { useChatStreaming } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useChatStreaming";
@@ -66,10 +67,21 @@ const AIChatBuilderDialog = ({
 	});
 
 	useEffect(() => {
-		if (open && messages.length === 0) {
-			initializeMessages(activeCourseGeneration?.messages);
+		if (!open) return;
+
+		initializeMessages(activeCourseGeneration?.messages);
+
+		if (activeCourseGeneration) {
+			const stepIndex = STEPS.findIndex(
+				(s) => s.id === activeCourseGeneration.step,
+			);
+			const currentIndex = stepIndex >= 0 ? stepIndex : 0;
+			setCurrentStep(currentIndex);
+
+			const completed = STEPS.slice(0, currentIndex).map((s) => s.id);
+			setCompletedSteps(completed);
 		}
-	}, [open, initializeMessages, messages, activeCourseGeneration]);
+	}, [open, initializeMessages, activeCourseGeneration]);
 
 	const { setStatus, isPending: isApplyPending } = useCourseGenerationStatus();
 

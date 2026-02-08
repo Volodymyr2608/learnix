@@ -11,6 +11,7 @@ const ChatMessage = ({
 	onSuggestionClick,
 	onAcceptBlock,
 	isLastMessage,
+	countMessages,
 }: ChatMessageProps) => {
 	const isUser = message.role === "user";
 
@@ -40,8 +41,7 @@ const ChatMessage = ({
 					</div>
 				</div>
 
-				{/* Suggestions */}
-				{message.suggestions && !message.isStreaming && (
+				{message.suggestions && !message.isStreaming && countMessages === 1 && (
 					<div className="mt-2 flex flex-wrap gap-2">
 						{message.suggestions.map((suggestion) => (
 							<Button

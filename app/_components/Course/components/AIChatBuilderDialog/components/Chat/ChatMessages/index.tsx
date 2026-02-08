@@ -23,6 +23,7 @@ const ChatMessages = ({ messages, isTyping, ...props }: ChatMessagesProps) => {
 			<div className="space-y-4">
 				{messages.map((message, index) => (
 					<ChatMessage
+						countMessages={messages.length}
 						isLastMessage={index === messages.length - 1}
 						isTyping={isTyping}
 						key={message.id}
