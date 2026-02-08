@@ -4,7 +4,7 @@ import { api } from "@/trpc/client";
 export const useCommitCourseStep = () => {
 	const utils = api.useUtils();
 
-	const commitStep = api.courseAI.processStep.useMutation({
+	const commitStep = api.courseAI.acceptStep.useMutation({
 		onError: (err) => {
 			toast.error(err.message);
 		},

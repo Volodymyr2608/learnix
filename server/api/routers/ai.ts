@@ -8,31 +8,16 @@ import { courseGenerationRepository } from "@/server/repositories/courseGenerati
 import { courseAIService } from "@/server/services/courseAI.service";
 
 export const courseAIRouter = createTRPCRouter({
-	processStep: protectedProcedure
+	acceptStep: protectedProcedure
 		.input(processStepSchema)
 		.mutation(async ({ ctx, input }) => {
 			try {
 				const { courseGenerationId } = input;
 
-				const courseGen = await courseAIService.getOrCreateCourseGeneration({
+				return await courseAIService.acceptStep({
 					courseGenerationId,
 					userId: ctx.session.user.id,
 				});
-
-				if (!courseGen) throw new TRPCError({ code: "NOT_FOUND" });
-
-				const extractedData = await courseAIService.extractStepData(courseGen);
-
-				await courseGenerationRepository.updateContent(
-					courseGenerationId,
-					courseGen.step,
-					extractedData,
-				);
-
-				return {
-					step: courseGen.step,
-					data: extractedData,
-				};
 			} catch (error) {
 				console.error(error);
 				throw new TRPCError({

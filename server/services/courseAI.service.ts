@@ -1,5 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
+import { TRPCError } from "@trpc/server";
 import { type CourseGeneration, DraftStep } from "@/generated/prisma";
+import { STEP_MESSAGES } from "@/lib/constants/stepMessages";
 import { courseGenerationMessageRepository } from "@/server/repositories/courseGenerationMessageRepository";
 import { courseGenerationRepository } from "@/server/repositories/courseGenerationRepository";
 import { logger } from "@/server/utils/logger";
@@ -39,6 +41,7 @@ export class CourseAIService {
 				instructorId: userId,
 				step: DraftStep.basic,
 				content: {},
+				status: "active",
 			});
 		} catch (error) {
 			logger.error(error);
@@ -48,17 +51,11 @@ export class CourseAIService {
 
 	async saveMessage(generationId: string, message: MessageShape) {
 		try {
-			return await courseGenerationMessageRepository.transaction(async () => {
-				const newMessage = await courseGenerationMessageRepository.create({
-					generationId,
-					role: message.role,
-					content: message.content,
-					step: message.step,
-				});
-
-				await courseGenerationRepository.update(generationId, {});
-
-				return newMessage;
+			return await courseGenerationMessageRepository.create({
+				generationId,
+				role: message.role,
+				content: message.content,
+				step: message.step,
 			});
 		} catch (e) {
 			logger.error(e);
@@ -163,6 +160,43 @@ export class CourseAIService {
 			logger.error(error);
 			throw new Error("[Course AI service] failed to extract step data");
 		}
+	}
+
+	async acceptStep(params: { userId: string; courseGenerationId: string }) {
+		const { userId, courseGenerationId } = params;
+
+		return courseGenerationRepository.transaction(async () => {
+			const courseGen = await this.getOrCreateCourseGeneration({
+				courseGenerationId,
+				userId,
+			});
+
+			if (!courseGen) throw new TRPCError({ code: "NOT_FOUND" });
+
+			const extractedData = await this.extractStepData(courseGen);
+
+			const updatedGen = await courseGenerationRepository.updateContent(
+				courseGenerationId,
+				courseGen.step,
+				extractedData,
+			);
+
+			const nextStepId = updatedGen.step;
+			const flowText =
+				STEP_MESSAGES[nextStepId] ?? "Let's continue building your course.";
+
+			await courseGenerationMessageRepository.create({
+				generationId: courseGenerationId,
+				step: nextStepId,
+				role: "assistant",
+				content: flowText,
+			});
+
+			return {
+				step: courseGen.step,
+				data: extractedData,
+			};
+		});
 	}
 }
 

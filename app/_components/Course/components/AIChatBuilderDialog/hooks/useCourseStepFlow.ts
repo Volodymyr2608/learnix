@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { DraftStep } from "@/generated/prisma";
-import { STEP_MESSAGES } from "../constants/stepMessages";
+import { STEP_MESSAGES } from "@/lib/constants/stepMessages";
 import { STEPS } from "../constants/steps";
 import type { Message } from "../types";
 import { createAssistantMessage } from "../utils/messageFactory";
