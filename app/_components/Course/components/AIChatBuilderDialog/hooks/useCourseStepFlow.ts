@@ -26,15 +26,15 @@ export const useCourseStepFlow = ({
 	const { commitStep } = useCommitCourseStep();
 
 	const acceptStep = async (step: DraftStep) => {
-		setCompletedSteps((prev) => [...prev, step]);
-
-		const nextStep = currentStep + 1;
-		setCurrentStep(nextStep);
-
 		const assistantMessage = createAssistantMessage();
 		addMessage(assistantMessage);
 
 		await commitStep.mutateAsync({ courseGenerationId });
+
+		setCompletedSteps((prev) => [...prev, step]);
+
+		const nextStep = currentStep + 1;
+		setCurrentStep(nextStep);
 
 		if (nextStep >= STEPS.length) {
 			await simulateTyping(
