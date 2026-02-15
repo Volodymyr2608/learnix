@@ -136,7 +136,6 @@ export type LessonUpdateDto = z.infer<typeof LessonUpdateDto>;
 
 const QuizCreateDto = QuizSchema.pick({
 	question: true,
-	answer: true,
 	correct: true,
 	lessonId: true,
 	options: true,

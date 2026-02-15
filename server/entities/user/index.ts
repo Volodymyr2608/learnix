@@ -39,16 +39,22 @@ export type UserUpdateDto = z.infer<typeof UserUpdateDto>;
  * Schema for sign-up validation with password confirmation
  */
 
-export const signUpSchema = z
-	.object({
-		email: emailSchema,
-		name: nameSchema,
-		password: passwordSchema,
-		confirmPassword: passwordSchema,
-	})
-	.refine(doesPasswordMatch, onPasswordMismatch);
+const baseSignUpSchema = z.object({
+	email: emailSchema,
+	name: nameSchema,
+	password: passwordSchema,
+	confirmPassword: passwordSchema,
+});
+
+export const signUpSchema = baseSignUpSchema.refine(
+	doesPasswordMatch,
+	onPasswordMismatch,
+);
 
 export type SignUpData = z.infer<typeof signUpSchema>;
 
-export const signInSchema = signUpSchema.pick({ email: true, password: true });
+export const signInSchema = baseSignUpSchema.pick({
+	email: true,
+	password: true,
+});
 export type SignInData = z.infer<typeof signInSchema>;
