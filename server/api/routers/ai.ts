@@ -1,6 +1,8 @@
 import { TRPCError } from "@trpc/server";
+import type { CourseGenerationWithRelations } from "@/prisma/zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import {
+	courseSchema,
 	processStepSchema,
 	UpdateCourseGenerationStatusSchema,
 } from "@/server/entities/course";
@@ -22,7 +24,6 @@ export const courseAIRouter = createTRPCRouter({
 				console.error(error);
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					// @ts-expect-error
 					message: "Failed to process step",
 				});
 			}
@@ -38,13 +39,12 @@ export const courseAIRouter = createTRPCRouter({
 
 				return {
 					currentStep: courseGen?.step,
-					sectionsData: courseGen?.content || {},
+					sectionsData: courseSchema.parse(courseGen?.content ?? {}),
 				};
 			} catch (error) {
 				console.error(error);
 				throw new TRPCError({
 					code: "BAD_REQUEST",
-					// @ts-expect-error
 					message: "Failed to get generation status",
 				});
 			}
@@ -53,7 +53,7 @@ export const courseAIRouter = createTRPCRouter({
 	getActiveCourseGeneration: protectedProcedure.query(async ({ ctx }) => {
 		try {
 			const userId = ctx.session.user.id;
-			return await courseGenerationRepository.findFirst({
+			const data = await courseGenerationRepository.findFirst({
 				where: {
 					instructorId: userId,
 					status: "active",
@@ -66,11 +66,11 @@ export const courseAIRouter = createTRPCRouter({
 					},
 				},
 			});
+			return data as CourseGenerationWithRelations;
 		} catch (error) {
 			console.error(error);
 			throw new TRPCError({
 				code: "BAD_REQUEST",
-				// @ts-expect-error
 				message: "Failed to get active course generation",
 			});
 		}

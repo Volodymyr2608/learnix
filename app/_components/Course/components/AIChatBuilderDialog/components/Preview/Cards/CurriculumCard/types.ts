@@ -1,6 +1,6 @@
-import type { CourseData } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
+import type { CourseSchemaOutput } from "@/server/entities/course";
 
 export type CurriculumCardProps = {
-	curriculum: CourseData["curriculum"];
+	curriculum: CourseSchemaOutput["sections"];
 	completed: boolean;
 };

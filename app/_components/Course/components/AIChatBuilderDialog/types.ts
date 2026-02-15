@@ -1,29 +1,9 @@
 import type { DraftStep } from "@/generated/prisma";
-import type {
-	ChatRoleSchema,
-	CourseGenerationWithRelations,
-} from "@/prisma/zod";
-
-export interface CourseData {
-	title: string;
-	subtitle: string;
-	description: string;
-	category: string;
-	level: string;
-	language: string;
-	duration: string;
-	objectives: { value: string }[];
-	requirements: { value: string }[];
-	curriculum: {
-		id: number;
-		title: string;
-		lessons: { id: number; title: string; duration: string }[];
-	}[];
-}
+import type { ChatRoleType, CourseGenerationWithRelations } from "@/prisma/zod";
 
 export interface Message {
 	id: string;
-	role: ChatRoleSchema;
+	role: ChatRoleType;
 	content: string;
 	isStreaming?: boolean;
 	suggestions?: string[];

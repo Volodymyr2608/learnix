@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { Message } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
+import type { DraftStep } from "@/generated/prisma";
 
 export interface ChatPanelProps {
 	messages: Message[];
@@ -8,7 +9,7 @@ export interface ChatPanelProps {
 	onSend: () => void;
 	onInputChange: Dispatch<SetStateAction<string>>;
 	onSuggestionClick: (v: string) => void;
-	onAcceptBlock: (block: string) => void;
+	onAcceptBlock: (step: DraftStep) => Promise<void>;
 	onRegenerateBlock: (block: string) => void;
 	currentStep: number;
 	completedSteps: string[];

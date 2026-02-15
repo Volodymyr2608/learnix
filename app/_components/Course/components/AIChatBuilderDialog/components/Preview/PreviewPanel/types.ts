@@ -1,6 +1,8 @@
+import type { CourseSchemaOutput } from "@/server/entities/course";
+
 export type PreviewPanelProps = {
 	courseGenerationId?: string;
 	completedSteps: string[];
-	onApply: (data: unknown) => void;
+	onApply: (data: CourseSchemaOutput) => Promise<void>;
 	isApplyPending: boolean;
 };

@@ -1,6 +1,6 @@
-import type { CourseData } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
+import type { CourseSchemaOutput } from "@/server/entities/course";
 
-export function adaptCourse(course: CourseData) {
+export function adaptCourse(course: CourseSchemaOutput) {
 	const durationNumber = Number.parseFloat(course.duration);
 
 	return {

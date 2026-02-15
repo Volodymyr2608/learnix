@@ -1,5 +1,6 @@
-import type { PreviewPanelProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/PreviewPanel/types";
+import type { CourseSchemaOutput } from "@/server/entities/course";
 
-export type BasicInfoCardProps = Pick<PreviewPanelProps, "courseData"> & {
+export type BasicInfoCardProps = {
+	courseData: CourseSchemaOutput;
 	completed: boolean;
 };

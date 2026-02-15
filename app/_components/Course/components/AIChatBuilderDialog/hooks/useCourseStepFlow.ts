@@ -26,6 +26,8 @@ export const useCourseStepFlow = ({
 	const { commitStep } = useCommitCourseStep();
 
 	const acceptStep = async (step: DraftStep) => {
+		if (!courseGenerationId) return;
+
 		const assistantMessage = createAssistantMessage();
 		addMessage(assistantMessage);
 

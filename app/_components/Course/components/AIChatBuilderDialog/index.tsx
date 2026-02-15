@@ -13,13 +13,13 @@ import { useChatStreaming } from "@/app/_components/Course/components/AIChatBuil
 import { useCourseGenerationStatus } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCourseGenerationStatus";
 import { useCourseStepFlow } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCourseStepFlow";
 import { useTypingSimulation } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useTypingSimulation";
-import type {
-	AIChatBuilderDialogProps,
-	CourseData,
-} from "@/app/_components/Course/components/AIChatBuilderDialog/types";
+import type { AIChatBuilderDialogProps } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
 import { adaptCourse } from "@/app/_components/Course/components/AIChatBuilderDialog/utils/adaptCourse";
 import type { DraftStep } from "@/generated/prisma";
-import type { CourseSchemaInput } from "@/server/entities/course";
+import type {
+	CourseSchemaInput,
+	CourseSchemaOutput,
+} from "@/server/entities/course";
 
 const AIChatBuilderDialog = ({
 	open,
@@ -87,7 +87,7 @@ const AIChatBuilderDialog = ({
 
 	const handleRegenerateBlock = async () => {};
 
-	const handleApply = async (data: CourseData) => {
+	const handleApply = async (data: CourseSchemaOutput) => {
 		if (courseGenerationId) {
 			await setStatus(courseGenerationId, "completed");
 		}

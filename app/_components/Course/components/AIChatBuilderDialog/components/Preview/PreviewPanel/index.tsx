@@ -6,6 +6,7 @@ import RequirementsCard from "@/app/_components/Course/components/AIChatBuilderD
 import PreviewHeader from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/PreviewHeader";
 import type { PreviewPanelProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/PreviewPanel/types";
 import { STEPS } from "@/app/_components/Course/components/AIChatBuilderDialog/constants/steps";
+import type { CourseSchemaOutput } from "@/server/entities/course";
 import { api } from "@/trpc/client";
 
 const PreviewPanel = ({
@@ -16,38 +17,42 @@ const PreviewPanel = ({
 }: PreviewPanelProps) => {
 	const { data } = api.courseAI.getGenerationStatus.useQuery(
 		{
-			courseGenerationId,
+			courseGenerationId: courseGenerationId ?? "",
 		},
 		{
 			enabled: !!courseGenerationId,
 		},
 	);
 
+	const sectionsData = (
+		!!data && "sectionsData" in data ? data.sectionsData : {}
+	) as CourseSchemaOutput;
+
 	return (
 		<div className="flex w-[400px] flex-col bg-muted/20">
 			<PreviewHeader
 				canApply={completedSteps.length === STEPS.length}
 				isApplyPending={isApplyPending}
-				onApply={() => onApply(data?.sectionsData)}
+				onApply={() => onApply(sectionsData)}
 			/>
 
 			<ScrollArea className="max-h-[calc(85vh-65px)] flex-1 overflow-y-auto p-4">
 				<div className="space-y-4">
 					<BasicInfoCard
 						completed={completedSteps.includes("basic")}
-						courseData={data?.sectionsData}
+						courseData={sectionsData}
 					/>
 					<ObjectivesCard
 						completed={completedSteps.includes("objectives")}
-						objectives={data?.sectionsData?.objectives ?? []}
+						objectives={sectionsData.objectives ?? []}
 					/>
 					<RequirementsCard
 						completed={completedSteps.includes("requirements")}
-						requirements={data?.sectionsData?.requirements ?? []}
+						requirements={sectionsData.requirements ?? []}
 					/>
 					<CurriculumCard
 						completed={completedSteps.includes("curriculum")}
-						curriculum={data?.sectionsData?.sections ?? []}
+						curriculum={sectionsData.sections ?? []}
 					/>
 				</div>
 			</ScrollArea>

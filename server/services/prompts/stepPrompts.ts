@@ -38,7 +38,7 @@ export const STEP_PROMPTS = {
 
 	[DRAFT_STEPS.CURRICULUM]: `
     Focus: Full course structure.
-    Task: Generate or update the 'sections' array.
+    Task: Generate or update the 'curriculum' array.
     Requirements:
     - Create 4-6 sections that logically cover the topic from start to finish.
     - Each section must contain 3-5 lessons.
