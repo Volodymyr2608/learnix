@@ -32,7 +32,7 @@ const InputPassword = (props: InputPasswordProps) => {
 				type={isPasswordVisible ? "text" : type}
 				{...otherProps}
 			/>
-			<div className="-translate-y-1/2 absolute top-1/2 right-1 p-2">
+			<div className="absolute top-1/2 right-1 -translate-y-1/2 p-2">
 				<Icon className={iconClassName} onClick={togglePasswordVisibility} />
 			</div>
 		</div>
