@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import type { CourseGenerationWithRelations } from "@/prisma/zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import type { CourseSchemaOutput } from "@/server/entities/course";
 import {
-	courseSchema,
 	processStepSchema,
 	UpdateCourseGenerationStatusSchema,
 } from "@/server/entities/course";
@@ -39,7 +39,9 @@ export const courseAIRouter = createTRPCRouter({
 
 				return {
 					currentStep: courseGen?.step,
-					sectionsData: courseSchema.parse(courseGen?.content ?? {}),
+					sectionsData: courseGen?.content
+						? (courseGen?.content as unknown as CourseSchemaOutput)
+						: {},
 				};
 			} catch (error) {
 				console.error(error);
