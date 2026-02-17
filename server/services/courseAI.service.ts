@@ -21,6 +21,23 @@ export class CourseAIService {
 		});
 	}
 
+	private async getLastMessages(courseGenerationId: string) {
+		const lastMessages = await courseGenerationMessageRepository.findMany({
+			where: { generationId: courseGenerationId },
+			orderBy: { createdAt: "desc" },
+			take: 4,
+		});
+
+		return lastMessages
+			.reverse()
+			.filter(isMessageShape)
+			.map((msg) => ({
+				role: msg.role,
+				content: msg.content,
+				step: msg.step,
+			}));
+	}
+
 	async getOrCreateCourseGeneration({
 		courseGenerationId,
 		userId,
@@ -81,17 +98,7 @@ export class CourseAIService {
 			currentCourseData: courseGeneration.content as Record<string, unknown>,
 		});
 
-		const lastMessages = await courseGenerationMessageRepository.findMany({
-			where: { generationId: courseGeneration.id },
-			orderBy: { createdAt: "asc" },
-			take: 6,
-		});
-
-		const history = lastMessages.filter(isMessageShape).map((msg) => ({
-			role: msg.role,
-			content: msg.content,
-			step: msg.step,
-		}));
+		const history = await this.getLastMessages(courseGeneration.id);
 
 		const messages = [
 			{ role: "system", content: systemPrompt },
@@ -126,7 +133,7 @@ export class CourseAIService {
 		}
 	}
 
-	async extractStepData(courseGen: CourseGeneration) {
+	async extractStepData(courseGeneration: CourseGeneration) {
 		try {
 			const model = new ChatOpenAI({
 				model: "gpt-4o-mini",
@@ -134,15 +141,10 @@ export class CourseAIService {
 				modelKwargs: { response_format: { type: "json_object" } },
 			});
 
-			const step = courseGen.step;
-			const lastMessages = await courseGenerationMessageRepository.findMany({
-				where: { generationId: courseGen.id },
-				orderBy: { createdAt: "asc" },
-				take: 3,
-			});
+			const step = courseGeneration.step;
+			const lastMessages = await this.getLastMessages(courseGeneration.id);
 
 			const history = lastMessages
-				.filter(isMessageShape)
 				.map((msg) => `[${msg.role}]: ${msg.content}`)
 				.join("\n");
 
@@ -165,16 +167,16 @@ export class CourseAIService {
 	async acceptStep(params: { userId: string; courseGenerationId: string }) {
 		const { userId, courseGenerationId } = params;
 
-		return courseGenerationRepository.transaction(async () => {
-			const courseGen = await this.getOrCreateCourseGeneration({
-				courseGenerationId,
-				userId,
-			});
+		const courseGen = await this.getOrCreateCourseGeneration({
+			courseGenerationId,
+			userId,
+		});
 
-			if (!courseGen) throw new TRPCError({ code: "NOT_FOUND" });
+		if (!courseGen) throw new TRPCError({ code: "NOT_FOUND" });
 
-			const extractedData = await this.extractStepData(courseGen);
+		const extractedData = await this.extractStepData(courseGen);
 
+		const updated = await courseGenerationRepository.transaction(async () => {
 			const updatedGen = await courseGenerationRepository.updateContent(
 				courseGenerationId,
 				courseGen.step,
@@ -192,11 +194,13 @@ export class CourseAIService {
 				content: flowText,
 			});
 
-			return {
-				step: courseGen.step,
-				data: extractedData,
-			};
+			return updatedGen;
 		});
+
+		return {
+			step: updated.step,
+			data: extractedData,
+		};
 	}
 }
 

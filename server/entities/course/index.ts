@@ -36,7 +36,7 @@ export const courseSchema = z.object({
 	title: z
 		.string()
 		.min(3, "Title must be at least 3 characters")
-		.max(50, "Title must be less than 50 characters"),
+		.max(60, "Title must be less than 60 characters"),
 	subtitle: z.string().nullable().optional(),
 	description: z
 		.string()

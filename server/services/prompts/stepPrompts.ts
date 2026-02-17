@@ -1,4 +1,4 @@
-const DRAFT_STEPS = {
+export const DRAFT_STEPS = {
 	BASIC: "basic",
 	OBJECTIVES: "objectives",
 	REQUIREMENTS: "requirements",
@@ -8,19 +8,21 @@ const DRAFT_STEPS = {
 export const STEP_PROMPTS = {
 	[DRAFT_STEPS.BASIC]: `
     Focus: General course information.
-    Task: Generate or update 'title', 'subtitle', 'description', 'category', 'level', 'language' and 'duration'.
+    Task: Generate or update: 'title', 'subtitle', 'description', 'category', 'level', 'language' and 'duration'.
+    
     Requirements:
     - Title should be catchy (max 60 chars).
     - Description should be a professional summary (50-500 chars).
-    - Level must be one of the following exact values: "Beginner", "Intermediate", "Advanced", or "All".
-		- Category must be one of the following exact values: "Development", "Design", "Business", "Marketing", or "Data-science".
-		- Language must be one of the following exact values: "English", "Spanish", "French", or "German".
-		- Duration should be a number representing hours as a decimal (e.g., 3.5), with a minimum of 0.5 and a maximum of 40.
+    - Level: MUST be one of ["Beginner", "Intermediate", "Advanced", "All"].
+		- Category: MUST be one of ["Development", "Design", "Business", "Marketing", "Data-science"].
+		- Language: MUST be one of ["English", "Spanish", "French", "German"].
+		- Duration: Should be a number representing hours as a decimal (e.g., 3.5), with a minimum of 0.5 and a maximum of 40.
   `,
 
 	[DRAFT_STEPS.OBJECTIVES]: `
     Focus: Learning outcomes.
     Task: Generate or update the 'objectives' array.
+    Context Rule: Align with the course title and level from DATA.
     Requirements:
     - Provide exactly 4-6 distinct learning objectives.
     - Each objective must be a short string starting with an action verb (e.g., "Build", "Understand", "Implement").
@@ -30,6 +32,7 @@ export const STEP_PROMPTS = {
 	[DRAFT_STEPS.REQUIREMENTS]: `
     Focus: Prerequisites.
     Task: Generate or update the 'requirements' array.
+    Context Rule: Must be realistic for the level. Use 'level' from the DATA to ensure 'requirements' are relevant.
     Requirements:
     - List 3-5 necessary tools, skills, or prior knowledge.
     - Keep them concise and realistic for the chosen course level.
