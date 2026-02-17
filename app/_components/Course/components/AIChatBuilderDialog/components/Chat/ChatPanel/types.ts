@@ -10,7 +10,6 @@ export interface ChatPanelProps {
 	onInputChange: Dispatch<SetStateAction<string>>;
 	onSuggestionClick: (v: string) => void;
 	onAcceptBlock: (step: DraftStep) => Promise<void>;
-	onRegenerateBlock: (block: string) => void;
 	currentStep: number;
 	completedSteps: string[];
 }

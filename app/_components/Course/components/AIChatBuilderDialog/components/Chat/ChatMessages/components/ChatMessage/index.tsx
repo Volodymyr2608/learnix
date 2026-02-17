@@ -1,4 +1,4 @@
-import { Bot, Check, RefreshCw, User } from "lucide-react";
+import { Bot, Check, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/app/_components/_shared/ui/button";
 import type { ChatMessageProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatMessages/components/ChatMessage/types";
@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils/cn";
 
 const ChatMessage = ({
 	message,
-	onRegenerateBlock,
 	isTyping,
 	onSuggestionClick,
 	onAcceptBlock,
@@ -73,19 +72,7 @@ const ChatMessage = ({
 								size="sm"
 							>
 								<Check className="mr-1.5 h-3.5 w-3.5" />
-								Accept
-							</Button>
-							<Button
-								className="h-8 bg-transparent"
-								disabled={isTyping}
-								onClick={() =>
-									message.step ? onRegenerateBlock(message.step) : undefined
-								}
-								size="sm"
-								variant="outline"
-							>
-								<RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-								Regenerate
+								Apply suggestions
 							</Button>
 						</div>
 					)}

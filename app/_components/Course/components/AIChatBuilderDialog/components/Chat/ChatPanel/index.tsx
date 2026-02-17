@@ -23,7 +23,6 @@ const ChatPanel = ({
 				isTyping={isTyping}
 				messages={messages}
 				onAcceptBlock={onAcceptBlock}
-				onRegenerateBlock={onRegenerateBlock}
 				onSuggestionClick={onSuggestionClick}
 			/>
 

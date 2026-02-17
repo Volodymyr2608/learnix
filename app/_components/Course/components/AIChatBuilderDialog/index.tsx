@@ -75,7 +75,12 @@ const AIChatBuilderDialog = ({
 			const stepIndex = STEPS.findIndex(
 				(s) => s.id === activeCourseGeneration.step,
 			);
-			const currentIndex = stepIndex >= 0 ? stepIndex : 0;
+			console.log(activeCourseGeneration);
+			let currentIndex = stepIndex >= 0 ? stepIndex : 0;
+
+			if ("sections" in activeCourseGeneration.content) {
+				currentIndex += 1;
+			}
 			setCurrentStep(currentIndex);
 
 			const completed = STEPS.slice(0, currentIndex).map((s) => s.id);
@@ -84,8 +89,6 @@ const AIChatBuilderDialog = ({
 	}, [open, initializeMessages, activeCourseGeneration]);
 
 	const { setStatus, isPending: isApplyPending } = useCourseGenerationStatus();
-
-	const handleRegenerateBlock = async () => {};
 
 	const handleApply = async (data: CourseSchemaOutput) => {
 		if (courseGenerationId) {
@@ -116,7 +119,6 @@ const AIChatBuilderDialog = ({
 						messages={messages}
 						onAcceptBlock={acceptStep}
 						onInputChange={setInput}
-						onRegenerateBlock={handleRegenerateBlock}
 						onSend={() => sendUserMessage(input)}
 						onSuggestionClick={sendUserMessage}
 					/>
