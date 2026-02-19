@@ -91,6 +91,9 @@ export default class CourseRepository extends BaseRepository<
 					updatedAt: true,
 					thumbnailUrl: true,
 				},
+				orderBy: {
+					createdAt: "desc",
+				},
 			});
 		} catch (error) {
 			return this.handleError(error, `Get own course with user id ${userId}`, {

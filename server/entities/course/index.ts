@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { Course } from "@/generated/prisma";
 import type { CourseWithRelations } from "@/prisma/zod";
 import {
+	CourseGenerationMessageSchema,
+	CourseGenerationSchema,
 	CourseSchema,
 	LessonSchema,
 	QuizSchema,
@@ -34,12 +36,12 @@ export const courseSchema = z.object({
 	title: z
 		.string()
 		.min(3, "Title must be at least 3 characters")
-		.max(50, "Title must be less than 50 characters"),
+		.max(60, "Title must be less than 60 characters"),
 	subtitle: z.string().nullable().optional(),
 	description: z
 		.string()
 		.min(10, "Description must be at least 10 characters")
-		.max(200, "Description must be less than 200 characters"),
+		.max(500, "Description must be less than 500 characters"),
 	category: z.string().min(1, "Category is mandatory"),
 	level: z.string().min(1, "Level is mandatory"),
 	language: z.string().min(1, "Language is mandatory"),
@@ -134,7 +136,6 @@ export type LessonUpdateDto = z.infer<typeof LessonUpdateDto>;
 
 const QuizCreateDto = QuizSchema.pick({
 	question: true,
-	answer: true,
 	correct: true,
 	lessonId: true,
 	options: true,
@@ -166,4 +167,48 @@ export type FullCourse = CourseWithRelations;
 export type CourseWithSections = Merge<
 	Course,
 	{ sections: CourseWithRelations["sections"] }
+>;
+
+export const processStepSchema = z.object({
+	courseGenerationId: z.string(),
+});
+
+export const UpdateCourseGenerationStatusSchema = CourseGenerationSchema.pick({
+	id: true,
+	status: true,
+});
+
+const CourseGenerationCreateShema = CourseGenerationSchema.pick({
+	instructorId: true,
+	step: true,
+	content: true,
+	status: true,
+});
+
+const CourseGenerationUpdateShema = CourseGenerationCreateShema.extend({});
+
+export type CourseGenerationCreateDto = z.infer<
+	typeof CourseGenerationCreateShema
+>;
+export type CourseGenerationUpdateDto = Partial<
+	z.infer<typeof CourseGenerationUpdateShema>
+>;
+
+const CourseGenerationMessageCreateShema = CourseGenerationMessageSchema.pick({
+	generationId: true,
+	step: true,
+	content: true,
+	role: true,
+});
+
+const CourseGenerationMessageUpdateShema = CourseGenerationCreateShema.extend(
+	{},
+);
+
+export type CourseGenerationMessageCreateDto = z.infer<
+	typeof CourseGenerationMessageCreateShema
+>;
+
+export type CourseGenerationMessageUpdateDto = Partial<
+	z.infer<typeof CourseGenerationMessageUpdateShema>
 >;

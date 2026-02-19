@@ -115,7 +115,7 @@ export default function PricingPage() {
 								key={plan.name}
 							>
 								{plan.popular && (
-									<div className="-top-4 -translate-x-1/2 absolute left-1/2">
+									<div className="absolute -top-4 left-1/2 -translate-x-1/2">
 										<Badge className="gap-1">
 											<Zap className="h-3 w-3" />
 											Most Popular

@@ -31,7 +31,6 @@ export default async function InstructorCoursePreviewPage({
 
 	return (
 		<div className="space-y-6">
-			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-4">
 					<Link href={INSTRUCTOR_URLS.courses}>
@@ -54,17 +53,14 @@ export default async function InstructorCoursePreviewPage({
 				</Button>
 			</div>
 
-			{/* Preview Notice */}
 			<div className="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-900 dark:bg-yellow-950 dark:text-yellow-100">
 				<strong>Preview Mode:</strong> This is how your course appears to
 				potential students. Make sure everything looks perfect before
 				publishing.
 			</div>
 
-			{/* Course Preview Content - Similar to public course page */}
 			<div className="grid gap-6 lg:grid-cols-3">
 				<div className="space-y-6 lg:col-span-2">
-					{/* Hero */}
 					<div className="space-y-4">
 						<Badge>{capitalize(course.category)}</Badge>
 						<h1 className="font-bold text-4xl">{course.title}</h1>
@@ -89,7 +85,6 @@ export default async function InstructorCoursePreviewPage({
 						</div>
 					</div>
 
-					{/* Video Preview */}
 					<Card className="aspect-video overflow-hidden">
 						{course.previewVideoUrl && (
 							<div className="flex h-full items-center justify-center bg-muted">
@@ -114,7 +109,6 @@ export default async function InstructorCoursePreviewPage({
 						)}
 					</Card>
 
-					{/* What You'll Learn */}
 					<Card className="p-6">
 						<h2 className="mb-4 font-bold text-2xl">What you'll learn</h2>
 						<div className="grid gap-3 md:grid-cols-2">
@@ -127,7 +121,6 @@ export default async function InstructorCoursePreviewPage({
 						</div>
 					</Card>
 
-					{/* Course Content */}
 					<Card className="p-6">
 						<h2 className="mb-4 font-bold text-2xl">Course content</h2>
 						<div className="mb-4 text-muted-foreground text-sm">
@@ -148,18 +141,21 @@ export default async function InstructorCoursePreviewPage({
 					</Card>
 				</div>
 
-				{/* Sidebar */}
 				<div className="space-y-6">
 					<Card className="sticky top-6 p-6">
 						<div className="space-y-4">
 							<div>
 								<div className="flex items-baseline gap-2">
 									<span className="font-bold text-3xl">${course.price}</span>
-									<span className="text-lg text-muted-foreground line-through">
-										${course.originalPrice}
-									</span>
+									{course.originalPrice && (
+										<span className="text-lg text-muted-foreground line-through">
+											${course.originalPrice}
+										</span>
+									)}
 								</div>
-								<p className="text-green-600 text-sm">55% off</p>
+								{!!course.originalPrice && (
+									<p className="text-green-600 text-sm">55% off</p>
+								)}
 							</div>
 
 							<Button className="w-full" disabled size="lg">

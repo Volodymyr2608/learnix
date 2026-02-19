@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
+import { AIAssistantButton } from "@/app/_components/Course/components/CreateCourseActions/components/AIAssistantButton";
 import type { CourseActionStatus } from "@/app/_components/Course/constants/courseActionStatus";
 import { COURSE_ACTION_STATUS } from "@/app/_components/Course/constants/courseActionStatus";
 import uploadMedia from "@/app/_components/Course/helpers/uploadMedia";
@@ -88,6 +89,7 @@ const CreateCourseActions = () => {
 
 	return (
 		<div className="flex gap-2">
+			<AIAssistantButton />
 			<Button variant="outline">
 				<Eye className="mr-2 h-4 w-4" />
 				Preview

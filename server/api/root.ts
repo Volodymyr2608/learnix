@@ -1,3 +1,4 @@
+import { courseAIRouter } from "@/server/api/routers/ai";
 import { courseRouter } from "@/server/api/routers/course";
 import { userRouter } from "@/server/api/routers/user";
 import { postRouter } from "./routers/post";
@@ -12,6 +13,7 @@ export const appRouter = createTRPCRouter({
 	post: postRouter,
 	user: userRouter,
 	course: courseRouter,
+	courseAI: courseAIRouter,
 });
 
 // export type definition of API
