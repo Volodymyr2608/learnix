@@ -75,10 +75,14 @@ const AIChatBuilderDialog = ({
 			const stepIndex = STEPS.findIndex(
 				(s) => s.id === activeCourseGeneration.step,
 			);
-			console.log(activeCourseGeneration);
+
 			let currentIndex = stepIndex >= 0 ? stepIndex : 0;
 
-			if ("sections" in activeCourseGeneration.content) {
+			if (
+				typeof activeCourseGeneration.content === "object" &&
+				activeCourseGeneration.content !== null &&
+				"sections" in activeCourseGeneration.content
+			) {
 				currentIndex += 1;
 			}
 			setCurrentStep(currentIndex);

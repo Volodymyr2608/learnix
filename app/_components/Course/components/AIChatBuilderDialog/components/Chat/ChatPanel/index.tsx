@@ -8,7 +8,6 @@ const ChatPanel = ({
 	onSend,
 	completedSteps,
 	onSuggestionClick,
-	onRegenerateBlock,
 	currentStep,
 	input,
 	isTyping,
