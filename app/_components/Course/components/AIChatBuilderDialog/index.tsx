@@ -113,27 +113,25 @@ const AIChatBuilderDialog = ({
 
 	return (
 		<Dialog onOpenChange={handleClose} open={open}>
-			<DialogContent className="h-[85vh] gap-0 overflow-hidden p-0 lg:max-w-6xl">
-				<div className="flex h-full">
-					<ChatPanel
-						completedSteps={completedSteps}
-						currentStep={currentStep}
-						input={input}
-						isTyping={isTyping}
-						messages={messages}
-						onAcceptBlock={acceptStep}
-						onInputChange={setInput}
-						onSend={() => sendUserMessage(input)}
-						onSuggestionClick={sendUserMessage}
-					/>
+			<DialogContent className="flex h-[85vh] gap-0 overflow-hidden p-0 lg:max-w-6xl">
+				<ChatPanel
+					completedSteps={completedSteps}
+					currentStep={currentStep}
+					input={input}
+					isTyping={isTyping}
+					messages={messages}
+					onAcceptBlock={acceptStep}
+					onInputChange={setInput}
+					onSend={() => sendUserMessage(input)}
+					onSuggestionClick={sendUserMessage}
+				/>
 
-					<PreviewPanel
-						completedSteps={completedSteps}
-						courseGenerationId={courseGenerationId}
-						isApplyPending={isApplyPending}
-						onApply={handleApply}
-					/>
-				</div>
+				<PreviewPanel
+					completedSteps={completedSteps}
+					courseGenerationId={courseGenerationId}
+					isApplyPending={isApplyPending}
+					onApply={handleApply}
+				/>
 			</DialogContent>
 		</Dialog>
 	);

@@ -1,5 +1,5 @@
 import { Bot } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { ScrollArea } from "@/app/_components/_shared/ui/scroll-area";
 import ChatMessage from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatMessages/components/ChatMessage";
 import type { ChatMessagesProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatMessages/types";
@@ -7,19 +7,20 @@ import type { ChatMessagesProps } from "@/app/_components/Course/components/AICh
 const ChatMessages = ({ messages, isTyping, ...props }: ChatMessagesProps) => {
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 
-	useEffect(() => {
-		if (messages.length === 0) return;
-		// Use setTimeout to ensure DOM has updated before scrolling
-		const timer = setTimeout(() => {
-			if (scrollRef.current) {
-				scrollRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-			}
-		}, 50);
-		return () => clearTimeout(timer);
+	useLayoutEffect(() => {
+		if (!messages.length) return;
+
+		const el = scrollRef.current;
+		if (!el) return;
+
+		el.scrollIntoView({
+			behavior: "smooth",
+			block: "end",
+		});
 	}, [messages]);
 
 	return (
-		<ScrollArea className="max-h-[calc(85vh-220px)] flex-1 overflow-y-auto p-4">
+		<ScrollArea className="min-h-0 flex-1 p-4">
 			<div className="space-y-4">
 				{messages.map((message, index) => (
 					<ChatMessage
