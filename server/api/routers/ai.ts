@@ -6,8 +6,8 @@ import {
 	processStepSchema,
 	UpdateCourseGenerationStatusSchema,
 } from "@/server/entities/course";
-import { courseGenerationRepository } from "@/server/repositories/courseGenerationRepository";
-import { courseAIService } from "@/server/services/courseAI.service";
+import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
+import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 
 export const courseAIRouter = createTRPCRouter({
 	acceptStep: protectedProcedure

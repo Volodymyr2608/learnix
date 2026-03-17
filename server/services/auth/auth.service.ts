@@ -1,6 +1,6 @@
 import { auth } from "@/server/better-auth";
 import type { SignUpData } from "@/server/entities/user";
-import { userRepository } from "@/server/repositories/userRepository";
+import { userRepository } from "@/server/repositories/user.repository";
 
 export class AuthService {
 	async signUp(

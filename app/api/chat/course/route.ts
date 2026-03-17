@@ -1,5 +1,5 @@
 import { getSession } from "@/server/better-auth/server";
-import { courseAIService } from "@/server/services/courseAI.service";
+import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 
 export const runtime = "nodejs";
 

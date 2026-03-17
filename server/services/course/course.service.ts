@@ -4,13 +4,13 @@ import type {
 	CourseFullUpdateDto,
 	CourseWithSections,
 } from "@/server/entities/course";
-import { courseRepository } from "@/server/repositories/courseRepository";
-import { lessonRepository } from "@/server/repositories/lessonRepository";
-import { sectionRepository } from "@/server/repositories/sectionRepository";
-import { CourseError } from "@/server/services/errors/course.errors";
-import { LessonError } from "@/server/services/errors/lesson.errors";
-import { SectionError } from "@/server/services/errors/section.errors";
-import { vercelService } from "@/server/services/vercel.service";
+import { courseRepository } from "@/server/repositories/course.repository";
+import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { sectionRepository } from "@/server/repositories/section.repository";
+import { CourseError } from "@/server/services/course/course.errors";
+import { LessonError } from "@/server/services/lesson/lesson.errors";
+import { SectionError } from "@/server/services/section/section.errors";
+import { vercelService } from "@/server/services/versel/vercel.service";
 import { logger } from "@/server/utils/logger";
 
 class CourseService {

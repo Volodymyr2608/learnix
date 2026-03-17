@@ -2,13 +2,17 @@ import { ChatOpenAI } from "@langchain/openai";
 import { TRPCError } from "@trpc/server";
 import { type CourseGeneration, DraftStep } from "@/generated/prisma";
 import { STEP_MESSAGES } from "@/lib/constants/stepMessages";
-import { courseGenerationMessageRepository } from "@/server/repositories/courseGenerationMessageRepository";
-import { courseGenerationRepository } from "@/server/repositories/courseGenerationRepository";
+import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
+import { courseGenerationMessageRepository } from "@/server/repositories/courseGenerationMessage.repository";
+import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
+import {
+	isMessageShape,
+	type MessageShape,
+} from "@/server/services/courseAI/guards/isMessageShape";
+import { extractStepDataPrompt } from "@/server/services/courseAI/prompts/extractStepDataPrompt";
+import { buildSystemPrompt } from "@/server/services/courseAI/prompts/systemPrompt";
+import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 import { logger } from "@/server/utils/logger";
-import { isMessageShape, type MessageShape } from "./guards/isMessageShape";
-import { extractStepDataPrompt } from "./prompts/extractStepDataPrompt";
-import { buildSystemPrompt } from "./prompts/systemPrompt";
-import { getValidatorForStep } from "./validators/getValidatorForStep";
 
 export class CourseAIService {
 	private readonly apiKey = process.env.OPENAI_API_KEY;
@@ -62,7 +66,9 @@ export class CourseAIService {
 			});
 		} catch (error) {
 			logger.error(error);
-			throw new Error("[Course AI service] failed to create course generation");
+			throw new CourseAIError(
+				"[Course AI service] failed to create course generation",
+			);
 		}
 	}
 
@@ -76,7 +82,7 @@ export class CourseAIService {
 			});
 		} catch (e) {
 			logger.error(e);
-			throw new Error("[Course AI service] Error saving message");
+			throw new CourseAIError("[Course AI service] Error saving message");
 		}
 	}
 
@@ -160,7 +166,9 @@ export class CourseAIService {
 			return stepValidator.parse(rawJson);
 		} catch (error) {
 			logger.error(error);
-			throw new Error("[Course AI service] failed to extract step data");
+			throw new CourseAIError(
+				"[Course AI service] failed to extract step data",
+			);
 		}
 	}
 

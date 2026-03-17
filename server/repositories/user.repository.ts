@@ -4,8 +4,8 @@ import type {
 	UserCreatePayload,
 	UserUpdateDto,
 } from "@/server/entities/user";
-import type AccountRepository from "@/server/repositories/accountRepository";
-import { accountRepository } from "@/server/repositories/accountRepository";
+import type AccountRepository from "@/server/repositories/account.repository";
+import { accountRepository } from "@/server/repositories/account.repository";
 import BaseRepository from "@/server/repositories/baseRepository";
 
 export default class UserRepository extends BaseRepository<
