@@ -4,8 +4,8 @@ import {
 	CourseFullCreateDto,
 	CourseFullUpdateDto,
 } from "@/server/entities/course";
-import { courseRepository } from "@/server/repositories/courseRepository";
-import { courseService } from "@/server/services/course.service";
+import { courseRepository } from "@/server/repositories/course.repository";
+import { courseService } from "@/server/services/course/course.service";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const courseRouter = createTRPCRouter({

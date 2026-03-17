@@ -5,14 +5,14 @@ import type {
 	CourseUpdateDto,
 } from "@/server/entities/course";
 import BaseRepository from "@/server/repositories/baseRepository";
-import type LessonRepository from "@/server/repositories/lessonRepository";
-import { lessonRepository } from "@/server/repositories/lessonRepository";
-import type QuizRepository from "@/server/repositories/quizRepository";
-import { quizRepository } from "@/server/repositories/quizRepository";
-import type SectionRepository from "@/server/repositories/sectionRepository";
-import { sectionRepository } from "@/server/repositories/sectionRepository";
-import type VercelService from "@/server/services/vercel.service";
-import { vercelService } from "@/server/services/vercel.service";
+import type LessonRepository from "@/server/repositories/lesson.repository";
+import { lessonRepository } from "@/server/repositories/lesson.repository";
+import type QuizRepository from "@/server/repositories/quiz.repository";
+import { quizRepository } from "@/server/repositories/quiz.repository";
+import type SectionRepository from "@/server/repositories/section.repository";
+import { sectionRepository } from "@/server/repositories/section.repository";
+import type VercelService from "@/server/services/versel/vercel.service";
+import { vercelService } from "@/server/services/versel/vercel.service";
 
 export default class CourseRepository extends BaseRepository<
 	Course,
