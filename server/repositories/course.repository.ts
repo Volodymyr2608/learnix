@@ -1,36 +1,32 @@
-import type { Course } from "@/generated/prisma";
-import { CourseStatus } from "@/generated/prisma";
-import type {
-	CourseCreateDto,
-	CourseUpdateDto,
-} from "@/server/entities/course";
-import BaseRepository from "@/server/repositories/baseRepository";
+import { type Course, CourseStatus, type Prisma } from "@/generated/prisma";
+import { BaseRepository } from "@/server/repositories/base/base.repository";
 import type LessonRepository from "@/server/repositories/lesson.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import type QuizRepository from "@/server/repositories/quiz.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import type SectionRepository from "@/server/repositories/section.repository";
 import { sectionRepository } from "@/server/repositories/section.repository";
-import type VercelService from "@/server/services/versel/vercel.service";
-import { vercelService } from "@/server/services/versel/vercel.service";
 
 export default class CourseRepository extends BaseRepository<
+	"course",
 	Course,
-	CourseCreateDto,
-	CourseUpdateDto
+	Prisma.CourseCreateInput,
+	Prisma.CourseUpdateInput,
+	Prisma.CourseWhereInput,
+	Prisma.CourseInclude,
+	Prisma.CourseSelect,
+	Prisma.CourseOrderByWithRelationInput
 > {
-	protected readonly model = "course";
+	protected readonly modelName = "course" as const;
 
 	private sectionRepository: SectionRepository;
 	private lessonRepository: LessonRepository;
-	private vercelService: VercelService;
 	private quizRepository: QuizRepository;
 
 	constructor() {
 		super();
 		this.sectionRepository = sectionRepository;
 		this.lessonRepository = lessonRepository;
-		this.vercelService = vercelService;
 		this.quizRepository = quizRepository;
 	}
 
@@ -45,7 +41,7 @@ export default class CourseRepository extends BaseRepository<
 				const now = new Date();
 
 				return this.transaction(async () => {
-					await this.update(id, { deletedAt: now } as CourseUpdateDto);
+					await this.update(id, { deletedAt: now });
 
 					await this.sectionRepository.updateMany(
 						{ courseId: id },

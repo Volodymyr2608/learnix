@@ -1,20 +1,40 @@
-import { db as prisma } from "@/server/db";
-import type Paginator from "@/server/repositories/baseRepository/paginator";
-import type { PrismaModel } from "@/server/repositories/baseRepository/prismaModel";
-import type {
-	Filter,
-	FindFirstArgs,
-	FindManyArgs,
-	OrderBy,
-	Repository,
-} from "@/server/repositories/baseRepository/repository";
+import type { Prisma } from "@/generated/prisma";
+import { db } from "@/server/db";
+import type Paginator from "@/server/repositories/base/paginator";
+import { hasId } from "@/server/utils/hasId";
 
-export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
-	implements Repository<T, TCreateDto, TUpdateDto>
-{
-	protected abstract readonly model: keyof typeof prisma;
-
+/**
+ * Base Repository
+ *
+ * @template TModel - Prisma model delegate (e.g., db.user)
+ * @template TPayload - The result type from Prisma operations
+ * @template TCreateInput - Prisma create input type
+ * @template TUpdateInput - Prisma update input type
+ * @template TWhere - Prisma where input type
+ * @template TInclude - Prisma include input type
+ * @template TSelect - Prisma select input type
+ * @template TOrderBy - Prisma orderBy input type
+ */
+export abstract class BaseRepository<
+	TModel extends keyof typeof db,
+	TPayload,
+	TCreateInput,
+	TUpdateInput,
+	TWhere,
+	TInclude,
+	TSelect,
+	TOrderBy,
+> {
+	protected abstract readonly modelName: TModel;
 	protected readonly isSoftDelete: boolean = false;
+
+	protected get model() {
+		return db[this.modelName] as any;
+	}
+
+	protected get db() {
+		return db;
+	}
 
 	protected readonly logger?: {
 		info: (message: string, meta?: Record<string, unknown>) => void;
@@ -46,177 +66,170 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		throw new Error(`Failed to ${operation}: ${errorMessage}`);
 	}
 
-	protected get repo() {
-		return prisma[this.model] as unknown as PrismaModel;
-	}
-
-	protected get prisma() {
-		return prisma;
-	}
-
 	public async findOne(
 		id: string,
-		include: object | null | undefined = {},
-		idField: string = "id",
-	): Promise<T> {
+		options?: {
+			include?: TInclude;
+			idField?: string;
+		},
+	): Promise<TPayload> {
 		try {
-			return (await this.repo.findUniqueOrThrow({
+			const { include, idField = "id" } = options || {};
+
+			return await this.model.findUniqueOrThrow({
 				where: { [idField]: id },
 				include,
-			})) as Promise<T>;
+			});
 		} catch (error) {
 			return this.handleError(error, `find entity with ID ${id}`, { id });
 		}
 	}
 
-	public async findFirst({
-		where = {},
-		orderBy,
-		include = {},
-	}: FindFirstArgs): Promise<T | null> {
+	public async findFirst(options?: {
+		where?: TWhere;
+		include?: TInclude;
+		select?: TSelect;
+		orderBy?: TOrderBy | TOrderBy[];
+	}): Promise<TPayload | null> {
 		try {
-			const result = await this.repo.findFirst({
-				where: this.buildFilter(where),
-				orderBy: orderBy ?? undefined,
-				include,
+			return await this.model.findFirst({
+				where: this.buildWhere(options?.where),
+				orderBy: options?.orderBy,
+				include: options?.include,
+				select: options?.select,
 			});
-			return result as T | null;
 		} catch (error) {
-			return this.handleError(error, "find first entity", { where, orderBy });
+			return this.handleError(error, "find first entity", {
+				where: options?.where,
+				orderBy: options?.orderBy,
+				select: options?.select,
+			});
 		}
 	}
 
-	public async findMany({
-		where = {},
-		skip,
-		take,
-		orderBy,
-		include,
-		select,
-	}: FindManyArgs): Promise<T[]> {
+	public async findMany(options?: {
+		where?: TWhere;
+		include?: TInclude;
+		select?: TSelect;
+		orderBy?: TOrderBy | TOrderBy[];
+		skip?: number;
+		take?: number;
+	}): Promise<TPayload[]> {
 		try {
-			this.logger?.debug("Finding entities", { where, skip, take, orderBy });
-			const result = await this.repo.findMany({
-				where: this.buildFilter(where),
-				skip: skip ?? undefined,
-				take: take ?? undefined,
-				orderBy: orderBy ?? undefined,
-				include,
-				select,
+			this.logger?.debug("Finding entities", { ...options });
+			return await this.model.findMany({
+				where: this.buildWhere(options?.where),
+				include: options?.include,
+				select: options?.select,
+				orderBy: options?.orderBy,
+				skip: options?.skip,
+				take: options?.take,
 			});
-			return result as T[];
 		} catch (error) {
 			return this.handleError(error, "find entities", {
-				where,
-				skip,
-				take,
-				orderBy,
+				...options,
 			});
 		}
 	}
 
-	public async create(dto: TCreateDto): Promise<T> {
+	public async create(data: TCreateInput): Promise<TPayload> {
 		try {
-			this.logger?.info("Creating entity", { dto });
-			return (await this.repo.create({ data: dto })) as Promise<T>;
+			this.logger?.info("Creating entity", { data });
+			return await this.model.create({ data });
 		} catch (error) {
-			return this.handleError(error, "create entity", { dto });
+			return this.handleError(error, "create entity", { data });
 		}
 	}
 
-	public async bulkCreate(dtos: TCreateDto[]): Promise<number> {
+	public async bulkCreate(data: TCreateInput[]): Promise<number> {
 		try {
-			this.logger?.info("Bulk creating entities", { count: dtos.length });
+			this.logger?.info("Bulk creating entities", { count: data.length });
 
-			if (!this.repo.createMany) {
+			if (!this.model.createMany) {
 				// Fallback to individual creates if createMany is not available
-				const results = await Promise.all(dtos.map((dto) => this.create(dto)));
+				const results = await Promise.all(data.map((dto) => this.create(dto)));
 				return results.length;
 			}
 
-			const result = await this.repo.createMany({
-				data: dtos as unknown as unknown[],
+			const result = await this.model.createMany({
+				data,
 			});
 			return result.count;
 		} catch (error) {
 			return this.handleError(error, "bulk create entities", {
-				count: dtos.length,
+				count: data.length,
 			});
 		}
 	}
 
-	public async createManyAndReturn(dtos: TCreateDto[]): Promise<T[]> {
+	public async createManyAndReturn(data: TCreateInput[]): Promise<TPayload[]> {
 		try {
-			this.logger?.info("Creating entities", { count: dtos.length });
+			this.logger?.info("Creating entities", { count: data.length });
 
-			if (!this.repo.createManyAndReturn) {
+			if (!this.model.createManyAndReturn) {
 				// Fallback to individual creates if createMany is not available
-				return await Promise.all(dtos.map((dto) => this.create(dto)));
+				return await Promise.all(data.map((dto) => this.create(dto)));
 			}
 
-			return (await this.repo.createManyAndReturn({ data: dtos })) as Promise<
-				T[]
-			>;
+			return await this.model.createManyAndReturn({ data });
 		} catch (error) {
 			return this.handleError(error, "crete many and return entities", {
-				count: dtos.length,
+				count: data.length,
 			});
 		}
 	}
 
 	public async update(
 		id: string,
-		dto: TUpdateDto,
+		data: TUpdateInput,
 		idField: string = "id",
-	): Promise<T> {
+	): Promise<TPayload> {
 		try {
-			this.logger?.info("Updating entity", { id, dto });
-			return (await this.repo.update({
+			this.logger?.info("Updating entity", { id, data });
+			return await this.model.update({
 				where: { [idField]: id },
-				data: dto,
-			})) as Promise<T>;
+				data,
+			});
 		} catch (error) {
 			return this.handleError(error, `update entity with ID ${id}`, {
 				id,
-				dto,
+				data,
 			});
 		}
 	}
 
-	public async bulkUpdate(ids: string[], dto: TUpdateDto): Promise<number> {
+	public async bulkUpdate(ids: string[], data: TUpdateInput): Promise<number> {
 		try {
-			this.logger?.info("Bulk updating entities", { ids, dto });
+			this.logger?.info("Bulk updating entities", { ids, data });
 
-			if (!this.repo.updateMany) {
+			if (!this.model.updateMany) {
 				// Fallback to individual updates if updateMany is not available
 				const results = await Promise.all(
-					ids.map((id) => this.update(id, dto)),
+					ids.map((id) => this.update(id, data)),
 				);
 				return results.length;
 			}
 
-			const result = await this.repo.updateMany({
+			const result = await this.model.updateMany({
 				where: { id: { in: ids } },
-				data: dto as unknown as unknown,
+				data,
 			});
 			return result.count;
 		} catch (error) {
-			return this.handleError(error, "bulk update entities", { ids, dto });
+			return this.handleError(error, "bulk update entities", { ids, data });
 		}
 	}
 
-	public async updateMany(filter: Filter, data: object): Promise<number> {
+	public async updateMany(where: TWhere, data: TUpdateInput): Promise<number> {
 		try {
-			this.logger?.info("Updating entities", { filter, data });
+			this.logger?.info("Updating entities", { where, data });
 
-			if (!this.repo.updateMany) {
+			if (!this.model.updateMany) {
 				// Fallback to individual updates if updateMany is not available
 				const results = await Promise.all(
-					(await this.findMany({ where: filter })).map((entity: T) => {
-						// @ts-expect-error
-						if (entity && typeof entity.id !== "undefined") {
-							return this.repo.update({
-								// @ts-expect-error
+					(await this.findMany({ where })).map((entity: TPayload) => {
+						if (hasId(entity)) {
+							return this.model.update({
 								where: { id: entity.id },
 								data,
 							});
@@ -229,14 +242,14 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 				return results.filter(Boolean).length;
 			}
 
-			const result = await this.repo.updateMany({
-				where: this.buildFilter(filter),
+			const result = await this.model.updateMany({
+				where: this.buildWhere(where),
 				data,
 			});
 
 			return result.count;
 		} catch (error) {
-			return this.handleError(error, "update entities", { filter, data });
+			return this.handleError(error, "update entities", { where, data });
 		}
 	}
 
@@ -247,13 +260,13 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		try {
 			this.logger?.info("Deleting entity", { id, softDelete });
 			if (softDelete) {
-				await this.repo.update({
+				await this.model.update({
 					where: { id },
-					data: { deletedAt: new Date() } as unknown as TUpdateDto,
+					data: { deletedAt: new Date() },
 				});
 			} else {
 				// Direct call to repo.delete instead of forceDelete to avoid nested error messages
-				await this.repo.delete({ where: { id } });
+				await this.model.delete({ where: { id } });
 			}
 			return true;
 		} catch (error) {
@@ -267,7 +280,7 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 	public async forceDelete(id: string): Promise<boolean> {
 		try {
 			this.logger?.info("Force deleting entity", { id });
-			await this.repo.delete({ where: { id } });
+			await this.model.delete({ where: { id } });
 			return true;
 		} catch (error) {
 			return this.handleError(error, `force delete entity with ID ${id}`, {
@@ -284,7 +297,7 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 			this.logger?.info("Bulk deleting entities", { ids, softDelete });
 
 			if (softDelete) {
-				if (!this.repo.updateMany) {
+				if (!this.model.updateMany) {
 					// Fallback to individual soft deletes
 					const results = await Promise.all(
 						ids.map((id) => this.delete(id, true)),
@@ -292,13 +305,13 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 					return results.filter(Boolean).length;
 				}
 
-				const result = await this.repo.updateMany({
+				const result = await this.model.updateMany({
 					where: { id: { in: ids } },
 					data: { deletedAt: new Date() } as unknown as unknown,
 				});
 				return result.count;
 			} else {
-				if (!this.repo.deleteMany) {
+				if (!this.model.deleteMany) {
 					// Fallback to individual hard deletes
 					const results = await Promise.all(
 						ids.map((id) => this.forceDelete(id)),
@@ -306,7 +319,7 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 					return results.filter(Boolean).length;
 				}
 
-				const result = await this.repo.deleteMany({
+				const result = await this.model.deleteMany({
 					where: { id: { in: ids } },
 				});
 				return result.count;
@@ -320,11 +333,11 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 	}
 
 	public async deleteMany(
-		filter: Filter = {},
+		where: TWhere,
 		softDelete: boolean = this.isSoftDelete,
 	): Promise<number> {
 		try {
-			this.logger?.info("Deleting entities", { filter, softDelete });
+			this.logger?.info("Deleting entities", { where, softDelete });
 
 			if (softDelete) {
 				// Verify model supports soft delete
@@ -334,18 +347,18 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 				}
 
 				// For soft delete, don't exclude already deleted records
-				const baseFilter = { ...filter };
-				if (this.repo.updateMany) {
-					const { count } = await this.repo.updateMany({
+				const baseFilter = { ...where };
+				if (this.model.updateMany) {
+					const { count } = await this.model.updateMany({
 						where: baseFilter,
 						data: { deletedAt: new Date() },
 					});
 
 					return count;
 				}
-			} else if (this.repo.deleteMany) {
-				const { count } = await this.repo.deleteMany({
-					where: this.buildFilter(filter),
+			} else if (this.model.deleteMany) {
+				const { count } = await this.model.deleteMany({
+					where: this.buildWhere(where),
 				});
 
 				return count;
@@ -359,40 +372,49 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 			) {
 				throw error; // Just rethrow without logging
 			}
-			return this.handleError(error, "delete entities", { filter, softDelete });
+			return this.handleError(error, "delete entities", { where, softDelete });
 		}
 	}
 
-	public async count(filter: Filter = {}): Promise<number> {
+	public async count(where?: TWhere): Promise<number> {
 		try {
-			this.logger?.debug("Counting entities", { filter });
-			return this.repo.count({ where: this.buildFilter(filter) });
+			this.logger?.debug("Counting entities", { where });
+			return this.model.count({ where: this.buildWhere(where) });
 		} catch (error) {
-			return this.handleError(error, "count entities", { filter });
+			return this.handleError(error, "count entities", { where });
 		}
 	}
 
-	public async paginate(
-		perPage: number = 10,
-		page: number = 1,
-		filter: Filter = {},
-		orderBy: OrderBy = { id: "asc" },
-	): Promise<Paginator<T>> {
+	public async paginate(options: {
+		page?: number;
+		perPage?: number;
+		where?: TWhere;
+		include?: TInclude;
+		select?: TSelect;
+		orderBy?: TOrderBy | TOrderBy[];
+	}): Promise<Paginator<TPayload>> {
+		const page = options.page || 1;
+		const perPage = options.perPage || 10;
+
 		try {
 			this.logger?.debug("Paginating entities", {
 				perPage,
 				page,
-				filter,
-				orderBy,
+				where: options.where,
+				orderBy: options.orderBy,
 			});
-			const total = await this.count(filter);
-			const result = await this.repo.findMany({
-				where: this.buildFilter(filter),
-				skip: (page - 1) * perPage,
-				take: perPage,
-				orderBy,
-			});
-			const data = result as T[];
+
+			const [total, data] = await Promise.all([
+				this.count(options.where),
+				this.findMany({
+					where: options.where,
+					include: options.include,
+					select: options.select,
+					orderBy: options.orderBy,
+					skip: (page - 1) * perPage,
+					take: perPage,
+				}),
+			]);
 
 			return {
 				data,
@@ -407,13 +429,13 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 			return this.handleError(error, "paginate entities", {
 				perPage,
 				page,
-				filter,
-				orderBy,
+				where: options.where,
+				orderBy: options.orderBy,
 			});
 		}
 	}
 
-	public async restore(id: string): Promise<T> {
+	public async restore(id: string): Promise<TPayload> {
 		try {
 			if (!this.isSoftDelete) {
 				this.logger?.error("Restore not supported", { id });
@@ -421,10 +443,10 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 			}
 
 			this.logger?.info("Restoring entity", { id });
-			return (await this.repo.update({
+			return await this.model.update({
 				where: { id },
-				data: { deletedAt: null } as unknown as TUpdateDto,
-			})) as Promise<T>;
+				data: { deletedAt: null },
+			});
 		} catch (error) {
 			// Special case for restore not supported error
 			if (
@@ -438,11 +460,11 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 	}
 
 	public async transaction<R>(
-		callback: (prismaClient: unknown) => Promise<R>,
+		callback: (tx: Prisma.TransactionClient) => Promise<R>,
 	): Promise<R> {
 		try {
 			this.logger?.info("Starting transaction");
-			const result = await prisma.$transaction(callback);
+			const result = await db.$transaction(callback);
 			this.logger?.info("Transaction completed successfully");
 			return result;
 		} catch (error) {
@@ -450,8 +472,15 @@ export default abstract class BaseRepository<T, TCreateDto, TUpdateDto>
 		}
 	}
 
-	protected buildFilter(filter: Filter = {}): Filter {
-		const baseFilter = this.isSoftDelete ? { deletedAt: null } : {};
-		return { ...baseFilter, ...filter };
+	/**
+	 * Build where clause with a soft delete filter
+	 */
+	protected buildWhere(where?: TWhere): TWhere {
+		if (!this.isSoftDelete) return where as TWhere;
+
+		return {
+			deletedAt: null,
+			...where,
+		} as TWhere;
 	}
 }

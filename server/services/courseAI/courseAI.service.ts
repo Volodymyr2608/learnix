@@ -75,7 +75,7 @@ export class CourseAIService {
 	async saveMessage(generationId: string, message: MessageShape) {
 		try {
 			return await courseGenerationMessageRepository.create({
-				generationId,
+				generation: { connect: { id: generationId } },
 				role: message.role,
 				content: message.content,
 				step: message.step,
@@ -196,7 +196,7 @@ export class CourseAIService {
 				STEP_MESSAGES[nextStepId] ?? "Let's continue building your course.";
 
 			await courseGenerationMessageRepository.create({
-				generationId: courseGenerationId,
+				generation: { connect: { id: courseGenerationId } },
 				step: nextStepId,
 				role: "assistant",
 				content: flowText,

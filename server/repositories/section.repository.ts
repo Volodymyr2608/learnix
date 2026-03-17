@@ -1,16 +1,17 @@
-import type { Section } from "@/generated/prisma";
-import type {
-	SectionCreateDto,
-	SectionUpdateDto,
-} from "@/server/entities/course";
-import BaseRepository from "@/server/repositories/baseRepository";
+import type { Prisma, Section } from "@/generated/prisma";
+import { BaseRepository } from "@/server/repositories/base/base.repository";
 
 export default class SectionRepository extends BaseRepository<
+	"section",
 	Section,
-	SectionCreateDto,
-	SectionUpdateDto
+	Prisma.SectionCreateInput,
+	Prisma.SectionUpdateInput,
+	Prisma.SectionWhereInput,
+	Prisma.SectionInclude,
+	Prisma.SectionSelect,
+	Prisma.SectionOrderByWithRelationInput
 > {
-	protected readonly model = "section";
+	protected readonly modelName = "section";
 }
 
 export const sectionRepository = new SectionRepository();

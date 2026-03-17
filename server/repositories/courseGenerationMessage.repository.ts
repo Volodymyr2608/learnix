@@ -1,16 +1,17 @@
-import type { CourseGenerationMessage } from "@/generated/prisma";
-import type {
-	CourseGenerationMessageCreateDto,
-	CourseGenerationMessageUpdateDto,
-} from "@/server/entities/course";
-import BaseRepository from "@/server/repositories/baseRepository";
+import type { CourseGenerationMessage, Prisma } from "@/generated/prisma";
+import { BaseRepository } from "@/server/repositories/base/base.repository";
 
 export default class CourseGenerationMessageRepository extends BaseRepository<
+	"courseGenerationMessage",
 	CourseGenerationMessage,
-	CourseGenerationMessageCreateDto,
-	CourseGenerationMessageUpdateDto
+	Prisma.CourseGenerationMessageCreateInput,
+	Prisma.CourseGenerationMessageUpdateInput,
+	Prisma.CourseGenerationMessageWhereInput,
+	Prisma.CourseGenerationMessageInclude,
+	Prisma.CourseGenerationMessageSelect,
+	Prisma.CourseGenerationMessageOrderByWithRelationInput
 > {
-	protected readonly model = "courseGenerationMessage";
+	protected readonly modelName = "courseGenerationMessage";
 }
 
 export const courseGenerationMessageRepository =

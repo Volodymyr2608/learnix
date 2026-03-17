@@ -3,19 +3,20 @@ import {
 	STEPS_MAP,
 } from "@/app/_components/Course/components/AIChatBuilderDialog/constants/steps";
 import type { CourseGeneration, Prisma } from "@/generated/prisma";
-import type {
-	CourseGenerationCreateDto,
-	CourseGenerationUpdateDto,
-} from "@/server/entities/course";
-import BaseRepository from "@/server/repositories/baseRepository";
+import { BaseRepository } from "@/server/repositories/base/base.repository";
 import { logger } from "@/server/utils/logger";
 
 export default class CourseGenerationRepository extends BaseRepository<
+	"courseGeneration",
 	CourseGeneration,
-	CourseGenerationCreateDto,
-	CourseGenerationUpdateDto
+	Prisma.CourseGenerationCreateInput,
+	Prisma.CourseGenerationUpdateInput,
+	Prisma.CourseGenerationWhereInput,
+	Prisma.CourseGenerationInclude,
+	Prisma.CourseGenerationSelect,
+	Prisma.CourseGenerationOrderByWithRelationInput
 > {
-	protected readonly model = "courseGeneration";
+	protected readonly modelName = "courseGeneration";
 
 	async updateContent(
 		id: string,
