@@ -4,7 +4,7 @@ import { BaseRepository } from "@/server/repositories/base/base.repository";
 export default class LessonRepository extends BaseRepository<
 	"lesson",
 	Lesson,
-	Prisma.LessonCreateInput,
+	Prisma.LessonUncheckedCreateInput,
 	Prisma.LessonUpdateInput,
 	Prisma.LessonWhereInput,
 	Prisma.LessonInclude,

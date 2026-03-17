@@ -10,7 +10,7 @@ import { sectionRepository } from "@/server/repositories/section.repository";
 export default class CourseRepository extends BaseRepository<
 	"course",
 	Course,
-	Prisma.CourseCreateInput,
+	Prisma.CourseUncheckedCreateInput,
 	Prisma.CourseUpdateInput,
 	Prisma.CourseWhereInput,
 	Prisma.CourseInclude,

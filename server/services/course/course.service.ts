@@ -16,13 +16,10 @@ import { logger } from "@/server/utils/logger";
 class CourseService {
 	async createCourse(dto: CourseFullCreateDto) {
 		try {
-			const { sections, instructorId, ...courseData } = dto;
+			const { sections, ...courseData } = dto;
 
 			return await courseRepository.transaction(async () => {
-				const course = await courseRepository.create({
-					...courseData,
-					instructor: { connect: { id: instructorId } },
-				});
+				const course = await courseRepository.create(courseData);
 
 				const createdSections = await this.createSections(course.id, sections);
 
@@ -63,7 +60,7 @@ class CourseService {
 		sections: CourseFullCreateDto["sections"],
 	) {
 		return sections.map((section, i) => ({
-			course: { connect: { id: courseId } },
+			courseId: courseId,
 			title: section.title,
 			order: i + 1,
 		}));
@@ -93,7 +90,7 @@ class CourseService {
 	) {
 		return sections.flatMap((s, i) =>
 			s.lessons.map((l, j) => ({
-				section: { connect: { id: createdSections[i]?.id ?? "" } },
+				sectionId: createdSections[i]?.id ?? "",
 				title: l.title,
 				duration: l.duration ?? null,
 				order: j + 1,
@@ -205,7 +202,7 @@ class CourseService {
 					}
 
 					const created = await sectionRepository.create({
-						course: { connect: { id: courseId } },
+						courseId,
 						title: sectionData.title,
 						order: i + 1,
 					});
@@ -263,7 +260,7 @@ class CourseService {
 						if (!updatedSec) continue;
 
 						await lessonRepository.create({
-							section: { connect: { id: updatedSec.id } },
+							sectionId: updatedSec.id,
 							title: lessonData.title,
 							duration: lessonData.duration ?? null,
 							order: j + 1,

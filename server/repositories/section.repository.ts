@@ -4,7 +4,7 @@ import { BaseRepository } from "@/server/repositories/base/base.repository";
 export default class SectionRepository extends BaseRepository<
 	"section",
 	Section,
-	Prisma.SectionCreateInput,
+	Prisma.SectionUncheckedCreateInput,
 	Prisma.SectionUpdateInput,
 	Prisma.SectionWhereInput,
 	Prisma.SectionInclude,

@@ -4,7 +4,7 @@ import { BaseRepository } from "@/server/repositories/base/base.repository";
 export default class CourseGenerationMessageRepository extends BaseRepository<
 	"courseGenerationMessage",
 	CourseGenerationMessage,
-	Prisma.CourseGenerationMessageCreateInput,
+	Prisma.CourseGenerationMessageUncheckedCreateInput,
 	Prisma.CourseGenerationMessageUpdateInput,
 	Prisma.CourseGenerationMessageWhereInput,
 	Prisma.CourseGenerationMessageInclude,
