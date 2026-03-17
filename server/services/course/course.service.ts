@@ -60,7 +60,7 @@ class CourseService {
 		sections: CourseFullCreateDto["sections"],
 	) {
 		return sections.map((section, i) => ({
-			courseId,
+			courseId: courseId,
 			title: section.title,
 			order: i + 1,
 		}));

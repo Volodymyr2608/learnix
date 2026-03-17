@@ -1,16 +1,17 @@
-import type { Lesson } from "@/generated/prisma";
-import type {
-	LessonCreateDto,
-	LessonUpdateDto,
-} from "@/server/entities/course";
-import BaseRepository from "@/server/repositories/baseRepository";
+import type { Lesson, Prisma } from "@/generated/prisma";
+import { BaseRepository } from "@/server/repositories/base/base.repository";
 
 export default class LessonRepository extends BaseRepository<
+	"lesson",
 	Lesson,
-	LessonCreateDto,
-	LessonUpdateDto
+	Prisma.LessonUncheckedCreateInput,
+	Prisma.LessonUpdateInput,
+	Prisma.LessonWhereInput,
+	Prisma.LessonInclude,
+	Prisma.LessonSelect,
+	Prisma.LessonOrderByWithRelationInput
 > {
-	protected readonly model = "lesson";
+	protected readonly modelName = "lesson";
 }
 
 export const lessonRepository = new LessonRepository();
