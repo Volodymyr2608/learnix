@@ -23,7 +23,7 @@ import { STATUS_COURSE_LIST } from "@/lib/constants/statusCourse";
 
 const CourseBuilder = ({ course, mode }: CourseBuilderProps) => {
 	const isEdit = mode === "edit";
-	console.log(course);
+
 	return (
 		<CourseFormProvider course={course}>
 			<CourseFormLayout>

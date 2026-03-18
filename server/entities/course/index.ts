@@ -51,7 +51,6 @@ export const courseSchema = z.object({
 	originalPrice: z.string().nullable().optional(),
 	thumbnail: z
 		.instanceof(File, { message: "Thumbnail is required" })
-		.optional()
 		.refine((file) => !file || file.type.startsWith("image/"), {
 			message: "Thumbnail must be an image file",
 		})

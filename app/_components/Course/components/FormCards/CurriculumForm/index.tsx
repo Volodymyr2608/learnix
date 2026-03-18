@@ -62,7 +62,6 @@ const CurriculumForm = ({ isEdit, courseId }: CurriculumFormProps) => {
 		});
 	};
 
-	console.log(sections);
 	return (
 		<Card>
 			<CardHeader>

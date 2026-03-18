@@ -163,8 +163,6 @@ class CourseService {
 			incoming.thumbnailUrl !== existing.thumbnailUrl
 		) {
 			vercelService.deleteFileFromVercelStorage(existing.thumbnailUrl);
-		} else {
-			result.thumbnailUrl = null;
 		}
 
 		// preview video updates
@@ -174,8 +172,6 @@ class CourseService {
 			incoming.previewVideoUrl !== existing.previewVideoUrl
 		) {
 			vercelService.deleteFileFromVercelStorage(existing.previewVideoUrl);
-		} else {
-			result.previewVideoUrl = null;
 		}
 
 		return result;
