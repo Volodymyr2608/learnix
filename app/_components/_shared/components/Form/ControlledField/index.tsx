@@ -1,7 +1,7 @@
 import type { FieldValues } from "react-hook-form";
 import { Controller } from "react-hook-form";
-import type { ControlledFieldProps } from "@/app/_components/_shared/Form/ControlledField/types";
-import InputPassword from "@/app/_components/_shared/Form/InputPassword";
+import type { ControlledFieldProps } from "@/app/_components/_shared/components/Form/ControlledField/types";
+import InputPassword from "@/app/_components/_shared/components/Form/InputPassword";
 import {
 	Field,
 	FieldError,

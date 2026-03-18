@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
-import ControlledField from "@/app/_components/_shared/Form/ControlledField";
+import ControlledField from "@/app/_components/_shared/components/Form/ControlledField";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { FieldGroup, FieldLabel } from "@/app/_components/_shared/ui/field";
 import AuthFormLayout from "@/app/_components/Auth/AuthFormLayout";

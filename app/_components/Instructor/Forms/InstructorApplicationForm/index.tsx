@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import ControlledSelect from "@/app/_components/_shared/Form/ControlledSelect";
-import ControlledTextarea from "@/app/_components/_shared/Form/ControlledTextarea";
-import FormField from "@/app/_components/_shared/Form/FormField";
+import ControlledSelect from "@/app/_components/_shared/components/Form/ControlledSelect";
+import ControlledTextarea from "@/app/_components/_shared/components/Form/ControlledTextarea";
+import FormField from "@/app/_components/_shared/components/Form/FormField";
 import { Button } from "@/app/_components/_shared/ui/button";
 
 const instructorApplicationSchema = z.object({

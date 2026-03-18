@@ -1,4 +1,4 @@
-import AuthLayout from "@/app/_components/_shared/Layouts/AuthLayout";
+import AuthLayout from "@/app/_components/_shared/components/Layouts/AuthLayout";
 import SignUpForm from "@/app/_components/Auth/SignUpForm";
 import { APP_NAME } from "@/lib/constants/projectName";
 

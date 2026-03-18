@@ -4,7 +4,7 @@ import { APP_NAME } from "@/lib/constants/projectName";
 
 const Logo = () => {
 	return (
-		<Link className="flex items-center gap-2" href="/">
+		<Link className="flex items-center gap-2" href="/public">
 			<BookOpen className="h-6 w-6" />
 			<span className="font-semibold text-xl">{APP_NAME}</span>
 		</Link>

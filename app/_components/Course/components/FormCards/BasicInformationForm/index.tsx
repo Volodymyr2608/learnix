@@ -1,9 +1,9 @@
 "use client";
 
 import { useFormContext } from "react-hook-form";
-import ControlledSelect from "@/app/_components/_shared/Form/ControlledSelect";
-import ControlledTextarea from "@/app/_components/_shared/Form/ControlledTextarea";
-import FormField from "@/app/_components/_shared/Form/FormField";
+import ControlledSelect from "@/app/_components/_shared/components/Form/ControlledSelect";
+import ControlledTextarea from "@/app/_components/_shared/components/Form/ControlledTextarea";
+import FormField from "@/app/_components/_shared/components/Form/FormField";
 import {
 	Card,
 	CardContent,

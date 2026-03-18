@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormContext } from "react-hook-form";
-import FormField from "@/app/_components/_shared/Form/FormField";
+import FormField from "@/app/_components/_shared/components/Form/FormField";
 import {
 	Card,
 	CardContent,

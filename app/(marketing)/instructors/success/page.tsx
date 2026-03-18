@@ -1,6 +1,6 @@
 import { BookOpen, CheckCircle2, Clock, Mail } from "lucide-react";
 import Link from "next/link";
-import PageLayout from "@/app/_components/_shared/Layouts/PageLayout";
+import PageLayout from "@/app/_components/_shared/components/Layouts/PageLayout";
 import { Button } from "@/app/_components/_shared/ui/button";
 
 export default function InstructorApplicationSuccessPage() {

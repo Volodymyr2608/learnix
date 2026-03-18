@@ -1,6 +1,6 @@
 import type { FieldValues } from "react-hook-form";
 import { Controller } from "react-hook-form";
-import type { ControlledTextareaProps } from "@/app/_components/_shared/Form/ControlledTextarea/types";
+import type { ControlledTextareaProps } from "@/app/_components/_shared/components/Form/ControlledTextarea/types";
 import {
 	Field,
 	FieldError,

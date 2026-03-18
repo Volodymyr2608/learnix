@@ -2,7 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { Controller, useFieldArray, useFormContext } from "react-hook-form";
-import FormField from "@/app/_components/_shared/Form/FormField";
+import FormField from "@/app/_components/_shared/components/Form/FormField";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {
 	Card,
