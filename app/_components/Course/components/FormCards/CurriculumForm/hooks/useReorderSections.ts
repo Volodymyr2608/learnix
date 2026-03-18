@@ -2,10 +2,9 @@ import type { UniqueIdentifier } from "@dnd-kit/core";
 import { useCallback } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import findIndexById from "@/app/_components/_shared/utils/findIndexById";
-import type { CourseWithRelations } from "@/prisma/zod";
 
 const useReorderSections = () => {
-	const { control, getValues, setValue } = useFormContext();
+	const { control } = useFormContext();
 
 	const { move } = useFieldArray({
 		control,
@@ -27,17 +26,8 @@ const useReorderSections = () => {
 			if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
 			move(oldIndex, newIndex);
-
-			const updated = (
-				getValues("sections") as CourseWithRelations["sections"]
-			).map((s, index) => ({
-				...s,
-				order: index + 1,
-			}));
-
-			setValue("sections", updated, { shouldDirty: true });
 		},
-		[move, setValue, getValues],
+		[move],
 	);
 
 	return { handleQuestionDragEnd };

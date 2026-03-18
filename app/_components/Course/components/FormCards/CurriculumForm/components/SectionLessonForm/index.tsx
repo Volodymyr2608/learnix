@@ -50,6 +50,7 @@ const SectionLessonForm = ({
 				<Button
 					className="h-5 w-5 cursor-grab p-0 active:cursor-grabbing"
 					size="sm"
+					type="button"
 					variant="ghost"
 					{...dragHandleProps}
 				>

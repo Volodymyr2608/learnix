@@ -70,33 +70,36 @@ const UpdateCourseActions = ({
 		const { thumbnail, previewVideo, ...rest } = payload;
 
 		const [newThumbnailUrl, newPreviewVideoUrl] = await Promise.all([
-			thumbnail ? uploadMedia(thumbnail as File) : Promise.resolve(null),
-			previewVideo ? uploadMedia(previewVideo as File) : Promise.resolve(null),
+			thumbnail instanceof File
+				? uploadMedia(thumbnail)
+				: Promise.resolve(null),
+			previewVideo instanceof File
+				? uploadMedia(previewVideo)
+				: Promise.resolve(null),
 		]);
 
 		const getFileUrl = (
-			media: File | null | undefined,
+			media: File | string | null | undefined,
 			newUrl: string | null,
 			fallbackUrl: string | null,
 		) => {
-			if (media === null) {
-				// user removed file
-				return null;
-			}
+			if (media === null) return null;
+			if (media instanceof File) return newUrl;
+			if (typeof media === "string") return media;
 
-			return media ? newUrl : fallbackUrl;
+			return fallbackUrl;
 		};
 
 		const updatedCourse = {
 			...rest,
 			id: validated.courseId,
 			thumbnailUrl: getFileUrl(
-				thumbnail as File | null | undefined,
+				thumbnail as File | string | null | undefined,
 				newThumbnailUrl,
 				thumbnailUrl,
 			),
 			previewVideoUrl: getFileUrl(
-				previewVideo as File | null | undefined,
+				previewVideo,
 				newPreviewVideoUrl,
 				previewVideoUrl,
 			),

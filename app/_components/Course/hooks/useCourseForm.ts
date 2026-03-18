@@ -17,7 +17,7 @@ export const getDefaultCourseValues = (course?: CourseAdapted) => ({
 	duration: course?.duration ?? "",
 	price: course?.price ?? "",
 	originalPrice: course?.originalPrice ?? "",
-	thumbnail: undefined,
+	thumbnail: course?.thumbnailUrl ?? undefined,
 	previewVideo: undefined,
 	objectives: course?.objectives ?? [
 		{ value: "" },
