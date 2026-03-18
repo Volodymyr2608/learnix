@@ -12,6 +12,7 @@ const courseAdapter = (course: FullCourse) => {
 		sections: sections.map((section) => ({
 			id: section.id,
 			title: section.title,
+			order: section.order,
 			lessons: section.lessons.map((lesson) => ({
 				id: lesson.id,
 				title: lesson.title,

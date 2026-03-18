@@ -26,6 +26,7 @@ const sectionsSchema = z
 		z.object({
 			id: z.string().optional(),
 			title: z.string().min(1, "Section title is required"),
+			order: z.number(),
 
 			lessons: lessonSchema,
 		}),
