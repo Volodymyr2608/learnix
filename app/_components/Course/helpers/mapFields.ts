@@ -4,7 +4,14 @@ export const mapList = (list: { value: string }[]) =>
 	list.map((item) => item.value.trim());
 
 export const extractCommonFields = (data: CourseSchemaInput) => {
-	const { objectives, requirements, subtitle, originalPrice, ...rest } = data;
+	const {
+		objectives,
+		requirements,
+		subtitle,
+		originalPrice,
+		sections,
+		...rest
+	} = data;
 
 	return {
 		rest,
@@ -12,5 +19,9 @@ export const extractCommonFields = (data: CourseSchemaInput) => {
 		mappedRequirements: mapList(requirements),
 		subtitle: subtitle ?? null,
 		originalPrice: originalPrice ?? null,
+		sections: sections.map((section, index) => ({
+			...section,
+			order: index + 1,
+		})),
 	};
 };

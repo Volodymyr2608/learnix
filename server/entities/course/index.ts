@@ -50,12 +50,26 @@ export const courseSchema = z.object({
 	price: z.string().min(1, "Price is mandatory"),
 	originalPrice: z.string().nullable().optional(),
 	thumbnail: z
-		.instanceof(File, { message: "Thumbnail is required" })
-		.refine((file) => !file || file.type.startsWith("image/"), {
-			message: "Thumbnail must be an image file",
-		})
-		.refine((file) => !file || file.size <= 2 * 1024 * 1024, {
-			message: "Thumbnail must be smaller than 2MB",
+		.preprocess(
+			(val) => {
+				if (val === undefined || val === "") return undefined;
+				return val;
+			},
+			z.union([
+				z
+					.instanceof(File)
+					.refine((file) => file.type.startsWith("image/"), {
+						message: "Thumbnail must be an image file",
+					})
+					.refine((file) => file.size <= 2 * 1024 * 1024, {
+						message: "Thumbnail must be smaller than 2MB",
+					}),
+				z.url(),
+				z.undefined(),
+			]),
+		)
+		.refine((val) => val !== undefined, {
+			message: "Thumbnail is required",
 		}),
 
 	previewVideo: z
@@ -87,7 +101,6 @@ export const courseSchema = z.object({
 
 export type CourseSchemaInput = z.input<typeof courseSchema>;
 export type CourseSchemaOutput = z.output<typeof courseSchema>;
-export type CoursePayload = z.infer<typeof courseSchema>;
 
 export const CourseDto = CourseSchema.pick({
 	title: true,

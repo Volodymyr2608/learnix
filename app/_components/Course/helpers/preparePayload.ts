@@ -17,6 +17,7 @@ export const prepareCoursePayload = (params: {
 		mappedRequirements,
 		subtitle,
 		originalPrice,
+		sections,
 	} = extractCommonFields(data);
 
 	return {
@@ -28,5 +29,6 @@ export const prepareCoursePayload = (params: {
 		requirements: mappedRequirements,
 		subtitle,
 		originalPrice,
+		sections,
 	};
 };

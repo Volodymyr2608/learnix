@@ -1,6 +1,12 @@
 import { Upload, X } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import {
+	type ChangeEvent,
+	type DragEvent,
+	useCallback,
+	useEffect,
+	useState,
+} from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { FieldError, FieldLabel } from "@/app/_components/_shared/ui/field";
@@ -46,7 +52,7 @@ const MediaFileField = ({
 		}
 	}, []);
 
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
 
@@ -54,24 +60,24 @@ const MediaFileField = ({
 		generatePreview(file);
 	};
 
-	const handleDragEnter = (e: React.DragEvent) => {
+	const handleDragEnter = (e: DragEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(true);
 	};
 
-	const handleDragLeave = (e: React.DragEvent) => {
+	const handleDragLeave = (e: DragEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(false);
 	};
 
-	const handleDragOver = (e: React.DragEvent) => {
+	const handleDragOver = (e: DragEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
 	};
 
-	const handleDrop = (e: React.DragEvent) => {
+	const handleDrop = (e: DragEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(false);
@@ -172,7 +178,7 @@ const MediaFileField = ({
 											</label>
 										</Button>
 
-										{file && (
+										{file instanceof File && (
 											<p className="text-muted-foreground text-sm">
 												New file: {file.name}
 											</p>
