@@ -1,17 +1,24 @@
 import { Edit, Eye, GripVertical, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useFieldArray, useFormContext } from "react-hook-form";
-import FormField from "@/app/_components/_shared/Form/FormField";
+import FormField from "@/app/_components/_shared/components/Form/FormField";
+import useSortableItem from "@/app/_components/_shared/hooks/useSortableItem";
 import { Button } from "@/app/_components/_shared/ui/button";
-import type { SectionLessonFormProps } from "@/app/_components/Course/components/FormCards/CurriculumForm/SectionLessonForm/types";
+import type { SectionLessonFormProps } from "@/app/_components/Course/components/FormCards/CurriculumForm/components/SectionLessonForm/types";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import { cn } from "@/lib/utils/cn";
 
 const SectionLessonForm = ({
 	sectionIndex,
 	removeSection,
 	isEdit,
 	courseId,
+	sectionId,
 }: SectionLessonFormProps) => {
+	const { dragHandleProps, setNodeRef, style, isDragging } = useSortableItem({
+		id: sectionId,
+	});
+
 	const {
 		control,
 		register,
@@ -32,9 +39,23 @@ const SectionLessonForm = ({
 		: null;
 
 	return (
-		<div className="space-y-4 rounded-lg border p-4">
+		<div
+			className={cn("space-y-4 rounded-lg border p-4", {
+				"opacity-50 shadow-lg": isDragging,
+			})}
+			ref={setNodeRef}
+			style={style}
+		>
 			<div className="flex items-start gap-2">
-				<GripVertical className="mt-2 h-5 w-5 cursor-move text-muted-foreground" />
+				<Button
+					className="h-5 w-5 cursor-grab p-0 active:cursor-grabbing"
+					size="sm"
+					variant="ghost"
+					{...dragHandleProps}
+				>
+					<GripVertical className="mt-2 h-5 w-5 cursor-move text-muted-foreground" />
+				</Button>
+
 				<div className="flex-1 space-y-4">
 					<div className="flex gap-2">
 						<FormField

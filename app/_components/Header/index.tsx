@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Logo from "@/app/_components/_shared/Logo";
+import Logo from "@/app/_components/_shared/components/Logo";
 import { Button } from "@/app/_components/_shared/ui/button";
 
 export function Header() {

@@ -163,8 +163,6 @@ class CourseService {
 			incoming.thumbnailUrl !== existing.thumbnailUrl
 		) {
 			vercelService.deleteFileFromVercelStorage(existing.thumbnailUrl);
-		} else {
-			result.thumbnailUrl = null;
 		}
 
 		// preview video updates
@@ -174,8 +172,6 @@ class CourseService {
 			incoming.previewVideoUrl !== existing.previewVideoUrl
 		) {
 			vercelService.deleteFileFromVercelStorage(existing.previewVideoUrl);
-		} else {
-			result.previewVideoUrl = null;
 		}
 
 		return result;
@@ -190,11 +186,11 @@ class CourseService {
 			return await sectionRepository.transaction(async () => {
 				const updatedSections: Section[] = [];
 
-				for (const [i, sectionData] of newSections.entries()) {
+				for (const [, sectionData] of newSections.entries()) {
 					if (sectionData.id) {
 						const updated = await sectionRepository.update(sectionData.id, {
 							title: sectionData.title,
-							order: i + 1,
+							order: sectionData.order,
 						});
 
 						updatedSections.push(updated);
@@ -204,7 +200,7 @@ class CourseService {
 					const created = await sectionRepository.create({
 						courseId,
 						title: sectionData.title,
-						order: i + 1,
+						order: sectionData.order,
 					});
 
 					updatedSections.push(created);

@@ -1,4 +1,4 @@
-import type { FormFieldProps } from "@/app/_components/_shared/Form/FormField/types";
+import type { FormFieldProps } from "@/app/_components/_shared/components/Form/FormField/types";
 import {
 	Field,
 	FieldError,

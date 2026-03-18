@@ -26,6 +26,7 @@ const sectionsSchema = z
 		z.object({
 			id: z.string().optional(),
 			title: z.string().min(1, "Section title is required"),
+			order: z.number(),
 
 			lessons: lessonSchema,
 		}),
@@ -50,7 +51,6 @@ export const courseSchema = z.object({
 	originalPrice: z.string().nullable().optional(),
 	thumbnail: z
 		.instanceof(File, { message: "Thumbnail is required" })
-		.optional()
 		.refine((file) => !file || file.type.startsWith("image/"), {
 			message: "Thumbnail must be an image file",
 		})

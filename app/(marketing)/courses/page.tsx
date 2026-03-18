@@ -1,7 +1,7 @@
 import { Clock, Filter, Search, Star, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import PageLayout from "@/app/_components/_shared/Layouts/PageLayout";
+import PageLayout from "@/app/_components/_shared/components/Layouts/PageLayout";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {

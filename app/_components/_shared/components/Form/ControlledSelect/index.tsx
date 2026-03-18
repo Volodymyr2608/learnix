@@ -1,6 +1,6 @@
 import type { FieldValues } from "react-hook-form";
 import { Controller } from "react-hook-form";
-import type { ControlledSelectProps } from "@/app/_components/_shared/Form/ControlledSelect/types";
+import type { ControlledSelectProps } from "@/app/_components/_shared/components/Form/ControlledSelect/types";
 import {
 	Field,
 	FieldError,

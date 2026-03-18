@@ -1,5 +1,5 @@
 import { CheckCircle, DollarSign, TrendingUp, Users } from "lucide-react";
-import PageLayout from "@/app/_components/_shared/Layouts/PageLayout";
+import PageLayout from "@/app/_components/_shared/components/Layouts/PageLayout";
 import InstructorApplicationForm from "@/app/_components/Instructor/Forms/InstructorApplicationForm";
 
 const BecomeInstructorPage = () => {

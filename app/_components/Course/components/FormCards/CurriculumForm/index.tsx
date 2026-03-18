@@ -1,5 +1,11 @@
+import { closestCenter, DndContext, type DragEndEvent } from "@dnd-kit/core";
+import {
+	SortableContext,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import { useFieldArray, useFormContext } from "react-hook-form";
+import useDragAndDrop from "@/app/_components/_shared/hooks/useDragAndDrop";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {
 	Card,
@@ -8,14 +14,19 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import SectionLessonForm from "@/app/_components/Course/components/FormCards/CurriculumForm/SectionLessonForm";
+import SectionLessonForm from "@/app/_components/Course/components/FormCards/CurriculumForm/components/SectionLessonForm";
+import useReorderSections from "@/app/_components/Course/components/FormCards/CurriculumForm/hooks/useReorderSections";
 import type { CurriculumFormProps } from "@/app/_components/Course/components/FormCards/CurriculumForm/types";
+import type { CourseWithRelations } from "@/prisma/zod";
 
 const CurriculumForm = ({ isEdit, courseId }: CurriculumFormProps) => {
 	const {
 		control,
+		getValues,
 		formState: { errors },
 	} = useFormContext();
+
+	const { sensors } = useDragAndDrop();
 
 	const {
 		fields: sections,
@@ -25,6 +36,31 @@ const CurriculumForm = ({ isEdit, courseId }: CurriculumFormProps) => {
 		control,
 		name: "sections",
 	});
+
+	const { handleQuestionDragEnd } = useReorderSections();
+
+	const handleDragEnd = (event: DragEndEvent) => {
+		const { active, over } = event;
+
+		if (active.id !== over?.id) {
+			handleQuestionDragEnd({
+				activeId: active.id,
+				overId: over?.id,
+				sections,
+			});
+		}
+	};
+
+	const handleAddSection = () => {
+		const current =
+			(getValues("sections") as CourseWithRelations["sections"]) || [];
+
+		addSection({
+			title: "",
+			order: current.length + 1,
+			lessons: [{ title: "", duration: "" }],
+		});
+	};
 
 	return (
 		<Card>
@@ -37,20 +73,31 @@ const CurriculumForm = ({ isEdit, courseId }: CurriculumFormProps) => {
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				{sections.map((section, index) => (
-					<SectionLessonForm
-						courseId={courseId}
-						isEdit={isEdit}
-						key={section.id}
-						removeSection={removeSection}
-						sectionId={section.id}
-						sectionIndex={index}
-					/>
-				))}
+				<DndContext
+					collisionDetection={closestCenter}
+					onDragEnd={handleDragEnd}
+					sensors={sensors}
+				>
+					<SortableContext
+						items={sections.map((q) => q.id)}
+						strategy={verticalListSortingStrategy}
+					>
+						{sections.map((section, index) => (
+							<SectionLessonForm
+								courseId={courseId}
+								isEdit={isEdit}
+								key={section.id}
+								removeSection={removeSection}
+								sectionId={section.id}
+								sectionIndex={index}
+							/>
+						))}
+					</SortableContext>
+				</DndContext>
 
 				<Button
 					className="w-full bg-transparent"
-					onClick={addSection}
+					onClick={handleAddSection}
 					type="button"
 					variant="outline"
 				>

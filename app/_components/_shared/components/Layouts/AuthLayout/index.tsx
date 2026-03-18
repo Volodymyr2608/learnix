@@ -1,5 +1,5 @@
-import type { AuthLayoutProps } from "@/app/_components/_shared/Layouts/AuthLayout/types";
-import Logo from "@/app/_components/_shared/Logo";
+import type { AuthLayoutProps } from "@/app/_components/_shared/components/Layouts/AuthLayout/types";
+import Logo from "@/app/_components/_shared/components/Logo";
 
 const AuthLayout = ({ children, author }: AuthLayoutProps) => {
 	return (
