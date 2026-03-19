@@ -35,6 +35,12 @@ generator zod {
   // prismaClientPath                 = "./path/to/prisma/client" // default is client output path
 }
 
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
 model Post {
   id        String   @id @default(cuid())
   name      String
@@ -60,6 +66,7 @@ model User {
   accounts      Account[]
   posts         Post[]
   courses       Course[]
+  role          Role      @default(STUDENT)
 
   @@unique([email])
   @@map("users")
