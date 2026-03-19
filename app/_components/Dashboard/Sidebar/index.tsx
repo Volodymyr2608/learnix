@@ -1,7 +1,10 @@
 import { GraduationCap } from "lucide-react";
 import Link from "next/link";
 import Navigation from "@/app/_components/Dashboard/Sidebar/components/Navigation";
+import { Role } from "@/generated/prisma";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
+import { capitalize } from "@/lib/utils/capitalize";
 import getInitials from "@/lib/utils/user/getInitials";
 import getUserName from "@/lib/utils/user/getUserName";
 import requireAuth from "@/lib/utils/user/requireAuth";
@@ -10,7 +13,8 @@ import { getSession } from "@/server/better-auth/server";
 const DashboardSidebar = async () => {
 	const { user } = requireAuth(await getSession());
 
-	const { name } = user;
+	const { name, role } = user;
+	const isInstructor = role === Role.INSTRUCTOR;
 
 	return (
 		<aside className="fixed top-0 left-0 z-40 h-screen w-64 border-sidebar-border border-r bg-sidebar">
@@ -19,18 +23,20 @@ const DashboardSidebar = async () => {
 				<div className="flex h-16 items-center border-sidebar-border border-b px-6">
 					<Link
 						className="flex items-center gap-2"
-						href={INSTRUCTOR_URLS.dashboard}
+						href={
+							isInstructor ? INSTRUCTOR_URLS.dashboard : STUDENT_URLS.dashboard
+						}
 					>
 						<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
 							<GraduationCap className="h-5 w-5 text-sidebar-primary-foreground" />
 						</div>
 						<span className="font-semibold text-lg text-sidebar-foreground">
-							Instructor
+							{isInstructor ? "Instructor" : "EduPlatform"}
 						</span>
 					</Link>
 				</div>
 
-				<Navigation />
+				<Navigation isInstructor={isInstructor} />
 
 				{/* Footer */}
 				<div className="border-sidebar-border border-t p-4">
@@ -43,7 +49,7 @@ const DashboardSidebar = async () => {
 								{getUserName(name)}
 							</p>
 							<p className="truncate text-sidebar-foreground/60 text-xs">
-								Instructor
+								{capitalize(role.toLowerCase())}
 							</p>
 						</div>
 					</div>

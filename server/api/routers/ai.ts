@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { CourseGenerationWithRelations } from "@/prisma/zod";
-import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
+import { createTRPCRouter, instructorProcedure } from "@/server/api/trpc";
 import type { CourseSchemaOutput } from "@/server/entities/course";
 import {
 	processStepSchema,
@@ -10,7 +10,7 @@ import { courseGenerationRepository } from "@/server/repositories/courseGenerati
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 
 export const courseAIRouter = createTRPCRouter({
-	acceptStep: protectedProcedure
+	acceptStep: instructorProcedure
 		.input(processStepSchema)
 		.mutation(async ({ ctx, input }) => {
 			try {
@@ -29,7 +29,7 @@ export const courseAIRouter = createTRPCRouter({
 			}
 		}),
 
-	getGenerationStatus: protectedProcedure
+	getGenerationStatus: instructorProcedure
 		.input(processStepSchema)
 		.query(async ({ input }) => {
 			try {
@@ -52,7 +52,7 @@ export const courseAIRouter = createTRPCRouter({
 			}
 		}),
 
-	getActiveCourseGeneration: protectedProcedure.query(async ({ ctx }) => {
+	getActiveCourseGeneration: instructorProcedure.query(async ({ ctx }) => {
 		try {
 			const userId = ctx.session.user.id;
 			const data = await courseGenerationRepository.findFirst({
@@ -78,7 +78,7 @@ export const courseAIRouter = createTRPCRouter({
 		}
 	}),
 
-	setCourseGenerationStatus: protectedProcedure
+	setCourseGenerationStatus: instructorProcedure
 		.input(UpdateCourseGenerationStatusSchema)
 		.mutation(async ({ ctx, input }) => {
 			try {

@@ -3,7 +3,9 @@
 import {
 	BarChart3,
 	BookOpen,
+	CreditCard,
 	DollarSign,
+	GraduationCap,
 	LayoutDashboard,
 	MessageSquare,
 	PlusCircle,
@@ -14,7 +16,9 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type React from "react";
+import type { NavigationProps } from "@/app/_components/Dashboard/Sidebar/components/Navigation/types";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { cn } from "@/lib/utils/cn";
 
 interface NavItem {
@@ -24,7 +28,7 @@ interface NavItem {
 	badge?: string;
 }
 
-const navItems: NavItem[] = [
+const instructorItems: NavItem[] = [
 	{
 		title: "Dashboard",
 		href: INSTRUCTOR_URLS.dashboard,
@@ -74,8 +78,48 @@ const navItems: NavItem[] = [
 	},
 ];
 
-const SidebarNavigation = () => {
+const studentItems: NavItem[] = [
+	{
+		title: "Dashboard",
+		href: STUDENT_URLS.dashboard,
+		icon: LayoutDashboard,
+	},
+	{
+		title: "My Courses",
+		href: STUDENT_URLS.courses,
+		icon: BookOpen,
+	},
+	{
+		title: "Browse Courses",
+		href: STUDENT_URLS.browseCourse,
+		icon: GraduationCap,
+	},
+	{
+		title: "Progress",
+		href: STUDENT_URLS.progress,
+		icon: BarChart3,
+	},
+	{
+		title: "Messages",
+		href: STUDENT_URLS.messages,
+		icon: MessageSquare,
+		badge: "3",
+	},
+	{
+		title: "Billing",
+		href: STUDENT_URLS.billing,
+		icon: CreditCard,
+	},
+	{
+		title: "Settings",
+		href: STUDENT_URLS.settings,
+		icon: Settings,
+	},
+];
+
+const SidebarNavigation = ({ isInstructor }: NavigationProps) => {
 	const pathname = usePathname();
+	const navItems = isInstructor ? instructorItems : studentItems;
 
 	return (
 		<nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
