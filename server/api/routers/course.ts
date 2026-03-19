@@ -6,10 +6,10 @@ import {
 } from "@/server/entities/course";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseService } from "@/server/services/course/course.service";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { createTRPCRouter, instructorProcedure } from "../trpc";
 
 export const courseRouter = createTRPCRouter({
-	create: protectedProcedure
+	create: instructorProcedure
 		.input(CourseFullCreateDto)
 		.mutation(async ({ input }) => {
 			try {
@@ -23,7 +23,7 @@ export const courseRouter = createTRPCRouter({
 			}
 		}),
 
-	update: protectedProcedure
+	update: instructorProcedure
 		.input(CourseFullUpdateDto)
 		.mutation(async ({ input }) => {
 			try {
@@ -37,7 +37,7 @@ export const courseRouter = createTRPCRouter({
 			}
 		}),
 
-	delete: protectedProcedure
+	delete: instructorProcedure
 		.input(CourseSchema.shape.id)
 		.mutation(async ({ input }) => {
 			try {
@@ -57,7 +57,7 @@ export const courseRouter = createTRPCRouter({
 			}
 		}),
 
-	getOwnCourses: protectedProcedure.query(async ({ ctx }) => {
+	getOwnCourses: instructorProcedure.query(async ({ ctx }) => {
 		try {
 			return await courseRepository.getOwnCourses(ctx.session.user.id);
 		} catch (error: unknown) {
@@ -75,7 +75,7 @@ export const courseRouter = createTRPCRouter({
 		}
 	}),
 
-	getOwnCourse: protectedProcedure
+	getOwnCourse: instructorProcedure
 		.input(CourseSchema.shape.id)
 		.query(async ({ ctx, input }) => {
 			try {
@@ -111,7 +111,7 @@ export const courseRouter = createTRPCRouter({
 			}
 		}),
 
-	getCoursesStats: protectedProcedure.query(async ({ ctx }) => {
+	getCoursesStats: instructorProcedure.query(async ({ ctx }) => {
 		try {
 			return await courseRepository.getCoursesStats(ctx.session.user.id);
 		} catch (error) {

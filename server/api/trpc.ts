@@ -10,7 +10,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
-
+import { Role } from "@/generated/prisma";
 import { auth } from "../better-auth";
 import { db } from "../db";
 
@@ -132,3 +132,60 @@ export const protectedProcedure = t.procedure
 			},
 		});
 	});
+
+/**
+ * Role-based protected procedure
+ *
+ * This procedure restricts access based on the user's role.
+ * It should be used as a base for creating role-specific procedures.
+ *
+ * @param role - Required user role to access the procedure
+ *
+ * @example
+ * const adminProcedure = roleProcedure(Role.ADMIN);
+ */
+const roleProcedure = (role: Role) =>
+	protectedProcedure.use(({ ctx, next }) => {
+		if (ctx.session.user.role !== role) {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message:
+					"Access denied. You don’t have the required permissions to perform this action.",
+			});
+		}
+
+		return next({ ctx });
+	});
+
+/**
+ * Instructor procedure
+ *
+ * This procedure is only accessible to users with the "INSTRUCTOR" role.
+ * It is built on top of `roleProcedure` and requires the user to be authenticated.
+ *
+ * @example
+ * instructorProcedure.query(() => { ... });
+ */
+export const instructorProcedure = roleProcedure(Role.INSTRUCTOR);
+
+/**
+ * Student procedure
+ *
+ * This procedure is only accessible to users with the "STUDENT" role.
+ * It is built on top of `protectedProcedure`, so authentication is required.
+ *
+ * @example
+ * studentProcedure.query(() => { ... });
+ */
+export const studentProcedure = roleProcedure(Role.STUDENT);
+
+/**
+ * Admin procedure
+ *
+ * This procedure is only accessible to users with the "ADMIN" role.
+ * It is built on top of `protectedProcedure`, so authentication is required.
+ *
+ * @example
+ * adminProcedure.mutation(() => { ... });
+ */
+export const adminProcedure = roleProcedure(Role.ADMIN);

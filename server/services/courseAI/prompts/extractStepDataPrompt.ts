@@ -4,7 +4,7 @@ const structures = {
 	[DraftStep.basic]: `{ "title": "string", "subtitle": "string", "description": "string", "category": "string", "level": "Beginner | Intermediate | Advanced", "language": "string", "duration": "string" }`,
 	[DraftStep.objectives]: `{ "objectives": [{ "value": "string" }] }`,
 	[DraftStep.requirements]: `{ "requirements": [{ "value": "string" }] }`,
-	[DraftStep.curriculum]: `{ "sections": [{ "title": "string", "lessons": [{ "title": "string", "duration": "string" }] }] }`,
+	[DraftStep.curriculum]: `{ "sections": [{ "title": "string", "order": number, "lessons": [{ "title": "string", "duration": "string" }] }] }`,
 };
 
 type ExtractStepDataPromptProps = {
