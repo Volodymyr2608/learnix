@@ -13,6 +13,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/app/_components/_shared/ui/dropdown-menu";
 import LogoutButton from "@/app/_components/Dashboard/Header/components/UserProfile/components/LogoutButton";
+import { capitalize } from "@/lib/utils/capitalize";
 import getInitials from "@/lib/utils/user/getInitials";
 import getUserName from "@/lib/utils/user/getUserName";
 import requireAuth from "@/lib/utils/user/requireAuth";
@@ -21,7 +22,7 @@ import { getSession } from "@/server/better-auth/server";
 const UserProfile = async () => {
 	const { user } = requireAuth(await getSession());
 
-	const { name, image } = user;
+	const { name, image, role } = user;
 
 	return (
 		<DropdownMenu>
@@ -39,7 +40,9 @@ const UserProfile = async () => {
 					</Avatar>
 					<div className="hidden flex-col items-start text-left md:flex">
 						<span className="font-medium text-sm">{getUserName(name)}</span>
-						<span className="text-muted-foreground text-xs">Instructor</span>
+						<span className="text-muted-foreground text-xs">
+							{capitalize(role.toLowerCase())}
+						</span>
 					</div>
 				</Button>
 			</DropdownMenuTrigger>
