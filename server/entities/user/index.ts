@@ -15,6 +15,7 @@ export const UserDto = UserSchema;
 export const UserCreateDto = UserSchema.pick({
 	name: true,
 	email: true,
+	role: true,
 });
 export type UserCreateDto = z.infer<typeof UserCreateDto>;
 

@@ -1,70 +1,24 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
 import ControlledSelect from "@/app/_components/_shared/components/Form/ControlledSelect";
 import ControlledTextarea from "@/app/_components/_shared/components/Form/ControlledTextarea";
 import FormField from "@/app/_components/_shared/components/Form/FormField";
 import { Button } from "@/app/_components/_shared/ui/button";
-
-const instructorApplicationSchema = z.object({
-	fullName: z.string().min(2, "Full name must be at least 2 characters"),
-	email: z.email("Invalid email address"),
-	phone: z.string().min(10, "Phone number must be at least 10 digits"),
-	expertise: z.string().min(1, "Please select your area of expertise"),
-	experience: z.string().min(1, "Please select your teaching experience"),
-	bio: z.string().min(50, "Bio must be at least 50 characters"),
-	courseIdea: z
-		.string()
-		.min(20, "Please describe your course idea (at least 20 characters)"),
-	linkedIn: z.url("Invalid URL").optional().or(z.literal("")),
-	website: z.url("Invalid URL").optional().or(z.literal("")),
-});
-
-type InstructorApplicationFormData = z.infer<
-	typeof instructorApplicationSchema
->;
+import useCreateInstructor from "@/app/_components/Teach/ApplicationForm/components/InstructorApplicationForm/hooks/useCreateInstructor";
+import useInstructorForm from "@/app/_components/Teach/ApplicationForm/components/InstructorApplicationForm/hooks/useInstructorForm";
 
 const InstructorApplicationForm = () => {
-	const [isLoading, setIsLoading] = useState(false);
-	const router = useRouter();
-
 	const {
 		register,
 		control,
 		handleSubmit,
 		formState: { errors },
-	} = useForm({
-		resolver: zodResolver(instructorApplicationSchema),
-		defaultValues: {
-			fullName: "",
-			email: "",
-			phone: "",
-			expertise: "",
-			experience: "",
-			bio: "",
-			courseIdea: "",
-			linkedIn: "",
-			website: "",
-		},
-	});
+	} = useInstructorForm();
 
-	async function onSubmit(data: InstructorApplicationFormData) {
-		setIsLoading(true);
-		// Simulate API call
-		await new Promise((resolve) => setTimeout(resolve, 2000));
-		console.log("[v0] Instructor application submitted:", data);
-		setIsLoading(false);
-
-		// Redirect to success page after 2 seconds
-		setTimeout(() => {
-			router.push("/instructors/success");
-		}, 2000);
-	}
+	const { onSubmit, isPending } = useCreateInstructor();
 
 	return (
 		<form
@@ -203,8 +157,8 @@ const InstructorApplicationForm = () => {
 				</div>
 			</div>
 
-			<Button className="w-full" disabled={isLoading} size="lg" type="submit">
-				{isLoading ? (
+			<Button className="w-full" disabled={isPending} size="lg" type="submit">
+				{isPending ? (
 					<>
 						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 						Submitting Application...
