@@ -1,15 +1,15 @@
-import type { UserCreateDto } from "@/server/entities/user";
+import type { UserUpdateDto } from "@/server/entities/user";
 import { userRepository } from "@/server/repositories/user.repository";
 import { UserError } from "@/server/services/user/user.errors";
 import { logger } from "@/server/utils/logger";
 
 class UserService {
-	async createUser(dto: UserCreateDto) {
+	async updateUser(userId: string, dto: UserUpdateDto) {
 		try {
-			return await userRepository.create(dto);
+			return await userRepository.update(userId, dto);
 		} catch (error) {
-			logger.error("Failed to create user:", error);
-			throw new UserError("Failed to create user");
+			logger.error("Failed to update user:", error);
+			throw new UserError("Failed to update user");
 		}
 	}
 }

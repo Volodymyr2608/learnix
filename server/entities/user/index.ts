@@ -32,6 +32,7 @@ export const UserUpdateDto = UserDto.pick({
 	email: true,
 	emailVerified: true,
 	image: true,
+	role: true,
 }).partial();
 
 export type UserUpdateDto = z.infer<typeof UserUpdateDto>;
@@ -53,6 +54,14 @@ export const signUpSchema = baseSignUpSchema.refine(
 );
 
 export type SignUpData = z.infer<typeof signUpSchema>;
+
+export const UserSignUpDto = baseSignUpSchema.pick({
+	name: true,
+	email: true,
+	password: true,
+});
+
+export type UserSignUpDto = z.infer<typeof UserSignUpDto>;
 
 export const signInSchema = baseSignUpSchema.pick({
 	email: true,

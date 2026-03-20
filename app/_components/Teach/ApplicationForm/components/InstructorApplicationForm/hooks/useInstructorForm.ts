@@ -5,6 +5,8 @@ import { instructorSchema } from "@/server/entities/instructor";
 const defaultValues = {
 	fullName: "",
 	email: "",
+	password: "",
+	confirmPassword: "",
 	phone: "",
 	expertise: "",
 	experience: "",

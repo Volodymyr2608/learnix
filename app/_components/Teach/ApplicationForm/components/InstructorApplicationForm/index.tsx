@@ -1,8 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import ControlledField from "@/app/_components/_shared/components/Form/ControlledField";
 import ControlledSelect from "@/app/_components/_shared/components/Form/ControlledSelect";
 import ControlledTextarea from "@/app/_components/_shared/components/Form/ControlledTextarea";
 import FormField from "@/app/_components/_shared/components/Form/FormField";
@@ -54,13 +53,28 @@ const InstructorApplicationForm = () => {
 					<FormField
 						{...register("phone")}
 						error={
-							typeof errors.email?.message === "string"
-								? errors.email?.message
+							typeof errors.phone?.message === "string"
+								? errors.phone?.message
 								: undefined
 						}
 						label="Phone number"
 						placeholder="+1 (555) 000-0000"
 						type="tel"
+					/>
+
+					<ControlledField
+						control={control as any}
+						label="Password"
+						name="password"
+						placeholder="••••••••"
+						type="password"
+					/>
+					<ControlledField
+						control={control as any}
+						label="Confirm Password"
+						name="confirmPassword"
+						placeholder="••••••••"
+						type="password"
 					/>
 				</div>
 			</div>

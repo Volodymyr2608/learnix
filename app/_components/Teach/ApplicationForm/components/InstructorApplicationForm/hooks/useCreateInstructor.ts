@@ -16,9 +16,12 @@ const useCreateInstructor = () => {
 		},
 	});
 
-	const onSubmit = useCallback(async (data: InstructorSchemaInput) => {
-		await createCourse.mutateAsync(data);
-	}, [createCourse.mutateAsync]);
+	const onSubmit = useCallback(
+		async (data: InstructorSchemaInput) => {
+			await createCourse.mutateAsync(data);
+		},
+		[createCourse.mutateAsync],
+	);
 
 	return {
 		isPending: createCourse.isPending,

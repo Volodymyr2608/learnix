@@ -1,19 +1,18 @@
 import { auth } from "@/server/better-auth";
-import type { SignUpData } from "@/server/entities/user";
+import type { UserSignUpDto } from "@/server/entities/user";
 import { userRepository } from "@/server/repositories/user.repository";
+import { AuthError } from "@/server/services/auth/auth.errors";
 
 export class AuthService {
-	async signUp(
-		data: SignUpData,
-	): Promise<{ success: true } | { success: false; message: string }> {
+	async signUp(data: UserSignUpDto) {
 		const { email, name, password } = data;
 		const existing = await userRepository.findFirst({ where: { email } });
 
 		if (existing) {
-			return { success: false, message: "This email is already registered" };
+			throw new AuthError("This email is already registered");
 		}
 
-		await auth.api.signUpEmail({
+		const userData = await auth.api.signUpEmail({
 			body: {
 				name,
 				email,
@@ -21,7 +20,11 @@ export class AuthService {
 			},
 		});
 
-		return { success: true };
+		return {
+			success: true,
+			message: "User created successfully",
+			userId: userData.user.id,
+		};
 	}
 }
 

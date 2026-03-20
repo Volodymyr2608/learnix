@@ -1,6 +1,7 @@
 import { Role } from "@/generated/prisma";
 import type { InstructorSchemaInput } from "@/server/entities/instructor";
 import { instructorRepository } from "@/server/repositories/instructor.repository";
+import { authService } from "@/server/services/auth/auth.service";
 import { InstructorError } from "@/server/services/instructor/instructor.errors";
 import { userService } from "@/server/services/user/user.service";
 import { logger } from "@/server/utils/logger";
@@ -8,19 +9,23 @@ import { logger } from "@/server/utils/logger";
 class InstructorService {
 	async createInstructor(dto: InstructorSchemaInput) {
 		try {
-			return instructorRepository.transaction(async () => {
-				const { email, fullName } = dto;
-				const user = await userService.createUser({
+			await instructorRepository.transaction(async () => {
+				const { email, fullName, password } = dto;
+				const { userId } = await authService.signUp({
 					email,
 					name: fullName,
+					password,
+				});
+
+				await userService.updateUser(userId, {
 					role: Role.INSTRUCTOR,
 				});
 
 				return await instructorRepository.create({
-					userId: user.id,
+					userId,
 					courseIdea: dto.courseIdea,
 					areaOfExpertise: dto.expertise,
-					phone: dto.phone,
+					phone: dto.phone ?? null,
 					professionalBio: dto.bio,
 					teachingExperience: dto.experience,
 					linkedinUrl: dto.linkedIn ?? null,

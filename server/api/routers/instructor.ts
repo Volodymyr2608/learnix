@@ -7,7 +7,6 @@ export const instructorRouter = createTRPCRouter({
 	create: publicProcedure
 		.input(instructorSchema)
 		.mutation(async ({ input }) => {
-			console.log(input);
 			try {
 				return await instructorService.createInstructor(input);
 			} catch (error: unknown) {
