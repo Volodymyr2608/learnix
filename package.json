@@ -94,5 +94,8 @@
 		"*": [
 			"biome check --no-errors-on-unmatched --files-ignore-unknown=true"
 		]
+	},
+	"prisma": {
+		"schema": "./prisma"
 	}
 }

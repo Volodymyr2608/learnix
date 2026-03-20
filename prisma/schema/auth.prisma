@@ -1,0 +1,70 @@
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+model User {
+  id                String             @id @default(cuid())
+  name              String //@db.Text
+  email             String
+  emailVerified     Boolean            @default(false)
+  image             String? //@db.Text
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at")
+  sessions          Session[]
+  accounts          Account[]
+  posts             Post[]
+  courses           Course[]
+  role              Role               @default(STUDENT)
+  instructorProfile InstructorProfile?
+
+  @@unique([email])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String? //@db.Text
+  userAgent String? //@db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String //@db.Text
+  providerId            String //@db.Text
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String? //@db.Text
+  refreshToken          String? //@db.Text
+  idToken               String? //@db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String? //@db.Text
+  password              String? //@db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([userId, providerId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String //@db.Text
+  value      String //@db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verifications")
+}
