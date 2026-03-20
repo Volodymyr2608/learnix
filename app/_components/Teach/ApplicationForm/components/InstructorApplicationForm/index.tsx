@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -13,7 +13,7 @@ import { Button } from "@/app/_components/_shared/ui/button";
 
 const instructorApplicationSchema = z.object({
 	fullName: z.string().min(2, "Full name must be at least 2 characters"),
-	email: z.string().email("Invalid email address"),
+	email: z.email("Invalid email address"),
 	phone: z.string().min(10, "Phone number must be at least 10 digits"),
 	expertise: z.string().min(1, "Please select your area of expertise"),
 	experience: z.string().min(1, "Please select your teaching experience"),
@@ -21,8 +21,8 @@ const instructorApplicationSchema = z.object({
 	courseIdea: z
 		.string()
 		.min(20, "Please describe your course idea (at least 20 characters)"),
-	linkedIn: z.string().url("Invalid URL").optional().or(z.literal("")),
-	website: z.string().url("Invalid URL").optional().or(z.literal("")),
+	linkedIn: z.url("Invalid URL").optional().or(z.literal("")),
+	website: z.url("Invalid URL").optional().or(z.literal("")),
 });
 
 type InstructorApplicationFormData = z.infer<
@@ -31,7 +31,6 @@ type InstructorApplicationFormData = z.infer<
 
 const InstructorApplicationForm = () => {
 	const [isLoading, setIsLoading] = useState(false);
-	const [isSubmitted, setIsSubmitted] = useState(false);
 	const router = useRouter();
 
 	const {
@@ -60,7 +59,6 @@ const InstructorApplicationForm = () => {
 		await new Promise((resolve) => setTimeout(resolve, 2000));
 		console.log("[v0] Instructor application submitted:", data);
 		setIsLoading(false);
-		setIsSubmitted(true);
 
 		// Redirect to success page after 2 seconds
 		setTimeout(() => {
@@ -68,25 +66,11 @@ const InstructorApplicationForm = () => {
 		}, 2000);
 	}
 
-	if (isSubmitted) {
-		return (
-			<div className="flex flex-col items-center justify-center gap-4 rounded-lg bg-background p-12 text-center shadow-sm">
-				<CheckCircle2 className="h-16 w-16 text-green-500" />
-				<h3 className="font-bold text-2xl">Application Submitted!</h3>
-				<p className="text-muted-foreground">
-					Thank you for applying. We'll review your application and get back to
-					you within 2-3 business days.
-				</p>
-			</div>
-		);
-	}
-
 	return (
 		<form
 			className="space-y-6 rounded-lg bg-background p-8 shadow-sm"
 			onSubmit={handleSubmit(onSubmit)}
 		>
-			{/* Personal Information */}
 			<div className="space-y-4">
 				<h3 className="font-semibold text-lg">Personal Information</h3>
 
@@ -127,7 +111,6 @@ const InstructorApplicationForm = () => {
 				</div>
 			</div>
 
-			{/* Professional Background */}
 			<div className="space-y-4">
 				<h3 className="font-semibold text-lg">Professional Background</h3>
 
@@ -175,7 +158,6 @@ const InstructorApplicationForm = () => {
 				/>
 			</div>
 
-			{/* Course Information */}
 			<div className="space-y-4">
 				<h3 className="font-semibold text-lg">Course Information</h3>
 
@@ -191,35 +173,35 @@ const InstructorApplicationForm = () => {
 			</div>
 
 			{/* Social Links */}
-			{/*<div className="space-y-4">*/}
-			{/*  <h3 className="text-lg font-semibold">Social Links (Optional)</h3>*/}
+			<div className="space-y-4">
+				<h3 className="font-semibold text-lg">Social Links (Optional)</h3>
 
-			{/*  <div className="grid gap-4 sm:grid-cols-2">*/}
-			{/*    <FormField*/}
-			{/*      control={form.control}*/}
-			{/*      name="linkedIn"*/}
-			{/*      render={({ field }) => (*/}
-			{/*        <FormItem>*/}
-			{/*          <FormLabel>LinkedIn Profile</FormLabel>*/}
-			{/*          <Input type="url" placeholder="https://linkedin.com/in/..." {...field} />*/}
-			{/*          <FormMessage />*/}
-			{/*        </FormItem>*/}
-			{/*      )}*/}
-			{/*    />*/}
+				<div className="grid gap-4 sm:grid-cols-2">
+					<FormField
+						{...register("linkedIn")}
+						error={
+							typeof errors.linkedIn?.message === "string"
+								? errors.linkedIn?.message
+								: undefined
+						}
+						label="LinkedIn Profile"
+						placeholder="https://linkedin.com/in/..."
+						type="url"
+					/>
 
-			{/*    <FormField*/}
-			{/*      control={form.control}*/}
-			{/*      name="website"*/}
-			{/*      render={({ field }) => (*/}
-			{/*        <FormItem>*/}
-			{/*          <FormLabel>Personal Website</FormLabel>*/}
-			{/*          <Input type="url" placeholder="https://..." {...field} />*/}
-			{/*          <FormMessage />*/}
-			{/*        </FormItem>*/}
-			{/*      )}*/}
-			{/*    />*/}
-			{/*  </div>*/}
-			{/*</div>*/}
+					<FormField
+						{...register("website")}
+						error={
+							typeof errors.website?.message === "string"
+								? errors.website?.message
+								: undefined
+						}
+						label="Personal Website"
+						placeholder="https://..."
+						type="url"
+					/>
+				</div>
+			</div>
 
 			<Button className="w-full" disabled={isLoading} size="lg" type="submit">
 				{isLoading ? (
