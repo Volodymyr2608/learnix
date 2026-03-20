@@ -1,0 +1,94 @@
+enum CourseStatus {
+  draft
+  published
+}
+
+model Course {
+  id            String   @id @default(cuid())
+  title         String
+  subtitle      String?
+  description   String   @db.Text
+  category      String
+  level         String
+  language      String
+  duration      String
+  price         String
+  originalPrice String?  @map("original_price")
+  objectives    String[]
+  requirements  String[]
+
+  status      CourseStatus @default(draft)
+  publishedAt DateTime?    @map("published_at")
+
+  thumbnailUrl    String? @map("thumbnail_url")
+  previewVideoUrl String? @map("preview_video_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  deletedAt DateTime? @map("deleted_at")
+
+  instructorId String
+  instructor   User   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  sections Section[]
+
+  @@index([deletedAt])
+  @@map("courses")
+}
+
+model Section {
+  id    String @id @default(cuid())
+  title String
+  order Int
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  deletedAt DateTime? @map("deleted_at")
+
+  lessons Lesson[]
+
+  @@index([deletedAt])
+  @@map("sections")
+}
+
+model Lesson {
+  id       String  @id @default(cuid())
+  title    String
+  duration String?
+
+  description String?
+  videoUrl    String? @map("video_url")
+  content     String? @db.Text
+  resources   Json?
+
+  order     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  deletedAt DateTime? @map("deleted_at")
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  quizzes Quiz[]
+
+  @@index([deletedAt])
+  @@map("lessons")
+}
+
+model Quiz {
+  id       String   @id @default(cuid())
+  question String
+  options  String[]
+  correct  String
+
+  deletedAt DateTime? @map("deleted_at")
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([deletedAt])
+  @@map("quizzes")
+}

@@ -1,0 +1,52 @@
+enum DraftStep {
+  basic
+  objectives
+  requirements
+  curriculum
+}
+
+enum CourseGenerationStatus {
+  active
+  completed
+  abandoned
+}
+
+enum ChatRole {
+  system
+  user
+  assistant
+}
+
+model CourseGeneration {
+  id           String @id @default(cuid())
+  instructorId String @map("instructor_id")
+
+  step    DraftStep              @default(basic)
+  content Json                   @default("{}")
+  summary String?                @db.Text
+  status  CourseGenerationStatus @default(active)
+
+  messages CourseGenerationMessage[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([instructorId, status])
+  @@map("course_generations")
+}
+
+model CourseGenerationMessage {
+  id String @id @default(cuid())
+
+  generationId String           @map("generation_id")
+  generation   CourseGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  role    ChatRole
+  content String     @db.Text
+  step    DraftStep?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([generationId, createdAt])
+  @@map("course_generation_messages")
+}

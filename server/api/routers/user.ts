@@ -6,7 +6,11 @@ import { authService } from "@/server/services/auth/auth.service";
 export const userRouter = createTRPCRouter({
 	signUp: publicProcedure.input(signUpSchema).mutation(async ({ input }) => {
 		try {
-			return await authService.signUp(input);
+			return await authService.signUp({
+				email: input.email,
+				name: input.name,
+				password: input.password,
+			});
 		} catch (error: unknown) {
 			if (error instanceof Error) {
 				throw new TRPCError({
