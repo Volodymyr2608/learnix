@@ -150,4 +150,24 @@ export const courseRouter = createTRPCRouter({
 			});
 		}
 	}),
+
+	getPublishedCourse: protectedProcedure
+		.input(CourseSchema.shape.id)
+		.query(async ({ input }) => {
+			try {
+				return await courseService.getPublishedCourse(input);
+			} catch (error) {
+				if (error instanceof Error) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: error.message,
+					});
+				}
+
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Unknown error",
+				});
+			}
+		}),
 });

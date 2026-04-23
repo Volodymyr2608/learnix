@@ -1,12 +1,11 @@
 import BrowseCourses from "@/app/_components/Course/components/BrowseCourses";
-import { getPublishedCourses } from "@/app/_components/Course/components/BrowseCourses/actions/getPublishedCourses";
+import { getPublishedCourses } from "@/lib/requests/course/getPublishedCourses";
 
 const BrowseCoursesPage = async () => {
 	const courses = await getPublishedCourses();
 
 	return (
 		<div className="space-y-6">
-			{/* Page Header */}
 			<div>
 				<h1 className="font-bold text-3xl tracking-tight">Browse Courses</h1>
 				<p className="text-muted-foreground">

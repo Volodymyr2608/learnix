@@ -23,6 +23,10 @@ type FindManyArgs<TModel extends ModelName> = Prisma.Args<
 	ModelDelegate<TModel>,
 	"findMany"
 >;
+type AggregateArgs<TModel extends ModelName> = Prisma.Args<
+	ModelDelegate<TModel>,
+	"aggregate"
+>;
 
 /**
  * Base Repository
@@ -409,6 +413,25 @@ export abstract class BaseRepository<
 			return this.model.count({ where: this.buildWhere(where) });
 		} catch (error) {
 			return this.handleError(error, "count entities", { where });
+		}
+	}
+
+	public async aggregate<
+		TArgs extends AggregateArgs<TModel> = AggregateArgs<TModel>,
+	>(
+		options?: Prisma.SelectSubset<TArgs, AggregateArgs<TModel>>,
+	): Promise<Prisma.Result<ModelDelegate<TModel>, TArgs, "aggregate">> {
+		try {
+			this.logger?.debug("Aggregating entities", { options });
+			const source = (options ?? {}) as AggregateArgs<TModel>;
+			const query = {
+				...source,
+				where: this.buildWhere(source.where as TWhere),
+			} as AggregateArgs<TModel>;
+
+			return await this.model.aggregate(query);
+		} catch (error) {
+			return this.handleError(error, "aggregate entities", { options });
 		}
 	}
 

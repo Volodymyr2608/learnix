@@ -1,4 +1,4 @@
-import type { PublishedCourse } from "@/app/_components/Course/components/BrowseCourses/actions/getPublishedCourses";
+import type { PublishedCourse } from "@/lib/requests/course/getPublishedCourses";
 
 export type BrowseCourseCardProps = {
 	course: PublishedCourse;

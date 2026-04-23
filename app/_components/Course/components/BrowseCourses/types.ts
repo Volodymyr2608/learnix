@@ -1,4 +1,4 @@
-import type { GetPublishedCoursesResponse } from "@/app/_components/Course/components/BrowseCourses/actions/getPublishedCourses";
+import type { GetPublishedCoursesResponse } from "@/lib/requests/course/getPublishedCourses";
 
 export type BrowseCoursesProps = {
 	initialCourses: GetPublishedCoursesResponse;
