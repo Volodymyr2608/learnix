@@ -38,7 +38,7 @@ interface LessonContentEditorProps {
 
 export function LessonContentEditor({
 	courseId,
-	//lessonId,
+	lessonId,
 }: LessonContentEditorProps) {
 	const router = useRouter();
 	const [isSaving, setIsSaving] = useState(false);
@@ -471,7 +471,10 @@ export function LessonContentEditor({
 			{/* Action Buttons */}
 			<div className="flex items-center justify-between border-t pt-6">
 				<Button asChild variant="outline">
-					<a href={`/dashboard/courses/${courseId}/learn`} target="_blank">
+					<a
+						href={`/instructor/courses/${courseId}/lessons/${lessonId}/preview`}
+						target="_blank"
+					>
 						<Eye className="mr-2 h-4 w-4" />
 						Preview Lesson
 					</a>
