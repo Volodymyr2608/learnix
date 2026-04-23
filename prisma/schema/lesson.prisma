@@ -1,0 +1,46 @@
+model Lesson {
+  id       String  @id @default(cuid())
+  title    String
+  duration String?
+
+  description String?
+  videoUrl    String? @map("video_url")
+  content     String? @db.Text
+  resources   Json?
+
+  order     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  deletedAt DateTime? @map("deleted_at")
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  quizzes    Quiz[]
+  progresses LessonProgress[]
+
+  @@index([deletedAt])
+  @@map("lessons")
+}
+
+model LessonProgress {
+  id String @id @default(cuid())
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lessonId, studentId])
+  @@index([studentId])
+  @@index([lessonId])
+  @@map("lesson_progress")
+}

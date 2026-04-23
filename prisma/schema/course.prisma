@@ -31,10 +31,32 @@ model Course {
   instructorId String
   instructor   User   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
-  sections Section[]
+  sections         Section[]
+  enrollments      Enrollment[]
+  courseProgresses CourseProgress[]
 
   @@index([deletedAt])
   @@map("courses")
+}
+
+model CourseProgress {
+  id String @id @default(cuid())
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  progress Float @default(0)
+
+  completedLessons Int @default(0)
+  totalLessons     Int
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, courseId])
+  @@map("course_progress")
 }
 
 model Section {
@@ -51,44 +73,4 @@ model Section {
 
   @@index([deletedAt])
   @@map("sections")
-}
-
-model Lesson {
-  id       String  @id @default(cuid())
-  title    String
-  duration String?
-
-  description String?
-  videoUrl    String? @map("video_url")
-  content     String? @db.Text
-  resources   Json?
-
-  order     Int
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  deletedAt DateTime? @map("deleted_at")
-
-  sectionId String
-  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
-  quizzes Quiz[]
-
-  @@index([deletedAt])
-  @@map("lessons")
-}
-
-model Quiz {
-  id       String   @id @default(cuid())
-  question String
-  options  String[]
-  correct  String
-
-  deletedAt DateTime? @map("deleted_at")
-
-  lessonId String
-  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-  @@index([deletedAt])
-  @@map("quizzes")
 }

@@ -1,0 +1,29 @@
+enum EnrollmentStatus {
+  active
+  completed
+  cancelled
+}
+
+model Enrollment {
+  id String @id @default(cuid())
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  status EnrollmentStatus @default(active)
+
+  progress Float @default(0) // 0–100
+
+  enrolledAt  DateTime  @default(now())
+  completedAt DateTime?
+
+  lastAccessedAt DateTime?
+
+  @@unique([studentId, courseId])
+  @@index([courseId])
+  @@index([studentId])
+  @@map("enrollments")
+}

@@ -1,0 +1,34 @@
+model Quiz {
+  id       String   @id @default(cuid())
+  question String
+  options  String[]
+  correct  String
+
+  deletedAt DateTime? @map("deleted_at")
+
+  lessonId String
+  lesson   Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  attempts QuizAttempt[]
+
+  @@index([deletedAt])
+  @@map("quizzes")
+}
+
+model QuizAttempt {
+  id String @id @default(cuid())
+
+  quizId String
+  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  selectedAnswer String
+  isCorrect      Boolean
+
+  createdAt DateTime @default(now())
+
+  @@index([quizId])
+  @@index([studentId])
+  @@map("quiz_attempts")
+}
