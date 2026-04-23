@@ -19,19 +19,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/app/_components/_shared/ui/dialog";
-
-interface EnrollConfirmDialogProps {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	course: {
-		id: string;
-		title: string;
-		instructor: string;
-		thumbnail: string;
-		duration?: string;
-		level?: string;
-	};
-}
+import type { EnrollConfirmDialogProps } from "@/app/_components/Course/components/EnrollConfirmDialog/types";
 
 const EnrollConfirmDialog = ({
 	open,
@@ -75,7 +63,7 @@ const EnrollConfirmDialog = ({
 									alt={course.title}
 									className="object-cover"
 									fill
-									src={course.thumbnail}
+									src={course.thumbnail || "/placeholder.svg"}
 								/>
 							</div>
 							<div className="flex flex-col justify-center">

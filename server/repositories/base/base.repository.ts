@@ -3,6 +3,27 @@ import { db } from "@/server/db";
 import type Paginator from "@/server/repositories/base/paginator";
 import { hasId } from "@/server/utils/hasId";
 
+type ModelName = {
+	[K in keyof typeof db]: (typeof db)[K] extends {
+		findMany: (...args: any[]) => any;
+	}
+		? K
+		: never;
+}[keyof typeof db];
+type ModelDelegate<TModel extends ModelName> = (typeof db)[TModel];
+type FindUniqueOrThrowArgs<TModel extends ModelName> = Prisma.Args<
+	ModelDelegate<TModel>,
+	"findUniqueOrThrow"
+>;
+type FindFirstArgs<TModel extends ModelName> = Prisma.Args<
+	ModelDelegate<TModel>,
+	"findFirst"
+>;
+type FindManyArgs<TModel extends ModelName> = Prisma.Args<
+	ModelDelegate<TModel>,
+	"findMany"
+>;
+
 /**
  * Base Repository
  *
@@ -16,7 +37,7 @@ import { hasId } from "@/server/utils/hasId";
  * @template TOrderBy - Prisma orderBy input type
  */
 export abstract class BaseRepository<
-	TModel extends keyof typeof db,
+	TModel extends ModelName,
 	TPayload,
 	TCreateInput,
 	TUpdateInput,
@@ -66,69 +87,71 @@ export abstract class BaseRepository<
 		throw new Error(`Failed to ${operation}: ${errorMessage}`);
 	}
 
-	public async findOne(
+	public async findOne<
+		TArgs extends Omit<FindUniqueOrThrowArgs<TModel>, "where"> = Omit<
+			FindUniqueOrThrowArgs<TModel>,
+			"where"
+		>,
+	>(
 		id: string,
-		options?: {
-			include?: TInclude;
+		options?: Prisma.SelectSubset<
+			TArgs,
+			Omit<FindUniqueOrThrowArgs<TModel>, "where">
+		> & {
 			idField?: string;
 		},
-	): Promise<TPayload> {
+	): Promise<Prisma.Result<ModelDelegate<TModel>, TArgs, "findUniqueOrThrow">> {
 		try {
-			const { include, idField = "id" } = options || {};
+			const source = (options ?? {}) as TArgs & { idField?: string };
+			const { idField = "id", ...prismaOptions } = source;
 
-			return await this.model.findUniqueOrThrow({
+			const query = {
+				...prismaOptions,
 				where: { [idField]: id },
-				include,
-			});
+			} as FindUniqueOrThrowArgs<TModel>;
+
+			return await this.model.findUniqueOrThrow(query);
 		} catch (error) {
 			return this.handleError(error, `find entity with ID ${id}`, { id });
 		}
 	}
 
-	public async findFirst(options?: {
-		where?: TWhere;
-		include?: TInclude;
-		select?: TSelect;
-		orderBy?: TOrderBy | TOrderBy[];
-	}): Promise<TPayload | null> {
+	public async findFirst<
+		TArgs extends FindFirstArgs<TModel> = FindFirstArgs<TModel>,
+	>(
+		options?: Prisma.SelectSubset<TArgs, FindFirstArgs<TModel>>,
+	): Promise<Prisma.Result<ModelDelegate<TModel>, TArgs, "findFirst">> {
 		try {
-			return await this.model.findFirst({
-				where: this.buildWhere(options?.where),
-				orderBy: options?.orderBy,
-				include: options?.include,
-				select: options?.select,
-			});
+			const source = (options ?? {}) as FindFirstArgs<TModel>;
+			const query = {
+				...source,
+				where: this.buildWhere(source.where as TWhere),
+			} as FindFirstArgs<TModel>;
+
+			return await this.model.findFirst(query);
 		} catch (error) {
 			return this.handleError(error, "find first entity", {
-				where: options?.where,
-				orderBy: options?.orderBy,
-				select: options?.select,
+				options,
 			});
 		}
 	}
 
-	public async findMany(options?: {
-		where?: TWhere;
-		include?: TInclude;
-		select?: TSelect;
-		orderBy?: TOrderBy | TOrderBy[];
-		skip?: number;
-		take?: number;
-	}): Promise<TPayload[]> {
+	public async findMany<
+		TArgs extends FindManyArgs<TModel> = FindManyArgs<TModel>,
+	>(
+		options?: Prisma.SelectSubset<TArgs, FindManyArgs<TModel>>,
+	): Promise<Prisma.Result<ModelDelegate<TModel>, TArgs, "findMany">> {
 		try {
-			this.logger?.debug("Finding entities", { ...options });
-			return await this.model.findMany({
-				where: this.buildWhere(options?.where),
-				include: options?.include,
-				select: options?.select,
-				orderBy: options?.orderBy,
-				skip: options?.skip,
-				take: options?.take,
-			});
+			this.logger?.debug("Finding entities", { options });
+			const source = (options ?? {}) as FindManyArgs<TModel>;
+			const query = {
+				...source,
+				where: this.buildWhere(source.where as TWhere),
+			} as FindManyArgs<TModel>;
+
+			return await this.model.findMany(query);
 		} catch (error) {
-			return this.handleError(error, "find entities", {
-				...options,
-			});
+			return this.handleError(error, "find entities", { options });
 		}
 	}
 
@@ -226,8 +249,12 @@ export abstract class BaseRepository<
 
 			if (!this.model.updateMany) {
 				// Fallback to individual updates if updateMany is not available
+				const entities = (await this.findMany({
+					where,
+				} as FindManyArgs<TModel>)) as TPayload[];
+
 				const results = await Promise.all(
-					(await this.findMany({ where })).map((entity: TPayload) => {
+					entities.map((entity) => {
 						if (hasId(entity)) {
 							return this.model.update({
 								where: { id: entity.id },
@@ -413,17 +440,19 @@ export abstract class BaseRepository<
 					orderBy: options.orderBy,
 					skip: (page - 1) * perPage,
 					take: perPage,
-				}),
+				} as FindManyArgs<TModel>),
 			]);
 
+			const paginatedData = data as TPayload[];
+
 			return {
-				data,
+				data: paginatedData,
 				total,
 				currentPage: page,
 				lastPage: Math.ceil(total / perPage),
 				perPage,
 				from: (page - 1) * perPage,
-				to: (page - 1) * perPage + data.length,
+				to: (page - 1) * perPage + paginatedData.length,
 			};
 		} catch (error) {
 			return this.handleError(error, "paginate entities", {

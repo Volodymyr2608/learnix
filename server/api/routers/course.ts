@@ -6,7 +6,11 @@ import {
 } from "@/server/entities/course";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseService } from "@/server/services/course/course.service";
-import { createTRPCRouter, instructorProcedure } from "../trpc";
+import {
+	createTRPCRouter,
+	instructorProcedure,
+	protectedProcedure,
+} from "../trpc";
 
 export const courseRouter = createTRPCRouter({
 	create: instructorProcedure
@@ -114,6 +118,24 @@ export const courseRouter = createTRPCRouter({
 	getCoursesStats: instructorProcedure.query(async ({ ctx }) => {
 		try {
 			return await courseRepository.getCoursesStats(ctx.session.user.id);
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: error.message,
+				});
+			}
+
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Unknown error",
+			});
+		}
+	}),
+
+	getPublishedCourses: protectedProcedure.query(async () => {
+		try {
+			return await courseRepository.getPublishedCourses();
 		} catch (error) {
 			if (error instanceof Error) {
 				throw new TRPCError({

@@ -164,6 +164,40 @@ export default class CourseRepository extends BaseRepository<
 			);
 		}
 	}
+
+	async getPublishedCourses() {
+		const courses = await this.findMany({
+			where: {
+				status: "published",
+				deletedAt: null,
+			},
+			include: {
+				instructor: {
+					select: {
+						name: true,
+					},
+				},
+				_count: {
+					select: {
+						enrollments: true,
+					},
+				},
+			},
+		});
+
+		return courses.map((course) => ({
+			id: course.id,
+			title: course.title,
+			instructor: course.instructor.name,
+			rating: 4.8, // TODO: add dynamic rating
+			students: course._count.enrollments,
+			duration: course.duration,
+			price: course.price,
+			level: course.level,
+			thumbnail: course.thumbnailUrl,
+			category: course.category,
+		}));
+	}
 }
 
 export const courseRepository = new CourseRepository();
