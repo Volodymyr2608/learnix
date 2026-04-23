@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock, Search, Star, Users } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/app/_components/_shared/ui/badge";
@@ -14,7 +15,6 @@ import {
 } from "@/app/_components/_shared/ui/card";
 import { Input } from "@/app/_components/_shared/ui/input";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
-import Image from "next/image";
 
 export default function BrowseCoursesPage() {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);

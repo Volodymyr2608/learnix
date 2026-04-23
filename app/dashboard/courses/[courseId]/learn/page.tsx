@@ -472,7 +472,6 @@ export default function ContinueLearningPage({
 
 								return (
 									<button
-										type="button"
 										className={`flex w-full items-start gap-3 rounded-lg p-3 text-left transition-colors ${
 											isCurrent
 												? "bg-primary/10 text-primary"
@@ -482,6 +481,7 @@ export default function ContinueLearningPage({
 										}`}
 										key={lesson.id}
 										onClick={() => handleSelectLesson(lesson.id)}
+										type="button"
 									>
 										{isCompleted ? (
 											<CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
