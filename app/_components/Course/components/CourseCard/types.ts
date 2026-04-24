@@ -1,5 +1,5 @@
-import type { Course } from "@/prisma/zod";
+import type { OwnCourse } from "@/app/_components/Course/components/OwnCourses/actions/getOwnCourses";
 
 export type CourseCardProps = {
-	course: Course;
+	course: OwnCourse;
 };

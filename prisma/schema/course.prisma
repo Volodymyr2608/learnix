@@ -14,6 +14,8 @@ model Course {
   duration      String
   price         String
   originalPrice String?  @map("original_price")
+  averageRating Float    @default(0) @map("average_rating")
+  reviewsCount  Int      @default(0) @map("reviews_count")
   objectives    String[]
   requirements  String[]
 
@@ -34,6 +36,7 @@ model Course {
   sections         Section[]
   enrollments      Enrollment[]
   courseProgresses CourseProgress[]
+  reviews          CourseReview[]
 
   @@index([deletedAt])
   @@map("courses")

@@ -1,5 +1,9 @@
 import { type Course, CourseStatus, type Prisma } from "@/generated/prisma";
 import { BaseRepository } from "@/server/repositories/base/base.repository";
+import type CourseReviewRepository from "@/server/repositories/courseReview.repository";
+import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
+import type EnrollmentRepository from "@/server/repositories/enrollment.repository";
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import type LessonRepository from "@/server/repositories/lesson.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import type QuizRepository from "@/server/repositories/quiz.repository";
@@ -22,12 +26,16 @@ export default class CourseRepository extends BaseRepository<
 	private sectionRepository: SectionRepository;
 	private lessonRepository: LessonRepository;
 	private quizRepository: QuizRepository;
+	private enrollmentRepository: EnrollmentRepository;
+	private courseReviewRepository: CourseReviewRepository;
 
 	constructor() {
 		super();
 		this.sectionRepository = sectionRepository;
 		this.lessonRepository = lessonRepository;
 		this.quizRepository = quizRepository;
+		this.enrollmentRepository = enrollmentRepository;
+		this.courseReviewRepository = courseReviewRepository;
 	}
 
 	public async deleteCourse(
@@ -163,6 +171,121 @@ export default class CourseRepository extends BaseRepository<
 				},
 			);
 		}
+	}
+
+	async getPublishedCourses() {
+		const courses = await this.findMany({
+			where: {
+				status: "published",
+				deletedAt: null,
+			},
+			include: {
+				instructor: {
+					select: {
+						name: true,
+					},
+				},
+				_count: {
+					select: {
+						enrollments: true,
+					},
+				},
+			},
+		});
+
+		return courses.map((course) => ({
+			id: course.id,
+			title: course.title,
+			instructor: course.instructor.name,
+			rating: 4.8, // TODO: add dynamic rating
+			students: course._count.enrollments,
+			duration: course.duration,
+			price: course.price,
+			level: course.level,
+			thumbnail: course.thumbnailUrl,
+			category: course.category,
+		}));
+	}
+
+	async getPublishedCourse(courseId: string) {
+		return await this.findFirst({
+			where: {
+				id: courseId,
+				status: "published",
+				deletedAt: null,
+			},
+			include: {
+				instructor: {
+					select: {
+						name: true,
+						image: true,
+					},
+				},
+				sections: {
+					where: { deletedAt: null },
+					orderBy: { order: "asc" },
+					include: {
+						lessons: {
+							where: { deletedAt: null },
+							orderBy: { order: "asc" },
+							select: {
+								id: true,
+								title: true,
+								duration: true,
+							},
+						},
+					},
+				},
+				reviews: {
+					where: { deletedAt: null },
+					orderBy: { createdAt: "desc" },
+					include: {
+						student: {
+							select: {
+								name: true,
+								image: true,
+							},
+						},
+					},
+				},
+				_count: {
+					select: {
+						enrollments: true,
+					},
+				},
+			},
+		});
+	}
+
+	async getInstructorStats(instructorId: string) {
+		const [coursesCount, studentsCount, instructorRatingResult] =
+			await Promise.all([
+				this.count({ instructorId }),
+				this.enrollmentRepository.count({
+					course: {
+						instructorId,
+						deletedAt: null,
+					},
+				}),
+				this.courseReviewRepository.aggregate({
+					where: {
+						deletedAt: null,
+						course: {
+							instructorId,
+							deletedAt: null,
+						},
+					},
+					_avg: {
+						rating: true,
+					},
+				}),
+			]);
+
+		return {
+			coursesCount,
+			studentsCount,
+			instructorRating: instructorRatingResult._avg.rating,
+		};
 	}
 }
 

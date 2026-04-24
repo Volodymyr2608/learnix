@@ -286,6 +286,136 @@ class CourseService {
 			);
 		}
 	}
+
+	async getPublishedCourse(courseId: string) {
+		try {
+			const course = await courseRepository.getPublishedCourse(courseId);
+
+			if (!course) {
+				throw new CourseError("Course not found", undefined, { courseId });
+			}
+
+			const instructorStats = await courseRepository.getInstructorStats(
+				course.instructorId,
+			);
+
+			const instructorRating = Number(
+				(instructorStats.instructorRating ?? 0).toFixed(1),
+			);
+			const reviewCount = course.reviews.length;
+			const courseRating =
+				reviewCount > 0
+					? Number(
+							(
+								course.reviews.reduce((sum, review) => sum + review.rating, 0) /
+								reviewCount
+							).toFixed(1),
+						)
+					: Number(course.averageRating.toFixed(1));
+
+			const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => {
+				const count = course.reviews.filter(
+					(review) => review.rating === stars,
+				).length;
+				const percentage =
+					reviewCount > 0 ? Math.round((count / reviewCount) * 100) : 0;
+
+				return { stars, count, percentage };
+			});
+
+			const curriculum = course.sections.map((section) => ({
+				id: section.id,
+				section: section.title,
+				lectures: section.lessons.length,
+				duration: this.sumDurations(section.lessons),
+				lessons: section.lessons.map((lesson, index) => ({
+					id: lesson.id,
+					title: lesson.title,
+					duration: lesson.duration,
+					preview: index === 0,
+				})),
+			}));
+
+			const reviews = course.reviews.map((review) => ({
+				id: review.id,
+				name: review.student.name,
+				avatar: review.student.image,
+				date: review.createdAt.toLocaleDateString("en-US", {
+					month: "short",
+					day: "numeric",
+					year: "numeric",
+				}),
+				rating: review.rating,
+				comment: review.comment,
+			}));
+
+			return {
+				id: course.id,
+				title: course.title,
+				subtitle: course.subtitle,
+				instructor: {
+					name: course.instructor.name,
+					avatar: course.instructor.image,
+					students: instructorStats.studentsCount,
+					courses: instructorStats.coursesCount,
+					rating: instructorRating,
+				},
+				rating: courseRating,
+				reviewCount,
+				ratingDistribution,
+				students: course._count.enrollments,
+				duration: course.duration,
+				price: Number(course.price),
+				originalPrice: course.originalPrice
+					? Number(course.originalPrice)
+					: null,
+				level: course.level,
+				language: course.language,
+				lastUpdated: course.updatedAt.toLocaleDateString("en-US", {
+					month: "long",
+					year: "numeric",
+				}),
+				thumbnail: course.thumbnailUrl,
+				category: course.category,
+				objectives: course.objectives,
+				requirements: course.requirements,
+				description: course.description,
+				curriculum,
+				reviews,
+			};
+		} catch (error: unknown) {
+			logger.error("Error getting published course:", error);
+
+			if (error instanceof CourseError) {
+				throw error;
+			}
+
+			throw new CourseError(
+				"Failed to get published course",
+				{ cause: error },
+				{ courseId },
+			);
+		}
+	}
+
+	private sumDurations(lessons: { duration: string | null }[]) {
+		let totalMinutes = 0;
+
+		for (const lesson of lessons) {
+			if (!lesson.duration) continue;
+
+			const [min, sec] = lesson.duration.split(":").map(Number);
+
+			if (min && sec) {
+				totalMinutes += Math.floor(min + sec / 60);
+			}
+		}
+
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+
+		return `${hours}h ${minutes}m`;
+	}
 }
 
 export const courseService = new CourseService();

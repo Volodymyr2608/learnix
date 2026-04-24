@@ -6,7 +6,14 @@ import {
 } from "@/server/entities/course";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseService } from "@/server/services/course/course.service";
-import { createTRPCRouter, instructorProcedure } from "../trpc";
+import { EnrollmentError } from "@/server/services/enrollment/enrollment.errors";
+import { enrollmentService } from "@/server/services/enrollment/enrollment.service";
+import {
+	createTRPCRouter,
+	instructorProcedure,
+	protectedProcedure,
+	studentProcedure,
+} from "../trpc";
 
 export const courseRouter = createTRPCRouter({
 	create: instructorProcedure
@@ -115,6 +122,101 @@ export const courseRouter = createTRPCRouter({
 		try {
 			return await courseRepository.getCoursesStats(ctx.session.user.id);
 		} catch (error) {
+			if (error instanceof Error) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: error.message,
+				});
+			}
+
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Unknown error",
+			});
+		}
+	}),
+
+	getPublishedCourses: protectedProcedure.query(async () => {
+		try {
+			return await courseRepository.getPublishedCourses();
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: error.message,
+				});
+			}
+
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Unknown error",
+			});
+		}
+	}),
+
+	getPublishedCourse: protectedProcedure
+		.input(CourseSchema.shape.id)
+		.query(async ({ input }) => {
+			try {
+				return await courseService.getPublishedCourse(input);
+			} catch (error) {
+				if (error instanceof Error) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: error.message,
+					});
+				}
+
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Unknown error",
+				});
+			}
+		}),
+
+	enroll: studentProcedure
+		.input(CourseSchema.shape.id)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				return await enrollmentService.enrollInCourse(
+					ctx.session.user.id,
+					input,
+				);
+			} catch (error) {
+				if (error instanceof EnrollmentError) {
+					throw new TRPCError({
+						code: error.code,
+						message: error.message,
+					});
+				}
+
+				if (error instanceof Error) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: error.message,
+					});
+				}
+
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Unknown error",
+				});
+			}
+		}),
+
+	getEnrolledCourses: studentProcedure.query(async ({ ctx }) => {
+		try {
+			return await enrollmentService.getStudentEnrolledCourses(
+				ctx.session.user.id,
+			);
+		} catch (error) {
+			if (error instanceof EnrollmentError) {
+				throw new TRPCError({
+					code: error.code,
+					message: error.message,
+				});
+			}
+
 			if (error instanceof Error) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",

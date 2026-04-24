@@ -11,6 +11,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {
 	Dialog,
@@ -19,19 +20,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/app/_components/_shared/ui/dialog";
-
-interface EnrollConfirmDialogProps {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	course: {
-		id: string;
-		title: string;
-		instructor: string;
-		thumbnail: string;
-		duration?: string;
-		level?: string;
-	};
-}
+import type { EnrollConfirmDialogProps } from "@/app/_components/Course/components/EnrollConfirmDialog/types";
+import { api } from "@/trpc/client";
 
 const EnrollConfirmDialog = ({
 	open,
@@ -41,18 +31,35 @@ const EnrollConfirmDialog = ({
 	const [step, setStep] = useState<"confirm" | "enrolling" | "success">(
 		"confirm",
 	);
+	const enroll = api.course.enroll.useMutation({
+		onSuccess: (data) => {
+			if (data.alreadyEnrolled) {
+				toast.info("You are already enrolled in this course.");
+			} else {
+				toast.success("Enrollment successful.");
+			}
+
+			setStep("success");
+		},
+		onError: (error) => {
+			const message =
+				error instanceof Error
+					? error.message
+					: "Failed to enroll in this course.";
+
+			toast.error(message);
+			setStep("confirm");
+		},
+	});
 
 	const handleEnroll = async () => {
 		setStep("enrolling");
-		// Simulate enrollment process
-		await new Promise((resolve) => setTimeout(resolve, 1500));
-		// enrollInCourse(course.id)
-		setStep("success");
+
+		await enroll.mutateAsync(course.id);
 	};
 
 	const handleClose = () => {
 		onOpenChange(false);
-		// Reset step after dialog closes
 		setTimeout(() => setStep("confirm"), 300);
 	};
 
@@ -75,7 +82,7 @@ const EnrollConfirmDialog = ({
 									alt={course.title}
 									className="object-cover"
 									fill
-									src={course.thumbnail}
+									src={course.thumbnail || "/placeholder.svg"}
 								/>
 							</div>
 							<div className="flex flex-col justify-center">
