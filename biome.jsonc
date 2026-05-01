@@ -1,6 +1,9 @@
 {
 	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
 	"root": true,
+	"files": {
+		"includes": ["**", "!public/push/esputnik"]
+	},
 	"vcs": {
 		"enabled": true,
 		"useIgnoreFile": true,
@@ -51,6 +54,18 @@
 			"enabled": true
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["app/layout.tsx"],
+			"linter": {
+				"rules": {
+					"security": {
+						"noDangerouslySetInnerHtml": "off"
+					}
+				}
+			}
+		}
+	],
 	"css": {
 		"assist": {
 			"enabled": true
