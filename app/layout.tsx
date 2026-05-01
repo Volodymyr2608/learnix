@@ -50,7 +50,7 @@ export default function RootLayout({
 						(i[r].q = i[r].q || []).push(arguments)
 						}, a=s.createElement(o), m=s.getElementsByTagName(o)[0]; a.async=1; a.src=g;
 						m.parentNode.insertBefore(a,m)}
-						) (window, document, "script", "https://esputnik.com/scripts/v1/public/scripts?apiKey=eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI0NTI0ZWZhYTJkYzI2MGRmYTM4YTE1NDBlMWFmYjA0NmRiYmUzMDFiMmIxYzhhYzE1YzhhNDc3MmQzOGE0MDQzMjVhZWZlN2EwMGY1YTkyOTM1MGU2ZGY5ZGUyNmZkMDA0NWJjYjAwMzU1Mzg3MmJhYWYyMjA1ZDIzNTFmYzYxNGIzYzBhZTM2MzI3NDYxNTRiOTczZjQ3ZmVmZDQ1MTFhMDY4Y2UzOTM5ZTE5NjE1ZWYxMGFhYzk0OTBlNCJ9.CH5IIkM532qWy4DhP_awysNG8goELqQ0sDGad1c2adn7961VckrD44apG4nvQO4NWDw6NVmyeXQUd1GjAFYKQw&domain=6E07A98E-008E-4615-827A-4ED59C303E25", "es");
+						) (window, document, "script", "https://esputnik.com/scripts/v1/public/scripts?apiKey=eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI0NTI0ZWZhYTJkYzI2MGRmYTM4YTE1NDBlMWFmYjA0NmRiYmUzMDFiMmIxYzhhYzE1YzhhNDc3MmQzOGE0MDQzMjVhZWZlN2EwMGY1YTkyOTM1MGU2ZGY5ZGUyNmZkMDA0NWJjYjAwMzU1Mzg3MmJhYWYyMjA1ZDIzNTFmYzYxNGIzYzBhZTM2MzI3NDYxNTRiOTczZjQ3ZmVmZDQ1MTFhMDY4Y2UzOTM5ZTE5NjE1ZWYxMGFhYzk0OTBlNCJ9.CH5IIkM532qWy4DhP_awysNG8goELqQ0sDGad1c2adn7961VckrD44apG4nvQO4NWDw6NVmyeXQUd1GjAFYKQw&domain=2A249C2F-A051-4E84-B4D3-2971BDF61901", "es");
 						es("pushOn", {
 							'service-worker': {
 								relUrl: '/push/esputnik/push-esputnik-sw.js'
