@@ -20,6 +20,12 @@ const config = {
 			},
 		],
 	},
+	headers: async () => [
+		{
+			source: "/push/esputnik/push-esputnik-sw.js",
+			headers: [{ key: "Service-Worker-Allowed", value: "/" }],
+		},
+	],
 };
 
 export default config;
