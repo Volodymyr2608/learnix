@@ -8,24 +8,19 @@ import {
 } from "@/server/entities/course";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
+import { handleServiceError } from "@/server/utils/handleServiceError";
 
 export const courseAIRouter = createTRPCRouter({
 	acceptStep: instructorProcedure
 		.input(processStepSchema)
 		.mutation(async ({ ctx, input }) => {
 			try {
-				const { courseGenerationId } = input;
-
 				return await courseAIService.acceptStep({
-					courseGenerationId,
+					courseGenerationId: input.courseGenerationId,
 					userId: ctx.session.user.id,
 				});
 			} catch (error) {
-				console.error(error);
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Failed to process step",
-				});
+				handleServiceError(error);
 			}
 		}),
 
@@ -44,20 +39,15 @@ export const courseAIRouter = createTRPCRouter({
 						: {},
 				};
 			} catch (error) {
-				console.error(error);
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Failed to get generation status",
-				});
+				handleServiceError(error);
 			}
 		}),
 
 	getActiveCourseGeneration: instructorProcedure.query(async ({ ctx }) => {
 		try {
-			const userId = ctx.session.user.id;
 			const data = await courseGenerationRepository.findFirst({
 				where: {
-					instructorId: userId,
+					instructorId: ctx.session.user.id,
 					status: "active",
 				},
 				orderBy: { createdAt: "desc" },
@@ -70,44 +60,30 @@ export const courseAIRouter = createTRPCRouter({
 			});
 			return data as CourseGenerationWithRelations;
 		} catch (error) {
-			console.error(error);
-			throw new TRPCError({
-				code: "BAD_REQUEST",
-				message: "Failed to get active course generation",
-			});
+			handleServiceError(error);
 		}
 	}),
 
 	setCourseGenerationStatus: instructorProcedure
 		.input(UpdateCourseGenerationStatusSchema)
 		.mutation(async ({ ctx, input }) => {
-			try {
-				const userId = ctx.session.user.id;
+			const entity = await courseGenerationRepository.findFirst({
+				where: { id: input.id, instructorId: ctx.session.user.id },
+			});
 
-				const entity = await courseGenerationRepository.findFirst({
-					where: {
-						id: input.id,
-						instructorId: userId,
-					},
+			if (!entity) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Course generation not found",
 				});
+			}
 
-				if (!entity) {
-					throw new TRPCError({
-						code: "NOT_FOUND",
-						message: "Course generation not found",
-					});
-				}
-
+			try {
 				return await courseGenerationRepository.update(input.id, {
 					status: input.status,
 				});
 			} catch (error) {
-				console.error(error);
-
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Failed to update course generation status",
-				});
+				handleServiceError(error);
 			}
 		}),
 });

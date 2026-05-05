@@ -1,10 +1,3 @@
-export class UserError extends Error {
-	constructor(
-		message: string,
-		public cause?: unknown,
-		public context?: Record<string, unknown>,
-	) {
-		super(message);
-		this.name = "UserError";
-	}
-}
+import { DomainError } from "@/server/services/base/base.errors";
+
+export class UserError extends DomainError {}

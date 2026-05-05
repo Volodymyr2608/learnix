@@ -6,8 +6,8 @@ import {
 } from "@/server/entities/course";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseService } from "@/server/services/course/course.service";
-import { EnrollmentError } from "@/server/services/enrollment/enrollment.errors";
 import { enrollmentService } from "@/server/services/enrollment/enrollment.service";
+import { handleServiceError } from "@/server/utils/handleServiceError";
 import {
 	createTRPCRouter,
 	instructorProcedure,
@@ -21,12 +21,8 @@ export const courseRouter = createTRPCRouter({
 		.mutation(async ({ input }) => {
 			try {
 				return await courseService.createCourse(input);
-			} catch (error: unknown) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					// @ts-expect-error
-					message: error.message,
-				});
+			} catch (error) {
+				handleServiceError(error);
 			}
 		}),
 
@@ -35,12 +31,8 @@ export const courseRouter = createTRPCRouter({
 		.mutation(async ({ input }) => {
 			try {
 				return await courseService.updateCourse(input.id, input);
-			} catch (error: unknown) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					// @ts-expect-error
-					message: error.message,
-				});
+			} catch (error) {
+				handleServiceError(error);
 			}
 		}),
 
@@ -49,36 +41,16 @@ export const courseRouter = createTRPCRouter({
 		.mutation(async ({ input }) => {
 			try {
 				return await courseRepository.deleteCourse(input, true);
-			} catch (error: unknown) {
-				if (error instanceof Error) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: error.message,
-					});
-				}
-
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Unknown error",
-				});
+			} catch (error) {
+				handleServiceError(error);
 			}
 		}),
 
 	getOwnCourses: instructorProcedure.query(async ({ ctx }) => {
 		try {
 			return await courseRepository.getOwnCourses(ctx.session.user.id);
-		} catch (error: unknown) {
-			if (error instanceof Error) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: error.message,
-				});
-			}
-
-			throw new TRPCError({
-				code: "BAD_REQUEST",
-				message: "Unknown error",
-			});
+		} catch (error) {
+			handleServiceError(error);
 		}
 	}),
 
@@ -99,22 +71,8 @@ export const courseRouter = createTRPCRouter({
 				}
 
 				return course;
-			} catch (error: unknown) {
-				if (error instanceof TRPCError) {
-					throw error;
-				}
-
-				if (error instanceof Error) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: error.message,
-					});
-				}
-
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Unknown error",
-				});
+			} catch (error) {
+				handleServiceError(error);
 			}
 		}),
 
@@ -122,17 +80,7 @@ export const courseRouter = createTRPCRouter({
 		try {
 			return await courseRepository.getCoursesStats(ctx.session.user.id);
 		} catch (error) {
-			if (error instanceof Error) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: error.message,
-				});
-			}
-
-			throw new TRPCError({
-				code: "BAD_REQUEST",
-				message: "Unknown error",
-			});
+			handleServiceError(error);
 		}
 	}),
 
@@ -140,17 +88,7 @@ export const courseRouter = createTRPCRouter({
 		try {
 			return await courseRepository.getPublishedCourses();
 		} catch (error) {
-			if (error instanceof Error) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: error.message,
-				});
-			}
-
-			throw new TRPCError({
-				code: "BAD_REQUEST",
-				message: "Unknown error",
-			});
+			handleServiceError(error);
 		}
 	}),
 
@@ -160,17 +98,7 @@ export const courseRouter = createTRPCRouter({
 			try {
 				return await courseService.getPublishedCourse(input);
 			} catch (error) {
-				if (error instanceof Error) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: error.message,
-					});
-				}
-
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Unknown error",
-				});
+				handleServiceError(error);
 			}
 		}),
 
@@ -183,24 +111,7 @@ export const courseRouter = createTRPCRouter({
 					input,
 				);
 			} catch (error) {
-				if (error instanceof EnrollmentError) {
-					throw new TRPCError({
-						code: error.code,
-						message: error.message,
-					});
-				}
-
-				if (error instanceof Error) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: error.message,
-					});
-				}
-
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Unknown error",
-				});
+				handleServiceError(error);
 			}
 		}),
 
@@ -210,24 +121,7 @@ export const courseRouter = createTRPCRouter({
 				ctx.session.user.id,
 			);
 		} catch (error) {
-			if (error instanceof EnrollmentError) {
-				throw new TRPCError({
-					code: error.code,
-					message: error.message,
-				});
-			}
-
-			if (error instanceof Error) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: error.message,
-				});
-			}
-
-			throw new TRPCError({
-				code: "BAD_REQUEST",
-				message: "Unknown error",
-			});
+			handleServiceError(error);
 		}
 	}),
 });

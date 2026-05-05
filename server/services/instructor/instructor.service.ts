@@ -37,7 +37,8 @@ class InstructorService {
 
 			throw new InstructorError(
 				"Failed to create instructor",
-				{ cause: error },
+				"INTERNAL_SERVER_ERROR",
+				error,
 				{ dto },
 			);
 		}

@@ -1,10 +1,3 @@
-export class LessonError extends Error {
-	constructor(
-		message: string,
-		public cause?: unknown,
-		public context?: Record<string, unknown>,
-	) {
-		super(message);
-		this.name = "LessonError";
-	}
-}
+import { DomainError } from "@/server/services/base/base.errors";
+
+export class LessonError extends DomainError {}

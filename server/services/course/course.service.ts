@@ -30,8 +30,9 @@ class CourseService {
 		} catch (error: unknown) {
 			logger.error("Error creating course:", error);
 			throw new CourseError(
-				`Failed to create course`,
-				{ cause: error },
+				"Failed to create course",
+				"INTERNAL_SERVER_ERROR",
+				error,
 				{ dto },
 			);
 		}
@@ -49,7 +50,8 @@ class CourseService {
 			logger.error("Error creating sections:", error);
 			throw new SectionError(
 				`Failed to create sections for course ${courseId}`,
-				{ cause: error },
+				"INTERNAL_SERVER_ERROR",
+				error,
 				{ dto: sections },
 			);
 		}
@@ -77,8 +79,9 @@ class CourseService {
 		} catch (error) {
 			logger.error("Error creating lessons:", error);
 			throw new LessonError(
-				`Failed to create lessons for sections`,
-				{ cause: error },
+				"Failed to create lessons for sections",
+				"INTERNAL_SERVER_ERROR",
+				error,
 				{ dto: sections.length },
 			);
 		}
@@ -111,7 +114,7 @@ class CourseService {
 				});
 
 				if (!existingCourse) {
-					throw new CourseError(`Course ${courseId} not found`);
+					throw new CourseError(`Course ${courseId} not found`, "NOT_FOUND");
 				}
 
 				const courseDataToUpdate = this.prepareCourseUpdate(
@@ -143,8 +146,9 @@ class CourseService {
 		} catch (error: unknown) {
 			logger.error("Error updating course:", error);
 			throw new CourseError(
-				`Failed to update course`,
-				{ cause: error },
+				"Failed to update course",
+				"INTERNAL_SERVER_ERROR",
+				error,
 				{ dto },
 			);
 		}
@@ -221,7 +225,8 @@ class CourseService {
 
 			throw new SectionError(
 				`Failed to sync sections for course ${courseId}`,
-				{ cause: error },
+				"INTERNAL_SERVER_ERROR",
+				error,
 				{ existingSections, newSections },
 			);
 		}
@@ -277,8 +282,9 @@ class CourseService {
 			logger.error("Error syncing lessons:", error);
 
 			throw new LessonError(
-				`Failed to sync lessons`,
-				{ cause: error },
+				"Failed to sync lessons",
+				"INTERNAL_SERVER_ERROR",
+				error,
 				{
 					newSectionsCount: newSections.length,
 					updatedSectionIds: updatedSections.map((s) => s.id),
@@ -292,7 +298,9 @@ class CourseService {
 			const course = await courseRepository.getPublishedCourse(courseId);
 
 			if (!course) {
-				throw new CourseError("Course not found", undefined, { courseId });
+				throw new CourseError("Course not found", "NOT_FOUND", undefined, {
+					courseId,
+				});
 			}
 
 			const instructorStats = await courseRepository.getInstructorStats(
@@ -392,7 +400,8 @@ class CourseService {
 
 			throw new CourseError(
 				"Failed to get published course",
-				{ cause: error },
+				"INTERNAL_SERVER_ERROR",
+				error,
 				{ courseId },
 			);
 		}
