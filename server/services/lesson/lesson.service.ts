@@ -1,4 +1,6 @@
 import type { Quiz } from "@/generated/prisma";
+import { EnrollmentStatus } from "@/generated/prisma";
+import { db } from "@/server/db";
 import type { LessonContentUpdateDto } from "@/server/entities/lesson";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
@@ -68,6 +70,87 @@ class LessonService {
 			if (error instanceof LessonError) throw error;
 			throw new LessonError(
 				"Failed to update lesson",
+				"INTERNAL_SERVER_ERROR",
+				error,
+				{ lessonId },
+			);
+		}
+	}
+
+	async getStudentLesson(lessonId: string, studentId: string) {
+		try {
+			const lesson = await lessonRepository.findFirst({
+				where: {
+					id: lessonId,
+					deletedAt: null,
+					section: {
+						course: {
+							enrollments: {
+								some: {
+									studentId,
+									status: { not: EnrollmentStatus.cancelled },
+								},
+							},
+						},
+					},
+				},
+				include: {
+					quizzes: { where: { deletedAt: null }, orderBy: { id: "asc" } },
+				},
+			});
+
+			if (!lesson) {
+				throw new LessonError("Lesson not found or access denied", "NOT_FOUND");
+			}
+
+			return lesson as typeof lesson & { quizzes: Quiz[] };
+		} catch (error) {
+			if (error instanceof LessonError) throw error;
+			throw new LessonError(
+				"Failed to get lesson",
+				"INTERNAL_SERVER_ERROR",
+				error,
+				{ lessonId },
+			);
+		}
+	}
+
+	async markLessonComplete(lessonId: string, studentId: string) {
+		try {
+			await this.getStudentLesson(lessonId, studentId);
+			await db.lessonProgress.upsert({
+				where: { lessonId_studentId: { lessonId, studentId } },
+				create: {
+					lessonId,
+					studentId,
+					isCompleted: true,
+					completedAt: new Date(),
+				},
+				update: { isCompleted: true, completedAt: new Date() },
+			});
+		} catch (error) {
+			if (error instanceof LessonError) throw error;
+			throw new LessonError(
+				"Failed to mark lesson complete",
+				"INTERNAL_SERVER_ERROR",
+				error,
+				{ lessonId },
+			);
+		}
+	}
+
+	async markLessonIncomplete(lessonId: string, studentId: string) {
+		try {
+			await this.getStudentLesson(lessonId, studentId);
+			await db.lessonProgress.upsert({
+				where: { lessonId_studentId: { lessonId, studentId } },
+				create: { lessonId, studentId, isCompleted: false },
+				update: { isCompleted: false, completedAt: null },
+			});
+		} catch (error) {
+			if (error instanceof LessonError) throw error;
+			throw new LessonError(
+				"Failed to mark lesson incomplete",
 				"INTERNAL_SERVER_ERROR",
 				error,
 				{ lessonId },

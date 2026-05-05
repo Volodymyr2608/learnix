@@ -124,4 +124,26 @@ export const courseRouter = createTRPCRouter({
 			handleServiceError(error);
 		}
 	}),
+
+	getEnrolledCourse: studentProcedure
+		.input(CourseSchema.shape.id)
+		.query(async ({ ctx, input }) => {
+			try {
+				const course = await enrollmentService.getStudentCourse(
+					ctx.session.user.id,
+					input,
+				);
+
+				if (!course) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Course not found or not enrolled",
+					});
+				}
+
+				return course;
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
 });
