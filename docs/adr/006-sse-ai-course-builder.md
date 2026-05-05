@@ -1,15 +1,17 @@
-# ADR-006: SSE Streaming for AI Course Builder
+# ADR-006: SSE Streaming as AI Transport
 
 - **Status**: Accepted
 - **Date**: 2026-01
 
 ## Context
 
-Instructors need an AI-assisted, conversational course builder. The AI response must stream token-by-token to feel responsive. tRPC does not natively support server-sent events (SSE) with the streaming semantics we needed.
+AI features require token-by-token streaming responses to feel responsive. tRPC does not natively support server-sent events (SSE), so a different transport is needed for all AI endpoints.
 
 ## Decision
 
-Implement the AI chat endpoint as a plain Next.js Route Handler (`app/api/chat/course/route.ts`) using **Server-Sent Events** over a `ReadableStream`. Use LangChain's `ChatOpenAI` with `gpt-4o-mini` on the server.
+Implement every AI chat endpoint as a plain Next.js Route Handler using **Server-Sent Events** over a `ReadableStream`. LangChain's `ChatOpenAI` with `gpt-4o-mini` runs on the server.
+
+The first instance is `app/api/chat/course/route.ts` (AI course builder). All future AI streaming endpoints (`app/api/chat/lesson/`, etc.) follow the same pattern.
 
 The stream emits typed JSON events:
 - `{ type: "start", courseGenerationId }` — signals the generation session ID
