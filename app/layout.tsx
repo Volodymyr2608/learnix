@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 	title: "Home | Learnix App",
 	description:
 		"Access world-class education from anywhere. Master new skills with expert-led courses, interactive projects, and a supportive learning community",
-	manifest: "/site.webmanifest",
+	manifest: "/manifest.json",
 	icons: [
 		{ rel: "icon", url: "/favicon.ico" },
 		{ rel: "icon", url: "/favicon.svg", type: "image/svg+xml" },
