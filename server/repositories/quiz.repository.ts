@@ -4,7 +4,7 @@ import { BaseRepository } from "@/server/repositories/base/base.repository";
 export default class QuizRepository extends BaseRepository<
 	"quiz",
 	Quiz,
-	Prisma.QuizCreateInput,
+	Prisma.QuizUncheckedCreateInput,
 	Prisma.QuizUpdateInput,
 	Prisma.QuizWhereInput,
 	Prisma.QuizInclude,

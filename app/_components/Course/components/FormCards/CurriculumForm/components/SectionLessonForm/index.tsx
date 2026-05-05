@@ -1,6 +1,6 @@
 import { Edit, Eye, GripVertical, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useFieldArray, useFormContext } from "react-hook-form";
+import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import FormField from "@/app/_components/_shared/components/Form/FormField";
 import useSortableItem from "@/app/_components/_shared/hooks/useSortableItem";
 import { Button } from "@/app/_components/_shared/ui/button";
@@ -33,6 +33,11 @@ const SectionLessonForm = ({
 		control,
 		name: `sections.${sectionIndex}.lessons`,
 	});
+
+	const watchedLessons = useWatch({
+		control,
+		name: `sections.${sectionIndex}.lessons`,
+	}) as { id?: string }[] | undefined;
 
 	const sectionItem = Array.isArray(errors.sections)
 		? errors.sections[sectionIndex]
@@ -93,6 +98,8 @@ const SectionLessonForm = ({
 							const isDurationError =
 								lessonData && typeof lessonData.duration?.message === "string";
 
+							const dbLessonId = watchedLessons?.[lessonIndex]?.id;
+
 							return (
 								<div className="flex gap-2" key={lesson.id}>
 									<div className="grid flex-1 gap-2 md:grid-cols-3">
@@ -120,7 +127,7 @@ const SectionLessonForm = ({
 											placeholder="Duration (e.g., 15:30)"
 										/>
 									</div>
-									{isEdit && courseId && (
+									{isEdit && courseId && dbLessonId && (
 										<>
 											<Button
 												asChild
@@ -131,7 +138,7 @@ const SectionLessonForm = ({
 												<Link
 													href={INSTRUCTOR_URLS.previewLesson(
 														courseId,
-														lesson.id.toString(),
+														dbLessonId,
 													)}
 												>
 													<Eye className="h-4 w-4" />
@@ -146,7 +153,7 @@ const SectionLessonForm = ({
 												<Link
 													href={INSTRUCTOR_URLS.editLesson(
 														courseId,
-														lesson.id.toString(),
+														dbLessonId,
 													)}
 												>
 													<Edit className="h-4 w-4" />
