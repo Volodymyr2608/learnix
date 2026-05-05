@@ -3,7 +3,9 @@ import {
 	CheckCircle,
 	Clock,
 	Edit,
+	Eye,
 	Play,
+	PlayCircle,
 	Star,
 	Users,
 } from "lucide-react";
@@ -128,13 +130,44 @@ export default async function InstructorCoursePreviewPage({
 						</div>
 						<div className="space-y-2">
 							{course.sections.map((section) => (
-								<div className="rounded-lg border p-4" key={section.title}>
-									<div className="flex items-center justify-between">
+								<div className="rounded-lg border" key={section.title}>
+									<div className="flex items-center justify-between p-4">
 										<h3 className="font-semibold">{section.title}</h3>
 										<span className="text-muted-foreground text-sm">
-											{section.lessons.length} lectures • 10 min
+											{section.lessons.length} lectures
 										</span>
 									</div>
+									{section.lessons.length > 0 && (
+										<div className="border-t">
+											{section.lessons.map((lesson) => (
+												<div
+													className="flex items-center justify-between px-4 py-2 text-sm last:rounded-b-lg hover:bg-muted/50"
+													key={lesson.id}
+												>
+													<div className="flex items-center gap-2 text-muted-foreground">
+														<PlayCircle className="h-4 w-4 shrink-0" />
+														<span>{lesson.title}</span>
+														{lesson.duration && (
+															<span className="text-xs">
+																• {lesson.duration}
+															</span>
+														)}
+													</div>
+													<Button asChild size="sm" variant="ghost">
+														<Link
+															href={INSTRUCTOR_URLS.previewLesson(
+																courseId,
+																lesson.id,
+															)}
+														>
+															<Eye className="mr-1 h-3 w-3" />
+															Preview
+														</Link>
+													</Button>
+												</div>
+											))}
+										</div>
+									)}
 								</div>
 							))}
 						</div>

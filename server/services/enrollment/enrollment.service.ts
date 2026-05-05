@@ -171,6 +171,78 @@ class EnrollmentService {
 			);
 		}
 	}
+
+	async getStudentCourse(studentId: string, courseId: string) {
+		try {
+			const enrollment = await enrollmentRepository.findFirst({
+				where: {
+					studentId,
+					courseId,
+					status: { not: EnrollmentStatus.cancelled },
+					course: { deletedAt: null },
+				},
+				select: {
+					id: true,
+					course: {
+						select: {
+							id: true,
+							title: true,
+							instructor: { select: { name: true } },
+							sections: {
+								where: { deletedAt: null },
+								orderBy: { order: "asc" },
+								select: {
+									id: true,
+									title: true,
+									lessons: {
+										where: { deletedAt: null },
+										orderBy: { order: "asc" },
+										select: {
+											id: true,
+											title: true,
+											duration: true,
+											progresses: {
+												where: { studentId },
+												select: { isCompleted: true },
+												take: 1,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			});
+
+			if (!enrollment) return null;
+
+			const { course } = enrollment;
+			return {
+				id: course.id,
+				title: course.title,
+				instructor: course.instructor.name,
+				sections: course.sections.map((section) => ({
+					id: section.id,
+					title: section.title,
+					lessons: section.lessons.map((lesson) => ({
+						id: lesson.id,
+						title: lesson.title,
+						duration: lesson.duration,
+						isCompleted: lesson.progresses[0]?.isCompleted ?? false,
+					})),
+				})),
+			};
+		} catch (error) {
+			logger.error("Failed to fetch student course:", error);
+			throw new EnrollmentError(
+				"Failed to fetch course",
+				"BAD_REQUEST",
+				error,
+				{ studentId, courseId },
+			);
+		}
+	}
 }
 
 export const enrollmentService = new EnrollmentService();
