@@ -1,7 +1,7 @@
-import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { instructorSchema } from "@/server/entities/instructor";
 import { instructorService } from "@/server/services/instructor/instructor.service";
+import { handleServiceError } from "@/server/utils/handleServiceError";
 
 export const instructorRouter = createTRPCRouter({
 	create: publicProcedure
@@ -9,12 +9,8 @@ export const instructorRouter = createTRPCRouter({
 		.mutation(async ({ input }) => {
 			try {
 				return await instructorService.createInstructor(input);
-			} catch (error: unknown) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					// @ts-expect-error
-					message: error.message,
-				});
+			} catch (error) {
+				handleServiceError(error);
 			}
 		}),
 });

@@ -1,10 +1,3 @@
-export class SectionError extends Error {
-	constructor(
-		message: string,
-		public cause?: unknown,
-		public context?: Record<string, unknown>,
-	) {
-		super(message);
-		this.name = "SectionError";
-	}
-}
+import { DomainError } from "@/server/services/base/base.errors";
+
+export class SectionError extends DomainError {}
