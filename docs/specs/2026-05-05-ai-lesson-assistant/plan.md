@@ -1,18 +1,4 @@
-# Spec: AI Lesson Assistant
-
-## Status: planned — Phase 8
-
-## Problem
-
-Students watch a video or read lesson content and have no one to ask questions. The lesson viewer at `app/dashboard/courses/[courseId]/learn/page.tsx` already has a "Discussion" tab placeholder — this is the natural home for a per-lesson AI tutor.
-
-Unlike the course builder (which is a raw `model.stream()` call), this feature is built as a proper pipeline: an input guardrail chain gates every message before an agent with tools handles it and streams a response.
-
-## Goal
-
-An enrolled student opens a chat panel inside any lesson and asks questions. The AI answers using the lesson's `content` field as its knowledge base and can personalise responses using the student's progress. Conversation history persists across sessions.
-
----
+# Plan: AI Lesson Assistant
 
 ## Prerequisites (non-AI groundwork, ~0.5 day)
 
@@ -43,8 +29,7 @@ Student message
 
 ### Layer 1 — Guardrail chain (LCEL)
 
-A fast, cheap classifier that runs before the agent. If the question is off-topic or
-a prompt injection attempt, the pipeline short-circuits and the agent is never called.
+A fast, cheap classifier that runs before the agent. If the question is off-topic or a prompt injection attempt, the pipeline short-circuits and the agent is never called.
 
 ```ts
 // server/services/lessonAI/chains/topicGuard.chain.ts
@@ -74,14 +59,9 @@ export function buildTopicGuardChain(lessonTitle: string) {
     .withStructuredOutput(GuardOutputSchema);
 
   return RunnableSequence.from([
-    // Step 1: format the prompt with lesson title + user message
     (input: { userMessage: string }) =>
       guardPrompt.formatMessages({ lessonTitle, userMessage: input.userMessage }),
-
-    // Step 2: classify
     llm,
-
-    // Step 3: throw early if off-topic so the agent is never reached
     (result) => {
       if (!result.onTopic) {
         throw new OffTopicError(
@@ -217,7 +197,7 @@ export class LessonAIService {
     const { lessonId, lessonTitle, courseTitle, courseId, studentId, userMessage, signal } =
       params;
 
-    // --- Layer 1: guardrail chain ---
+    // Layer 1: guardrail chain
     try {
       const guard = buildTopicGuardChain(lessonTitle);
       await guard.invoke({ userMessage });
@@ -229,7 +209,7 @@ export class LessonAIService {
       throw err;
     }
 
-    // --- Load typed conversation history ---
+    // Load typed conversation history
     const history = await lessonAssistantRepository.getMessages(lessonId, studentId);
     const langchainHistory = history.flatMap((msg) =>
       msg.role === "user"
@@ -237,7 +217,7 @@ export class LessonAIService {
         : [new AIMessage(msg.content)],
     );
 
-    // --- Layer 2: agent ---
+    // Layer 2: agent
     const agent = createLessonAgent({ lessonId, lessonTitle, courseTitle, studentId, courseId });
 
     let fullReply = "";
@@ -269,7 +249,7 @@ export class LessonAIService {
       return;
     }
 
-    // --- Layer 3: persist reply ---
+    // Layer 3: persist reply
     if (fullReply) {
       await lessonAssistantRepository.saveMessage(lessonId, studentId, {
         role: "assistant",
@@ -282,42 +262,7 @@ export class LessonAIService {
 export const lessonAIService = new LessonAIService();
 ```
 
-Key difference from the course builder: tool-call tokens (agent reasoning, tool results)
-are filtered out of the SSE stream — only final answer tokens reach the client.
-
----
-
-## New DB models
-
-```prisma
-// prisma/schema/lessonAssistant.prisma
-
-model LessonAssistantConversation {
-  id        String   @id @default(cuid())
-  lessonId  String
-  studentId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  lesson    Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student   User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  messages  LessonAssistantMessage[]
-
-  @@unique([lessonId, studentId])
-}
-
-model LessonAssistantMessage {
-  id             String   @id @default(cuid())
-  conversationId String
-  role           String   // "user" | "assistant"
-  content        String   @db.Text
-  createdAt      DateTime @default(now())
-
-  conversation   LessonAssistantConversation @relation(
-    fields: [conversationId], references: [id], onDelete: Cascade
-  )
-}
-```
+Key difference from the course builder: tool-call tokens (agent reasoning, tool results) are filtered out of the SSE stream — only final answer tokens reach the client.
 
 ---
 
@@ -332,7 +277,6 @@ export async function POST(req: Request) {
 
   const { lessonId, message } = await req.json();
 
-  // verify enrollment before allowing access
   const enrollment = await enrollmentRepository.findFirst({
     where: { studentId: session.user.id, course: { sections: { some: { lessons: { some: { id: lessonId } } } } } },
   });
@@ -402,55 +346,11 @@ Replace the "Discussion" tab placeholder in the lesson viewer with a chat panel:
 │  [student]   What does useEffect do?    │
 │                                         │
 │  [assistant] useEffect runs side        │
-│  effects after render...  ▌             │  ← streaming cursor
+│  effects after render...  ▌             │
 │                                         │
 │─────────────────────────────────────────│
 │  [Ask a question...           ] [Send]  │
 └─────────────────────────────────────────┘
 ```
 
-Reuse the streaming hook from `AIChatBuilderDialog/hooks/useChatStreaming.ts` — it
-already handles SSE token accumulation and abort. Tool-call events are filtered
-server-side so the hook receives only answer tokens.
-
----
-
-## Files to create / modify
-
-| Action | Path |
-|---|---|
-| New Prisma schema | `prisma/schema/lessonAssistant.prisma` |
-| New repository | `server/repositories/lessonAssistant.repository.ts` |
-| New chain | `server/services/lessonAI/chains/topicGuard.chain.ts` |
-| New tool | `server/services/lessonAI/tools/getLessonContent.tool.ts` |
-| New tool | `server/services/lessonAI/tools/getStudentProgress.tool.ts` |
-| New agent | `server/services/lessonAI/lessonAI.agent.ts` |
-| New service | `server/services/lessonAI/lessonAI.service.ts` |
-| New errors | `server/services/lessonAI/lessonAI.errors.ts` |
-| New SSE endpoint | `app/api/chat/lesson/route.ts` |
-| New router | `server/api/routers/lessonAssistant.ts` |
-| Modify | `server/api/root.ts` — add lessonAssistant router |
-| Modify | `app/dashboard/courses/[courseId]/learn/page.tsx` — replace Discussion tab |
-
----
-
-## Estimated effort
-
-| Task | Time |
-|---|---|
-| Prisma schema + migration + repository | 1 h |
-| Guardrail chain | 1–2 h |
-| Tools (2) + agent | 2–3 h |
-| Service (orchestration + streaming) | 2–3 h |
-| SSE endpoint | 1 h |
-| tRPC procedures | 0.5 h |
-| Chat UI + streaming hook wiring | 3–4 h |
-| **Total** | **~2–2.5 days** |
-
----
-
-## Future extensions
-
-- **Quiz hint mode** — add a `get_quiz_question(quizId)` tool so the agent can give hints without revealing the answer.
-- **Multi-lesson context** — expand `get_lesson_content` to also pull adjacent lessons for prerequisite questions.
-- **Progress-aware pacing** — agent checks `get_student_progress` and slows down explanations for concepts the student hasn't reached yet.
+Reuse the streaming hook from `AIChatBuilderDialog/hooks/useChatStreaming.ts` — it already handles SSE token accumulation and abort. Tool-call events are filtered server-side so the hook receives only answer tokens.
