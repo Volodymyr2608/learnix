@@ -1,8 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { findInitialLesson } from "@/app/_components/Course/components/CourseLearnView/helpers/findInitialLesson";
 import getStudentCourse from "@/lib/requests/course/getStudentCourse";
-import CourseLearnView from "../../../../_components/Course/components/CourseLearnView";
 
-export default async function ContinueLearningPage({
+export default async function LearnPage({
 	params,
 }: {
 	params: Promise<{ courseId: string }>;
@@ -14,5 +14,11 @@ export default async function ContinueLearningPage({
 		notFound();
 	}
 
-	return <CourseLearnView course={course} />;
+	const lessonId = findInitialLesson(course);
+
+	if (!lessonId) {
+		notFound();
+	}
+
+	redirect(`/dashboard/courses/${courseId}/learn/${lessonId}`);
 }

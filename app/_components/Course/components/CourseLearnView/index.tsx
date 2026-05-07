@@ -29,10 +29,10 @@ import {
 	MessageSquare,
 	PlayCircle,
 } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import { api } from "trpc/client";
-import { findInitialLesson } from "@/app/_components/Course/components/CourseLearnView/helpers/findInitialLesson";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
@@ -47,7 +47,13 @@ function MarkdownContent({ content }: { content: string }) {
 	);
 }
 
-const CourseLearnView = ({ course }: CourseLearnViewProps) => {
+const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
+	const router = useRouter();
+	const { courseId, lessonId } = useParams<{
+		courseId: string;
+		lessonId: string;
+	}>();
+
 	const [completedIds, setCompletedIds] = useState<Set<string>>(
 		() =>
 			new Set(
@@ -56,12 +62,9 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 					.map((l) => l.id),
 			),
 	);
-	const [selectedLessonId, setSelectedLessonId] = useState<string>(() =>
-		findInitialLesson(course),
-	);
 
 	const allLessons = useMemo(() => toFlatLessons(course), [course]);
-	const currentIndex = allLessons.findIndex((l) => l.id === selectedLessonId);
+	const currentIndex = allLessons.findIndex((l) => l.id === lessonId);
 	const hasPrevious = currentIndex > 0;
 	const hasNext = currentIndex < allLessons.length - 1;
 
@@ -73,16 +76,14 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 		[completedIds, allLessons],
 	);
 
-	const { data: lesson, isLoading: lessonLoading } =
-		api.lesson.getStudentLesson.useQuery(selectedLessonId, {
-			enabled: !!selectedLessonId,
-		});
+	const navigate = (id: string) =>
+		router.push(`/dashboard/courses/${courseId}/learn/${id}`);
 
 	const markComplete = api.lesson.markComplete.useMutation({
 		onSuccess: () => {
-			setCompletedIds((prev) => new Set([...prev, selectedLessonId]));
+			setCompletedIds((prev) => new Set([...prev, lessonId]));
 			const nextId = allLessons[currentIndex + 1]?.id;
-			if (hasNext && nextId) setSelectedLessonId(nextId);
+			if (hasNext && nextId) navigate(nextId);
 		},
 	});
 
@@ -90,14 +91,14 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 		onSuccess: () => {
 			setCompletedIds((prev) => {
 				const next = new Set(prev);
-				next.delete(selectedLessonId);
+				next.delete(lessonId);
 				return next;
 			});
 		},
 	});
 
 	const isCompleting = markComplete.isPending || markIncomplete.isPending;
-	const isCurrentCompleted = completedIds.has(selectedLessonId);
+	const isCurrentCompleted = completedIds.has(lessonId);
 
 	const resources = Array.isArray(lesson?.resources)
 		? (lesson.resources as ResourceItem[])
@@ -144,11 +145,7 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 				<div className="space-y-6 lg:col-span-2">
 					<Card className="overflow-hidden">
 						<div className="aspect-video w-full bg-black">
-							{lessonLoading ? (
-								<div className="flex h-full items-center justify-center">
-									<Loader2 className="h-8 w-8 animate-spin text-white/60" />
-								</div>
-							) : lesson?.videoUrl ? (
+							{lesson?.videoUrl ? (
 								<video className="h-full w-full" controls>
 									<track default kind="captions" src="" srcLang="en" />
 									<source src={lesson.videoUrl} type="video/mp4" />
@@ -173,7 +170,7 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 								<CardHeader>
 									<div className="flex items-start justify-between">
 										<div>
-											<CardTitle>{lesson?.title ?? "Loading..."}</CardTitle>
+											<CardTitle>{lesson?.title}</CardTitle>
 											{lesson?.duration && (
 												<CardDescription>
 													Lesson {currentIndex + 1} of {allLessons.length} •{" "}
@@ -184,7 +181,7 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 										{isCurrentCompleted ? (
 											<Button
 												disabled={isCompleting}
-												onClick={() => markIncomplete.mutate(selectedLessonId)}
+												onClick={() => markIncomplete.mutate(lessonId)}
 												size="sm"
 												variant="outline"
 											>
@@ -198,7 +195,7 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 										) : (
 											<Button
 												disabled={isCompleting}
-												onClick={() => markComplete.mutate(selectedLessonId)}
+												onClick={() => markComplete.mutate(lessonId)}
 												size="sm"
 											>
 												{isCompleting ? (
@@ -223,17 +220,15 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 											<MarkdownContent content={lesson.content} />
 										</>
 									)}
-									{!lessonLoading &&
-										!lesson?.description &&
-										!lesson?.content && (
-											<p className="text-muted-foreground text-sm">
-												No content added yet.
-											</p>
-										)}
+									{!lesson?.description && !lesson?.content && (
+										<p className="text-muted-foreground text-sm">
+											No content added yet.
+										</p>
+									)}
 								</CardContent>
 							</Card>
 
-							<QuizPlayer lessonId={selectedLessonId} />
+							<QuizPlayer lessonId={lessonId} />
 						</TabsContent>
 
 						<TabsContent className="space-y-4" value="resources">
@@ -312,7 +307,7 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 							disabled={!hasPrevious}
 							onClick={() => {
 								const prev = allLessons[currentIndex - 1];
-								if (prev) setSelectedLessonId(prev.id);
+								if (prev) navigate(prev.id);
 							}}
 							variant="outline"
 						>
@@ -323,7 +318,7 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 							disabled={!hasNext}
 							onClick={() => {
 								const next = allLessons[currentIndex + 1];
-								if (next) setSelectedLessonId(next.id);
+								if (next) navigate(next.id);
 							}}
 						>
 							Next Lesson
@@ -349,9 +344,11 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 												{section.title}
 											</p>
 											<div className="space-y-1">
-												{section.lessons.map((lesson) => {
-													const isCompleted = completedIds.has(lesson.id);
-													const isCurrent = lesson.id === selectedLessonId;
+												{section.lessons.map((sectionLesson) => {
+													const isCompleted = completedIds.has(
+														sectionLesson.id,
+													);
+													const isCurrent = sectionLesson.id === lessonId;
 
 													return (
 														<button
@@ -360,8 +357,8 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 																	? "bg-primary/10 text-primary"
 																	: "hover:bg-muted"
 															}`}
-															key={lesson.id}
-															onClick={() => setSelectedLessonId(lesson.id)}
+															key={sectionLesson.id}
+															onClick={() => navigate(sectionLesson.id)}
 															type="button"
 														>
 															{isCompleted ? (
@@ -381,11 +378,11 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 																		isCurrent ? "text-primary" : ""
 																	}`}
 																>
-																	{lesson.title}
+																	{sectionLesson.title}
 																</p>
-																{lesson.duration && (
+																{sectionLesson.duration && (
 																	<p className="text-muted-foreground text-xs">
-																		{lesson.duration}
+																		{sectionLesson.duration}
 																	</p>
 																)}
 															</div>

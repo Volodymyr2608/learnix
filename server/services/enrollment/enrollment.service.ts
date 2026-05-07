@@ -103,24 +103,22 @@ class EnrollmentService {
 							thumbnailUrl: true,
 							duration: true,
 							sections: {
+								where: { deletedAt: null },
+								orderBy: { order: "asc" },
 								select: {
 									lessons: {
+										where: { deletedAt: null },
+										orderBy: { order: "asc" },
 										select: {
 											id: true,
+											progresses: {
+												where: { studentId },
+												select: { isCompleted: true },
+												take: 1,
+											},
 										},
 									},
 								},
-							},
-							courseProgresses: {
-								where: {
-									studentId,
-								},
-								select: {
-									progress: true,
-									completedLessons: true,
-									totalLessons: true,
-								},
-								take: 1,
 							},
 							instructor: {
 								select: {
@@ -133,21 +131,24 @@ class EnrollmentService {
 			});
 
 			return enrollments.map((enrollment) => {
-				const progress = enrollment.course.courseProgresses[0];
-				const totalLessonsFromSections = enrollment.course.sections.reduce(
-					(total, section) => total + section.lessons.length,
-					0,
-				);
-				const totalLessons = progress?.totalLessons ?? totalLessonsFromSections;
-				const completedLessons = progress?.completedLessons ?? 0;
-				const progressPercent = Math.round(
-					progress?.progress ?? enrollment.progress,
-				);
+				const allLessons = enrollment.course.sections.flatMap((s) => s.lessons);
+				const totalLessons = allLessons.length;
+				const completedLessons = allLessons.filter(
+					(l) => l.progresses[0]?.isCompleted,
+				).length;
+				const progressPercent =
+					totalLessons > 0
+						? Math.round((completedLessons / totalLessons) * 100)
+						: 0;
 				const status =
 					enrollment.status === EnrollmentStatus.completed ||
 					(totalLessons > 0 && completedLessons >= totalLessons)
 						? "Completed"
 						: "In Progress";
+				const nextLessonId =
+					allLessons.find((l) => !l.progresses[0]?.isCompleted)?.id ??
+					allLessons[0]?.id ??
+					null;
 
 				return {
 					id: enrollment.course.id,
@@ -159,6 +160,7 @@ class EnrollmentService {
 					duration: enrollment.course.duration,
 					thumbnail: enrollment.course.thumbnailUrl ?? "/placeholder.svg",
 					status,
+					nextLessonId,
 				};
 			});
 		} catch (error) {

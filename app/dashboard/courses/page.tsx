@@ -99,7 +99,9 @@ const MyCoursesPage = async () => {
 									href={
 										course.status === "Completed"
 											? `/dashboard/courses/${course.id}/review`
-											: `/dashboard/courses/${course.id}/learn`
+											: course.nextLessonId
+												? `/dashboard/courses/${course.id}/learn/${course.nextLessonId}`
+												: `/dashboard/courses/${course.id}/learn`
 									}
 								>
 									<PlayCircle className="mr-2 h-4 w-4" />
