@@ -1,4 +1,4 @@
-import { EnrollmentStatus } from "@/generated/prisma";
+import { CourseStatus, EnrollmentStatus, Prisma } from "@/generated/prisma";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { EnrollmentError } from "@/server/services/enrollment/enrollment.errors";
@@ -82,55 +82,71 @@ class EnrollmentService {
 		}
 	}
 
-	async getStudentEnrolledCourses(studentId: string) {
+	async getStudentEnrolledCourses(
+		studentId: string,
+		params?: { tab?: "all" | "in-progress" | "completed"; page?: number },
+	) {
+		const PAGE_SIZE = 9;
+		const { tab = "all", page = 1 } = params ?? {};
+
+		const statusFilter: Prisma.EnrollmentWhereInput =
+			tab === "completed"
+				? { status: EnrollmentStatus.completed }
+				: tab === "in-progress"
+					? { status: EnrollmentStatus.active }
+					: {
+							status: {
+								in: [EnrollmentStatus.active, EnrollmentStatus.completed],
+							},
+						};
+
+		const where: Prisma.EnrollmentWhereInput = {
+			studentId,
+			...statusFilter,
+			course: { status: CourseStatus.published, deletedAt: null },
+		};
+
 		try {
-			const enrollments = await enrollmentRepository.findMany({
-				where: {
-					studentId,
-					course: {
-						status: "published",
-						deletedAt: null,
-					},
-				},
-				orderBy: {
-					enrolledAt: "desc",
-				},
-				include: {
-					course: {
-						select: {
-							id: true,
-							title: true,
-							thumbnailUrl: true,
-							duration: true,
-							sections: {
-								where: { deletedAt: null },
-								orderBy: { order: "asc" },
-								select: {
-									lessons: {
-										where: { deletedAt: null },
-										orderBy: { order: "asc" },
-										select: {
-											id: true,
-											progresses: {
-												where: { studentId },
-												select: { isCompleted: true },
-												take: 1,
+			const [enrollments, total] = await Promise.all([
+				enrollmentRepository.findMany({
+					where,
+					orderBy: { enrolledAt: "desc" },
+					skip: (page - 1) * PAGE_SIZE,
+					take: PAGE_SIZE,
+					include: {
+						course: {
+							select: {
+								id: true,
+								title: true,
+								thumbnailUrl: true,
+								duration: true,
+								sections: {
+									where: { deletedAt: null },
+									orderBy: { order: Prisma.SortOrder.asc },
+									select: {
+										lessons: {
+											where: { deletedAt: null },
+											orderBy: { order: Prisma.SortOrder.asc },
+											select: {
+												id: true,
+												progresses: {
+													where: { studentId },
+													select: { isCompleted: true },
+													take: 1,
+												},
 											},
 										},
 									},
 								},
-							},
-							instructor: {
-								select: {
-									name: true,
-								},
+								instructor: { select: { name: true } },
 							},
 						},
 					},
-				},
-			});
+				}),
+				enrollmentRepository.count(where),
+			]);
 
-			return enrollments.map((enrollment) => {
+			const courses = enrollments.map((enrollment) => {
 				const allLessons = enrollment.course.sections.flatMap((s) => s.lessons);
 				const totalLessons = allLessons.length;
 				const completedLessons = allLessons.filter(
@@ -163,6 +179,8 @@ class EnrollmentService {
 					nextLessonId,
 				};
 			});
+
+			return { courses, total };
 		} catch (error) {
 			logger.error("Failed to fetch enrolled courses for student:", error);
 			throw new EnrollmentError(

@@ -59,6 +59,12 @@ Only the folders that are actually needed are created — no empty directories.
    };
    ```
 
+### Component location
+
+All components — including page-specific ones — must live under `app/_components/`. Creating a `_components/` directory inside a route directory (e.g. `app/dashboard/courses/_components/`) is not allowed.
+
+Page routes stay thin: they read params, fetch data, and render components imported from `app/_components/`. Sub-components, hooks, helpers, constants, and types all live in `app/_components/`, co-located inside the relevant component folder.
+
 ### Single-file exception
 
 A component that is truly self-contained — one default export, no extracted hooks, no sub-components, no local helpers — stays as a single `.tsx` file. Do not create a folder just to hold `index.tsx`.
