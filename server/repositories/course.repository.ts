@@ -111,10 +111,12 @@ export default class CourseRepository extends BaseRepository<
 			where: { id: courseId, instructorId: instructorId },
 			include: {
 				sections: {
-					orderBy: {
-						order: "asc",
+					orderBy: { order: "asc" },
+					include: {
+						lessons: {
+							orderBy: { order: "asc" },
+						},
 					},
-					include: { lessons: true },
 				},
 			},
 		});

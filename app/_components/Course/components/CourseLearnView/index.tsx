@@ -1,5 +1,22 @@
 "use client";
 
+import { Badge } from "app/_components/_shared/ui/badge";
+import { Button } from "app/_components/_shared/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "app/_components/_shared/ui/card";
+import { Progress } from "app/_components/_shared/ui/progress";
+import { Separator } from "app/_components/_shared/ui/separator";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "app/_components/_shared/ui/tabs";
 import {
 	BookOpen,
 	CheckCircle2,
@@ -13,43 +30,15 @@ import {
 	PlayCircle,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Badge } from "@/app/_components/_shared/ui/badge";
-import { Button } from "@/app/_components/_shared/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/app/_components/_shared/ui/card";
-import { Progress } from "@/app/_components/_shared/ui/progress";
-import { Separator } from "@/app/_components/_shared/ui/separator";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@/app/_components/_shared/ui/tabs";
-import QuizPlayer from "@/app/_components/Quiz/QuizPlayer/QuizPlayer";
-import type { StudentCourseData } from "@/lib/requests/course/getStudentCourse";
-import { api } from "@/trpc/client";
+import { api } from "trpc/client";
+import { findInitialLesson } from "@/app/_components/Course/components/CourseLearnView/helpers/findInitialLesson";
+import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
+import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
+import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
 
-function toFlatLessons(course: StudentCourseData) {
-	return course.sections.flatMap((s) => s.lessons);
-}
-
-function findInitialLesson(course: StudentCourseData) {
-	const flat = toFlatLessons(course);
-	return flat.find((l) => !l.isCompleted)?.id ?? flat[0]?.id ?? "";
-}
-
-export default function CourseLearnView({
-	course,
-}: {
-	course: StudentCourseData;
-}) {
+const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 	const [completedIds, setCompletedIds] = useState<Set<string>>(
 		() =>
 			new Set(
@@ -407,4 +396,6 @@ export default function CourseLearnView({
 			</div>
 		</div>
 	);
-}
+};
+
+export default CourseLearnView;

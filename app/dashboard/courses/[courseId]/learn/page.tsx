@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import getStudentCourse from "@/lib/requests/course/getStudentCourse";
-import CourseLearnView from "./components/CourseLearnView";
+import CourseLearnView from "../../../../_components/Course/components/CourseLearnView";
 
 export default async function ContinueLearningPage({
 	params,
