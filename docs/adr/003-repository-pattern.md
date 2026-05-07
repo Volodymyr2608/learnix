@@ -22,6 +22,16 @@ server/
 └── repositories/     Data access — wraps Prisma, handles soft-delete, pagination
 ```
 
+## Rules
+
+1. **One repository per Prisma model.** Each repository class is responsible for exactly one model and must not access sibling models via `this.db.<otherModel>` or the shared `db` client. If an operation spans two models (e.g., `QuizAttempt` inside a quiz flow), a separate repository for that model must exist.
+
+2. **Services never import `db` directly.** All Prisma access goes through repositories. The `db` client is for repository internals only.
+
+3. **Transactions stay inside the repository that owns them.** When an operation requires multiple writes against the same model atomically (e.g., delete-then-insert), wrap them in `this.transaction(async (tx) => {...})` inside the repository method. Do not leak a `tx` parameter through the public API.
+
+4. **Services orchestrate repositories; repositories do not call services.** Dependencies only flow downward: router → service → repository.
+
 ## Consequences
 
 **Positive**
