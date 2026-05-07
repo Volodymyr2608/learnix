@@ -327,16 +327,16 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 					</div>
 				</div>
 
-				<div className="lg:col-span-1">
-					<Card>
+				<div className="sticky top-0 self-start lg:col-span-1">
+					<Card className="flex max-h-[calc(100vh-112px)] flex-col overflow-hidden">
 						<CardHeader>
 							<CardTitle>Course Content</CardTitle>
 							<CardDescription>
 								{completedIds.size} of {allLessons.length} lessons completed
 							</CardDescription>
 						</CardHeader>
-						<CardContent className="p-0">
-							<div className="max-h-[600px] overflow-y-auto p-6">
+						<CardContent className="flex-1 overflow-y-auto p-0">
+							<div className="p-6">
 								<div className="space-y-4">
 									{course.sections.map((section) => (
 										<div key={section.id}>
