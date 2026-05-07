@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {
 	Card,
@@ -37,10 +37,18 @@ export function QuizTab({
 							Add quiz questions to test student understanding
 						</CardDescription>
 					</div>
-					<Button onClick={onAdd} size="sm">
-						<Plus className="mr-2 h-4 w-4" />
-						Add Question
-					</Button>
+					<div className="flex gap-2">
+						<span title="AI generation will be wired up in the next update">
+							<Button disabled size="sm" variant="outline">
+								<Sparkles className="mr-2 h-4 w-4" />
+								Generate with AI
+							</Button>
+						</span>
+						<Button onClick={onAdd} size="sm">
+							<Plus className="mr-2 h-4 w-4" />
+							Add Question
+						</Button>
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent>

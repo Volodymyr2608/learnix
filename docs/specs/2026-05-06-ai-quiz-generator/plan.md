@@ -56,14 +56,15 @@ See [requirements.md](./requirements.md) for scope and decisions; [validation.md
 
 ## Group 4 — Instructor manual quiz CRUD UI
 
+**Decision**: The lesson editor already had a fully-functional Quiz tab (`LessonContentEditor/components/QuizTab.tsx`) with add/edit/delete wired through `api.lesson.updateContent`. A separate `QuizEditor` component would duplicate this. Group 4 only adds the **Generate with AI** button to the existing tab.
+
 **Files**
-- `app/_components/Quiz/QuizEditor/QuizEditor.tsx` — list of existing questions, add/edit/delete inline, **Generate with AI** button (handler stubbed in this group; wired in group 6).
-- `app/_components/Quiz/QuizEditor/QuestionForm.tsx` — react-hook-form + Zod, mirrors the existing form pattern in `app/_components/_shared/components/Form/`.
-- `app/instructor/courses/[courseId]/lessons/[lessonId]/page.tsx` — render `<QuizEditor lessonId={...} />`.
+- `app/_components/Course/components/Lesson/LessonContentEditor/components/QuizTab.tsx` — add disabled **Generate with AI** button (handler stubbed; wired in group 6).
+- `server/services/quiz/quiz.service.ts` — add `getByLessonForInstructor` (needed by group 6 generate dialog).
+- `server/api/routers/quiz.ts` — add `getByLessonInstructor` instructorProcedure (needed by group 6).
 
 **Acceptance**
-- Instructor can add a question manually, refresh, see it persist.
-- Generate button is rendered and disabled with a tooltip explaining that the wiring lands in group 6.
+- Generate button is rendered in the Quiz tab header and disabled with a tooltip explaining wiring lands in group 6.
 
 **Run before moving on**: `pnpm typecheck && pnpm check`.
 
