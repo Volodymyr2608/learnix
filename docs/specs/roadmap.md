@@ -55,12 +55,13 @@ Remaining: polish step transitions, error recovery, content export to real cours
 
 ---
 
-## Phase 6 — Quizzes (manual) ⬜
+## Phase 6 — Quizzes (manual) ✅
 
-- Instructor creates quizzes per lesson or section (multiple-choice, true/false)
-- Student takes quiz and sees result
-- Quiz score recorded against progress
-- Retake policy (configurable per quiz)
+- Instructor creates and edits multiple-choice quizzes per lesson (`QuizTab` in lesson editor, `quiz.upsertMany` / `quiz.deleteByLesson`)
+- Student takes quiz and sees immediate correct/incorrect feedback (`QuizPlayer`, `QuestionCard`, `quiz.submit`)
+- Each question answered at most once per student (`QuizAttempt` model, `AlreadyAttemptedError` guard)
+
+Deferred: configurable retake policy; true/false question type.
 
 ---
 
@@ -83,12 +84,14 @@ Remaining: polish step transitions, error recovery, content export to real cours
 
 ---
 
-## Phase 9 — AI quiz generation ⬜
+## Phase 9 — AI quiz generation ✅
 
-- Instructor triggers quiz generation from a lesson or section
-- LangChain agent reads lesson content and outputs structured quiz questions
-- Instructor reviews and edits before publishing
-- Reuses the quiz schema from Phase 6
+- Instructor clicks **Generate with AI** in the lesson editor quiz tab
+- `QuizAIService` invokes a LangChain `createReactAgent` with two read-only tools (`get_lesson_content`, `get_existing_quizzes`)
+- Agent outputs 3–5 structured multiple-choice questions via `model.withStructuredOutput`; semantic validation + up to 3 retries on violation
+- `GenerateQuizDialog` lets the instructor review and edit questions before saving
+- Saving atomically replaces the lesson's full quiz set (`quiz.upsertMany`)
+- Spec: [docs/specs/2026-05-06-ai-quiz-generator/](specs/2026-05-06-ai-quiz-generator/requirements.md)
 
 ---
 

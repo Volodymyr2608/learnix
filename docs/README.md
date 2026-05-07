@@ -22,6 +22,7 @@ docs/
 | [ADR-008](adr/008-langchain-agent-pattern.md) | LangChain agent + tools pattern for AI features | Accepted |
 | [ADR-009](adr/009-video-delivery.md) | Video delivery strategy | Accepted |
 | [ADR-010](adr/010-domain-error-mapping.md) | Domain error to tRPC error mapping | Accepted |
+| [ADR-011](adr/011-component-folder-architecture.md) | Component folder architecture | Accepted |
 
 ## Specs
 
@@ -42,10 +43,10 @@ docs/
 | Course Management | [specs/course-management.md](specs/course-management.md) |
 | Student Enrollment | [specs/enrollment.md](specs/enrollment.md) |
 | AI Course Builder | [specs/ai-course-builder.md](specs/ai-course-builder.md) |
+| AI Quiz Generator | [specs/2026-05-06-ai-quiz-generator/requirements.md](specs/2026-05-06-ai-quiz-generator/requirements.md) |
 
 ### Features — planned
 
 | Feature | Spec | Roadmap phase |
 |---------|------|--------------|
 | AI Lesson Assistant | [specs/ai-lesson-assistant.md](specs/ai-lesson-assistant.md) | Phase 8 |
-| AI Quiz Generator | [specs/ai-quiz-generator.md](specs/ai-quiz-generator.md) | Phase 9 |

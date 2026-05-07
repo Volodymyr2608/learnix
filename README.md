@@ -1,6 +1,6 @@
 # Learnix
 
-An online learning platform where instructors publish courses and students enroll, track progress, and leave reviews. Instructors can optionally generate a course draft through an AI-assisted chat builder.
+An online learning platform where instructors publish courses and students enroll, track progress, and leave reviews. Instructors can generate a course draft through an AI-assisted chat builder and generate quiz questions for any lesson using an AI agent.
 
 Built on the T3 Stack: **Next.js 15** · **tRPC** · **Prisma** · **Better Auth** · **Tailwind CSS** · **TypeScript**.
 
@@ -60,7 +60,7 @@ BETTER_AUTH_GOOGLE_CLIENT_SECRET=""
 # App
 BASE_URL="http://localhost:3000"
 
-# AI course builder (optional – required only for the AI chat feature)
+# AI features (course builder + quiz generator)
 OPENAI_API_KEY=""
 ```
 
@@ -122,11 +122,11 @@ app/
     └── uploads/         Vercel Blob upload endpoint
 
 server/
-├── api/routers/         tRPC routers (course, courseAI, instructor, user)
+├── api/routers/         tRPC routers (course, courseAI, instructor, lesson, quiz, user)
 ├── better-auth/         Auth config, server + client helpers
 ├── entities/            Zod DTOs and TypeScript types
 ├── repositories/        Prisma data-access layer (extends BaseRepository)
-├── services/            Business logic (CourseService, EnrollmentService, …)
+├── services/            Business logic (CourseService, QuizService, QuizAIService, …)
 └── db.ts                Prisma client singleton
 
 prisma/schema/           Split Prisma schema (one file per domain)
@@ -142,12 +142,14 @@ For architectural decisions and feature specifications see [`docs/`](docs/README
 - Browse and search published courses
 - Enroll in courses
 - Track lesson and course progress
+- Take lesson quizzes with immediate correct/incorrect feedback; each question can only be submitted once
 - Leave ratings and reviews
 
 ### For instructors
 - Create and manage courses (title, description, curriculum, media, pricing)
 - Drag-and-drop section reordering
 - AI-powered course builder: generate a full course draft through a guided chat
+- Add quiz questions per lesson manually or generate them with AI (3–5 multiple-choice questions from lesson content)
 - View student enrollment stats
 
 ---
