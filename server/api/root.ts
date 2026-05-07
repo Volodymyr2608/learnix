@@ -2,6 +2,7 @@ import { courseAIRouter } from "@/server/api/routers/ai";
 import { courseRouter } from "@/server/api/routers/course";
 import { instructorRouter } from "@/server/api/routers/instructor";
 import { lessonRouter } from "@/server/api/routers/lesson";
+import { quizRouter } from "@/server/api/routers/quiz";
 import { userRouter } from "@/server/api/routers/user";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
 
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
 	courseAI: courseAIRouter,
 	instructor: instructorRouter,
 	lesson: lessonRouter,
+	quiz: quizRouter,
 });
 
 // export type definition of API

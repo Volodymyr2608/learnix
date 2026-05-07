@@ -21,6 +21,48 @@ adminProcedure        → authenticated + Role.ADMIN
 
 Each role procedure builds on `protectedProcedure` via a shared `roleProcedure(role)` factory that throws `FORBIDDEN` if the session user's role doesn't match.
 
+## Router input conventions
+
+### Input schema placement
+
+| Input complexity | Where to define |
+|---|---|
+| Single scalar field (e.g., an id) | `Schema.shape.field` inline in the router |
+| Multi-field or nested object | Named Zod DTO in `server/entities/<domain>/index.ts` |
+
+**Rule:** Any `.input(...)` that needs more than one field, or that an inline `z.object({...})` would make the router harder to read, must be extracted to a named DTO in the corresponding entities file.
+
+### DTO file conventions
+
+- File: `server/entities/<domain>/index.ts`
+- Export the Zod schema and its inferred TypeScript type under the **same name**:
+
+```ts
+export const QuizSubmitDto = z.object({ ... });
+export type QuizSubmitDto = z.infer<typeof QuizSubmitDto>;
+```
+
+- DTOs used only inside the entities file (helpers for composing a larger DTO) are kept unexported.
+- Router imports DTOs by name; it never re-defines or wraps them inline.
+
+### Handler structure
+
+Every handler follows the same three-line shape — no extra nesting:
+
+```ts
+procedureName: someRoleProcedure
+  .input(InputDto)
+  .query/mutation(async ({ ctx, input }) => {
+    try {
+      return await someService.method(input, ctx.session.user.id);
+    } catch (error) {
+      handleServiceError(error);
+    }
+  }),
+```
+
+Routers delegate immediately to the service. No business logic, no repository calls, and no second `try/catch` inside the handler.
+
 ## Consequences
 
 **Positive**
