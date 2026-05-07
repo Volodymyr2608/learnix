@@ -30,6 +30,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "@/app/_components/_shared/ui/tabs";
+import QuizPlayer from "@/app/_components/Quiz/QuizPlayer/QuizPlayer";
 import type { StudentCourseData } from "@/lib/requests/course/getStudentCourse";
 import { api } from "@/trpc/client";
 
@@ -235,6 +236,8 @@ export default function CourseLearnView({
 										)}
 								</CardContent>
 							</Card>
+
+							<QuizPlayer lessonId={selectedLessonId} />
 						</TabsContent>
 
 						<TabsContent className="space-y-4" value="resources">
