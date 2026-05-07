@@ -175,38 +175,52 @@ export default class CourseRepository extends BaseRepository<
 		}
 	}
 
-	async getPublishedCourses() {
-		const courses = await this.findMany({
-			where: {
-				status: "published",
-				deletedAt: null,
-			},
-			include: {
-				instructor: {
-					select: {
-						name: true,
-					},
-				},
-				_count: {
-					select: {
-						enrollments: true,
-					},
-				},
-			},
-		});
+	async getPublishedCourses(params?: {
+		q?: string;
+		category?: string;
+		page?: number;
+	}) {
+		const PAGE_SIZE = 9;
+		const { q, category, page = 1 } = params ?? {};
 
-		return courses.map((course) => ({
-			id: course.id,
-			title: course.title,
-			instructor: course.instructor.name,
-			rating: 4.8, // TODO: add dynamic rating
-			students: course._count.enrollments,
-			duration: course.duration,
-			price: course.price,
-			level: course.level,
-			thumbnail: course.thumbnailUrl,
-			category: course.category,
-		}));
+		const where: Prisma.CourseWhereInput = {
+			status: "published",
+			deletedAt: null,
+			...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
+			...(category ? { category } : {}),
+		};
+
+		const include = {
+			instructor: { select: { name: true } },
+			_count: { select: { enrollments: true } },
+		};
+
+		const [courses, total] = await Promise.all([
+			this.findMany({
+				where,
+				include,
+				skip: (page - 1) * PAGE_SIZE,
+				take: PAGE_SIZE,
+				orderBy: { createdAt: "desc" },
+			}),
+			this.db.course.count({ where }),
+		]);
+
+		return {
+			courses: courses.map((course) => ({
+				id: course.id,
+				title: course.title,
+				instructor: course.instructor.name,
+				rating: 4.8,
+				students: course._count.enrollments,
+				duration: course.duration,
+				price: course.price,
+				level: course.level,
+				thumbnail: course.thumbnailUrl,
+				category: course.category,
+			})),
+			total,
+		};
 	}
 
 	async getPublishedCourse(courseId: string) {
