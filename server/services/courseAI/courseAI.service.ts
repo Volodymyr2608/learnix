@@ -2,6 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { TRPCError } from "@trpc/server";
 import { type CourseGeneration, DraftStep } from "@/generated/prisma";
 import { STEP_MESSAGES } from "@/lib/constants/stepMessages";
+import { env } from "@/lib/env";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { courseGenerationMessageRepository } from "@/server/repositories/courseGenerationMessage.repository";
 import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
@@ -13,7 +14,6 @@ import { extractStepDataPrompt } from "@/server/services/courseAI/prompts/extrac
 import { buildSystemPrompt } from "@/server/services/courseAI/prompts/systemPrompt";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 import { logger } from "@/server/utils/logger";
-import {env} from "@/lib/env";
 
 export class CourseAIService {
 	private readonly apiKey = env.OPENAI_API_KEY;

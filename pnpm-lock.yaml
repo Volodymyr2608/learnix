@@ -24,11 +24,11 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.71.2(react@19.2.4))
       '@langchain/core':
-        specifier: ^1.1.31
-        version: 1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
+        specifier: ^1.1.45
+        version: 1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
       '@langchain/openai':
         specifier: ^1.2.12
-        version: 1.2.12(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))
+        version: 1.2.12(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))
       '@prisma/client':
         specifier: ^6.19.2
         version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
@@ -62,6 +62,9 @@ importers:
       '@t3-oss/env-nextjs':
         specifier: ^0.13.10
         version: 0.13.10(typescript@5.9.3)(valibot@1.2.0(typescript@5.9.3))(zod@4.3.6)
+      '@tailwindcss/typography':
+        specifier: ^0.5.19
+        version: 0.5.19(tailwindcss@4.2.1)
       '@tanstack/react-query':
         specifier: ^5.90.21
         version: 5.90.21(react@19.2.4)
@@ -97,7 +100,7 @@ importers:
         version: 4.1.0
       langchain:
         specifier: ^1.4.0
-        version: 1.4.0(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 1.4.0(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@19.2.4)
@@ -525,10 +528,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
-
-  '@langchain/core@1.1.31':
-    resolution: {integrity: sha512-FxsgIUONjKaRpjx59sISgmb0OMCbAetPGyhzjGa2kX0y1f8LZ5xm9VB2db7W9HYWyLvzRWcMA51Uu4OSTJmtZQ==}
-    engines: {node: '>=20'}
 
   '@langchain/core@1.1.45':
     resolution: {integrity: sha512-Y/wvuglLTMKJahkl4QD9dBIdF/z/CxZJWdTfHJF/q2jtlJtoFf6Mb5JpGxZfsi3mBY6NSG941FSLTcqhCKrhBA==}
@@ -1582,6 +1581,11 @@ packages:
   '@tailwindcss/postcss@4.2.1':
     resolution: {integrity: sha512-OEwGIBnXnj7zJeonOh6ZG9woofIjGrd2BORfvE5p9USYKDCZoQmfqLcfNiRWoJlRWLdNPn2IgVZuWAOM4iTYMw==}
 
+  '@tailwindcss/typography@0.5.19':
+    resolution: {integrity: sha512-w31dd8HOx3k9vPtcQh5QHP9GwKcgbMp87j58qi6xgiBnFFtKEAgCWnDw4qUT8aHwkCp8bKvb/KGKWWHedP0AAg==}
+    peerDependencies:
+      tailwindcss: '>=3.0.0 || insiders || >=4.0.0-alpha.20 || >=4.0.0-beta.1'
+
   '@tanstack/query-core@5.90.20':
     resolution: {integrity: sha512-OMD2HLpNouXEfZJWcKeVKUgQ5n+n3A2JFmBaScpNDUqSrQSjiveC7dKMe53uJUg1nDG16ttFPz2xfilz6i2uVg==}
 
@@ -1875,6 +1879,11 @@ packages:
   copy-anything@4.0.5:
     resolution: {integrity: sha512-7Vv6asjS4gMOuILabD3l739tsaxFQmC+a7pLZm02zyvs8p977bL3zEgq3yDk5rn9B0PbYgIv++jmHcuUab4RhA==}
     engines: {node: '>=18'}
+
+  cssesc@3.0.0:
+    resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
+    engines: {node: '>=4'}
+    hasBin: true
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
@@ -2551,6 +2560,10 @@ packages:
   pkg-types@2.3.0:
     resolution: {integrity: sha512-SIqCzDRg0s9npO5XQ3tNZioRY1uK06lA41ynBC1YmFTmnY6FjUjVt6s4LoADmwoig1qqD0oK8h1p/8mlMx8Oig==}
 
+  postcss-selector-parser@6.0.10:
+    resolution: {integrity: sha512-IQ7TZdoaqbT+LCpShg46jnZVlhWD2w6iQYAcYXfHARZ7X1t/UGhhceQDs5X0cGqKvYlHNOuv7Oa1xmb0oQuA3w==}
+    engines: {node: '>=4'}
+
   postcss@8.4.31:
     resolution: {integrity: sha512-PS08Iboia9mts/2ygV3eLpY5ghnUcfLV/EXTOW1E2qYxJKGGBUtNjN76FYHnMs36RmARn41bC0AZmn+rR0OVpQ==}
     engines: {node: ^10 || ^12 || >=14}
@@ -2876,13 +2889,12 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
+  util-deprecate@1.0.2:
+    resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
+
   uuid@10.0.0:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
     deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
-    hasBin: true
-
-  uuid@11.1.0:
-    resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
     hasBin: true
 
   uuid@13.0.2:
@@ -3214,25 +3226,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))':
-    dependencies:
-      '@cfworker/json-schema': 4.1.1
-      '@standard-schema/spec': 1.1.0
-      ansi-styles: 5.2.0
-      camelcase: 6.3.0
-      decamelize: 1.2.0
-      js-tiktoken: 1.0.21
-      langsmith: 0.5.8(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
-      mustache: 4.2.0
-      p-queue: 6.6.2
-      uuid: 11.1.0
-      zod: 4.3.6
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-proto'
-      - '@opentelemetry/sdk-trace-base'
-      - openai
-
   '@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))':
     dependencies:
       '@cfworker/json-schema': 4.1.1
@@ -3251,9 +3244,9 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
 
-  '@langchain/langgraph-checkpoint@1.0.2(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))':
+  '@langchain/langgraph-checkpoint@1.0.2(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))':
     dependencies:
-      '@langchain/core': 1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
+      '@langchain/core': 1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
       uuid: 10.0.0
 
   '@langchain/langgraph-sdk@1.9.1(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
@@ -3273,10 +3266,10 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
 
-  '@langchain/langgraph@1.3.0(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
+  '@langchain/langgraph@1.3.0(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
     dependencies:
-      '@langchain/core': 1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
-      '@langchain/langgraph-checkpoint': 1.0.2(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))
+      '@langchain/core': 1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
+      '@langchain/langgraph-checkpoint': 1.0.2(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))
       '@langchain/langgraph-sdk': 1.9.1(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@langchain/protocol': 0.0.15
       '@standard-schema/spec': 1.1.0
@@ -3292,9 +3285,9 @@ snapshots:
       - svelte
       - vue
 
-  '@langchain/openai@1.2.12(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))':
+  '@langchain/openai@1.2.12(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))':
     dependencies:
-      '@langchain/core': 1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
+      '@langchain/core': 1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
       js-tiktoken: 1.0.21
       openai: 6.27.0(zod@4.3.6)
       zod: 4.3.6
@@ -4282,6 +4275,11 @@ snapshots:
       postcss: 8.5.8
       tailwindcss: 4.2.1
 
+  '@tailwindcss/typography@0.5.19(tailwindcss@4.2.1)':
+    dependencies:
+      postcss-selector-parser: 6.0.10
+      tailwindcss: 4.2.1
+
   '@tanstack/query-core@5.90.20': {}
 
   '@tanstack/react-query@5.90.21(react@19.2.4)':
@@ -4522,6 +4520,8 @@ snapshots:
     dependencies:
       is-what: 5.5.0
 
+  cssesc@3.0.0: {}
+
   csstype@3.2.3: {}
 
   date-fns@4.1.0: {}
@@ -4696,11 +4696,11 @@ snapshots:
 
   kysely@0.28.11: {}
 
-  langchain@1.4.0(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  langchain@1.4.0(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
-      '@langchain/core': 1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
-      '@langchain/langgraph': 1.3.0(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
-      '@langchain/langgraph-checkpoint': 1.0.2(@langchain/core@1.1.31(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))
+      '@langchain/core': 1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
+      '@langchain/langgraph': 1.3.0(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      '@langchain/langgraph-checkpoint': 1.0.2(@langchain/core@1.1.45(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6)))
       langsmith: 0.5.8(@opentelemetry/api@1.9.0)(openai@6.27.0(zod@4.3.6))
       zod: 4.3.6
     transitivePeerDependencies:
@@ -5189,6 +5189,11 @@ snapshots:
       exsolve: 1.0.8
       pathe: 2.0.3
 
+  postcss-selector-parser@6.0.10:
+    dependencies:
+      cssesc: 3.0.0
+      util-deprecate: 1.0.2
+
   postcss@8.4.31:
     dependencies:
       nanoid: 3.3.11
@@ -5578,9 +5583,9 @@ snapshots:
     dependencies:
       react: 19.2.4
 
-  uuid@10.0.0: {}
+  util-deprecate@1.0.2: {}
 
-  uuid@11.1.0: {}
+  uuid@10.0.0: {}
 
   uuid@13.0.2: {}
 

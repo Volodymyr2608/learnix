@@ -91,6 +91,7 @@ export function LessonContentEditor({
 
 				<TabsContent value="quiz">
 					<QuizTab
+						lessonId={initialLesson.id}
 						onAdd={addQuizQuestion}
 						onRemove={removeQuizQuestion}
 						onUpdate={updateQuiz}
