@@ -1,3 +1,10 @@
+import type { LessonData } from "@/lib/requests/lesson/getLessonById";
+
+export type LessonContentEditorProps = {
+	courseId: string;
+	initialLesson: LessonData;
+};
+
 export type LessonFormData = {
 	title: string;
 	description: string;

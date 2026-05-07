@@ -8,14 +8,9 @@ import {
 import { Input } from "@/app/_components/_shared/ui/input";
 import { Label } from "@/app/_components/_shared/ui/label";
 import { Textarea } from "@/app/_components/_shared/ui/textarea";
-import type { LessonFormData } from "../types";
+import type { LessonInfoCardProps } from "./types";
 
-interface LessonInfoCardProps {
-	data: LessonFormData;
-	onUpdate: (changes: Partial<LessonFormData>) => void;
-}
-
-export function LessonInfoCard({ data, onUpdate }: LessonInfoCardProps) {
+export const LessonInfoCard = ({ data, onUpdate }: LessonInfoCardProps) => {
 	return (
 		<Card>
 			<CardHeader>
@@ -56,4 +51,4 @@ export function LessonInfoCard({ data, onUpdate }: LessonInfoCardProps) {
 			</CardContent>
 		</Card>
 	);
-}
+};
