@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import type { EditableQuestion } from "@/app/_components/Quiz/GenerateQuizDialog/types";
 import type { LessonData } from "@/lib/requests/lesson/getLessonById";
 import { api } from "@/trpc/client";
 import type {
@@ -95,6 +96,19 @@ export function useLessonEditor(initialLesson: LessonData) {
 		);
 	};
 
+	const replaceQuizFromGenerated = (generated: EditableQuestion[]) => {
+		setQuizQuestions(
+			generated.map((q) => ({
+				question: q.question,
+				options: q.options.map((text, i) => ({
+					id: `${q.id}-opt-${i}`,
+					text,
+				})),
+				correctAnswer: q.correctIndex,
+			})),
+		);
+	};
+
 	const updateQuizOption = (qIndex: number, optionId: string, text: string) => {
 		setQuizQuestions((prev) =>
 			prev.map((q, i) => {
@@ -139,6 +153,7 @@ export function useLessonEditor(initialLesson: LessonData) {
 		removeQuizQuestion,
 		updateQuiz,
 		updateQuizOption,
+		replaceQuizFromGenerated,
 		isSaving: updateContent.isPending,
 		handleSave,
 	};

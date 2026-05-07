@@ -14,4 +14,5 @@ export interface GenerateQuizDialogProps {
 	lessonId: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	onSaved: (questions: EditableQuestion[]) => void;
 }

@@ -12,9 +12,9 @@ Instructors author quiz questions by hand today. The `Quiz` and `QuizAttempt` Pr
 **Instructor.**
 1. Opens a lesson editor at `app/instructor/courses/[courseId]/lessons/[lessonId]/page.tsx`.
 2. Sees the existing quiz questions (manual CRUD list) and a **Generate with AI** button.
-3. Clicks Generate → spinner ~4–10s → review dialog opens with 3–5 generated multiple-choice questions.
-4. Optionally edits any question, option, or correct answer inline.
-5. Clicks **Save all** → the lesson's quiz set is replaced atomically.
+3. Clicks **Generate with AI** → if the lesson already has saved questions, the review dialog opens immediately with those questions; otherwise a spinner (~4–10s) appears while the AI generates 3–5 new questions.
+4. Optionally edits any question, option, or correct answer inline; or clicks **Regenerate** to discard and produce a completely new set via AI.
+5. Clicks **Save all** → the lesson's quiz set is replaced atomically; the quiz tab updates immediately.
 
 **Student.**
 1. Opens a lesson at `app/dashboard/courses/[courseId]/learn/page.tsx`.
@@ -28,7 +28,7 @@ Instructors author quiz questions by hand today. The `Quiz` and `QuizAttempt` Pr
 |---|---|
 | F1 | Instructor can generate 3–5 multiple-choice questions from one lesson with one click. |
 | F2 | Each generated question has exactly 4 options and `correct ∈ options`. |
-| F3 | Generation must not duplicate questions already saved on the same lesson. |
+| F3 | On first generation, the AI must not duplicate questions already saved on the same lesson. On regeneration (explicit user action), existing questions are ignored and a completely new set is produced. |
 | F4 | Instructor can edit the question text, any option, and the correct option in the review dialog before saving. |
 | F5 | Saving replaces the lesson's full quiz set in a single transaction (no partial state). |
 | F6 | Student can answer each question once per `QuizAttempt`, sees immediate correct/incorrect feedback, and is blocked from resubmitting. |

@@ -11,6 +11,7 @@ export function useGenerateQuizDialog({
 	lessonId,
 	open,
 	onOpenChange,
+	onSaved,
 }: GenerateQuizDialogProps) {
 	const [state, setState] = useState<DialogState>({ phase: "generating" });
 
@@ -36,44 +37,44 @@ export function useGenerateQuizDialog({
 		},
 	});
 
-	const upsertMutation = api.quiz.upsertMany.useMutation({
-		onSuccess: () => {
-			onOpenChange(false);
-		},
-		onError: () => {
-			toast.error("Failed to save quiz, try again");
-			setState((prev) =>
-				prev.phase === "saving"
-					? { phase: "review", questions: prev.questions }
-					: prev,
-			);
-		},
-	});
+	const upsertMutation = api.quiz.upsertMany.useMutation();
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fires only on open transition; mutate and lessonId are stable
 	useEffect(() => {
 		if (!open) return;
 		setState({ phase: "generating" });
-		generateMutation.mutate({ lessonId, count: 3 });
+		generateMutation.mutate({ lessonId, count: 3, regenerate: false });
 	}, [open]);
 
 	function handleRegenerate() {
 		setState({ phase: "generating" });
-		generateMutation.mutate({ lessonId, count: 3 });
+		generateMutation.mutate({ lessonId, count: 3, regenerate: true });
 	}
 
 	function handleSave() {
 		if (state.phase !== "review") return;
 		const { questions } = state;
 		setState({ phase: "saving", questions });
-		upsertMutation.mutate({
-			lessonId,
-			questions: questions.map((q) => ({
-				question: q.question,
-				options: [...q.options],
-				correct: q.options[q.correctIndex] ?? q.options[0] ?? "",
-			})),
-		});
+		upsertMutation.mutate(
+			{
+				lessonId,
+				questions: questions.map((q) => ({
+					question: q.question,
+					options: [...q.options],
+					correct: q.options[q.correctIndex] ?? q.options[0] ?? "",
+				})),
+			},
+			{
+				onSuccess: () => {
+					onSaved(questions);
+					onOpenChange(false);
+				},
+				onError: () => {
+					toast.error("Failed to save quiz, try again");
+					setState({ phase: "review", questions });
+				},
+			},
+		);
 	}
 
 	function updateQuestion(id: string, patch: Partial<EditableQuestion>) {

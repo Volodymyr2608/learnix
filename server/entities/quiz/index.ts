@@ -26,6 +26,7 @@ export type QuizUpsertManyDto = z.infer<typeof QuizUpsertManyDto>;
 export const QuizGenerateAIDto = z.object({
 	lessonId: QuizSchema.shape.lessonId,
 	count: z.number().int().min(3).max(5).default(3),
+	regenerate: z.boolean().default(false),
 });
 
 export type QuizGenerateAIDto = z.infer<typeof QuizGenerateAIDto>;

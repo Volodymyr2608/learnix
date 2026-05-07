@@ -23,6 +23,7 @@ export const QuizTab = ({
 	onRemove,
 	onUpdate,
 	onUpdateOption,
+	onQuizGenerated,
 }: QuizTabProps) => {
 	const [generateOpen, setGenerateOpen] = useState(false);
 
@@ -122,6 +123,7 @@ export const QuizTab = ({
 				<GenerateQuizDialog
 					lessonId={lessonId}
 					onOpenChange={setGenerateOpen}
+					onSaved={onQuizGenerated}
 					open={generateOpen}
 				/>
 			)}
