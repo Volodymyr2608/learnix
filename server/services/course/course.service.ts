@@ -190,11 +190,11 @@ class CourseService {
 			return await sectionRepository.transaction(async () => {
 				const updatedSections: Section[] = [];
 
-				for (const [, sectionData] of newSections.entries()) {
+				for (const [i, sectionData] of newSections.entries()) {
 					if (sectionData.id) {
 						const updated = await sectionRepository.update(sectionData.id, {
 							title: sectionData.title,
-							order: sectionData.order,
+							order: i + 1,
 						});
 
 						updatedSections.push(updated);
@@ -204,7 +204,7 @@ class CourseService {
 					const created = await sectionRepository.create({
 						courseId,
 						title: sectionData.title,
-						order: sectionData.order,
+						order: i + 1,
 					});
 
 					updatedSections.push(created);

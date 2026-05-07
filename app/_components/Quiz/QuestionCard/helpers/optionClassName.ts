@@ -1,0 +1,30 @@
+import { cn } from "lib/utils/cn";
+import type { QuizWithAttempt } from "../types";
+
+const OPTION_BASE =
+	"w-full rounded-lg border px-4 py-2.5 text-left text-sm transition-colors";
+
+export function optionClassName(
+	option: string,
+	attempt: QuizWithAttempt["attempt"],
+	selected: string | null,
+): string {
+	if (attempt) {
+		if (attempt.selectedAnswer === option) {
+			return cn(
+				OPTION_BASE,
+				attempt.isCorrect
+					? "border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+					: "border-destructive bg-destructive/10 text-destructive",
+			);
+		}
+		return cn(OPTION_BASE, "cursor-not-allowed opacity-60");
+	}
+
+	return cn(
+		OPTION_BASE,
+		selected === option
+			? "border-primary bg-primary/10 text-primary"
+			: "hover:bg-muted",
+	);
+}
