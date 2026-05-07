@@ -18,12 +18,15 @@ import type {
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
 import { capitalize } from "@/lib/utils/capitalize";
 
-const BrowseCourseCard = ({ course }: BrowseCourseCardProps) => {
+const BrowseCourseCard = ({
+	course,
+	isEnrolled,
+	nextLessonId,
+}: BrowseCourseCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
 	const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(
 		null,
 	);
-	const isEnrolled = false;
 
 	const handleEnrollClick = (course: typeof selectedCourse) => {
 		setSelectedCourse(course);
@@ -77,7 +80,13 @@ const BrowseCourseCard = ({ course }: BrowseCourseCardProps) => {
 						<span className="font-bold text-xl">${course.price}</span>
 						{isEnrolled ? (
 							<Button asChild size="sm" variant="outline">
-								<Link href={`/dashboard/courses/${course.id}/learn`}>
+								<Link
+									href={
+										nextLessonId
+											? `/dashboard/courses/${course.id}/learn/${nextLessonId}`
+											: `/dashboard/courses/${course.id}/learn`
+									}
+								>
 									Continue
 								</Link>
 							</Button>

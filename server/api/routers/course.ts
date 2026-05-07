@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { CourseSchema } from "@/prisma/zod";
 import {
 	CourseFullCreateDto,
@@ -84,13 +85,21 @@ export const courseRouter = createTRPCRouter({
 		}
 	}),
 
-	getPublishedCourses: protectedProcedure.query(async () => {
-		try {
-			return await courseRepository.getPublishedCourses();
-		} catch (error) {
-			handleServiceError(error);
-		}
-	}),
+	getPublishedCourses: protectedProcedure
+		.input(
+			z.object({
+				q: z.string().optional(),
+				category: z.string().optional(),
+				page: z.number().int().min(1).default(1),
+			}),
+		)
+		.query(async ({ input }) => {
+			try {
+				return await courseRepository.getPublishedCourses(input);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
 
 	getPublishedCourse: protectedProcedure
 		.input(CourseSchema.shape.id)
@@ -115,15 +124,23 @@ export const courseRouter = createTRPCRouter({
 			}
 		}),
 
-	getEnrolledCourses: studentProcedure.query(async ({ ctx }) => {
-		try {
-			return await enrollmentService.getStudentEnrolledCourses(
-				ctx.session.user.id,
-			);
-		} catch (error) {
-			handleServiceError(error);
-		}
-	}),
+	getEnrolledCourses: studentProcedure
+		.input(
+			z.object({
+				tab: z.enum(["all", "in-progress", "completed"]).default("all"),
+				page: z.number().int().min(1).default(1),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await enrollmentService.getStudentEnrolledCourses(
+					ctx.session.user.id,
+					input,
+				);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
 
 	getEnrolledCourse: studentProcedure
 		.input(CourseSchema.shape.id)

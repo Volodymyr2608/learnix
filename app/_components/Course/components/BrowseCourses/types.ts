@@ -1,5 +1,8 @@
-import type { GetPublishedCoursesResponse } from "@/lib/requests/course/getPublishedCourses";
+import type { PublishedCourse } from "@/lib/requests/course/getPublishedCourses";
 
 export type BrowseCoursesProps = {
-	initialCourses: GetPublishedCoursesResponse;
+	courses: PublishedCourse[];
+	enrolledMap: Record<string, string | null>;
+	q: string;
+	category: string;
 };

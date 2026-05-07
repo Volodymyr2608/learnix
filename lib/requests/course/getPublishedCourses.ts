@@ -1,15 +1,19 @@
 import { api } from "@/trpc/server";
 
-export type GetPublishedCoursesResponse = Awaited<
+export type GetPublishedCoursesResult = Awaited<
 	ReturnType<typeof getPublishedCourses>
 >;
-export type PublishedCourse = GetPublishedCoursesResponse[number];
+export type PublishedCourse = GetPublishedCoursesResult["courses"][number];
 
-export const getPublishedCourses = async () => {
+export const getPublishedCourses = async (params?: {
+	q?: string;
+	category?: string;
+	page?: number;
+}) => {
 	try {
-		return await api.course.getPublishedCourses();
+		return await api.course.getPublishedCourses(params ?? {});
 	} catch (error) {
 		console.error(error);
-		return [];
+		return { courses: [], total: 0 };
 	}
 };

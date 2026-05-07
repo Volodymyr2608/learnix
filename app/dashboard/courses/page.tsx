@@ -1,23 +1,34 @@
-import { BookOpen, Clock, PlayCircle } from "lucide-react";
-import Image from "next/image";
-import { Badge } from "@/app/_components/_shared/ui/badge";
+import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
+import { CoursePagination } from "@/app/_components/Course/components/CoursePagination";
+import { CourseTabFilter } from "@/app/_components/Course/components/MyCourses/components/CourseTabFilter";
+import { EnrolledCourseCard } from "@/app/_components/Course/components/MyCourses/components/EnrolledCourseCard";
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/app/_components/_shared/ui/card";
-import { Progress } from "@/app/_components/_shared/ui/progress";
+	PAGE_SIZE,
+	TABS,
+} from "@/app/_components/Course/components/MyCourses/constants";
+import type { Tab } from "@/app/_components/Course/components/MyCourses/types";
 import getStudentEnrolledCourses from "@/lib/requests/course/getStudentEnrolledCourses";
 
-const MyCoursesPage = async () => {
-	const courses = await getStudentEnrolledCourses();
+const MyCoursesPage = async ({
+	searchParams,
+}: {
+	searchParams: Promise<{ tab?: string; page?: string }>;
+}) => {
+	const { tab = "all", page = "1" } = await searchParams;
+	const currentTab = (TABS.some((t) => t.value === tab) ? tab : "all") as Tab;
+	const currentPage = Math.max(1, Number(page) || 1);
+
+	const { courses, total } = await getStudentEnrolledCourses({
+		tab: currentTab,
+		page: currentPage,
+	});
+
+	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+	const safePage = Math.min(currentPage, totalPages);
 
 	return (
 		<div className="space-y-6">
-			{/* Page Header */}
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="font-bold text-3xl tracking-tight">My Courses</h1>
@@ -25,93 +36,32 @@ const MyCoursesPage = async () => {
 						Manage and continue your learning journey
 					</p>
 				</div>
-				<Button>Browse More Courses</Button>
-			</div>
-
-			{/* Filters */}
-			<div className="flex gap-2">
-				<Button size="sm" variant="outline">
-					All Courses
-				</Button>
-				<Button size="sm" variant="ghost">
-					In Progress
-				</Button>
-				<Button size="sm" variant="ghost">
-					Completed
+				<Button asChild>
+					<Link href="/dashboard/browse">Browse More Courses</Link>
 				</Button>
 			</div>
 
-			{/* Courses Grid */}
-			<div className="grid gap-6 md:grid-cols-2">
-				{courses.map((course) => (
-					<Card className="overflow-hidden" key={course.id}>
-						<div className="relative aspect-video w-full overflow-hidden bg-muted">
-							<Image
-								alt={course.title}
-								className="h-full w-full object-cover"
-								fill
-								src={course.thumbnail || "/placeholder.svg"}
-							/>
-						</div>
-						<CardHeader>
-							<div className="flex items-start justify-between">
-								<div className="space-y-1">
-									<CardTitle className="text-xl">{course.title}</CardTitle>
-									<CardDescription>by {course.instructor}</CardDescription>
-								</div>
-								<Badge
-									variant={
-										course.status === "Completed" ? "default" : "secondary"
-									}
-								>
-									{course.status}
-								</Badge>
-							</div>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<div className="space-y-2">
-								<div className="flex items-center justify-between text-sm">
-									<span className="text-muted-foreground">Progress</span>
-									<span className="font-medium">{course.progress}%</span>
-								</div>
-								<Progress value={course.progress} />
-							</div>
+			<CourseTabFilter currentTab={currentTab} />
 
-							<div className="flex items-center justify-between text-muted-foreground text-sm">
-								<div className="flex items-center gap-1">
-									<BookOpen className="h-4 w-4" />
-									<span>
-										{course.completedLessons}/{course.totalLessons} lessons
-									</span>
-								</div>
-								<div className="flex items-center gap-1">
-									<Clock className="h-4 w-4" />
-									<span>{course.duration}</span>
-								</div>
-							</div>
+			{courses.length === 0 ? (
+				<p className="text-muted-foreground text-sm">No courses found.</p>
+			) : (
+				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+					{courses.map((course) => (
+						<EnrolledCourseCard course={course} key={course.id} />
+					))}
+				</div>
+			)}
 
-							<Button
-								asChild
-								className="w-full"
-								variant={course.status === "Completed" ? "outline" : "default"}
-							>
-								<a
-									href={
-										course.status === "Completed"
-											? `/dashboard/courses/${course.id}/review`
-											: `/dashboard/courses/${course.id}/learn`
-									}
-								>
-									<PlayCircle className="mr-2 h-4 w-4" />
-									{course.status === "Completed"
-										? "Review Course"
-										: "Continue Learning"}
-								</a>
-							</Button>
-						</CardContent>
-					</Card>
-				))}
-			</div>
+			{totalPages > 1 && (
+				<CoursePagination
+					buildHref={(p) =>
+						`/dashboard/courses?tab=${currentTab}${p > 1 ? `&page=${p}` : ""}`
+					}
+					currentPage={safePage}
+					totalPages={totalPages}
+				/>
+			)}
 		</div>
 	);
 };

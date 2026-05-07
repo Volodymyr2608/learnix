@@ -37,12 +37,14 @@ Remaining: polish step transitions, error recovery, content export to real cours
 
 ---
 
-## Phase 4 — Student learning experience ⬜
+## Phase 4 — Student learning experience 🔄
 
-- Video player for lesson content
-- Lesson and course progress tracking (`CourseProgress`)
-- Mark lesson complete / resume where left off
-- Enrolled courses dashboard
+- Enrolled courses dashboard with live progress at `/dashboard/courses`
+- "Continue Learning" links directly to next incomplete lesson
+- Lesson view: video player, rich text content, resource list
+- Mark lesson complete / incomplete; progress computed from `LessonProgress` records
+- Sidebar with section/lesson tree and completion state
+- Spec: [docs/specs/2026-05-07-student-course-learning/](2026-05-07-student-course-learning/requirements.md)
 
 ---
 
