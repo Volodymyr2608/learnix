@@ -30,6 +30,7 @@ import {
 	PlayCircle,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import Markdown from "react-markdown";
 import { api } from "trpc/client";
 import { findInitialLesson } from "@/app/_components/Course/components/CourseLearnView/helpers/findInitialLesson";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
@@ -37,6 +38,14 @@ import type { CourseLearnViewProps } from "@/app/_components/Course/components/C
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
+
+function MarkdownContent({ content }: { content: string }) {
+	return (
+		<div className="prose prose-sm dark:prose-invert max-w-none">
+			<Markdown>{content}</Markdown>
+		</div>
+	);
+}
 
 const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 	const [completedIds, setCompletedIds] = useState<Set<string>>(
@@ -211,9 +220,7 @@ const CourseLearnView = ({ course }: CourseLearnViewProps) => {
 									{lesson?.content && (
 										<>
 											<Separator />
-											<p className="whitespace-pre-wrap text-sm leading-relaxed">
-												{lesson.content}
-											</p>
+											<MarkdownContent content={lesson.content} />
 										</>
 									)}
 									{!lessonLoading &&
