@@ -19,6 +19,7 @@ export function GenerateQuizDialog({
 	lessonId,
 	open,
 	onOpenChange,
+	onSaved,
 }: GenerateQuizDialogProps) {
 	const {
 		questions,
@@ -27,7 +28,7 @@ export function GenerateQuizDialog({
 		handleSave,
 		updateQuestion,
 		updateOption,
-	} = useGenerateQuizDialog({ lessonId, open, onOpenChange });
+	} = useGenerateQuizDialog({ lessonId, open, onOpenChange, onSaved });
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>

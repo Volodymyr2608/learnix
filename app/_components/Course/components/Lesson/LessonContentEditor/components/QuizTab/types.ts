@@ -1,3 +1,4 @@
+import type { EditableQuestion } from "@/app/_components/Quiz/GenerateQuizDialog/types";
 import type { QuizQuestion } from "../../types";
 
 export interface QuizTabProps {
@@ -7,4 +8,5 @@ export interface QuizTabProps {
 	onRemove: (index: number) => void;
 	onUpdate: (index: number, changes: Partial<QuizQuestion>) => void;
 	onUpdateOption: (qIndex: number, optionId: string, text: string) => void;
+	onQuizGenerated: (questions: EditableQuestion[]) => void;
 }

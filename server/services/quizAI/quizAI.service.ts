@@ -1,4 +1,5 @@
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { quizRepository } from "@/server/repositories/quiz.repository";
 import { QuizForbiddenError } from "@/server/services/quiz/quiz.errors";
 import { logger } from "@/server/utils/logger";
 import { createQuizAgent } from "./quizAI.agent";
@@ -16,6 +17,7 @@ class QuizAIService {
 		lessonId: string,
 		count: number,
 		instructorId: string,
+		regenerate: boolean,
 	): Promise<QuizQuestion[]> {
 		const lesson = await lessonRepository.findFirst({
 			where: {
@@ -40,8 +42,19 @@ class QuizAIService {
 			throw new LessonHasNoContentError(lessonId);
 		}
 
+		if (!regenerate) {
+			const existing = await quizRepository.findByLesson(lessonId);
+			if (existing.length > 0) {
+				return existing.map((q) => ({
+					question: q.question,
+					options: q.options as string[],
+					correct: q.correct,
+				}));
+			}
+		}
+
 		const level = lesson.section?.course?.level ?? "Intermediate";
-		const agent = await createQuizAgent(count, level);
+		const agent = await createQuizAgent(count, level, regenerate);
 
 		let hint = "";
 

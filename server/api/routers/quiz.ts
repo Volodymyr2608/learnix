@@ -70,6 +70,7 @@ export const quizRouter = createTRPCRouter({
 					input.lessonId,
 					input.count,
 					ctx.session.user.id,
+					input.regenerate,
 				);
 			} catch (error) {
 				handleServiceError(error);

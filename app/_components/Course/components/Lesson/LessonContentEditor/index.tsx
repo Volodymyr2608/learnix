@@ -32,6 +32,7 @@ export const LessonContentEditor = ({
 		removeQuizQuestion,
 		updateQuiz,
 		updateQuizOption,
+		replaceQuizFromGenerated,
 		isSaving,
 		handleSave,
 	} = useLessonEditor(initialLesson);
@@ -88,6 +89,7 @@ export const LessonContentEditor = ({
 					<QuizTab
 						lessonId={initialLesson.id}
 						onAdd={addQuizQuestion}
+						onQuizGenerated={replaceQuizFromGenerated}
 						onRemove={removeQuizQuestion}
 						onUpdate={updateQuiz}
 						onUpdateOption={updateQuizOption}
