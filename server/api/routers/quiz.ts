@@ -1,6 +1,11 @@
 import { QuizSchema } from "@/prisma/zod";
-import { QuizSubmitDto, QuizUpsertManyDto } from "@/server/entities/quiz";
+import {
+	QuizGenerateAIDto,
+	QuizSubmitDto,
+	QuizUpsertManyDto,
+} from "@/server/entities/quiz";
 import { quizService } from "@/server/services/quiz/quiz.service";
+import { quizAIService } from "@/server/services/quizAI/quizAI.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 import {
 	createTRPCRouter,
@@ -52,6 +57,20 @@ export const quizRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			try {
 				return await quizService.deleteByLesson(input, ctx.session.user.id);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
+	generateAI: instructorProcedure
+		.input(QuizGenerateAIDto)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				return await quizAIService.generateForLesson(
+					input.lessonId,
+					input.count,
+					ctx.session.user.id,
+				);
 			} catch (error) {
 				handleServiceError(error);
 			}

@@ -2,11 +2,11 @@
 
 ## Overview
 
-A LangChain ReAct agent reads lesson content and existing quiz questions via two
+A LangChain agent reads lesson content and existing quiz questions via two
 read-only tools, then produces 3–5 structured multiple-choice questions through
-`gpt-4o-mini` with `withStructuredOutput`. Orchestration runs inside a
-`RunnableSequence`; a bounded retry loop (max 3) feeds validation errors back as
-hints so the agent can self-correct.
+`gpt-4o-mini` with `responseFormat`. The service manages a bounded retry loop
+(max 3 attempts) that feeds semantic validation errors back as hints so the agent
+can self-correct.
 
 ---
 
@@ -21,6 +21,7 @@ server/services/quizAI/
 │   └── getExistingQuizzes.tool.ts  # tool: reads existing Quiz rows
 ├── quizAI.agent.ts                 # createQuizAgent() factory
 ├── quizAI.service.ts               # QuizAIService.generateForLesson()
+├── quizAI.validator.ts             # validateSemantics()
 └── quizAI.errors.ts                # QuizAIError, MaxRetriesExceededError, LessonHasNoContentError
 ```
 
@@ -42,8 +43,8 @@ server/services/quizAI/
 }
 ```
 
-`model.withStructuredOutput(QuizOutputSchema)` enforces shape at the OpenAI layer;
-`validateSemantics` enforces the `correct ∈ options` invariant afterward.
+`responseFormat: QuizOutputSchema` passed to `createAgent` enforces shape at the
+OpenAI layer; `validateSemantics` enforces the `correct ∈ options` invariant afterward.
 
 ---
 
@@ -55,11 +56,10 @@ graph TD
     Service["QuizAIService\n.generateForLesson()"]
     Guard{"lesson.content\nempty?"}
     Err1["throw LessonHasNoContentError\n→ BAD_REQUEST"]
-    Seq["RunnableSequence\n① packageInputs\n② agent\n③ extractQuestions"]
-    Agent["ReAct Agent\n(createReactAgent)"]
+    Agent["createAgent()\nfrom langchain"]
     T1["tool: get_lesson_content"]
     T2["tool: get_existing_quizzes"]
-    LLM["gpt-4o-mini\nwithStructuredOutput"]
+    LLM["gpt-4o-mini\nresponseFormat: QuizOutputSchema"]
     Validate["validateSemantics()"]
     Ok["return QuizQuestion[]"]
     Retry{"attempt < 3?"}
@@ -68,8 +68,7 @@ graph TD
     Router --> Service
     Service --> Guard
     Guard -->|yes| Err1
-    Guard -->|no| Seq
-    Seq --> Agent
+    Guard -->|no| Agent
     Agent <-->|tool call| T1
     Agent <-->|tool call| T2
     Agent --> LLM
@@ -88,18 +87,18 @@ graph TD
 sequenceDiagram
     participant Router as tRPC Router
     participant Svc as QuizAIService
-    participant Chain as RunnableSequence
-    participant Agent as ReAct Agent
+    participant Agent as createAgent (langchain)
     participant T1 as getLessonContent
     participant T2 as getExistingQuizzes
     participant LLM as gpt-4o-mini
 
-    Router->>Svc: generateForLesson(lessonId, count)
-    Svc->>Svc: fetch lesson, check content ≠ null
-    Svc->>Chain: runWithRetry(input)
+    Router->>Svc: generateForLesson(lessonId, count, instructorId)
+    Svc->>Svc: fetch lesson + ownership check
+    Svc->>Svc: check content ≠ null
+    Svc->>Agent: createQuizAgent(count, level)
 
     loop up to 3 attempts
-        Chain->>Agent: {lessonId, count, hint?}
+        Svc->>Agent: agent.invoke({ messages: [userMessage + hint?] })
         Agent->>LLM: reason — what do I need?
         LLM-->>Agent: call get_lesson_content
         Agent->>T1: {lessonId}
@@ -108,13 +107,13 @@ sequenceDiagram
         Agent->>T2: {lessonId}
         T2-->>Agent: "- Question A\n- Question B"
         Agent->>LLM: generate structured output
-        LLM-->>Chain: QuizOutputSchema JSON
-        Chain->>Svc: extractQuestions
+        LLM-->>Agent: QuizOutputSchema JSON (structuredResponse)
+        Agent-->>Svc: result.structuredResponse.questions
         Svc->>Svc: validateSemantics()
         alt valid
             Svc-->>Router: QuizQuestion[]
         else invalid
-            Svc->>Chain: retry with hint
+            Svc->>Svc: update hint, retry
         end
     end
 ```
@@ -125,26 +124,24 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[invoke chain] --> B[parse structured output]
-    B --> C{schema valid?}
-    C -->|no — parse error| E
-    C -->|yes| D{validateSemantics\nreturns null?}
-    D -->|yes| G[return QuizQuestion[]]
-    D -->|no — violation msg| E[log warn, capture hint]
-    E --> F{attempt < 3?}
-    F -->|yes| H["retry: add hint to input\ne.g. 'Question 2: correct not in options'"]
-    H --> A
-    F -->|no| I[throw MaxRetriesExceededError]
+    A[agent.invoke] --> B[extract structuredResponse.questions]
+    B --> C{validateSemantics\nreturns null?}
+    C -->|yes| G[return QuizQuestion[]]
+    C -->|no — violation msg| D[log warn, capture hint]
+    D --> E{attempt < 3?}
+    E -->|yes| F["retry: append hint to user message\ne.g. 'Question 2: correct not in options'"]
+    F --> A
+    E -->|no| H[throw MaxRetriesExceededError]
 ```
 
-The `hint` string is appended to the next invocation's input so the agent sees
-its own mistake and can correct it without a full context restart.
+The `hint` string is appended to the next invocation's user message so the agent
+sees its own mistake and can correct it without a full context restart.
 
 ---
 
 ## Semantic Validation Rules
 
-`validateSemantics(questions)` returns the first violation string or `null`.
+`validateSemantics(questions)` in `quizAI.validator.ts` returns the first violation string or `null`.
 
 | Rule | Violation message |
 |------|------------------|
@@ -179,6 +176,26 @@ its own mistake and can correct it without a full context restart.
 
 ---
 
+## Agent Factory
+
+`createQuizAgent(count, level)` in `quizAI.agent.ts`:
+
+- Uses `createAgent` from `langchain` (v1.4.0) — the replacement for the deprecated `createReactAgent` from `@langchain/langgraph/prebuilt`.
+- System prompt built with `ChatPromptTemplate` (named variables `{count}`, `{level}`) per ADR-008.
+- `responseFormat: QuizOutputSchema` — structured output enforced at the OpenAI layer.
+- API key sourced from `env.OPENAI_API_KEY` (validated via `lib/env.js`).
+
+```ts
+createAgent({
+  model: llm,                                        // ChatOpenAI gpt-4o-mini, temp 0.3
+  tools: [getLessonContentTool, getExistingQuizzesTool],
+  systemPrompt,                                      // formatted ChatPromptTemplate string
+  responseFormat: QuizOutputSchema,
+})
+```
+
+---
+
 ## System Prompt (outline)
 
 The `ChatPromptTemplate` system message instructs the agent to:
@@ -187,7 +204,7 @@ The `ChatPromptTemplate` system message instructs the agent to:
 2. Call `get_existing_quizzes` — never duplicate a question that already exists.
 3. Produce exactly `{count}` multiple-choice questions.
 4. Each question must have **exactly 4 options**; `correct` must be verbatim one of them.
-5. Calibrate difficulty to the course `level` (Beginner / Intermediate / Advanced).
+5. Calibrate difficulty to the course `{level}` (Beginner / Intermediate / Advanced).
 6. Output must conform to `QuizOutputSchema` — no extra keys, no markdown fences.
 
 ---
@@ -196,14 +213,13 @@ The `ChatPromptTemplate` system message instructs the agent to:
 
 ```ts
 generateAI: instructorProcedure
-  .input(z.object({
-    lessonId: z.string(),
-    count:    z.number().int().min(3).max(5).default(3),
-  }))
+  .input(QuizGenerateAIDto)   // { lessonId: string, count: 3–5, default 3 }
   .mutation(async ({ ctx, input }) => {
-    // 1. verifyInstructorOwnership(lessonId, instructorId)
-    // 2. fetch lesson; if content empty → throw LessonHasNoContentError
-    // 3. return quizAIService.generateForLesson(lessonId, input.count)
+    return await quizAIService.generateForLesson(
+      input.lessonId,
+      input.count,
+      ctx.session.user.id,    // ownership check inside the service
+    );
   })
 ```
 
@@ -213,6 +229,7 @@ generateAI: instructorProcedure
 
 | Error class | tRPC code | Client receives |
 |-------------|-----------|----------------|
+| `QuizForbiddenError` | `FORBIDDEN` | "Lesson not found or access denied" |
 | `LessonHasNoContentError` | `BAD_REQUEST` | "Lesson has no content to generate quiz from" |
 | `MaxRetriesExceededError` | `INTERNAL_SERVER_ERROR` | "Generation failed, try again" |
 | `QuizAIError` (base) | `INTERNAL_SERVER_ERROR` | "Generation failed, try again" |

@@ -13,9 +13,10 @@ import { extractStepDataPrompt } from "@/server/services/courseAI/prompts/extrac
 import { buildSystemPrompt } from "@/server/services/courseAI/prompts/systemPrompt";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 import { logger } from "@/server/utils/logger";
+import {env} from "@/lib/env";
 
 export class CourseAIService {
-	private readonly apiKey = process.env.OPENAI_API_KEY;
+	private readonly apiKey = env.OPENAI_API_KEY;
 
 	private getModel() {
 		return new ChatOpenAI({

@@ -33,10 +33,10 @@ All new AI features are built with three explicit layers:
 | Layer | Tool | Purpose |
 |---|---|---|
 | **Guardrail chain** | LCEL `RunnableSequence` + `withStructuredOutput` | Fast input classifier; short-circuits before the agent if the request is off-topic or injected |
-| **Agent** | `createReactAgent` (conversational) or `RunnableSequence` (pipeline) | Reasoning loop; decides which tools to call |
+| **Agent** | `createAgent` from `langchain` | Reasoning loop; decides which tools to call |
 | **Tools** | `tool()` from `@langchain/core/tools` | Typed, named functions the agent calls to fetch data or produce structured output |
 
-Structured output uses `model.withStructuredOutput(zodSchema)` — one call, typed result, no `JSON.parse`. For output that cannot be guaranteed semantically by the schema alone (e.g. `correct` must be one of `options`), a semantic validator runs after generation and re-prompts with the error on failure (up to 3 attempts).
+Structured output uses `responseFormat: zodSchema` on `createAgent` — one call, typed result, no `JSON.parse`. For output that cannot be guaranteed semantically by the schema alone (e.g. `correct` must be one of `options`), a semantic validator runs after generation and re-prompts with the error on failure (up to 3 attempts).
 
 ## Rules
 
@@ -54,11 +54,12 @@ Structured output uses `model.withStructuredOutput(zodSchema)` — one call, typ
 | Pattern | AI Course Builder | Quiz Generator | Lesson Assistant |
 |---|:---:|:---:|:---:|
 | Raw `model.stream()` | ✅ legacy | — | — |
-| `withStructuredOutput` | — | ✅ | ✅ (guardrail) |
-| LCEL `RunnableSequence` | — | ✅ | ✅ (guardrail chain) |
+| `responseFormat` on `createAgent` | — | ✅ | — |
+| `withStructuredOutput` | — | — | ✅ (guardrail) |
+| LCEL `RunnableSequence` | — | — | ✅ (guardrail chain) |
 | `ChatPromptTemplate` | — | ✅ | ✅ |
 | `tool()` | — | ✅ | ✅ |
-| `createReactAgent` | — | ✅ | ✅ |
+| `createAgent` (from `langchain`) | — | ✅ | ✅ |
 | Semantic validation + retry | — | ✅ | — |
 | Input guardrail chain | — | — | ✅ |
 
@@ -72,5 +73,5 @@ Structured output uses `model.withStructuredOutput(zodSchema)` — one call, typ
 
 **Negative / Trade-offs**
 - More files per feature compared to a single service class with `model.invoke()`.
-- `createReactAgent` from `@langchain/langgraph` adds a LangGraph dependency; the agent loop is less transparent than an explicit chain.
+- `createAgent` from `langchain` runs on LangGraph under the hood; the agent loop is less transparent than an explicit chain.
 - The course builder (ADR-006) does not yet use this pattern — it can be refactored incrementally once the new pattern is proven.

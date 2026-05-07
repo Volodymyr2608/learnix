@@ -1,0 +1,42 @@
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { ChatOpenAI } from "@langchain/openai";
+import { createAgent } from "langchain";
+import { env } from "@/lib/env";
+import { QuizOutputSchema } from "./schemas/quizOutput.schema";
+import { getExistingQuizzesTool } from "./tools/getExistingQuizzes.tool";
+import { getLessonContentTool } from "./tools/getLessonContent.tool";
+
+const systemTemplate = ChatPromptTemplate.fromMessages([
+	[
+		"system",
+		`You are an expert quiz writer for an online learning platform.
+
+		Your job is to generate exactly {count} multiple-choice questions for a lesson.
+		
+		Rules:
+		1. Call get_lesson_content first to understand the lesson material.
+		2. Call get_existing_quizzes to see what questions already exist — never duplicate them.
+		3. Generate exactly {count} questions based on the lesson content.
+		4. Each question must have exactly 4 answer options.
+		5. The "correct" field must be verbatim identical to one of the 4 options — no paraphrasing.
+		6. Calibrate difficulty to {level} level (Beginner = basic recall, Intermediate = application, Advanced = analysis/synthesis).
+		7. Output must conform to the required schema — no markdown, no extra keys.`,
+	],
+]);
+
+export async function createQuizAgent(count: number, level: string) {
+	const llm = new ChatOpenAI({
+		model: "gpt-4o-mini",
+		temperature: 0.3,
+		apiKey: env.OPENAI_API_KEY,
+	});
+
+	const systemPrompt = await systemTemplate.format({ count, level });
+
+	return createAgent({
+		model: llm,
+		tools: [getLessonContentTool, getExistingQuizzesTool],
+		systemPrompt,
+		responseFormat: QuizOutputSchema,
+	});
+}
