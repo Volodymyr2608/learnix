@@ -1,20 +1,14 @@
 import { Eye, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/_components/_shared/ui/button";
+import type { EditorActionsProps } from "./types";
 
-interface EditorActionsProps {
-	courseId: string;
-	lessonId: string;
-	isSaving: boolean;
-	onSave: () => void;
-}
-
-export function EditorActions({
+export const EditorActions = ({
 	courseId,
 	lessonId,
 	isSaving,
 	onSave,
-}: EditorActionsProps) {
+}: EditorActionsProps) => {
 	const router = useRouter();
 
 	return (
@@ -39,4 +33,4 @@ export function EditorActions({
 			</div>
 		</div>
 	);
-}
+};

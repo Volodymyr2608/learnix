@@ -6,13 +6,9 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { Textarea } from "@/app/_components/_shared/ui/textarea";
+import type { TextTabProps } from "./types";
 
-interface TextTabProps {
-	content: string;
-	onChange: (value: string) => void;
-}
-
-export function TextTab({ content, onChange }: TextTabProps) {
+export const TextTab = ({ content, onChange }: TextTabProps) => {
 	return (
 		<Card>
 			<CardHeader>
@@ -35,4 +31,4 @@ export function TextTab({ content, onChange }: TextTabProps) {
 			</CardContent>
 		</Card>
 	);
-}
+};

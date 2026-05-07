@@ -51,6 +51,14 @@ Only the folders that are actually needed are created — no empty directories.
 
 6. **No nested ternaries in JSX.** Extract conditional rendering to a dedicated sub-component or use early returns. This is what motivated the split of `AttemptBadge` out of `QuestionCard`.
 
+7. **Components are arrow functions.** All component declarations use `const` with an arrow function rather than `function` declarations. This keeps component declarations consistent with other `const` declarations in the codebase.
+
+   ```tsx
+   export const ComponentName = ({ prop1, prop2 }: ComponentNameProps) => {
+     return <div />;
+   };
+   ```
+
 ### Single-file exception
 
 A component that is truly self-contained — one default export, no extracted hooks, no sub-components, no local helpers — stays as a single `.tsx` file. Do not create a folder just to hold `index.tsx`.

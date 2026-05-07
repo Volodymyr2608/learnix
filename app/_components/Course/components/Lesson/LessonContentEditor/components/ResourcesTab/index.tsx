@@ -8,21 +8,14 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { Input } from "@/app/_components/_shared/ui/input";
-import type { Resource } from "../types";
+import type { ResourcesTabProps } from "./types";
 
-interface ResourcesTabProps {
-	resources: Resource[];
-	onAdd: () => void;
-	onRemove: (id: string) => void;
-	onUpdate: (id: string, changes: Partial<Resource>) => void;
-}
-
-export function ResourcesTab({
+export const ResourcesTab = ({
 	resources,
 	onAdd,
 	onRemove,
 	onUpdate,
-}: ResourcesTabProps) {
+}: ResourcesTabProps) => {
 	return (
 		<Card>
 			<CardHeader>
@@ -85,4 +78,4 @@ export function ResourcesTab({
 			</CardContent>
 		</Card>
 	);
-}
+};

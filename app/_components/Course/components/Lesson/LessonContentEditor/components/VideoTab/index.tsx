@@ -9,19 +9,13 @@ import {
 } from "@/app/_components/_shared/ui/card";
 import { Input } from "@/app/_components/_shared/ui/input";
 import { Label } from "@/app/_components/_shared/ui/label";
-import type { LessonFormData } from "../types";
+import type { VideoTabProps } from "./types";
 
-interface VideoTabProps {
-	videoUrl: LessonFormData["videoUrl"];
-	videoFile: LessonFormData["videoFile"];
-	onUpdate: (changes: Partial<LessonFormData>) => void;
-}
-
-export function VideoTab({
+export const VideoTab = ({
 	videoUrl,
 	videoFile: _videoFile,
 	onUpdate,
-}: VideoTabProps) {
+}: VideoTabProps) => {
 	return (
 		<Card>
 			<CardHeader>
@@ -84,4 +78,4 @@ export function VideoTab({
 			</CardContent>
 		</Card>
 	);
-}
+};

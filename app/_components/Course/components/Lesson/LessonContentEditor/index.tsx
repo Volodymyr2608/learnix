@@ -7,7 +7,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "@/app/_components/_shared/ui/tabs";
-import type { LessonData } from "@/lib/requests/lesson/getLessonById";
+import type { LessonContentEditorProps } from "@/app/_components/Course/components/Lesson/LessonContentEditor/types";
 import { EditorActions } from "./components/EditorActions";
 import { LessonInfoCard } from "./components/LessonInfoCard";
 import { QuizTab } from "./components/QuizTab";
@@ -16,15 +16,10 @@ import { TextTab } from "./components/TextTab";
 import { VideoTab } from "./components/VideoTab";
 import { useLessonEditor } from "./hooks/useLessonEditor";
 
-interface LessonContentEditorProps {
-	courseId: string;
-	initialLesson: LessonData;
-}
-
-export function LessonContentEditor({
+export const LessonContentEditor = ({
 	courseId,
 	initialLesson,
-}: LessonContentEditorProps) {
+}: LessonContentEditorProps) => {
 	const {
 		lessonData,
 		updateLessonData,
@@ -109,4 +104,4 @@ export function LessonContentEditor({
 			/>
 		</div>
 	);
-}
+};

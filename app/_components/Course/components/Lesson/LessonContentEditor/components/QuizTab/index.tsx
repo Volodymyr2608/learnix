@@ -14,25 +14,16 @@ import { Input } from "@/app/_components/_shared/ui/input";
 import { Label } from "@/app/_components/_shared/ui/label";
 import { Textarea } from "@/app/_components/_shared/ui/textarea";
 import { GenerateQuizDialog } from "@/app/_components/Quiz/GenerateQuizDialog";
-import type { QuizQuestion } from "../types";
+import type { QuizTabProps } from "./types";
 
-interface QuizTabProps {
-	lessonId: string;
-	questions: QuizQuestion[];
-	onAdd: () => void;
-	onRemove: (index: number) => void;
-	onUpdate: (index: number, changes: Partial<QuizQuestion>) => void;
-	onUpdateOption: (qIndex: number, optionId: string, text: string) => void;
-}
-
-export function QuizTab({
+export const QuizTab = ({
 	lessonId,
 	questions,
 	onAdd,
 	onRemove,
 	onUpdate,
 	onUpdateOption,
-}: QuizTabProps) {
+}: QuizTabProps) => {
 	const [generateOpen, setGenerateOpen] = useState(false);
 
 	return (
@@ -136,4 +127,4 @@ export function QuizTab({
 			)}
 		</>
 	);
-}
+};
