@@ -23,6 +23,8 @@ docs/
 | [ADR-009](adr/009-video-delivery.md) | Video delivery strategy | Accepted |
 | [ADR-010](adr/010-domain-error-mapping.md) | Domain error to tRPC error mapping | Accepted |
 | [ADR-011](adr/011-component-folder-architecture.md) | Component folder architecture | Accepted |
+| [ADR-012](adr/012-pgvector-embeddings.md) | pgvector for embeddings and semantic retrieval | Accepted |
+| [ADR-013](adr/013-langsmith-tracing-evals.md) | LangSmith for tracing and offline evals | Accepted |
 
 ## Specs
 
@@ -49,4 +51,7 @@ docs/
 
 | Feature | Spec | Roadmap phase |
 |---------|------|--------------|
-| AI Lesson Assistant | [specs/ai-lesson-assistant.md](specs/ai-lesson-assistant.md) | Phase 8 |
+| AI Lesson Assistant (v1 + v2 RAG) | [specs/2026-05-05-ai-lesson-assistant/requirements.md](specs/2026-05-05-ai-lesson-assistant/requirements.md) | Phase 8 |
+| Semantic Search & Recommendations | [specs/2026-05-08-semantic-search-recommendations/requirements.md](specs/2026-05-08-semantic-search-recommendations/requirements.md) | Phase 9 |
+| Lesson Auto-Summary & Study Guide | [specs/2026-05-08-lesson-auto-summary/requirements.md](specs/2026-05-08-lesson-auto-summary/requirements.md) | Phase 9 |
+| Instructor Insights Agent | [specs/2026-05-08-instructor-insights-agent/requirements.md](specs/2026-05-08-instructor-insights-agent/requirements.md) | Phase 9 |

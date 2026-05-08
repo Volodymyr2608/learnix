@@ -1,5 +1,7 @@
 # Plan: AI Lesson Assistant
 
+> **Note:** The bulk of this document describes the v1 pipeline (full lesson content fetched as one tool result). The **v2 additions** at the end of this file replace `getLessonContentTool` with three RAG-based tools and add `ConceptMastery` persistence. v2 depends on the embeddings infra shipped in `2026-05-08-semantic-search-recommendations`.
+
 ## Prerequisites (non-AI groundwork, ~0.5 day)
 
 1. **Lesson progress persistence** — the lesson viewer currently marks lessons complete in React state only:
@@ -354,3 +356,118 @@ Replace the "Discussion" tab placeholder in the lesson viewer with a chat panel:
 ```
 
 Reuse the streaming hook from `AIChatBuilderDialog/hooks/useChatStreaming.ts` — it already handles SSE token accumulation and abort. Tool-call events are filtered server-side so the hook receives only answer tokens.
+
+---
+
+## v2 — RAG, cross-lesson search, concept mastery
+
+### Why v2 changes the tool set
+
+v1's `getLessonContentTool` returns the entire lesson body. For long lessons it crowds the context window and crowds out chat history; it also offers no way to answer "where in the course did we cover X". v2 replaces it with three smaller, retrieval-based tools and adds a write tool for concept tracking.
+
+### Tools (v2)
+
+```ts
+// server/services/lessonAI/tools/retrieveLessonContext.tool.ts
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
+import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
+import { embeddingRepository } from "@/server/repositories/embedding.repository";
+
+export const buildRetrieveLessonContextTool = (lessonId: string) =>
+  tool(
+    async ({ query, k = 4 }) => {
+      const vector = await embeddingsService.embedQuery(query);
+      const chunks = await embeddingRepository.searchLessonChunks(lessonId, vector, k);
+      return chunks.map((c) => c.content).join("\n\n---\n\n");
+    },
+    {
+      name: "retrieve_lesson_context",
+      description:
+        "Returns the most relevant excerpts from the current lesson for a question. Always call this before answering questions about the lesson.",
+      schema: z.object({
+        query: z.string().min(2),
+        k: z.number().int().min(1).max(8).optional(),
+      }),
+    },
+  );
+```
+
+```ts
+// server/services/lessonAI/tools/searchAcrossCourse.tool.ts
+export const buildSearchAcrossCourseTool = (courseId: string) =>
+  tool(
+    async ({ query, k = 4 }) => {
+      const vector = await embeddingsService.embedQuery(query);
+      const chunks = await embeddingRepository.searchCourseChunks(courseId, vector, k);
+      return chunks.map((c) => `[Lesson: ${c.lessonTitle}] ${c.content}`).join("\n\n---\n\n");
+    },
+    {
+      name: "search_across_course",
+      description:
+        "Searches all lessons in this course for relevant excerpts. Use for questions like 'where did we cover X' or to surface prerequisite material.",
+      schema: z.object({
+        query: z.string().min(2),
+        k: z.number().int().min(1).max(8).optional(),
+      }),
+    },
+  );
+```
+
+```ts
+// server/services/lessonAI/tools/markConceptUnderstood.tool.ts
+import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
+
+export const buildMarkConceptUnderstoodTool = (studentId: string, courseId: string) =>
+  tool(
+    async ({ concept, level }) => {
+      await conceptMasteryRepository.upsert(studentId, courseId, concept, level);
+      return `Recorded: ${concept} at level ${level}.`;
+    },
+    {
+      name: "mark_concept_understood",
+      description:
+        "Records that the student has demonstrated understanding of a concept. Levels: 0 unfamiliar, 1 exposed, 2 applied, 3 mastered. Use sparingly — only when the student explicitly demonstrates understanding.",
+      schema: z.object({
+        concept: z.string().min(1).max(80),
+        level: z.number().int().min(0).max(3),
+      }),
+    },
+  );
+```
+
+`getStudentProgress.tool.ts` from v1 is kept unchanged.
+
+### Agent — v2
+
+The agent constructor signature gains `lessonId` and `courseId`. The system prompt is updated to:
+
+- always call `retrieve_lesson_context` first for lesson questions,
+- only call `search_across_course` when the answer needs prior or upcoming material,
+- call `mark_concept_understood` only after the student demonstrates understanding (not after a successful explanation alone).
+
+```ts
+return createReactAgent({
+  llm,
+  tools: [
+    buildRetrieveLessonContextTool(params.lessonId),
+    buildSearchAcrossCourseTool(params.courseId),
+    getStudentProgressTool(params.studentId, params.courseId),
+    buildMarkConceptUnderstoodTool(params.studentId, params.courseId),
+  ],
+  prompt,
+});
+```
+
+### Service & SSE endpoint — v2
+
+The service signature is unchanged. The SSE endpoint is unchanged. The agent is constructed with two more closures (`courseId`, plus the existing `studentId` and `lessonId`).
+
+`messages` persisted in v2 include a `toolCalls` JSON snapshot per assistant turn so the chat panel can optionally render which tools were used (e.g., "🔎 searched current lesson").
+
+### Dependency on the embeddings feature
+
+v2 cannot ship without `LessonChunkEmbedding` and the embedding/chunking pipeline from `2026-05-08-semantic-search-recommendations`. Suggested order:
+
+1. Ship the semantic-search feature first (delivers the embeddings infra).
+2. Ship the lesson assistant **v2** (uses the embeddings infra). v1 is skipped — the v2 tool set is strictly better and the infra is already there.
