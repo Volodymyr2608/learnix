@@ -5,6 +5,7 @@ import { STEP_MESSAGES } from "@/lib/constants/stepMessages";
 import { env } from "@/lib/env";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { courseGenerationMessageRepository } from "@/server/repositories/courseGenerationMessage.repository";
+import { traced } from "@/server/services/_shared/tracing";
 import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
 import {
 	isMessageShape,
@@ -141,36 +142,48 @@ export class CourseAIService {
 	}
 
 	async extractStepData(courseGeneration: CourseGeneration) {
-		try {
-			const model = new ChatOpenAI({
+		const coreExtract = traced(
+			"courseAI.extractStepData",
+			async (gen: CourseGeneration) => {
+				try {
+					const model = new ChatOpenAI({
+						model: "gpt-4o-mini",
+						temperature: 0,
+						modelKwargs: { response_format: { type: "json_object" } },
+					});
+
+					const step = gen.step;
+					const lastMessages = await this.getLastMessages(gen.id);
+
+					const history = lastMessages
+						.map((msg) => `[${msg.role}]: ${msg.content}`)
+						.join("\n");
+
+					const systemPrompt = extractStepDataPrompt({ step, history });
+
+					const response = await model.invoke([
+						{ role: "system", content: systemPrompt },
+					]);
+					const rawJson = JSON.parse(response.content.toString());
+
+					const stepValidator = getValidatorForStep(step);
+
+					return stepValidator.parse(rawJson);
+				} catch (error) {
+					logger.error(error);
+					throw new CourseAIError(
+						"[Course AI service] failed to extract step data",
+					);
+				}
+			},
+			{
+				feature: "builder",
+				userId: courseGeneration.instructorId,
 				model: "gpt-4o-mini",
-				temperature: 0,
-				modelKwargs: { response_format: { type: "json_object" } },
-			});
+			},
+		);
 
-			const step = courseGeneration.step;
-			const lastMessages = await this.getLastMessages(courseGeneration.id);
-
-			const history = lastMessages
-				.map((msg) => `[${msg.role}]: ${msg.content}`)
-				.join("\n");
-
-			const systemPrompt = extractStepDataPrompt({ step, history });
-
-			const response = await model.invoke([
-				{ role: "system", content: systemPrompt },
-			]);
-			const rawJson = JSON.parse(response.content.toString());
-
-			const stepValidator = getValidatorForStep(step);
-
-			return stepValidator.parse(rawJson);
-		} catch (error) {
-			logger.error(error);
-			throw new CourseAIError(
-				"[Course AI service] failed to extract step data",
-			);
-		}
+		return coreExtract(courseGeneration);
 	}
 
 	async acceptStep(params: { userId: string; courseGenerationId: string }) {

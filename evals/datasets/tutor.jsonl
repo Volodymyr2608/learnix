@@ -1,0 +1,2 @@
+{"input":{"lessonTitle":"React Hooks","question":"What is the difference between useState and useEffect?"},"expected":{"tools_called":["retrieve_lesson_context"],"answer_contains":["state","side effect"]}}
+{"input":{"lessonTitle":"Async JavaScript","question":"Where in this course did we first use Promises?"},"expected":{"tools_called":["search_across_course"],"answer_contains":["lesson","Promise"]}}
