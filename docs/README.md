@@ -55,3 +55,4 @@ docs/
 | Semantic Search & Recommendations | [specs/2026-05-08-semantic-search-recommendations/requirements.md](specs/2026-05-08-semantic-search-recommendations/requirements.md) | Phase 9 |
 | Lesson Auto-Summary & Study Guide | [specs/2026-05-08-lesson-auto-summary/requirements.md](specs/2026-05-08-lesson-auto-summary/requirements.md) | Phase 9 |
 | Instructor Insights Agent | [specs/2026-05-08-instructor-insights-agent/requirements.md](specs/2026-05-08-instructor-insights-agent/requirements.md) | Phase 9 |
+| Lesson Rich Text Editor (WYSIWYG) | [specs/2026-05-09-lesson-rich-text-editor/requirements.md](specs/2026-05-09-lesson-rich-text-editor/requirements.md) | Phase 4 polish |
