@@ -1,0 +1,22 @@
+.lesson-markdown-editor__toolbar {
+	border-radius: 0.5rem 0.5rem 0 0;
+	border-bottom: 1px solid hsl(var(--border));
+}
+
+.lesson-markdown-editor__content {
+	min-height: 360px;
+	padding: 1rem;
+	font-family: var(--font-sans);
+	font-size: 0.95rem;
+	line-height: 1.6;
+}
+
+.lesson-markdown-editor__content :where(h1, h2, h3, h4) {
+	font-weight: 600;
+	margin-top: 1.25em;
+	margin-bottom: 0.5em;
+}
+
+.lesson-markdown-editor__content code {
+	font-family: var(--font-mono);
+}
