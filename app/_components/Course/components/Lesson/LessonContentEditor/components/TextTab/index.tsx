@@ -1,3 +1,4 @@
+import { MarkdownEditor } from "@/app/_components/_shared/components/MarkdownEditor";
 import {
 	Card,
 	CardContent,
@@ -5,7 +6,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import { Textarea } from "@/app/_components/_shared/ui/textarea";
 import type { TextTabProps } from "./types";
 
 export const TextTab = ({ content, onChange }: TextTabProps) => {
@@ -18,16 +18,7 @@ export const TextTab = ({ content, onChange }: TextTabProps) => {
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<Textarea
-					className="font-mono text-sm"
-					onChange={(e) => onChange(e.target.value)}
-					placeholder="Write your lesson content here. You can include explanations, code examples, tips, etc."
-					rows={15}
-					value={content}
-				/>
-				<p className="mt-2 text-muted-foreground text-sm">
-					Supports Markdown formatting
-				</p>
+				<MarkdownEditor markdown={content ?? ""} onChange={onChange} />
 			</CardContent>
 		</Card>
 	);
