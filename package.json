@@ -20,6 +20,7 @@
 		"start": "next start",
 		"typecheck": "tsc --noEmit",
 		"eval": "tsx evals/runEvals.ts",
+		"reindex": "tsx scripts/reindex-embeddings.ts",
 		"vercel-build": "prisma generate && prisma migrate deploy && next build",
 		"prepare": "husky"
 	},
