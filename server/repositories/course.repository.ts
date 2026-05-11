@@ -303,6 +303,37 @@ export default class CourseRepository extends BaseRepository<
 			instructorRating: instructorRatingResult._avg.rating,
 		};
 	}
+
+	async findManyByIdsPreservingOrder(ids: string[]) {
+		if (ids.length === 0) return [];
+		const courses = await this.db.course.findMany({
+			where: {
+				id: { in: ids },
+				status: CourseStatus.published,
+				deletedAt: null,
+			},
+			include: {
+				instructor: { select: { name: true } },
+				_count: { select: { enrollments: true } },
+			},
+		});
+		const map = new Map(courses.map((c) => [c.id, c]));
+		return ids
+			.map((id) => map.get(id))
+			.filter((c): c is NonNullable<typeof c> => c != null)
+			.map((course) => ({
+				id: course.id,
+				title: course.title,
+				instructor: course.instructor.name,
+				rating: 4.8,
+				students: course._count.enrollments,
+				duration: course.duration,
+				price: course.price,
+				level: course.level,
+				thumbnail: course.thumbnailUrl,
+				category: course.category,
+			}));
+	}
 }
 
 export const courseRepository = new CourseRepository();
