@@ -31,6 +31,7 @@ export class LessonAIService {
 			await guard.invoke({ userMessage });
 		} catch (err) {
 			if (err instanceof OffTopicError) {
+				console.log("Off-topic error:", err.message);
 				yield { type: "token" as const, value: err.message };
 				return;
 			}

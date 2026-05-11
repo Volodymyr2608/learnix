@@ -4,9 +4,9 @@
 
 **Goal:** Add a per-lesson AI tutor chat panel (v2 RAG pipeline) that streams answers using `LessonChunkEmbedding` retrieval, cross-lesson search, student progress, and concept mastery tracking.
 
-**Architecture:** Three-layer pipeline — (1) topic-guard LCEL chain short-circuits off-topic messages, (2) `createReactAgent` (LangGraph) with four tools answers on-topic questions, (3) SSE endpoint streams tokens to client. Conversation history + concept mastery persist in Postgres; chat UI replaces the Discussion tab in `CourseLearnView`.
+**Architecture:** Three-layer pipeline — (1) topic-guard LCEL chain short-circuits off-topic messages, (2) `createAgent` from `langchain` with four tools answers on-topic questions, (3) SSE endpoint streams tokens to client. Conversation history + concept mastery persist in Postgres; chat UI replaces the Discussion tab in `CourseLearnView`.
 
-**Tech Stack:** Next.js 15 App Router, tRPC (`studentProcedure`), Prisma multi-file schema, `@langchain/langgraph` (already in node_modules as transitive dep), `@langchain/openai`, pgvector cosine search via raw SQL, SSE via `ReadableStream`, Radix UI + Tailwind.
+**Tech Stack:** Next.js 15 App Router, tRPC (`studentProcedure`), Prisma multi-file schema, `langchain` (ReAct agent), `@langchain/openai`, pgvector cosine search via raw SQL, SSE via `ReadableStream`, Radix UI + Tailwind.
 
 ---
 
@@ -38,27 +38,19 @@
 
 ---
 
-## Task 1: Add `@langchain/langgraph` as explicit dependency
+## Task 1: Verify `langchain` dependency
 
-`@langchain/langgraph` ships as a transitive dep of `langchain`, but we import from it directly so it must be declared explicitly.
+The agent is created via `createAgent` from `langchain` (ADR-008). `langchain` is already listed in `package.json` dependencies — no additional package install needed.
 
-**Files:**
-- Modify: `package.json` (via pnpm)
+**Files:** none
 
-- [ ] **Step 1: Install the package**
-
-```bash
-cd /home/volodymyr/job/pet-projects/t3-stack/learnix && pnpm add @langchain/langgraph
-```
-
-Expected: `@langchain/langgraph` appears in `package.json` dependencies. The version already in node_modules is `1.3.x`.
-
-- [ ] **Step 2: Commit**
+- [ ] **Step 1: Confirm `langchain` is in dependencies**
 
 ```bash
-git add package.json pnpm-lock.yaml
-git commit -m "chore: add @langchain/langgraph as direct dependency"
+grep '"langchain"' package.json
 ```
+
+Expected: `"langchain": "^1.x.x"` is present.
 
 ---
 
@@ -582,7 +574,7 @@ git commit -m "feat: add four lessonAI agent tools (RAG, cross-course, progress,
 
 ## Task 8: Agent
 
-Composes the four tools into a LangGraph ReAct agent.
+Composes the four tools into a ReAct agent via `createAgent` from `langchain` (see ADR-008).
 
 **Files:**
 - Create: `server/services/lessonAI/lessonAI.agent.ts`
@@ -590,9 +582,8 @@ Composes the four tools into a LangGraph ReAct agent.
 - [ ] **Step 1: Create `server/services/lessonAI/lessonAI.agent.ts`**
 
 ```ts
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatOpenAI } from "@langchain/openai";
+import { type ReactAgent, createAgent } from "langchain";
 import { env } from "@/lib/env";
 import { buildGetStudentProgressTool } from "./tools/getStudentProgress.tool";
 import { buildMarkConceptUnderstoodTool } from "./tools/markConceptUnderstood.tool";
@@ -616,7 +607,7 @@ export function createLessonAgent(params: {
   courseTitle: string;
   studentId: string;
   courseId: string;
-}) {
+}): ReactAgent {
   const llm = new ChatOpenAI({
     model: "gpt-4o-mini",
     temperature: 0.4,
@@ -624,26 +615,18 @@ export function createLessonAgent(params: {
     apiKey: env.OPENAI_API_KEY,
   });
 
-  const prompt = ChatPromptTemplate.fromMessages([
-    [
-      "system",
-      SYSTEM_PROMPT.replace("{lessonTitle}", params.lessonTitle).replace(
-        "{courseTitle}",
-        params.courseTitle,
-      ),
-    ],
-    ["placeholder", "{messages}"],
-  ]);
-
-  return createReactAgent({
-    llm,
+  return createAgent({
+    model: llm,
     tools: [
       buildRetrieveLessonContextTool(params.lessonId),
       buildSearchAcrossCourseTool(params.courseId),
       buildGetStudentProgressTool(params.studentId, params.courseId),
       buildMarkConceptUnderstoodTool(params.studentId, params.courseId),
     ],
-    prompt,
+    systemPrompt: SYSTEM_PROMPT.replace(
+      "{lessonTitle}",
+      params.lessonTitle,
+    ).replace("{courseTitle}", params.courseTitle),
   });
 }
 ```

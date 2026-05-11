@@ -132,11 +132,12 @@ export const getStudentProgressTool = (studentId: string, courseId: string) =>
 
 ### Layer 2 — Agent
 
+Uses `createAgent` from `langchain` (ADR-008). Explicit `ReactAgent` return type prevents TypeScript heap exhaustion from deep tool-type inference.
+
 ```ts
 // server/services/lessonAI/lessonAI.agent.ts
 import { ChatOpenAI } from "@langchain/openai";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { type ReactAgent, createAgent } from "langchain";
 import { getLessonContentTool } from "./tools/getLessonContent.tool";
 import { getStudentProgressTool } from "./tools/getStudentProgress.tool";
 
@@ -156,21 +157,18 @@ export function createLessonAgent(params: {
   courseTitle: string;
   studentId: string;
   courseId: string;
-}) {
+}): ReactAgent {
   const llm = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.4, streaming: true });
 
-  const prompt = ChatPromptTemplate.fromMessages([
-    ["system", ASSISTANT_SYSTEM_PROMPT],
-    ["placeholder", "{messages}"],
-  ]);
-
-  return createReactAgent({
-    llm,
+  return createAgent({
+    model: llm,
     tools: [
       getLessonContentTool(params.lessonId),
       getStudentProgressTool(params.studentId, params.courseId),
     ],
-    prompt,
+    systemPrompt: ASSISTANT_SYSTEM_PROMPT
+      .replace("{lessonTitle}", params.lessonTitle)
+      .replace("{courseTitle}", params.courseTitle),
   });
 }
 ```
@@ -447,15 +445,17 @@ The agent constructor signature gains `lessonId` and `courseId`. The system prom
 - call `mark_concept_understood` only after the student demonstrates understanding (not after a successful explanation alone).
 
 ```ts
-return createReactAgent({
-  llm,
+return createAgent({
+  model: llm,
   tools: [
     buildRetrieveLessonContextTool(params.lessonId),
     buildSearchAcrossCourseTool(params.courseId),
     getStudentProgressTool(params.studentId, params.courseId),
     buildMarkConceptUnderstoodTool(params.studentId, params.courseId),
   ],
-  prompt,
+  systemPrompt: SYSTEM_PROMPT
+    .replace("{lessonTitle}", params.lessonTitle)
+    .replace("{courseTitle}", params.courseTitle),
 });
 ```
 
