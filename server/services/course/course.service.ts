@@ -19,15 +19,29 @@ class CourseService {
 		try {
 			const { sections, ...courseData } = dto;
 
-			return await courseRepository.transaction(async () => {
-				const course = await courseRepository.create(courseData);
+			const course = await courseRepository.transaction(async () => {
+				const created = await courseRepository.create(courseData);
 
-				const createdSections = await this.createSections(course.id, sections);
+				const createdSections = await this.createSections(created.id, sections);
 
 				await this.createLessons(sections, createdSections);
 
-				return course;
+				return created;
 			});
+
+			if (course.status === "published") {
+				void embeddingsService
+					.embedCourse({
+						id: course.id,
+						title: course.title,
+						subtitle: course.subtitle ?? null,
+						description: course.description ?? null,
+						objectives: course.objectives,
+					})
+					.catch((err) => logger.error("embedCourse failed:", err));
+			}
+
+			return course;
 		} catch (error: unknown) {
 			logger.error("Error creating course:", error);
 			throw new CourseError(
@@ -166,6 +180,10 @@ class CourseService {
 						objectives: result.objectives,
 					})
 					.catch((err) => logger.error("embedCourse failed:", err));
+			} else if (existingStatus === "published" && !isPublished) {
+				void embeddingsService
+					.removeCourseEmbedding(result.id)
+					.catch((err) => logger.error("removeCourseEmbedding failed:", err));
 			}
 
 			return result;

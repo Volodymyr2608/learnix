@@ -13,6 +13,12 @@ class EmbeddingRepository {
 		`;
 	}
 
+	async deleteCourseEmbedding(courseId: string) {
+		await db.$executeRaw`
+			DELETE FROM course_embeddings WHERE "courseId" = ${courseId}
+		`;
+	}
+
 	async deleteLessonChunks(lessonId: string) {
 		await db.$executeRaw`
 			DELETE FROM lesson_chunk_embeddings WHERE "lessonId" = ${lessonId}

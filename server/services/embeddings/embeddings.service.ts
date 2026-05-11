@@ -29,6 +29,10 @@ class EmbeddingsService {
 		await embeddingRepository.upsertCourseEmbedding(course.id, vector);
 	}
 
+	async removeCourseEmbedding(courseId: string) {
+		await embeddingRepository.deleteCourseEmbedding(courseId);
+	}
+
 	async embedLessonChunks(lesson: { id: string; content: string }) {
 		const chunks = await chunkLessonContent(lesson.content);
 		if (chunks.length === 0) {
