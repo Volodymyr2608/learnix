@@ -1,5 +1,5 @@
 import { getSession } from "@/server/better-auth/server";
-import { db } from "@/server/db";
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 		return new Response("lessonId and message are required", { status: 400 });
 	}
 
-	const enrollment = await db.enrollment.findFirst({
+	const enrollment = await enrollmentRepository.findFirst({
 		where: {
 			studentId: session.user.id,
 			course: {
