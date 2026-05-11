@@ -1,5 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { type ReactAgent, createAgent } from "langchain";
+import { createAgent, type ReactAgent } from "langchain";
 import { env } from "@/lib/env";
 import { buildGetStudentProgressTool } from "./tools/getStudentProgress.tool";
 import { buildMarkConceptUnderstoodTool } from "./tools/markConceptUnderstood.tool";
