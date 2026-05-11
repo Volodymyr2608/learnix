@@ -19,38 +19,38 @@ Rules:
 - Never paste raw lesson content verbatim — synthesise and explain.`;
 
 export function createLessonAgent(params: {
-  lessonId: string;
-  lessonTitle: string;
-  courseTitle: string;
-  studentId: string;
-  courseId: string;
+	lessonId: string;
+	lessonTitle: string;
+	courseTitle: string;
+	studentId: string;
+	courseId: string;
 }) {
-  const llm = new ChatOpenAI({
-    model: "gpt-4o-mini",
-    temperature: 0.4,
-    streaming: true,
-    apiKey: env.OPENAI_API_KEY,
-  });
+	const llm = new ChatOpenAI({
+		model: "gpt-4o-mini",
+		temperature: 0.4,
+		streaming: true,
+		apiKey: env.OPENAI_API_KEY,
+	});
 
-  const prompt = ChatPromptTemplate.fromMessages([
-    [
-      "system",
-      SYSTEM_PROMPT.replace("{lessonTitle}", params.lessonTitle).replace(
-        "{courseTitle}",
-        params.courseTitle,
-      ),
-    ],
-    ["placeholder", "{messages}"],
-  ]);
+	const prompt = ChatPromptTemplate.fromMessages([
+		[
+			"system",
+			SYSTEM_PROMPT.replace("{lessonTitle}", params.lessonTitle).replace(
+				"{courseTitle}",
+				params.courseTitle,
+			),
+		],
+		["placeholder", "{messages}"],
+	]);
 
-  return createReactAgent({
-    llm,
-    tools: [
-      buildRetrieveLessonContextTool(params.lessonId),
-      buildSearchAcrossCourseTool(params.courseId),
-      buildGetStudentProgressTool(params.studentId, params.courseId),
-      buildMarkConceptUnderstoodTool(params.studentId, params.courseId),
-    ],
-    prompt,
-  });
+	return createReactAgent({
+		llm,
+		tools: [
+			buildRetrieveLessonContextTool(params.lessonId),
+			buildSearchAcrossCourseTool(params.courseId),
+			buildGetStudentProgressTool(params.studentId, params.courseId),
+			buildMarkConceptUnderstoodTool(params.studentId, params.courseId),
+		],
+		prompt,
+	});
 }

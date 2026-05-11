@@ -1,5 +1,5 @@
-import { db } from "@/server/db";
 import { getSession } from "@/server/better-auth/server";
+import { db } from "@/server/db";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";

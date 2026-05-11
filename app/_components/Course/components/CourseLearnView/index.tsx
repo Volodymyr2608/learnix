@@ -34,8 +34,8 @@ import Markdown from "react-markdown";
 import { api } from "trpc/client";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
-import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
+import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };

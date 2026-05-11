@@ -1,8 +1,8 @@
 import { courseAIRouter } from "@/server/api/routers/ai";
 import { courseRouter } from "@/server/api/routers/course";
 import { instructorRouter } from "@/server/api/routers/instructor";
-import { lessonAssistantRouter } from "@/server/api/routers/lessonAssistant";
 import { lessonRouter } from "@/server/api/routers/lesson";
+import { lessonAssistantRouter } from "@/server/api/routers/lessonAssistant";
 import { lessonInsightsAIRouter } from "@/server/api/routers/lessonInsightsAI";
 import { quizRouter } from "@/server/api/routers/quiz";
 import { searchRouter } from "@/server/api/routers/search";

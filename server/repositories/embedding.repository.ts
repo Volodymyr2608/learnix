@@ -131,7 +131,9 @@ class EmbeddingRepository {
 
 	async searchCourseChunks(courseId: string, queryVector: number[], k: number) {
 		const literal = `[${queryVector.join(",")}]`;
-		return db.$queryRaw<Array<{ content: string; lessonTitle: string; distance: number }>>`
+		return db.$queryRaw<
+			Array<{ content: string; lessonTitle: string; distance: number }>
+		>`
 			SELECT lce.content, l.title AS "lessonTitle", lce.embedding <=> ${literal}::vector AS distance
 			FROM lesson_chunk_embeddings lce
 			JOIN lessons l ON l.id = lce."lessonId"
