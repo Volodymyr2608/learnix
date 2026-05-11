@@ -8,6 +8,7 @@ import { courseRepository } from "@/server/repositories/course.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { sectionRepository } from "@/server/repositories/section.repository";
 import { CourseError } from "@/server/services/course/course.errors";
+import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { LessonError } from "@/server/services/lesson/lesson.errors";
 import { SectionError } from "@/server/services/section/section.errors";
 import { vercelService } from "@/server/services/versel/vercel.service";
@@ -18,15 +19,29 @@ class CourseService {
 		try {
 			const { sections, ...courseData } = dto;
 
-			return await courseRepository.transaction(async () => {
-				const course = await courseRepository.create(courseData);
+			const course = await courseRepository.transaction(async () => {
+				const created = await courseRepository.create(courseData);
 
-				const createdSections = await this.createSections(course.id, sections);
+				const createdSections = await this.createSections(created.id, sections);
 
 				await this.createLessons(sections, createdSections);
 
-				return course;
+				return created;
 			});
+
+			if (course.status === "published") {
+				void embeddingsService
+					.embedCourse({
+						id: course.id,
+						title: course.title,
+						subtitle: course.subtitle ?? null,
+						description: course.description ?? null,
+						objectives: course.objectives,
+					})
+					.catch((err) => logger.error("embedCourse failed:", err));
+			}
+
+			return course;
 		} catch (error: unknown) {
 			logger.error("Error creating course:", error);
 			throw new CourseError(
@@ -104,8 +119,9 @@ class CourseService {
 	async updateCourse(courseId: string, dto: CourseFullUpdateDto) {
 		try {
 			const { sections: newSections, ...incomingCourseData } = dto;
+			let existingStatus: string | undefined;
 
-			return await courseRepository.transaction(async () => {
+			const result = await courseRepository.transaction(async () => {
 				const existingCourse = await courseRepository.findFirst({
 					where: { id: courseId },
 					include: {
@@ -116,6 +132,8 @@ class CourseService {
 				if (!existingCourse) {
 					throw new CourseError(`Course ${courseId} not found`, "NOT_FOUND");
 				}
+
+				existingStatus = existingCourse.status;
 
 				const courseDataToUpdate = this.prepareCourseUpdate(
 					existingCourse as CourseWithSections,
@@ -143,6 +161,32 @@ class CourseService {
 					sections: updatedSections,
 				};
 			});
+
+			const isPublished = result.status === "published";
+			const wasJustPublished = existingStatus !== "published" && isPublished;
+			const embeddableFieldChanged =
+				incomingCourseData.title !== undefined ||
+				incomingCourseData.subtitle !== undefined ||
+				incomingCourseData.description !== undefined ||
+				incomingCourseData.objectives !== undefined;
+
+			if (isPublished && (wasJustPublished || embeddableFieldChanged)) {
+				void embeddingsService
+					.embedCourse({
+						id: result.id,
+						title: result.title,
+						subtitle: result.subtitle ?? null,
+						description: result.description ?? null,
+						objectives: result.objectives,
+					})
+					.catch((err) => logger.error("embedCourse failed:", err));
+			} else if (existingStatus === "published" && !isPublished) {
+				void embeddingsService
+					.removeCourseEmbedding(result.id)
+					.catch((err) => logger.error("removeCourseEmbedding failed:", err));
+			}
+
+			return result;
 		} catch (error: unknown) {
 			logger.error("Error updating course:", error);
 			throw new CourseError(

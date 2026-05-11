@@ -4,6 +4,8 @@ import { db } from "@/server/db";
 import type { LessonContentUpdateDto } from "@/server/entities/lesson";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
+import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
+import { logger } from "@/server/utils/logger";
 import { LessonError } from "./lesson.errors";
 
 class LessonService {
@@ -50,8 +52,8 @@ class LessonService {
 		try {
 			const existing = await this.fetchVerified(lessonId, instructorId);
 
-			return await lessonRepository.transaction(async () => {
-				const updated = await lessonRepository.update(lessonId, {
+			const updated = await lessonRepository.transaction(async () => {
+				const result = await lessonRepository.update(lessonId, {
 					title: dto.title,
 					description: dto.description ?? null,
 					duration: dto.duration ?? null,
@@ -64,8 +66,16 @@ class LessonService {
 					await this.syncQuizzes(lessonId, dto.quizzes, existing.quizzes);
 				}
 
-				return updated;
+				return result;
 			});
+
+			if (updated.content) {
+				void embeddingsService
+					.embedLessonChunks({ id: lessonId, content: updated.content })
+					.catch((err) => logger.error("embedLessonChunks failed:", err));
+			}
+
+			return updated;
 		} catch (error) {
 			if (error instanceof LessonError) throw error;
 			throw new LessonError(

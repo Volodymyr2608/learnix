@@ -1,6 +1,7 @@
 import { CourseStatus, EnrollmentStatus, Prisma } from "@/generated/prisma";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { EnrollmentError } from "@/server/services/enrollment/enrollment.errors";
 import { logger } from "@/server/utils/logger";
 
@@ -45,17 +46,16 @@ class EnrollmentService {
 				},
 			});
 
+			let alreadyEnrolled = true;
+
 			if (!existingEnrollment) {
 				await enrollmentRepository.create({
 					studentId,
 					courseId,
 					status: EnrollmentStatus.active,
 				});
-
-				return { alreadyEnrolled: false };
-			}
-
-			if (existingEnrollment.status === EnrollmentStatus.cancelled) {
+				alreadyEnrolled = false;
+			} else if (existingEnrollment.status === EnrollmentStatus.cancelled) {
 				await enrollmentRepository.update(existingEnrollment.id, {
 					status: EnrollmentStatus.active,
 					enrolledAt: new Date(),
@@ -63,7 +63,11 @@ class EnrollmentService {
 				});
 			}
 
-			return { alreadyEnrolled: true };
+			void embeddingsService
+				.recomputeUserInterest(studentId)
+				.catch((err) => logger.error("recomputeUserInterest failed:", err));
+
+			return { alreadyEnrolled };
 		} catch (error) {
 			if (error instanceof EnrollmentError) {
 				throw error;

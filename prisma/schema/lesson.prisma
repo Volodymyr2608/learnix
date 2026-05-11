@@ -19,7 +19,8 @@ model Lesson {
 
   quizzes    Quiz[]
   progresses LessonProgress[]
-  lessonInsights LessonInsights?
+  lessonInsights   LessonInsights?
+  chunkEmbeddings  LessonChunkEmbedding[]
 
   @@index([deletedAt])
   @@map("lessons")

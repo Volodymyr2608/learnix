@@ -20,6 +20,7 @@
 		"start": "next start",
 		"typecheck": "tsc --noEmit",
 		"eval": "tsx evals/runEvals.ts",
+		"reindex": "tsx scripts/reindex-embeddings.ts",
 		"vercel-build": "prisma generate && prisma migrate deploy && next build",
 		"prepare": "husky"
 	},
@@ -32,6 +33,7 @@
 		"@hookform/resolvers": "^5.2.2",
 		"@langchain/core": "^1.1.45",
 		"@langchain/openai": "^1.2.12",
+		"@langchain/textsplitters": "^1.0.1",
 		"@mdxeditor/editor": "^3.55.0",
 		"@prisma/client": "^6.19.2",
 		"@radix-ui/react-avatar": "^1.1.11",
@@ -73,6 +75,7 @@
 		"sonner": "^2.0.7",
 		"superjson": "^2.2.6",
 		"tailwind-merge": "^3.5.0",
+		"tsx": "^4.21.0",
 		"zod": "4.3.6",
 		"zod-prisma-types": "^3.3.11"
 	},

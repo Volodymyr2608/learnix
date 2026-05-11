@@ -1,0 +1,122 @@
+import { randomUUID } from "node:crypto";
+import { Prisma } from "@/generated/prisma";
+import { db } from "@/server/db";
+
+class EmbeddingRepository {
+	async upsertCourseEmbedding(courseId: string, vector: number[]) {
+		const literal = `[${vector.join(",")}]`;
+		await db.$executeRaw`
+			INSERT INTO course_embeddings ("courseId", embedding, "updatedAt")
+			VALUES (${courseId}, ${literal}::vector, NOW())
+			ON CONFLICT ("courseId")
+			DO UPDATE SET embedding = EXCLUDED.embedding, "updatedAt" = NOW()
+		`;
+	}
+
+	async deleteCourseEmbedding(courseId: string) {
+		await db.$executeRaw`
+			DELETE FROM course_embeddings WHERE "courseId" = ${courseId}
+		`;
+	}
+
+	async deleteLessonChunks(lessonId: string) {
+		await db.$executeRaw`
+			DELETE FROM lesson_chunk_embeddings WHERE "lessonId" = ${lessonId}
+		`;
+	}
+
+	async replaceLessonChunks(
+		lessonId: string,
+		chunks: Array<{ content: string; index: number }>,
+		vectors: number[][],
+	) {
+		await db.$transaction([
+			db.$executeRaw`DELETE FROM lesson_chunk_embeddings WHERE "lessonId" = ${lessonId}`,
+			...chunks.map((chunk, i) => {
+				const id = randomUUID();
+				const literal = vectors[i] ? `[${vectors[i].join(",")}]` : "[]";
+				const tokens = Math.ceil(chunk.content.length / 4);
+				return db.$executeRaw`
+					INSERT INTO lesson_chunk_embeddings (id, "lessonId", "chunkIndex", content, embedding, tokens)
+					VALUES (${id}, ${lessonId}, ${chunk.index}, ${chunk.content}, ${literal}::vector, ${tokens})
+				`;
+			}),
+		]);
+	}
+
+	async recomputeUserInterestFromEnrollments(userId: string) {
+		await db.$executeRaw`
+			DELETE FROM user_interest_embeddings WHERE "userId" = ${userId}
+		`;
+		await db.$executeRaw`
+			INSERT INTO user_interest_embeddings ("userId", embedding, "updatedAt")
+			SELECT ${userId}, AVG(ce.embedding), NOW()
+			FROM course_embeddings ce
+			JOIN enrollments e ON e."courseId" = ce."courseId"
+			WHERE e."studentId" = ${userId}
+				AND e.status = 'active'
+			HAVING COUNT(*) > 0
+		`;
+	}
+
+	async findUserInterest(userId: string): Promise<number[] | null> {
+		const rows = await db.$queryRaw<Array<{ embedding: string }>>`
+			SELECT embedding::text AS embedding
+			FROM user_interest_embeddings
+			WHERE "userId" = ${userId}
+		`;
+		if (rows.length === 0) return null;
+		return rows[0] ? JSON.parse(rows[0].embedding) : null;
+	}
+
+	async searchCourses(
+		queryVector: number[],
+		limit: number,
+		where?: { category?: string; level?: string },
+	) {
+		const literal = `[${queryVector.join(",")}]`;
+		const categoryClause = where?.category
+			? Prisma.sql`AND c.category = ${where.category}`
+			: Prisma.empty;
+		const levelClause = where?.level
+			? Prisma.sql`AND c.level = ${where.level}`
+			: Prisma.empty;
+
+		return db.$queryRaw<Array<{ id: string; distance: number }>>`
+			SELECT c.id, ce.embedding <=> ${literal}::vector AS distance
+			FROM course_embeddings ce
+			JOIN courses c ON c.id = ce."courseId"
+			WHERE c.status = 'published'
+				AND c.deleted_at IS NULL
+				${categoryClause}
+				${levelClause}
+			ORDER BY distance ASC
+			LIMIT ${limit}
+		`;
+	}
+
+	async searchCoursesExcluding(
+		queryVector: number[],
+		limit: number,
+		excludeIds: string[],
+	) {
+		const literal = `[${queryVector.join(",")}]`;
+		const excludeClause =
+			excludeIds.length > 0
+				? Prisma.sql`AND c.id NOT IN (${Prisma.join(excludeIds.map((id) => Prisma.sql`${id}`))})`
+				: Prisma.empty;
+
+		return db.$queryRaw<Array<{ id: string; distance: number }>>`
+			SELECT c.id, ce.embedding <=> ${literal}::vector AS distance
+			FROM course_embeddings ce
+			JOIN courses c ON c.id = ce."courseId"
+			WHERE c.status = 'published'
+				AND c.deleted_at IS NULL
+				${excludeClause}
+			ORDER BY distance ASC
+			LIMIT ${limit}
+		`;
+	}
+}
+
+export const embeddingRepository = new EmbeddingRepository();

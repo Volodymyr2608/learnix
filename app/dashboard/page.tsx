@@ -7,8 +7,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import RecommendedRail from "@/app/_components/Course/components/RecommendedRail";
+import { getRecommendations } from "./actions/getRecommendations";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+	const recommendations = await getRecommendations();
+
 	return (
 		<div className="space-y-6">
 			<div>
@@ -118,6 +122,8 @@ export default function DashboardPage() {
 					</div>
 				</CardContent>
 			</Card>
+
+			<RecommendedRail courses={recommendations} />
 		</div>
 	);
 }
