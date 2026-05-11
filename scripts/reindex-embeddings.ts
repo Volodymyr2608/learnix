@@ -32,11 +32,13 @@ async function main() {
 		select: { id: true, content: true },
 	});
 	for (const lesson of lessons) {
-		await embeddingsService.embedLessonChunks({
-			id: lesson.id,
-			content: lesson.content!,
-		});
-		console.log(`  ✓ lesson ${lesson.id}`);
+		if (lesson.content) {
+			await embeddingsService.embedLessonChunks({
+				id: lesson.id,
+				content: lesson.content,
+			});
+			console.log(`  ✓ lesson ${lesson.id}`);
+		}
 	}
 
 	console.log("Recomputing user interest embeddings...");

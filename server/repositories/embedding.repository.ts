@@ -28,7 +28,7 @@ class EmbeddingRepository {
 			db.$executeRaw`DELETE FROM lesson_chunk_embeddings WHERE "lessonId" = ${lessonId}`,
 			...chunks.map((chunk, i) => {
 				const id = randomUUID();
-				const literal = `[${vectors[i]!.join(",")}]`;
+				const literal = vectors[i] ? `[${vectors[i].join(",")}]` : "[]";
 				const tokens = Math.ceil(chunk.content.length / 4);
 				return db.$executeRaw`
 					INSERT INTO lesson_chunk_embeddings (id, "lessonId", "chunkIndex", content, embedding, tokens)
@@ -60,7 +60,7 @@ class EmbeddingRepository {
 			WHERE "userId" = ${userId}
 		`;
 		if (rows.length === 0) return null;
-		return JSON.parse(rows[0]!.embedding);
+		return rows[0] ? JSON.parse(rows[0].embedding) : null;
 	}
 
 	async searchCourses(

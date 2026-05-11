@@ -1,7 +1,6 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { env } from "@/lib/env";
 import { embeddingRepository } from "@/server/repositories/embedding.repository";
-import { logger } from "@/server/utils/logger";
 import { chunkLessonContent } from "./chunker";
 
 const model = new OpenAIEmbeddings({
