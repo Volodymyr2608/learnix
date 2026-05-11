@@ -23,6 +23,7 @@ model User {
   enrollments       Enrollment[]
   courseProgresses  CourseProgress[]
   courseReviews     CourseReview[]
+  interestEmbedding UserInterestEmbedding?
 
   @@unique([email])
   @@map("users")

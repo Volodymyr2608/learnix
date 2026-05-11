@@ -32,6 +32,7 @@
 		"@hookform/resolvers": "^5.2.2",
 		"@langchain/core": "^1.1.45",
 		"@langchain/openai": "^1.2.12",
+		"@langchain/textsplitters": "^1.0.1",
 		"@mdxeditor/editor": "^3.55.0",
 		"@prisma/client": "^6.19.2",
 		"@radix-ui/react-avatar": "^1.1.11",
