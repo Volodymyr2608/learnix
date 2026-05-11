@@ -1,26 +1,11 @@
 "use client";
 
 import { Search } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/app/_components/_shared/ui/input";
-import BrowseCourseCard from "@/app/_components/Course/components/BrowseCourses/components/BrowseCourseCard";
 import type { BrowseCoursesProps } from "@/app/_components/Course/components/BrowseCourses/types";
-import CATEGORIES from "@/app/_components/Course/constants/categories";
-import { cn } from "@/lib/utils/cn";
-
-function toSlug(cat: string): string {
-	return cat.toLowerCase().replace(/\s+/g, "-");
-}
-
-function buildCategoryHref(cat: string, q: string): string {
-	const params = new URLSearchParams();
-	if (q) params.set("q", q);
-	if (cat !== "All") params.set("category", toSlug(cat));
-	const qs = params.toString();
-	return `/dashboard/browse${qs ? `?${qs}` : ""}`;
-}
+import BrowseCourseCard from "./components/BrowseCourseCard";
+import { CategoryFilter } from "./components/CategoryFilter";
+import { useBrowseSearch } from "./hooks/useBrowseSearch";
 
 const BrowseCourses = ({
 	courses,
@@ -28,28 +13,7 @@ const BrowseCourses = ({
 	q,
 	category,
 }: BrowseCoursesProps) => {
-	const router = useRouter();
-	const [search, setSearch] = useState(q);
-	const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
-
-	useEffect(() => {
-		setSearch(q);
-	}, [q]);
-
-	const handleSearch = useCallback(
-		(value: string) => {
-			setSearch(value);
-			if (timerRef.current) clearTimeout(timerRef.current);
-			timerRef.current = setTimeout(() => {
-				const params = new URLSearchParams();
-				if (value) params.set("q", value);
-				if (category && category !== "all") params.set("category", category);
-				const qs = params.toString();
-				router.push(`/dashboard/browse${qs ? `?${qs}` : ""}`);
-			}, 300);
-		},
-		[category, router],
-	);
+	const { search, handleSearch } = useBrowseSearch(q, category);
 
 	return (
 		<>
@@ -63,26 +27,7 @@ const BrowseCourses = ({
 				/>
 			</div>
 
-			<div className="flex gap-2 overflow-x-auto pb-2">
-				{CATEGORIES.map((cat) => {
-					const isActive =
-						cat === "All" ? category === "all" : category === toSlug(cat);
-					return (
-						<Link
-							className={cn(
-								"inline-flex shrink-0 items-center justify-center rounded-md border px-3 py-1 font-medium text-sm transition-colors",
-								isActive
-									? "border-primary bg-primary text-primary-foreground"
-									: "border-input bg-background hover:bg-muted",
-							)}
-							href={buildCategoryHref(cat, search)}
-							key={cat}
-						>
-							{cat}
-						</Link>
-					);
-				})}
-			</div>
+			<CategoryFilter category={category} search={search} />
 
 			{courses.length > 0 ? (
 				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
