@@ -6,7 +6,7 @@ class EmbeddingRepository {
 	async upsertCourseEmbedding(courseId: string, vector: number[]) {
 		const literal = `[${vector.join(",")}]`;
 		await db.$executeRaw`
-			INSERT INTO "CourseEmbedding" ("courseId", embedding, "updatedAt")
+			INSERT INTO course_embeddings ("courseId", embedding, "updatedAt")
 			VALUES (${courseId}, ${literal}::vector, NOW())
 			ON CONFLICT ("courseId")
 			DO UPDATE SET embedding = EXCLUDED.embedding, "updatedAt" = NOW()
@@ -15,7 +15,7 @@ class EmbeddingRepository {
 
 	async deleteLessonChunks(lessonId: string) {
 		await db.$executeRaw`
-			DELETE FROM "LessonChunkEmbedding" WHERE "lessonId" = ${lessonId}
+			DELETE FROM lesson_chunk_embeddings WHERE "lessonId" = ${lessonId}
 		`;
 	}
 
@@ -25,13 +25,13 @@ class EmbeddingRepository {
 		vectors: number[][],
 	) {
 		await db.$transaction([
-			db.$executeRaw`DELETE FROM "LessonChunkEmbedding" WHERE "lessonId" = ${lessonId}`,
+			db.$executeRaw`DELETE FROM lesson_chunk_embeddings WHERE "lessonId" = ${lessonId}`,
 			...chunks.map((chunk, i) => {
 				const id = randomUUID();
 				const literal = `[${vectors[i]!.join(",")}]`;
 				const tokens = Math.ceil(chunk.content.length / 4);
 				return db.$executeRaw`
-					INSERT INTO "LessonChunkEmbedding" (id, "lessonId", "chunkIndex", content, embedding, tokens)
+					INSERT INTO lesson_chunk_embeddings (id, "lessonId", "chunkIndex", content, embedding, tokens)
 					VALUES (${id}, ${lessonId}, ${chunk.index}, ${chunk.content}, ${literal}::vector, ${tokens})
 				`;
 			}),
@@ -40,12 +40,12 @@ class EmbeddingRepository {
 
 	async recomputeUserInterestFromEnrollments(userId: string) {
 		await db.$executeRaw`
-			DELETE FROM "UserInterestEmbedding" WHERE "userId" = ${userId}
+			DELETE FROM user_interest_embeddings WHERE "userId" = ${userId}
 		`;
 		await db.$executeRaw`
-			INSERT INTO "UserInterestEmbedding" ("userId", embedding, "updatedAt")
+			INSERT INTO user_interest_embeddings ("userId", embedding, "updatedAt")
 			SELECT ${userId}, AVG(ce.embedding), NOW()
-			FROM "CourseEmbedding" ce
+			FROM course_embeddings ce
 			JOIN enrollments e ON e."courseId" = ce."courseId"
 			WHERE e."studentId" = ${userId}
 				AND e.status = 'active'
@@ -56,7 +56,7 @@ class EmbeddingRepository {
 	async findUserInterest(userId: string): Promise<number[] | null> {
 		const rows = await db.$queryRaw<Array<{ embedding: string }>>`
 			SELECT embedding::text AS embedding
-			FROM "UserInterestEmbedding"
+			FROM user_interest_embeddings
 			WHERE "userId" = ${userId}
 		`;
 		if (rows.length === 0) return null;
@@ -78,7 +78,7 @@ class EmbeddingRepository {
 
 		return db.$queryRaw<Array<{ id: string; distance: number }>>`
 			SELECT c.id, ce.embedding <=> ${literal}::vector AS distance
-			FROM "CourseEmbedding" ce
+			FROM course_embeddings ce
 			JOIN courses c ON c.id = ce."courseId"
 			WHERE c.status = 'published'
 				AND c.deleted_at IS NULL
@@ -102,7 +102,7 @@ class EmbeddingRepository {
 
 		return db.$queryRaw<Array<{ id: string; distance: number }>>`
 			SELECT c.id, ce.embedding <=> ${literal}::vector AS distance
-			FROM "CourseEmbedding" ce
+			FROM course_embeddings ce
 			JOIN courses c ON c.id = ce."courseId"
 			WHERE c.status = 'published'
 				AND c.deleted_at IS NULL
