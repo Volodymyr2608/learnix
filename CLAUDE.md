@@ -71,3 +71,23 @@ Validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`. Required vars:
 
 ### Linting / formatting
 Biome (not ESLint/Prettier). Config in `biome.jsonc`. Auto-sorts imports and Tailwind classes (`useSortedClasses` for `clsx`/`cva`/`cn` calls).
+
+## Development Workflow
+
+Spec-driven development with two phases.
+
+### Phase 1 — Planning (run with Opus)
+
+Specs live in `docs/specs/<YYYY-MM-DD>-<feature>/` with three files:
+- `requirements.md` — problem, goal, functional requirements, DB models, file list
+- `plan.md` — implementation order and code sketches
+- `validation.md` — automated checks and manual test scenarios
+
+### Phase 2 — Implementation (run with Sonnet)
+
+When `docs/specs/<feature>/` already exists:
+1. **Skip `brainstorming`** — the spec is the design. Do not re-derive what is already written.
+2. Invoke `writing-plans` directly, reading all three spec files to produce a step-by-step execution plan in `docs/superpowers/plans/`.
+3. Execute with `subagent-driven-development` or `executing-plans`.
+
+Never run `brainstorming` when a spec already exists in `docs/specs/`.
