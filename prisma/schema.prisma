@@ -21,9 +21,9 @@ generator zod {
   output                           = "./zod" // default is ./generated/zod
   // useMultipleFiles                 = true // default is false
   // writeBarrelFiles                 = false // default is true
-  // createInputTypes                 = false // default is true
+  createInputTypes                 = false // CRUD arg schemas unused; 1,384 z.ZodType<Prisma.*> annotations caused 8.8M type instantiations
   // createModelTypes                 = false // default is true
-  // addInputTypeValidation           = false // default is true
+  addInputTypeValidation           = false // avoids z.ZodType<Prisma.*> assertions on any remaining input types
   // addIncludeType                   = false // default is true
   // addSelectType                    = false // default is true
   // validateWhereUniqueInput         = false // default is true
