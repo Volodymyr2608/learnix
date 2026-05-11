@@ -3,6 +3,8 @@ import { courseRepository } from "@/server/repositories/course.repository";
 import { embeddingRepository } from "@/server/repositories/embedding.repository";
 import { traced } from "@/server/services/_shared/tracing";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
+import { logger } from "@/server/utils/logger";
+import { SearchError } from "./search.errors";
 
 type SearchInput = {
 	query: string;
@@ -26,10 +28,22 @@ class SearchService {
 			courseRepository.findManyByIdsPreservingOrder(rows.map((r) => r.id)),
 	]);
 
-	semantic(input: SearchInput) {
-		return traced("search.semantic", (i: SearchInput) => this.chain.invoke(i), {
-			feature: "search",
-		})(input);
+	async semantic(input: SearchInput) {
+		try {
+			return await traced(
+				"search.semantic",
+				(i: SearchInput) => this.chain.invoke(i),
+				{ feature: "search" },
+			)(input);
+		} catch (error) {
+			logger.error("Semantic search failed:", error);
+			throw new SearchError(
+				"Semantic search failed",
+				"INTERNAL_SERVER_ERROR",
+				error,
+				{ query: input.query },
+			);
+		}
 	}
 }
 
