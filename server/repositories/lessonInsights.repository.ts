@@ -27,7 +27,7 @@ class LessonInsightsRepository extends BaseRepository<
 			contentHash: string;
 		},
 	): Promise<LessonInsights> {
-		return this.db.lessonInsights.upsert({
+		return this.upsert({
 			where: { lessonId },
 			create: { lessonId, ...data },
 			update: { ...data, generatedAt: new Date() },

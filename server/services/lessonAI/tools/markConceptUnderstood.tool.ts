@@ -8,7 +8,7 @@ export const buildMarkConceptUnderstoodTool = (
 ) =>
 	tool(
 		async ({ concept, level }: { concept: string; level: number }) => {
-			await conceptMasteryRepository.upsert(
+			await conceptMasteryRepository.upsertMastery(
 				studentId,
 				courseId,
 				concept,
