@@ -31,9 +31,6 @@ CREATE TABLE "UserInterestEmbedding" (
 );
 
 -- CreateIndex
-CREATE INDEX "LessonChunkEmbedding_lessonId_idx" ON "LessonChunkEmbedding"("lessonId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "LessonChunkEmbedding_lessonId_chunkIndex_key" ON "LessonChunkEmbedding"("lessonId", "chunkIndex");
 
 -- AddForeignKey

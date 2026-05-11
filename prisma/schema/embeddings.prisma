@@ -17,7 +17,6 @@ model LessonChunkEmbedding {
   lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([lessonId, chunkIndex])
-  @@index([lessonId])
 }
 
 model UserInterestEmbedding {
