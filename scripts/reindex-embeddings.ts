@@ -1,9 +1,11 @@
-import { db } from "@/server/db";
+import { courseRepository } from "@/server/repositories/course.repository";
+import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { userRepository } from "@/server/repositories/user.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 
 async function main() {
 	console.log("Reindexing courses...");
-	const courses = await db.course.findMany({
+	const courses = await courseRepository.findMany({
 		where: { status: "published", deletedAt: null },
 		select: {
 			id: true,
@@ -25,7 +27,7 @@ async function main() {
 	}
 
 	console.log("Reindexing lessons...");
-	const lessons = await db.lesson.findMany({
+	const lessons = await lessonRepository.findMany({
 		where: { content: { not: null }, deletedAt: null },
 		select: { id: true, content: true },
 	});
@@ -38,7 +40,7 @@ async function main() {
 	}
 
 	console.log("Recomputing user interest embeddings...");
-	const users = await db.user.findMany({
+	const users = await userRepository.findMany({
 		where: { enrollments: { some: {} } },
 		select: { id: true },
 	});

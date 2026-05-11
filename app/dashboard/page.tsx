@@ -7,17 +7,11 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import RecommendedRail from "@/app/_components/Dashboard/components/RecommendedRail";
-import { api } from "@/trpc/server";
+import RecommendedRail from "@/app/_components/Course/components/RecommendedRail";
+import { getRecommendations } from "./actions/getRecommendations";
 
 export default async function DashboardPage() {
-	let recommendations: Awaited<ReturnType<typeof api.search.recommendations>> =
-		[];
-	try {
-		recommendations = (await api.search.recommendations()) ?? [];
-	} catch {
-		// recommendations are non-critical; fail silently
-	}
+	const recommendations = await getRecommendations();
 
 	return (
 		<div className="space-y-6">

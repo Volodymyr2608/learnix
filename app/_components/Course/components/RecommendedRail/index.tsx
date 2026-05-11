@@ -1,11 +1,7 @@
 import BrowseCourseCard from "@/app/_components/Course/components/BrowseCourses/components/BrowseCourseCard";
-import type { PublishedCourse } from "@/lib/requests/course/getPublishedCourses";
+import type { RecommendedRailProps } from "@/app/_components/Course/components/RecommendedRail/types";
 
-type Props = {
-	courses: PublishedCourse[];
-};
-
-const RecommendedRail = ({ courses }: Props) => {
+const RecommendedRail = ({ courses }: RecommendedRailProps) => {
 	if (courses.length === 0) return null;
 
 	return (
