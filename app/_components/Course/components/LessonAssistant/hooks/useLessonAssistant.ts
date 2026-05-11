@@ -27,7 +27,7 @@ export function useLessonAssistant(lessonId: string) {
 	const abortRef = useRef<AbortController | null>(null);
 
 	const allMessages: Message[] = [
-		...history.map((m) => ({
+		...history.map((m: { id: string; role: string; content: string }) => ({
 			id: m.id,
 			role: m.role as "user" | "assistant",
 			content: m.content,

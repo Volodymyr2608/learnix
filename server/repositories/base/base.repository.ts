@@ -27,6 +27,10 @@ type AggregateArgs<TModel extends ModelName> = Prisma.Args<
 	ModelDelegate<TModel>,
 	"aggregate"
 >;
+type UpsertArgs<TModel extends ModelName> = Prisma.Args<
+	ModelDelegate<TModel>,
+	"upsert"
+>;
 
 /**
  * Base Repository
@@ -202,6 +206,18 @@ export abstract class BaseRepository<
 		} catch (error) {
 			return this.handleError(error, "crete many and return entities", {
 				count: data.length,
+			});
+		}
+	}
+
+	public async upsert<TArgs extends UpsertArgs<TModel> = UpsertArgs<TModel>>(
+		args: Prisma.SelectSubset<TArgs, UpsertArgs<TModel>>,
+	): Promise<Prisma.Result<ModelDelegate<TModel>, TArgs, "upsert">> {
+		try {
+			return await this.model.upsert(args);
+		} catch (error) {
+			return this.handleError(error, "upsert entity", {
+				args: args as Record<string, unknown>,
 			});
 		}
 	}
