@@ -1,6 +1,6 @@
 # Requirements: Semantic Search & Course Recommendations
 
-## Status: planned — Phase 9
+## Status: done — Phase 9
 
 ## Problem
 
@@ -92,7 +92,7 @@ CREATE INDEX user_interest_embedding_cosine_idx
 | Modify | `server/services/course/course.service.ts` — embed on publish |
 | Modify | `server/services/lesson/lesson.service.ts` — re-embed on content save |
 | Modify | `server/services/enrollment/enrollment.service.ts` — recompute user centroid on enroll/unenroll |
-| Modify | `server/repositories/course.repository.ts::getPublishedCourses` — accept optional ranked-id list |
+| Modify | `server/repositories/course.repository.ts` — new `findManyByIdsPreservingOrder` method (keeps cosine rank order) |
 | Modify | `app/dashboard/browse/page.tsx` — call `search.semantic` |
 | Modify | `app/dashboard/page.tsx` — add "Recommended for you" rail |
 | Modify | `lib/env.js` — `OPENAI_API_KEY` already declared; no change |
