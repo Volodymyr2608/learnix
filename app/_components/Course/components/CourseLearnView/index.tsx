@@ -26,7 +26,6 @@ import {
 	Download,
 	FileText,
 	Loader2,
-	MessageSquare,
 	PlayCircle,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -36,6 +35,7 @@ import { api } from "trpc/client";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
 import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
+import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
@@ -285,23 +285,7 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 						</TabsContent>
 
 						<TabsContent className="space-y-4" value="discussion">
-							<Card>
-								<CardHeader>
-									<CardTitle>Discussion</CardTitle>
-									<CardDescription>
-										Ask questions and share insights
-									</CardDescription>
-								</CardHeader>
-								<CardContent className="space-y-4">
-									<div className="flex items-center gap-3 rounded-lg border p-4">
-										<MessageSquare className="h-5 w-5 text-muted-foreground" />
-										<p className="text-muted-foreground text-sm">
-											No discussions yet. Be the first to ask a question!
-										</p>
-									</div>
-									<Button className="w-full">Start a Discussion</Button>
-								</CardContent>
-							</Card>
+							<LessonAssistant lessonId={lessonId} />
 						</TabsContent>
 					</Tabs>
 

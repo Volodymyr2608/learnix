@@ -89,7 +89,7 @@ Deferred: configurable retake policy; true/false question type.
 ## Phase 9 — AI quiz generation ✅
 
 - Instructor clicks **Generate with AI** in the lesson editor quiz tab
-- `QuizAIService` invokes a LangChain `createReactAgent` with two read-only tools (`get_lesson_content`, `get_existing_quizzes`)
+- `QuizAIService` invokes `createAgent` from `langchain` (ADR-008) with two read-only tools (`get_lesson_content`, `get_existing_quizzes`)
 - Agent outputs 3–5 structured multiple-choice questions via `model.withStructuredOutput`; semantic validation + up to 3 retries on violation
 - `GenerateQuizDialog` lets the instructor review and edit questions before saving
 - Saving atomically replaces the lesson's full quiz set (`quiz.upsertMany`)

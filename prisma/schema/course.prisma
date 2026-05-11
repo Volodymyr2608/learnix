@@ -38,6 +38,7 @@ model Course {
   courseProgresses CourseProgress[]
   reviews          CourseReview[]
   embedding        CourseEmbedding?
+  conceptMasteries ConceptMastery[]
 
   @@index([deletedAt])
   @@map("courses")

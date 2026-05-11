@@ -23,7 +23,9 @@ model User {
   enrollments       Enrollment[]
   courseProgresses  CourseProgress[]
   courseReviews     CourseReview[]
-  interestEmbedding UserInterestEmbedding?
+  interestEmbedding            UserInterestEmbedding?
+  lessonAssistantConversations LessonAssistantConversation[]
+  conceptMasteries             ConceptMastery[]
 
   @@unique([email])
   @@map("users")
