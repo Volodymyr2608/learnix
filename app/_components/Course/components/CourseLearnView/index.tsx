@@ -35,6 +35,7 @@ import Markdown from "react-markdown";
 import { api } from "trpc/client";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
+import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
@@ -229,6 +230,8 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 							</Card>
 
 							<QuizPlayer lessonId={lessonId} />
+
+							<StudyGuideCard lessonId={lessonId} />
 						</TabsContent>
 
 						<TabsContent className="space-y-4" value="resources">

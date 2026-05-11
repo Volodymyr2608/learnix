@@ -19,6 +19,7 @@ model Lesson {
 
   quizzes    Quiz[]
   progresses LessonProgress[]
+  lessonInsights LessonInsights?
 
   @@index([deletedAt])
   @@map("lessons")
@@ -43,4 +44,20 @@ model LessonProgress {
   @@index([studentId])
   @@index([lessonId])
   @@map("lesson_progress")
+}
+
+model LessonInsights {
+  id          String   @id @default(cuid())
+  lessonId    String   @unique
+  summary     String   @db.Text
+  concepts    Json
+  glossary    Json
+  model       String
+  contentHash String
+  generatedAt DateTime @default(now())
+
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+  @@map("lesson_insights")
 }

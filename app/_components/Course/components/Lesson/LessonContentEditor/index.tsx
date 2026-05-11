@@ -12,6 +12,7 @@ import { EditorActions } from "./components/EditorActions";
 import { LessonInfoCard } from "./components/LessonInfoCard";
 import { QuizTab } from "./components/QuizTab";
 import { ResourcesTab } from "./components/ResourcesTab";
+import { StudyGuideToolbar } from "./components/StudyGuideToolbar";
 import { TextTab } from "./components/TextTab";
 import { VideoTab } from "./components/VideoTab";
 import { useLessonEditor } from "./hooks/useLessonEditor";
@@ -34,12 +35,18 @@ export const LessonContentEditor = ({
 		updateQuizOption,
 		replaceQuizFromGenerated,
 		isSaving,
+		lastSavedAt,
 		handleSave,
 	} = useLessonEditor(initialLesson);
 
 	return (
 		<div className="space-y-6">
 			<LessonInfoCard data={lessonData} onUpdate={updateLessonData} />
+
+			<StudyGuideToolbar
+				lastSavedAt={lastSavedAt}
+				lessonId={initialLesson.id}
+			/>
 
 			<Tabs className="space-y-4" defaultValue="video">
 				<TabsList className="grid w-full grid-cols-4">
