@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { SemanticSearchDto } from "@/server/entities/search";
 import { recommendationsService } from "@/server/services/search/recommendations.service";
 import { searchService } from "@/server/services/search/search.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
@@ -6,24 +6,10 @@ import { createTRPCRouter, studentProcedure } from "../trpc";
 
 export const searchRouter = createTRPCRouter({
 	semantic: studentProcedure
-		.input(
-			z.object({
-				query: z.string().min(1),
-				category: z.string().optional(),
-				level: z.string().optional(),
-				limit: z.number().int().min(1).max(50).optional(),
-			}),
-		)
+		.input(SemanticSearchDto)
 		.query(async ({ input }) => {
 			try {
-				return await searchService.semantic({
-					query: input.query,
-					filters: {
-						category: input.category,
-						level: input.level,
-					},
-					limit: input.limit,
-				});
+				return await searchService.semantic(input);
 			} catch (error) {
 				handleServiceError(error);
 			}
