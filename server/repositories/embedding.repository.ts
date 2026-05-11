@@ -117,6 +117,31 @@ class EmbeddingRepository {
 			LIMIT ${limit}
 		`;
 	}
+
+	async searchLessonChunks(lessonId: string, queryVector: number[], k: number) {
+		const literal = `[${queryVector.join(",")}]`;
+		return db.$queryRaw<Array<{ content: string; distance: number }>>`
+			SELECT lce.content, lce.embedding <=> ${literal}::vector AS distance
+			FROM lesson_chunk_embeddings lce
+			WHERE lce."lessonId" = ${lessonId}
+			ORDER BY distance ASC
+			LIMIT ${k}
+		`;
+	}
+
+	async searchCourseChunks(courseId: string, queryVector: number[], k: number) {
+		const literal = `[${queryVector.join(",")}]`;
+		return db.$queryRaw<Array<{ content: string; lessonTitle: string; distance: number }>>`
+			SELECT lce.content, l.title AS "lessonTitle", lce.embedding <=> ${literal}::vector AS distance
+			FROM lesson_chunk_embeddings lce
+			JOIN lessons l ON l.id = lce."lessonId"
+			JOIN sections s ON s.id = l."sectionId"
+			WHERE s."courseId" = ${courseId}
+				AND l.deleted_at IS NULL
+			ORDER BY distance ASC
+			LIMIT ${k}
+		`;
+	}
 }
 
 export const embeddingRepository = new EmbeddingRepository();
