@@ -48,10 +48,11 @@ export class LessonAIService {
 			lessonId,
 			studentId,
 		);
-		const langchainHistory = history.flatMap((msg) =>
+
+		const langchainHistory = history.map((msg) =>
 			msg.role === "user"
-				? [new HumanMessage(msg.content)]
-				: [new AIMessage(msg.content)],
+				? new HumanMessage(msg.content)
+				: new AIMessage(msg.content),
 		);
 
 		// Layer 2: ReAct agent
