@@ -44,7 +44,7 @@ class EmailService {
 			parsed.data,
 		);
 
-		const result = await resend.emails.send({
+		const { data, error } = await resend.emails.send({
 			from: env.EMAIL_FROM_ADDRESS,
 			...(env.EMAIL_REPLY_TO && { replyTo: env.EMAIL_REPLY_TO }),
 			to: input.toEmail,
@@ -53,16 +53,16 @@ class EmailService {
 			text,
 		});
 
-		if (result.error) {
+		if (error) {
 			logger.error("resend_failed", {
 				templateKey: input.templateKey,
 				toEmail: input.toEmail,
-				error: result.error,
+				error,
 			});
-			throw new ResendSendError(result.error.message);
+			throw new ResendSendError(error.message);
 		}
 
-		return { id: result.data!.id };
+		return { id: data.id };
 	}
 }
 
