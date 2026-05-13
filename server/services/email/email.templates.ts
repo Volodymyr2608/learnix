@@ -1,5 +1,5 @@
-import { z } from "zod";
 import type { ComponentType } from "react";
+import { z } from "zod";
 import { AuthPasswordResetEmail } from "@/app/_emails/AuthPasswordResetEmail";
 import { AuthVerifyEmail } from "@/app/_emails/AuthVerifyEmail";
 import { CourseCertificateEmail } from "@/app/_emails/CourseCertificateEmail";

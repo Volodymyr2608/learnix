@@ -19,16 +19,26 @@ export function EmailLayout({
 	return (
 		<Html>
 			<Head />
-			<Body style={{ background: "#f6f6f6", fontFamily: "ui-sans-serif, system-ui" }}>
+			<Body
+				style={{
+					background: "#f6f6f6",
+					fontFamily: "ui-sans-serif, system-ui",
+				}}
+			>
 				<Container
-					style={{ background: "#fff", padding: 32, maxWidth: 560, margin: "0 auto" }}
+					style={{
+						background: "#fff",
+						padding: 32,
+						maxWidth: 560,
+						margin: "0 auto",
+					}}
 				>
 					<Section>
 						<Img
-							src="https://learnix.app/logo.png"
 							alt="Learnix"
-							width={120}
 							height={32}
+							src="https://learnix.app/logo.png"
+							width={120}
 						/>
 					</Section>
 					{children}

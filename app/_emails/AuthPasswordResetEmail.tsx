@@ -21,8 +21,8 @@ export function AuthPasswordResetEmail({ name, resetUrl }: Props) {
 				<EmailButton href={resetUrl}>Reset Password</EmailButton>
 			</Section>
 			<Text style={{ color: "#6b7280", fontSize: 13 }}>
-				If you didn't request a password reset, you can safely ignore this email.
-				This link expires in 1 hour.
+				If you didn't request a password reset, you can safely ignore this
+				email. This link expires in 1 hour.
 			</Text>
 		</EmailLayout>
 	);

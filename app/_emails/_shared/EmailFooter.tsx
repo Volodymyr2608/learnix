@@ -1,4 +1,4 @@
-import { Link, Text, Section } from "@react-email/components";
+import { Link, Section, Text } from "@react-email/components";
 
 export function EmailFooter({ unsubscribeUrl }: { unsubscribeUrl?: string }) {
 	return (

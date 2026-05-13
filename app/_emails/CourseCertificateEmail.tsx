@@ -43,8 +43,7 @@ CourseCertificateEmail.PreviewProps = {
 	studentName: "Ada",
 	courseTitle: "Intro to RAG",
 	instructorName: "Alan",
-	certificatePdfUrl:
-		"https://learnix.app/api/certificates/enr_demo?token=demo",
+	certificatePdfUrl: "https://learnix.app/api/certificates/enr_demo?token=demo",
 	unsubscribeUrl: "https://learnix.app/unsubscribe?token=demo",
 } satisfies Props;
 
