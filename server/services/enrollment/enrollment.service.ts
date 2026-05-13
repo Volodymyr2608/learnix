@@ -1,7 +1,11 @@
 import { CourseStatus, EnrollmentStatus, Prisma } from "@/generated/prisma";
+import { env } from "@/lib/env";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import { userRepository } from "@/server/repositories/user.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
+import { emailService } from "@/server/services/email/email.service";
+import { signUnsubscribeToken } from "@/server/services/email/unsubscribe-token";
 import { EnrollmentError } from "@/server/services/enrollment/enrollment.errors";
 import { logger } from "@/server/utils/logger";
 
@@ -66,6 +70,34 @@ class EnrollmentService {
 			void embeddingsService
 				.recomputeUserInterest(studentId)
 				.catch((err) => logger.error("recomputeUserInterest failed:", err));
+
+			if (!alreadyEnrolled) {
+				const student = await userRepository.findFirst({
+					where: { id: studentId },
+					select: { email: true, name: true },
+				});
+				const enrolledCourse = await courseRepository.findFirst({
+					where: { id: courseId },
+					select: { title: true, id: true },
+				});
+				if (student && enrolledCourse) {
+					void signUnsubscribeToken(studentId)
+						.then((token) =>
+							emailService.send({
+								templateKey: "enrollment.confirmed",
+								toEmail: student.email,
+								userId: studentId,
+								payload: {
+									studentName: student.name ?? student.email,
+									courseTitle: enrolledCourse.title,
+									courseUrl: `${env.BASE_URL}/dashboard/courses/${enrolledCourse.id}/learn`,
+									unsubscribeUrl: `${env.BASE_URL}/unsubscribe?token=${token}`,
+								},
+							}),
+						)
+						.catch((err) => logger.error("enrollment email failed", err));
+				}
+			}
 
 			return { alreadyEnrolled };
 		} catch (error) {
