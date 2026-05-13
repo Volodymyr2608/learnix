@@ -3,7 +3,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import ControlledField from "@/app/_components/_shared/components/Form/ControlledField";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { FieldGroup, FieldLabel } from "@/app/_components/_shared/ui/field";
@@ -13,6 +16,13 @@ import { signInSchema } from "@/server/entities/user";
 
 const SignUpForm = () => {
 	const { isPending, handleSubmit: onSubmit } = useSignIn();
+	const searchParams = useSearchParams();
+
+	useEffect(() => {
+		if (searchParams.get("verified") === "true") {
+			toast.success("Email verified! You can now sign in.");
+		}
+	}, [searchParams]);
 
 	const { handleSubmit, control } = useForm({
 		resolver: zodResolver(signInSchema),

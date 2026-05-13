@@ -1,12 +1,4 @@
-import {
-	Body,
-	Container,
-	Head,
-	Hr,
-	Html,
-	Img,
-	Section,
-} from "@react-email/components";
+import { Body, Container, Head, Hr, Html, Row, Section, Text } from "@react-email/components";
 import { EmailFooter } from "./EmailFooter";
 
 export function EmailLayout({
@@ -33,13 +25,20 @@ export function EmailLayout({
 						margin: "0 auto",
 					}}
 				>
-					<Section>
-						<Img
-							alt="Learnix"
-							height={32}
-							src="https://learnix.app/logo.png"
-							width={120}
-						/>
+					<Section style={{ marginBottom: 24 }}>
+						<Row>
+							<Text
+								style={{
+									color: "#111827",
+									fontSize: 20,
+									fontWeight: 700,
+									margin: 0,
+									padding: 0,
+								}}
+							>
+								📖 Learnix
+							</Text>
+						</Row>
 					</Section>
 					{children}
 					<Hr style={{ borderColor: "#e5e7eb", margin: "24px 0" }} />
