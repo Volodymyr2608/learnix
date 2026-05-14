@@ -34,6 +34,7 @@ import Markdown from "react-markdown";
 import { api } from "trpc/client";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
+import { LearningPathCard } from "@/app/_components/Course/components/LearningPathCard/LearningPathCard";
 import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
 import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
@@ -314,7 +315,8 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 					</div>
 				</div>
 
-				<div className="sticky top-0 self-start lg:col-span-1">
+				<div className="sticky top-0 space-y-3 self-start lg:col-span-1">
+					<LearningPathCard courseId={courseId} />
 					<Card className="flex max-h-[calc(100vh-112px)] flex-col overflow-hidden">
 						<CardHeader>
 							<CardTitle>Course Content</CardTitle>
