@@ -11,7 +11,7 @@ import { LessonError } from "./lesson.errors";
 
 class LessonService {
 	private markStaleForLesson(lessonId: string, studentId: string) {
-		void db.lesson
+		void lessonRepository
 			.findFirst({
 				where: { id: lessonId, deletedAt: null },
 				select: { section: { select: { courseId: true } } },

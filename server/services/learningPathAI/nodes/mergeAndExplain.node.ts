@@ -1,8 +1,9 @@
 import { ChatOpenAI } from "@langchain/openai";
 import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
-import { db } from "@/server/db";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
+import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { LearningPathInvalidError } from "../learningPathAI.errors";
 import type { PathState } from "../learningPathAI.state";
 import type { LearningPath, PathStep } from "../schemas/learningPath.schema";
@@ -33,7 +34,7 @@ async function fetchLessonSummary(lessonId: string): Promise<{
 			glossary: insights.glossary,
 		};
 	}
-	const lesson = await db.lesson.findFirst({
+	const lesson = await lessonRepository.findFirst({
 		where: { id: lessonId, deletedAt: null },
 		select: { description: true },
 	});
@@ -51,7 +52,7 @@ async function fetchQuizAttemptHistory(
 		attemptedAt: Date;
 	}[]
 > {
-	const attempts = await db.quizAttempt.findMany({
+	const attempts = await quizAttemptRepository.findMany({
 		where: { studentId, quiz: { lessonId } },
 		orderBy: { createdAt: "desc" },
 		take: 5,

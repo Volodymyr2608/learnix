@@ -1,6 +1,5 @@
 import type { Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
-import { db } from "@/server/db";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
@@ -121,7 +120,7 @@ class QuizService {
 				isCorrect,
 			});
 
-			void db.lesson
+			void lessonRepository
 				.findFirst({
 					where: { id: quiz.lessonId, deletedAt: null },
 					select: { section: { select: { courseId: true } } },
