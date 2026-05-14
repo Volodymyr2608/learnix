@@ -3,7 +3,7 @@ import { z } from "zod";
 export const PathStepSchema = z.object({
 	type: z.enum(["NEW_LESSON", "REVIEW_LESSON", "RETRY_QUIZ"]),
 	lessonId: z.string(),
-	quizId: z.string().optional(),
+	quizId: z.string().nullable(),
 	title: z.string(),
 	reason: z.string().min(20),
 });

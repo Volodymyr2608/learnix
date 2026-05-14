@@ -178,7 +178,7 @@ export async function mergeAndExplain(
 		const steps: PathStep[] = state.candidateSteps.slice(0, 3).map((c) => ({
 			type: c.type,
 			lessonId: c.lessonId,
-			quizId: c.quizId,
+			quizId: c.quizId ?? null,
 			title:
 				state.lessonOrder.find((l) => l.id === c.lessonId)?.title ?? c.lessonId,
 			reason: c.reasonSeed,
