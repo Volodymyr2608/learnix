@@ -53,7 +53,6 @@ export async function POST(req: Request) {
 					}
 					send(event);
 				}
-				if (!aborted) send({ type: "done" });
 			} catch (e) {
 				if (!abortSignal.aborted) {
 					console.error("[Learning path stream error]", e);
