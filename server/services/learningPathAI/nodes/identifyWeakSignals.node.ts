@@ -11,8 +11,7 @@ export function identifyWeakSignals(state: PathState): Partial<PathState> {
 			concept: m.concept,
 			level: m.level,
 			firstLessonId:
-				state.lessonOrder.find((l) => l.concepts.includes(m.concept))?.id ??
-				"",
+				state.lessonOrder.find((l) => l.concepts.includes(m.concept))?.id ?? "",
 		}))
 		.filter((w) => w.firstLessonId !== "");
 

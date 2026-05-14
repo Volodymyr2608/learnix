@@ -1,6 +1,6 @@
 import type { LearningPathCache, Prisma } from "@/generated/prisma";
-import { BaseRepository } from "./base/base.repository";
 import type { PathStep } from "@/server/services/learningPathAI/schemas/learningPath.schema";
+import { BaseRepository } from "./base/base.repository";
 
 class LearningPathRepository extends BaseRepository<
 	"learningPathCache",
