@@ -2,14 +2,35 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/server/db";
+import { emailService } from "@/server/services/email/email.service";
 import { env } from "../../lib/env";
 
 export const auth = betterAuth({
 	database: prismaAdapter(db, {
-		provider: "postgresql", // or "sqlite" or "mysql"
+		provider: "postgresql",
 	}),
 	emailAndPassword: {
 		enabled: true,
+		sendResetPassword: async ({ user, url }) => {
+			await emailService.send({
+				templateKey: "auth.password-reset",
+				toEmail: user.email,
+				userId: user.id,
+				payload: { name: user.name ?? user.email, resetUrl: url },
+			});
+		},
+	},
+	emailVerification: {
+		sendOnSignUp: true,
+		callbackURL: "/sign-in?verified=true",
+		sendVerificationEmail: async ({ user, url }) => {
+			await emailService.send({
+				templateKey: "auth.verify-email",
+				toEmail: user.email,
+				userId: user.id,
+				payload: { name: user.name ?? user.email, verifyUrl: url },
+			});
+		},
 	},
 	socialProviders: {
 		github: {

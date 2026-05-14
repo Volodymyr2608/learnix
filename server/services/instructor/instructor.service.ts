@@ -1,21 +1,27 @@
 import { Role } from "@/generated/prisma";
+import { env } from "@/lib/env";
 import type { InstructorSchemaInput } from "@/server/entities/instructor";
 import { instructorRepository } from "@/server/repositories/instructor.repository";
 import { authService } from "@/server/services/auth/auth.service";
+import { emailService } from "@/server/services/email/email.service";
+import { signUnsubscribeToken } from "@/server/services/email/unsubscribe-token";
 import { InstructorError } from "@/server/services/instructor/instructor.errors";
 import { userService } from "@/server/services/user/user.service";
 import { logger } from "@/server/utils/logger";
 
 class InstructorService {
 	async createInstructor(dto: InstructorSchemaInput) {
+		let userId: string | undefined;
+
 		try {
 			await instructorRepository.transaction(async () => {
 				const { email, fullName, password } = dto;
-				const { userId } = await authService.signUp({
+				const result = await authService.signUp({
 					email,
 					name: fullName,
 					password,
 				});
+				userId = result.userId;
 
 				await userService.updateUser(userId, {
 					role: Role.INSTRUCTOR,
@@ -41,6 +47,26 @@ class InstructorService {
 				error,
 				{ dto },
 			);
+		}
+
+		if (userId) {
+			void (async () => {
+				try {
+					const token = await signUnsubscribeToken(userId);
+					await emailService.send({
+						templateKey: "instructor.welcome",
+						toEmail: dto.email,
+						userId,
+						payload: {
+							name: dto.fullName,
+							portalUrl: `${env.BASE_URL}/instructor`,
+							unsubscribeUrl: `${env.BASE_URL}/unsubscribe?token=${token}`,
+						},
+					});
+				} catch (err) {
+					logger.error("instructor welcome email failed", { error: err });
+				}
+			})();
 		}
 	}
 }
