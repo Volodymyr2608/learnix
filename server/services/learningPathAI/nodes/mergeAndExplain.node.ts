@@ -1,11 +1,111 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
-import { LearningPathSchema } from "../schemas/learningPath.schema";
-import type { LearningPath, PathStep } from "../schemas/learningPath.schema";
+import { db } from "@/server/db";
+import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { LearningPathInvalidError } from "../learningPathAI.errors";
 import type { PathState } from "../learningPathAI.state";
+import type { LearningPath, PathStep } from "../schemas/learningPath.schema";
+import { LearningPathSchema } from "../schemas/learningPath.schema";
 
-function semanticValidate(draft: LearningPath, state: PathState): string | null {
+type LessonEnrichment = {
+	summary: string | null;
+	concepts: unknown;
+	glossary: unknown;
+	quizAttempts?: {
+		quizId: string;
+		isCorrect: boolean;
+		selectedAnswer: string;
+		attemptedAt: Date;
+	}[];
+};
+
+async function fetchLessonSummary(
+	lessonId: string,
+): Promise<{ summary: string | null; concepts: unknown; glossary: unknown }> {
+	const insights = await lessonInsightsRepository.findByLessonId(lessonId);
+	if (insights) {
+		return {
+			summary: insights.summary,
+			concepts: insights.concepts,
+			glossary: insights.glossary,
+		};
+	}
+	const lesson = await lessonRepository.findFirst({
+		where: { id: lessonId, deletedAt: null },
+		select: { description: true },
+	});
+	return {
+		summary:
+			(lesson as { description: string | null } | null)?.description ?? null,
+		concepts: [],
+		glossary: [],
+	};
+}
+
+async function fetchQuizAttemptHistory(
+	lessonId: string,
+	studentId: string,
+): Promise<
+	{
+		quizId: string;
+		isCorrect: boolean;
+		selectedAnswer: string;
+		attemptedAt: Date;
+	}[]
+> {
+	const attempts = await db.quizAttempt.findMany({
+		where: { studentId, quiz: { lessonId } },
+		orderBy: { createdAt: "desc" },
+		take: 5,
+		select: {
+			quizId: true,
+			isCorrect: true,
+			selectedAnswer: true,
+			createdAt: true,
+		},
+	});
+	return attempts.map((a) => ({
+		quizId: a.quizId,
+		isCorrect: a.isCorrect,
+		selectedAnswer: a.selectedAnswer,
+		attemptedAt: a.createdAt,
+	}));
+}
+
+async function gatherEnrichment(
+	state: PathState,
+): Promise<Map<string, LessonEnrichment>> {
+	const retryLessonIds = new Set(
+		state.candidateSteps
+			.filter((c) => c.type === "RETRY_QUIZ")
+			.map((c) => c.lessonId),
+	);
+	const uniqueLessonIds = [
+		...new Set(state.candidateSteps.map((c) => c.lessonId)),
+	];
+
+	const enrichment = new Map<string, LessonEnrichment>();
+
+	await Promise.all(
+		uniqueLessonIds.map(async (lessonId) => {
+			const [summaryData, quizAttempts] = await Promise.all([
+				fetchLessonSummary(lessonId),
+				retryLessonIds.has(lessonId)
+					? fetchQuizAttemptHistory(lessonId, state.studentId)
+					: Promise.resolve(undefined),
+			]);
+			enrichment.set(lessonId, { ...summaryData, quizAttempts });
+		}),
+	);
+
+	return enrichment;
+}
+
+function semanticValidate(
+	draft: LearningPath,
+	state: PathState,
+): string | null {
 	const completedSet = new Set(state.completedLessonIds);
 	const allLessonIds = new Set(state.lessonOrder.map((l) => l.id));
 	const failedQuizIds = new Set(state.failedQuizzes.map((f) => f.quizId));
@@ -30,12 +130,25 @@ function semanticValidate(draft: LearningPath, state: PathState): string | null 
 	return null;
 }
 
-function buildPromptMessages(state: PathState, violationFeedback?: string) {
-	const enrichedCandidates = state.candidateSteps.map((c) => ({
-		...c,
-		title: state.lessonOrder.find((l) => l.id === c.lessonId)?.title ?? c.lessonId,
-		concepts: state.lessonOrder.find((l) => l.id === c.lessonId)?.concepts ?? [],
-	}));
+function buildPromptMessages(
+	state: PathState,
+	enrichment: Map<string, LessonEnrichment>,
+	violationFeedback?: string,
+) {
+	const enrichedCandidates = state.candidateSteps.map((c) => {
+		const lessonMeta = state.lessonOrder.find((l) => l.id === c.lessonId);
+		const data = enrichment.get(c.lessonId);
+		return {
+			...c,
+			title: lessonMeta?.title ?? c.lessonId,
+			concepts: lessonMeta?.concepts ?? [],
+			lessonSummary: data?.summary ?? null,
+			lessonConcepts: data?.concepts ?? [],
+			...(data?.quizAttempts !== undefined
+				? { quizAttempts: data.quizAttempts }
+				: {}),
+		};
+	});
 
 	const systemContent = `You are planning a student's next learning steps in a course.
 Given candidate actions and weak concepts, produce 3–5 final steps with concrete one-sentence reasons grounded in the student's progress.
@@ -74,9 +187,12 @@ export async function mergeAndExplain(
 		}));
 		return {
 			finalSteps: steps,
+			generatedWeakConcepts: state.weakConcepts.map((w) => w.concept),
 			summary: "Here are your next recommended lessons to get started.",
 		};
 	}
+
+	const enrichment = await gatherEnrichment(state);
 
 	const llm = new ChatOpenAI({
 		model: "gpt-4o-mini",
@@ -87,11 +203,15 @@ export async function mergeAndExplain(
 	let lastViolation: string | undefined;
 
 	for (let attempt = 0; attempt < 3; attempt++) {
-		const messages = buildPromptMessages(state, lastViolation);
+		const messages = buildPromptMessages(state, enrichment, lastViolation);
 		const draft = await llm.invoke(messages);
 		const violation = semanticValidate(draft, state);
 		if (!violation) {
-			return { finalSteps: draft.steps, summary: draft.summary };
+			return {
+				finalSteps: draft.steps,
+				generatedWeakConcepts: draft.weakConcepts,
+				summary: draft.summary,
+			};
 		}
 		lastViolation = violation;
 	}
