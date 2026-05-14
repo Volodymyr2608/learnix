@@ -1,4 +1,13 @@
-import { Body, Container, Head, Hr, Html, Row, Section, Text } from "@react-email/components";
+import {
+	Body,
+	Container,
+	Head,
+	Hr,
+	Html,
+	Row,
+	Section,
+	Text,
+} from "@react-email/components";
 import { EmailFooter } from "./EmailFooter";
 
 export function EmailLayout({
