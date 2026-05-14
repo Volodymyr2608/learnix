@@ -1,5 +1,6 @@
 import type { LearningPathCache, Prisma } from "@/generated/prisma";
 import { BaseRepository } from "./base/base.repository";
+import type { PathStep } from "@/server/services/learningPathAI/schemas/learningPath.schema";
 
 class LearningPathRepository extends BaseRepository<
 	"learningPathCache",
@@ -22,7 +23,7 @@ class LearningPathRepository extends BaseRepository<
 	upsertPath(input: {
 		studentId: string;
 		courseId: string;
-		steps: unknown[];
+		steps: PathStep[];
 		summary: string;
 		weakConcepts: string[];
 		model: string;
