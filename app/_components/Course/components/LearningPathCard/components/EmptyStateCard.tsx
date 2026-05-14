@@ -6,9 +6,10 @@ import { Loader2, Sparkles } from "lucide-react";
 type EmptyStateCardProps = {
 	onGenerate: () => void;
 	isLoading: boolean;
+	progress?: string;
 };
 
-export function EmptyStateCard({ onGenerate, isLoading }: EmptyStateCardProps) {
+export function EmptyStateCard({ onGenerate, isLoading, progress }: EmptyStateCardProps) {
 	return (
 		<div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-4 text-center">
 			<Sparkles className="h-6 w-6 text-muted-foreground" />
@@ -23,6 +24,9 @@ export function EmptyStateCard({ onGenerate, isLoading }: EmptyStateCardProps) {
 				)}
 				Get your personalised path
 			</Button>
+			{isLoading && progress && (
+				<p className="text-muted-foreground text-xs">{progress}</p>
+			)}
 		</div>
 	);
 }
