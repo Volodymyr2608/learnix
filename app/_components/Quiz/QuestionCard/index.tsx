@@ -14,13 +14,13 @@ export default function QuestionCard({
 	lessonId,
 }: QuestionCardProps) {
 	const [selected, setSelected] = useState<string | null>(
-		quiz.attempt?.selectedAnswer ?? null,
+		quiz.attempt?.isCorrect ? (quiz.attempt.selectedAnswer ?? null) : null,
 	);
 
 	const submit = useSubmitQuiz(lessonId);
 
 	const { attempt } = quiz;
-	const isAttempted = !!attempt;
+	const isLocked = !!attempt && attempt.isCorrect;
 
 	return (
 		<div className="space-y-3">
@@ -31,8 +31,8 @@ export default function QuestionCard({
 			<div className="space-y-2">
 				{quiz.options.map((option) => (
 					<button
-						className={optionClassName(option, attempt, selected)}
-						disabled={isAttempted}
+						className={optionClassName(option, attempt, selected, isLocked)}
+						disabled={isLocked}
 						key={option}
 						onClick={() => setSelected(option)}
 						type="button"
@@ -46,7 +46,7 @@ export default function QuestionCard({
 				{attempt ? <AttemptBadge attempt={attempt} /> : <span />}
 
 				<Button
-					disabled={!selected || isAttempted || submit.isPending}
+					disabled={!selected || isLocked || submit.isPending}
 					onClick={() => {
 						if (!selected) return;
 						submit.mutate({ quizId: quiz.id, selectedAnswer: selected });
@@ -54,7 +54,7 @@ export default function QuestionCard({
 					size="sm"
 				>
 					{submit.isPending && <Loader2 className="animate-spin" />}
-					Submit
+					{attempt && !attempt.isCorrect ? "Try Again" : "Submit"}
 				</Button>
 			</div>
 		</div>

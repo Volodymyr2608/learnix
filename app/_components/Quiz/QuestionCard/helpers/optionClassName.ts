@@ -8,14 +8,13 @@ export function optionClassName(
 	option: string,
 	attempt: QuizWithAttempt["attempt"],
 	selected: string | null,
+	isLocked: boolean,
 ): string {
-	if (attempt) {
+	if (isLocked && attempt) {
 		if (attempt.selectedAnswer === option) {
 			return cn(
 				OPTION_BASE,
-				attempt.isCorrect
-					? "border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
-					: "border-destructive bg-destructive/10 text-destructive",
+				"border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300",
 			);
 		}
 		return cn(OPTION_BASE, "cursor-not-allowed opacity-60");

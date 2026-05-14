@@ -104,21 +104,26 @@ class QuizService {
 				studentId,
 			);
 
-			if (existingAttempt) {
+			if (existingAttempt?.isCorrect) {
 				throw new AlreadyAttemptedError(
-					"You have already answered this question",
+					"You have already answered this question correctly",
 					"CONFLICT",
 				);
 			}
 
 			const isCorrect = quiz.correct === selectedAnswer;
 
-			const attempt = await quizAttemptRepository.create({
-				quizId,
-				studentId,
-				selectedAnswer,
-				isCorrect,
-			});
+			const attempt = existingAttempt
+				? await quizAttemptRepository.update(existingAttempt.id, {
+						selectedAnswer,
+						isCorrect,
+					})
+				: await quizAttemptRepository.create({
+						quizId,
+						studentId,
+						selectedAnswer,
+						isCorrect,
+					});
 
 			void lessonRepository
 				.findFirst({
