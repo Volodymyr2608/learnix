@@ -1,5 +1,7 @@
 import type { Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
+import { db } from "@/server/db";
+import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
@@ -112,12 +114,31 @@ class QuizService {
 
 			const isCorrect = quiz.correct === selectedAnswer;
 
-			return await quizAttemptRepository.create({
+			const attempt = await quizAttemptRepository.create({
 				quizId,
 				studentId,
 				selectedAnswer,
 				isCorrect,
 			});
+
+			void db.lesson
+				.findFirst({
+					where: { id: quiz.lessonId, deletedAt: null },
+					select: { section: { select: { courseId: true } } },
+				})
+				.then((lesson) => {
+					if (lesson?.section?.courseId) {
+						return learningPathRepository.markStale(
+							studentId,
+							lesson.section.courseId,
+						);
+					}
+				})
+				.catch((err) =>
+					logger.warn("markStale after quiz submit failed:", err),
+				);
+
+			return attempt;
 		} catch (error) {
 			if (
 				error instanceof QuizForbiddenError ||

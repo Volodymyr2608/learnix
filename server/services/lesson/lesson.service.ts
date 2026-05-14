@@ -2,6 +2,7 @@ import type { Quiz } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { db } from "@/server/db";
 import type { LessonContentUpdateDto } from "@/server/entities/lesson";
+import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
@@ -9,6 +10,25 @@ import { logger } from "@/server/utils/logger";
 import { LessonError } from "./lesson.errors";
 
 class LessonService {
+	private markStaleForLesson(lessonId: string, studentId: string) {
+		void db.lesson
+			.findFirst({
+				where: { id: lessonId, deletedAt: null },
+				select: { section: { select: { courseId: true } } },
+			})
+			.then((lesson) => {
+				if (lesson?.section?.courseId) {
+					return learningPathRepository.markStale(
+						studentId,
+						lesson.section.courseId,
+					);
+				}
+			})
+			.catch((err) =>
+				logger.warn("markStale after lesson progress change failed:", err),
+			);
+	}
+
 	private async fetchVerified(lessonId: string, instructorId: string) {
 		const lesson = await lessonRepository.findFirst({
 			where: {
@@ -138,6 +158,7 @@ class LessonService {
 				},
 				update: { isCompleted: true, completedAt: new Date() },
 			});
+			this.markStaleForLesson(lessonId, studentId);
 		} catch (error) {
 			if (error instanceof LessonError) throw error;
 			throw new LessonError(
@@ -157,6 +178,7 @@ class LessonService {
 				create: { lessonId, studentId, isCompleted: false },
 				update: { isCompleted: false, completedAt: null },
 			});
+			this.markStaleForLesson(lessonId, studentId);
 		} catch (error) {
 			if (error instanceof LessonError) throw error;
 			throw new LessonError(
