@@ -1,7 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
+import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { db } from "@/server/db";
-import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { LearningPathInvalidError } from "../learningPathAI.errors";
 import type { PathState } from "../learningPathAI.state";
@@ -10,8 +10,8 @@ import { LearningPathSchema } from "../schemas/learningPath.schema";
 
 type LessonEnrichment = {
 	summary: string | null;
-	concepts: unknown;
-	glossary: unknown;
+	concepts: Prisma.JsonValue;
+	glossary: Prisma.JsonValue;
 	quizAttempts?: {
 		quizId: string;
 		isCorrect: boolean;
@@ -20,9 +20,11 @@ type LessonEnrichment = {
 	}[];
 };
 
-async function fetchLessonSummary(
-	lessonId: string,
-): Promise<{ summary: string | null; concepts: unknown; glossary: unknown }> {
+async function fetchLessonSummary(lessonId: string): Promise<{
+	summary: string | null;
+	concepts: Prisma.JsonValue;
+	glossary: Prisma.JsonValue;
+}> {
 	const insights = await lessonInsightsRepository.findByLessonId(lessonId);
 	if (insights) {
 		return {
@@ -31,16 +33,11 @@ async function fetchLessonSummary(
 			glossary: insights.glossary,
 		};
 	}
-	const lesson = await lessonRepository.findFirst({
+	const lesson = await db.lesson.findFirst({
 		where: { id: lessonId, deletedAt: null },
 		select: { description: true },
 	});
-	return {
-		summary:
-			(lesson as { description: string | null } | null)?.description ?? null,
-		concepts: [],
-		glossary: [],
-	};
+	return { summary: lesson?.description ?? null, concepts: [], glossary: [] };
 }
 
 async function fetchQuizAttemptHistory(
