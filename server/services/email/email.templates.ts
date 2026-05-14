@@ -6,6 +6,7 @@ import { CourseCertificateEmail } from "@/app/_emails/CourseCertificateEmail";
 import { EngagementInactivityEmail } from "@/app/_emails/EngagementInactivityEmail";
 import { EngagementNearCompletionEmail } from "@/app/_emails/EngagementNearCompletionEmail";
 import { EnrollmentConfirmedEmail } from "@/app/_emails/EnrollmentConfirmedEmail";
+import { InstructorWelcomeEmail } from "@/app/_emails/InstructorWelcomeEmail";
 import { UserWelcomeEmail } from "@/app/_emails/UserWelcomeEmail";
 
 type TemplateEntry<P> = {
@@ -72,6 +73,16 @@ export const emailTemplates = {
 			unsubscribeUrl: z.string().url(),
 		}),
 		subject: (p) => `Pick up where you left off in ${p.courseTitle}`,
+		criticality: "STANDARD",
+	},
+	"instructor.welcome": {
+		component: InstructorWelcomeEmail,
+		payload: z.object({
+			name: z.string(),
+			portalUrl: z.string().url(),
+			unsubscribeUrl: z.string().url(),
+		}),
+		subject: (p) => `Welcome to Learnix, ${p.name}!`,
 		criticality: "STANDARD",
 	},
 	"engagement.near-completion": {
