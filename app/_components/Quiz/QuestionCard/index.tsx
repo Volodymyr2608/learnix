@@ -14,13 +14,15 @@ export default function QuestionCard({
 	lessonId,
 }: QuestionCardProps) {
 	const [selected, setSelected] = useState<string | null>(
-		quiz.attempt?.isCorrect ? (quiz.attempt.selectedAnswer ?? null) : null,
+		quiz.attempt?.selectedAnswer ?? null,
 	);
 
 	const submit = useSubmitQuiz(lessonId);
 
 	const { attempt } = quiz;
 	const isLocked = !!attempt && attempt.isCorrect;
+	const isShowingWrongAnswer =
+		!!attempt && !attempt.isCorrect && selected === attempt.selectedAnswer;
 
 	return (
 		<div className="space-y-3">
@@ -43,18 +45,22 @@ export default function QuestionCard({
 			</div>
 
 			<div className="flex items-center justify-between">
-				{attempt ? <AttemptBadge attempt={attempt} /> : <span />}
+				{attempt && (isLocked || isShowingWrongAnswer) ? <AttemptBadge attempt={attempt} /> : <span />}
 
 				<Button
-					disabled={!selected || isLocked || submit.isPending}
+					disabled={isShowingWrongAnswer ? false : !selected || isLocked || submit.isPending}
 					onClick={() => {
+						if (isShowingWrongAnswer) {
+							setSelected(null);
+							return;
+						}
 						if (!selected) return;
 						submit.mutate({ quizId: quiz.id, selectedAnswer: selected });
 					}}
 					size="sm"
 				>
 					{submit.isPending && <Loader2 className="animate-spin" />}
-					{attempt && !attempt.isCorrect ? "Try Again" : "Submit"}
+					{isShowingWrongAnswer ? "Try Again" : "Submit"}
 				</Button>
 			</div>
 		</div>

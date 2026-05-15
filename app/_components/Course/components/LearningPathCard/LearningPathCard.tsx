@@ -72,8 +72,8 @@ export function LearningPathCard({ courseId }: LearningPathCardProps) {
 	const weakConcepts = data.weakConcepts as string[];
 
 	return (
-		<Card>
-			<CardHeader className="pb-2">
+		<Card className="gap-4">
+			<CardHeader className="grid-rows-1">
 				<CardTitle className="text-sm">Your Path</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-1 pt-0">

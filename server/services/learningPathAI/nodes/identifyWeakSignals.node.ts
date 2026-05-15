@@ -5,13 +5,16 @@ import type {
 } from "../learningPathAI.state";
 
 export function identifyWeakSignals(state: PathState): Partial<PathState> {
+	const completedSet = new Set(state.completedLessonIds);
 	const weakConcepts: WeakConceptRow[] = state.mastery
 		.filter((m) => m.level < 3)
 		.map((m) => ({
 			concept: m.concept,
 			level: m.level,
 			firstLessonId:
-				state.lessonOrder.find((l) => l.concepts.includes(m.concept))?.id ?? "",
+				state.lessonOrder
+					.filter((l) => completedSet.has(l.id))
+					.find((l) => l.concepts.includes(m.concept))?.id ?? "",
 		}))
 		.filter((w) => w.firstLessonId !== "");
 

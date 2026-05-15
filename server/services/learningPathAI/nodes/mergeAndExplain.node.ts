@@ -107,8 +107,14 @@ function semanticValidate(
 	const completedSet = new Set(state.completedLessonIds);
 	const allLessonIds = new Set(state.lessonOrder.map((l) => l.id));
 	const failedQuizIds = new Set(state.failedQuizzes.map((f) => f.quizId));
+	const seenLessonIds = new Set<string>();
 
 	for (const step of draft.steps) {
+		if (seenLessonIds.has(step.lessonId)) {
+			return `duplicate lessonId "${step.lessonId}" in steps`;
+		}
+		seenLessonIds.add(step.lessonId);
+
 		if (!allLessonIds.has(step.lessonId)) {
 			return `lessonId "${step.lessonId}" does not belong to this course`;
 		}

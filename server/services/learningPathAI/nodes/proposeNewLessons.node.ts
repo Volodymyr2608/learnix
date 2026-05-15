@@ -2,8 +2,9 @@ import type { DraftStep, PathState } from "../learningPathAI.state";
 
 export function proposeNewLessons(state: PathState): Partial<PathState> {
 	const completedSet = new Set(state.completedLessonIds);
+	const existingCandidateSet = new Set((state.candidateSteps ?? []).map((c) => c.lessonId));
 	const next: DraftStep[] = state.lessonOrder
-		.filter((l) => !completedSet.has(l.id))
+		.filter((l) => !completedSet.has(l.id) && !existingCandidateSet.has(l.id))
 		.sort(
 			(a, b) =>
 				a.sectionOrder - b.sectionOrder || a.lessonOrder - b.lessonOrder,

@@ -315,9 +315,9 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 					</div>
 				</div>
 
-				<div className="sticky top-0 space-y-3 self-start lg:col-span-1">
+				<div className="sticky top-0 flex h-[calc(100vh-7rem)] flex-col gap-3 self-start lg:col-span-1">
 					<LearningPathCard courseId={courseId} />
-					<Card className="flex max-h-[calc(100vh-112px)] flex-col overflow-hidden">
+					<Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
 						<CardHeader>
 							<CardTitle>Course Content</CardTitle>
 							<CardDescription>
