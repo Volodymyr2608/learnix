@@ -1,93 +1,67 @@
-import { Annotation } from "@langchain/langgraph";
-import type { PathStep } from "./schemas/learningPath.schema";
+import { StateSchema } from "@langchain/langgraph";
+import { z } from "zod";
+import { PathStepSchema } from "./schemas/learningPath.schema";
 
-export type LessonOrderRow = {
-	id: string;
-	title: string;
-	sectionOrder: number;
-	lessonOrder: number;
-	concepts: string[];
-};
-
-export type QuizAttemptRow = {
-	quizId: string;
-	lessonId: string;
-	isCorrect: boolean;
-	attemptedAt: Date;
-};
-
-export type MasteryRow = {
-	concept: string;
-	level: number;
-};
-
-export type WeakConceptRow = {
-	concept: string;
-	level: number;
-	firstLessonId: string;
-};
-
-export type FailedQuizRow = {
-	lessonId: string;
-	quizId: string;
-};
-
-export type DraftStep = {
-	type: "NEW_LESSON" | "REVIEW_LESSON" | "RETRY_QUIZ";
-	lessonId: string;
-	quizId?: string;
-	reasonSeed: string;
-};
-
-export const PathStateAnnotation = Annotation.Root({
-	studentId: Annotation<string>(),
-	courseId: Annotation<string>(),
-	skipLLM: Annotation<boolean>({ default: () => false, reducer: (_, b) => b }),
-	completedLessonIds: Annotation<string[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	lessonOrder: Annotation<LessonOrderRow[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	quizAttempts: Annotation<QuizAttemptRow[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	mastery: Annotation<MasteryRow[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	weakConcepts: Annotation<WeakConceptRow[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	failedQuizzes: Annotation<FailedQuizRow[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	candidateSteps: Annotation<DraftStep[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	finalSteps: Annotation<PathStep[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	generatedWeakConcepts: Annotation<string[]>({
-		default: () => [],
-		reducer: (_, b) => b,
-	}),
-	summary: Annotation<string>({ default: () => "", reducer: (_, b) => b }),
-	reflectionAttempt: Annotation<number>({
-		default: () => 0,
-		reducer: (_, b) => b,
-	}),
-	reflectionFeedback: Annotation<string | undefined>({
-		default: () => undefined,
-		reducer: (_, b) => b,
-	}),
+const LessonOrderRowSchema = z.object({
+	id: z.string(),
+	title: z.string(),
+	sectionOrder: z.number(),
+	lessonOrder: z.number(),
+	concepts: z.array(z.string()),
 });
 
-export type PathState = typeof PathStateAnnotation.State;
+const QuizAttemptRowSchema = z.object({
+	quizId: z.string(),
+	lessonId: z.string(),
+	isCorrect: z.boolean(),
+	attemptedAt: z.date(),
+});
+
+const MasteryRowSchema = z.object({
+	concept: z.string(),
+	level: z.number(),
+});
+
+const WeakConceptRowSchema = z.object({
+	concept: z.string(),
+	level: z.number(),
+	firstLessonId: z.string(),
+});
+
+const FailedQuizRowSchema = z.object({
+	lessonId: z.string(),
+	quizId: z.string(),
+});
+
+const DraftStepSchema = z.object({
+	type: z.enum(["NEW_LESSON", "REVIEW_LESSON", "RETRY_QUIZ"]),
+	lessonId: z.string(),
+	quizId: z.string().optional(),
+	reasonSeed: z.string(),
+});
+
+export const PathStateSchema = new StateSchema({
+	studentId: z.string(),
+	courseId: z.string(),
+	skipLLM: z.boolean().default(false),
+	completedLessonIds: z.array(z.string()).default([]),
+	lessonOrder: z.array(LessonOrderRowSchema).default([]),
+	quizAttempts: z.array(QuizAttemptRowSchema).default([]),
+	mastery: z.array(MasteryRowSchema).default([]),
+	weakConcepts: z.array(WeakConceptRowSchema).default([]),
+	failedQuizzes: z.array(FailedQuizRowSchema).default([]),
+	candidateSteps: z.array(DraftStepSchema).default([]),
+	finalSteps: z.array(PathStepSchema).default([]),
+	generatedWeakConcepts: z.array(z.string()).default([]),
+	summary: z.string().default(""),
+	reflectionAttempt: z.number().int().default(0),
+	reflectionFeedback: z.string().optional(),
+});
+
+export type LessonOrderRow = z.infer<typeof LessonOrderRowSchema>;
+export type QuizAttemptRow = z.infer<typeof QuizAttemptRowSchema>;
+export type MasteryRow = z.infer<typeof MasteryRowSchema>;
+export type WeakConceptRow = z.infer<typeof WeakConceptRowSchema>;
+export type FailedQuizRow = z.infer<typeof FailedQuizRowSchema>;
+export type DraftStep = z.infer<typeof DraftStepSchema>;
+export type PathState = typeof PathStateSchema.State;

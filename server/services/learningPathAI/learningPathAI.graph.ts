@@ -1,5 +1,5 @@
 import { END, START, StateGraph } from "@langchain/langgraph";
-import { PathStateAnnotation } from "./learningPathAI.state";
+import { PathStateSchema } from "./learningPathAI.state";
 import {
 	decideStrategy,
 	identifyWeakSignals,
@@ -12,7 +12,7 @@ import {
 } from "./nodes";
 
 export function buildLearningPathGraph() {
-	return new StateGraph(PathStateAnnotation)
+	return new StateGraph(PathStateSchema)
 		.addNode("loadStudentSignal", loadStudentSignal)
 		.addNode("identifyWeakSignals", identifyWeakSignals)
 		.addNode("setSkipLLM", setSkipLLMIfEmpty)
