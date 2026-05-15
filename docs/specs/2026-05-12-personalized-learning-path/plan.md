@@ -146,23 +146,29 @@ State type:
 
 ```ts
 // server/services/learningPathAI/learningPathAI.state.ts
-import { Annotation } from "@langchain/langgraph";
+import { StateSchema } from "@langchain/langgraph";
+import { z } from "zod";
+import { PathStepSchema } from "./schemas/learningPath.schema";
 
-export const PathStateAnnotation = Annotation.Root({
-  studentId: Annotation<string>(),
-  courseId:  Annotation<string>(),
-  completedLessonIds: Annotation<string[]>({ default: () => [] }),
-  lessonOrder: Annotation<LessonOrderRow[]>({ default: () => [] }),
-  quizAttempts: Annotation<QuizAttemptRow[]>({ default: () => [] }),
-  mastery: Annotation<MasteryRow[]>({ default: () => [] }),
-  weakConcepts: Annotation<WeakConceptRow[]>({ default: () => [] }),
-  failedQuizzes: Annotation<FailedQuizRow[]>({ default: () => [] }),
-  candidateSteps: Annotation<DraftStep[]>({ default: () => [] }),
-  finalSteps: Annotation<PathStep[]>({ default: () => [] }),
-  summary: Annotation<string>({ default: () => "" }),
-  reflectionAttempt: Annotation<number>({ default: () => 0 }),
-  reflectionFeedback: Annotation<string | undefined>({ default: () => undefined }),
+export const PathStateSchema = new StateSchema({
+  studentId: z.string(),
+  courseId: z.string(),
+  skipLLM: z.boolean().default(false),
+  completedLessonIds: z.array(z.string()).default([]),
+  lessonOrder: z.array(LessonOrderRowSchema).default([]),
+  quizAttempts: z.array(QuizAttemptRowSchema).default([]),
+  mastery: z.array(MasteryRowSchema).default([]),
+  weakConcepts: z.array(WeakConceptRowSchema).default([]),
+  failedQuizzes: z.array(FailedQuizRowSchema).default([]),
+  candidateSteps: z.array(DraftStepSchema).default([]),
+  finalSteps: z.array(PathStepSchema).default([]),
+  generatedWeakConcepts: z.array(z.string()).default([]),
+  summary: z.string().default(""),
+  reflectionAttempt: z.number().int().default(0),
+  reflectionFeedback: z.string().optional(),
 });
+
+export type PathState = typeof PathStateSchema.State;
 ```
 
 `server/services/learningPathAI/nodes/loadStudentSignal.node.ts`:
@@ -337,11 +343,11 @@ export async function reflectAndCheck(state: PathState): Promise<Partial<PathSta
 
 ```ts
 import { StateGraph, START, END } from "@langchain/langgraph";
-import { PathStateAnnotation } from "./learningPathAI.state";
+import { PathStateSchema } from "./learningPathAI.state";
 import * as nodes from "./nodes";
 
 export function buildLearningPathGraph() {
-  return new StateGraph(PathStateAnnotation)
+  return new StateGraph(PathStateSchema)
     .addNode("loadStudentSignal", nodes.loadStudentSignal)
     .addNode("identifyWeakSignals", nodes.identifyWeakSignals)
     .addNode("proposeReviews", nodes.proposeReviews)
