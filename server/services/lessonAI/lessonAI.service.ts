@@ -86,7 +86,7 @@ export class LessonAIService {
 
 				if (
 					event.event === "on_chat_model_stream" &&
-					event.metadata?.langgraph_node === "agent"
+					event.metadata?.langgraph_node === "model_request"
 				) {
 					const token =
 						typeof event.data?.chunk?.content === "string"
