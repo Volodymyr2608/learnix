@@ -23,7 +23,10 @@ export function optionClassName(
 	// Retry mode: highlight previous wrong answer in red, new selection in primary
 	if (attempt && !attempt.isCorrect) {
 		if (attempt.selectedAnswer === option && selected === option) {
-			return cn(OPTION_BASE, "border-destructive bg-destructive/10 text-destructive");
+			return cn(
+				OPTION_BASE,
+				"border-destructive bg-destructive/10 text-destructive",
+			);
 		}
 		if (selected === option) {
 			return cn(OPTION_BASE, "border-primary bg-primary/10 text-primary");

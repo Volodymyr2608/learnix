@@ -1,8 +1,8 @@
 import { ChatOpenAI } from "@langchain/openai";
 import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
-import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { LearningPathInvalidError } from "../learningPathAI.errors";
 import type { PathState } from "../learningPathAI.state";

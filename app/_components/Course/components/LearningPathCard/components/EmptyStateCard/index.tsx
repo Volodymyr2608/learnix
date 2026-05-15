@@ -2,14 +2,13 @@
 
 import { Button } from "app/_components/_shared/ui/button";
 import { Loader2, Sparkles } from "lucide-react";
+import type { EmptyStateCardProps } from "@/app/_components/Course/components/LearningPathCard/components/EmptyStateCard/types";
 
-type EmptyStateCardProps = {
-	onGenerate: () => void;
-	isLoading: boolean;
-	progress?: string;
-};
-
-export function EmptyStateCard({ onGenerate, isLoading, progress }: EmptyStateCardProps) {
+export const EmptyStateCard = ({
+	onGenerate,
+	isLoading,
+	progress,
+}: EmptyStateCardProps) => {
 	return (
 		<div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-4 text-center">
 			<Sparkles className="h-6 w-6 text-muted-foreground" />
@@ -29,4 +28,4 @@ export function EmptyStateCard({ onGenerate, isLoading, progress }: EmptyStateCa
 			)}
 		</div>
 	);
-}
+};

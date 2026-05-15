@@ -1,15 +1,14 @@
-"use client";
-
-import { Button } from "app/_components/_shared/ui/button";
-import { Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useState } from "react";
 
-type RegenerateButtonProps = {
+type UseRegenerateButtonOptions = {
 	courseId: string;
 	onDone: () => void;
 };
 
-export function RegenerateButton({ courseId, onDone }: RegenerateButtonProps) {
+export const useRegenerateButton = ({
+	courseId,
+	onDone,
+}: UseRegenerateButtonOptions) => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [progress, setProgress] = useState("");
 
@@ -24,9 +23,7 @@ export function RegenerateButton({ courseId, onDone }: RegenerateButtonProps) {
 				body: JSON.stringify({ courseId }),
 			});
 
-			if (!res.ok || !res.body) {
-				return;
-			}
+			if (!res.ok || !res.body) return;
 
 			const reader = res.body.getReader();
 			const decoder = new TextDecoder();
@@ -43,9 +40,8 @@ export function RegenerateButton({ courseId, onDone }: RegenerateButtonProps) {
 							type: string;
 							message?: string;
 						};
-						if (data.type === "progress" && data.message) {
+						if (data.type === "progress" && data.message)
 							setProgress(data.message);
-						}
 						if (data.type === "done") {
 							onDone();
 							return;
@@ -59,24 +55,5 @@ export function RegenerateButton({ courseId, onDone }: RegenerateButtonProps) {
 		}
 	}, [courseId, onDone]);
 
-	return (
-		<div className="mt-3 flex items-center gap-2">
-			<Button
-				disabled={isLoading}
-				onClick={handleRegenerate}
-				size="sm"
-				variant="outline"
-			>
-				{isLoading ? (
-					<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-				) : (
-					<RefreshCw className="mr-2 h-4 w-4" />
-				)}
-				Regenerate
-			</Button>
-			{isLoading && progress && (
-				<p className="text-muted-foreground text-xs">{progress}</p>
-			)}
-		</div>
-	);
-}
+	return { isLoading, progress, handleRegenerate };
+};

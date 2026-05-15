@@ -2,7 +2,7 @@ type WeakConceptChipsProps = {
 	concepts: string[];
 };
 
-export function WeakConceptChips({ concepts }: WeakConceptChipsProps) {
+export const WeakConceptChips = ({ concepts }: WeakConceptChipsProps) => {
 	if (concepts.length === 0) return null;
 	return (
 		<div className="mt-2 flex flex-wrap gap-1">
@@ -16,4 +16,4 @@ export function WeakConceptChips({ concepts }: WeakConceptChipsProps) {
 			))}
 		</div>
 	);
-}
+};

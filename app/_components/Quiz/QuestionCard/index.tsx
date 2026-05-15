@@ -45,10 +45,18 @@ export default function QuestionCard({
 			</div>
 
 			<div className="flex items-center justify-between">
-				{attempt && (isLocked || isShowingWrongAnswer) ? <AttemptBadge attempt={attempt} /> : <span />}
+				{attempt && (isLocked || isShowingWrongAnswer) ? (
+					<AttemptBadge attempt={attempt} />
+				) : (
+					<span />
+				)}
 
 				<Button
-					disabled={isShowingWrongAnswer ? false : !selected || isLocked || submit.isPending}
+					disabled={
+						isShowingWrongAnswer
+							? false
+							: !selected || isLocked || submit.isPending
+					}
 					onClick={() => {
 						if (isShowingWrongAnswer) {
 							setSelected(null);

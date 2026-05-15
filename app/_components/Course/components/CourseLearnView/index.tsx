@@ -34,7 +34,7 @@ import Markdown from "react-markdown";
 import { api } from "trpc/client";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
-import { LearningPathCard } from "@/app/_components/Course/components/LearningPathCard/LearningPathCard";
+import { LearningPathCard } from "@/app/_components/Course/components/LearningPathCard";
 import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
 import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
