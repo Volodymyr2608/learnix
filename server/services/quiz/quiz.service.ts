@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
+import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
@@ -103,21 +104,45 @@ class QuizService {
 				studentId,
 			);
 
-			if (existingAttempt) {
+			if (existingAttempt?.isCorrect) {
 				throw new AlreadyAttemptedError(
-					"You have already answered this question",
+					"You have already answered this question correctly",
 					"CONFLICT",
 				);
 			}
 
 			const isCorrect = quiz.correct === selectedAnswer;
 
-			return await quizAttemptRepository.create({
-				quizId,
-				studentId,
-				selectedAnswer,
-				isCorrect,
-			});
+			const attempt = existingAttempt
+				? await quizAttemptRepository.update(existingAttempt.id, {
+						selectedAnswer,
+						isCorrect,
+					})
+				: await quizAttemptRepository.create({
+						quizId,
+						studentId,
+						selectedAnswer,
+						isCorrect,
+					});
+
+			void lessonRepository
+				.findFirst({
+					where: { id: quiz.lessonId, deletedAt: null },
+					select: { section: { select: { courseId: true } } },
+				})
+				.then((lesson) => {
+					if (lesson?.section?.courseId) {
+						return learningPathRepository.markStale(
+							studentId,
+							lesson.section.courseId,
+						);
+					}
+				})
+				.catch((err) =>
+					logger.warn("markStale after quiz submit failed:", err),
+				);
+
+			return attempt;
 		} catch (error) {
 			if (
 				error instanceof QuizForbiddenError ||

@@ -1,5 +1,6 @@
 import type { ConceptMastery, Prisma } from "@/generated/prisma";
-import { BaseRepository } from "@/server/repositories/base/base.repository";
+import type { MasteryRow } from "@/server/services/learningPathAI/learningPathAI.state";
+import { BaseRepository } from "./base/base.repository";
 
 class ConceptMasteryRepository extends BaseRepository<
 	"conceptMastery",
@@ -24,6 +25,16 @@ class ConceptMasteryRepository extends BaseRepository<
 			create: { studentId, courseId, concept, level },
 			update: { level },
 		});
+	}
+
+	async byStudentCourse(
+		studentId: string,
+		courseId: string,
+	): Promise<MasteryRow[]> {
+		return this.findMany({
+			where: { studentId, courseId },
+			select: { concept: true, level: true },
+		}) as unknown as MasteryRow[];
 	}
 }
 

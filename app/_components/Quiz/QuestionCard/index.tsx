@@ -20,7 +20,9 @@ export default function QuestionCard({
 	const submit = useSubmitQuiz(lessonId);
 
 	const { attempt } = quiz;
-	const isAttempted = !!attempt;
+	const isLocked = !!attempt && attempt.isCorrect;
+	const isShowingWrongAnswer =
+		!!attempt && !attempt.isCorrect && selected === attempt.selectedAnswer;
 
 	return (
 		<div className="space-y-3">
@@ -31,8 +33,8 @@ export default function QuestionCard({
 			<div className="space-y-2">
 				{quiz.options.map((option) => (
 					<button
-						className={optionClassName(option, attempt, selected)}
-						disabled={isAttempted}
+						className={optionClassName(option, attempt, selected, isLocked)}
+						disabled={isLocked}
 						key={option}
 						onClick={() => setSelected(option)}
 						type="button"
@@ -43,18 +45,30 @@ export default function QuestionCard({
 			</div>
 
 			<div className="flex items-center justify-between">
-				{attempt ? <AttemptBadge attempt={attempt} /> : <span />}
+				{attempt && (isLocked || isShowingWrongAnswer) ? (
+					<AttemptBadge attempt={attempt} />
+				) : (
+					<span />
+				)}
 
 				<Button
-					disabled={!selected || isAttempted || submit.isPending}
+					disabled={
+						isShowingWrongAnswer
+							? false
+							: !selected || isLocked || submit.isPending
+					}
 					onClick={() => {
+						if (isShowingWrongAnswer) {
+							setSelected(null);
+							return;
+						}
 						if (!selected) return;
 						submit.mutate({ quizId: quiz.id, selectedAnswer: selected });
 					}}
 					size="sm"
 				>
 					{submit.isPending && <Loader2 className="animate-spin" />}
-					Submit
+					{isShowingWrongAnswer ? "Try Again" : "Submit"}
 				</Button>
 			</div>
 		</div>

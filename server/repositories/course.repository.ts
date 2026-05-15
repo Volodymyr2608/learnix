@@ -2,9 +2,7 @@ import { type Course, CourseStatus, type Prisma } from "@/generated/prisma";
 import { BaseRepository } from "@/server/repositories/base/base.repository";
 import type CourseReviewRepository from "@/server/repositories/courseReview.repository";
 import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
-import type EnrollmentRepository from "@/server/repositories/enrollment.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
-import type LessonRepository from "@/server/repositories/lesson.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import type QuizRepository from "@/server/repositories/quiz.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
@@ -24,9 +22,9 @@ export default class CourseRepository extends BaseRepository<
 	protected readonly modelName = "course" as const;
 
 	private sectionRepository: SectionRepository;
-	private lessonRepository: LessonRepository;
+	private lessonRepository: typeof lessonRepository;
 	private quizRepository: QuizRepository;
-	private enrollmentRepository: EnrollmentRepository;
+	private enrollmentRepository: typeof enrollmentRepository;
 	private courseReviewRepository: CourseReviewRepository;
 
 	constructor() {
