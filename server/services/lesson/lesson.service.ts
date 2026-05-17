@@ -2,10 +2,12 @@ import type { Quiz } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { db } from "@/server/db";
 import type { LessonContentUpdateDto } from "@/server/entities/lesson";
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
+import { notificationService } from "@/server/services/notifications/notification.service";
 import { logger } from "@/server/utils/logger";
 import { LessonError } from "./lesson.errors";
 
@@ -159,6 +161,7 @@ class LessonService {
 				update: { isCompleted: true, completedAt: new Date() },
 			});
 			this.markStaleForLesson(lessonId, studentId);
+			void this.syncProgressAndFireEvents(lessonId, studentId);
 		} catch (error) {
 			if (error instanceof LessonError) throw error;
 			throw new LessonError(
@@ -167,6 +170,90 @@ class LessonService {
 				error,
 				{ lessonId },
 			);
+		}
+	}
+
+	private async syncProgressAndFireEvents(
+		lessonId: string,
+		studentId: string,
+	): Promise<void> {
+		try {
+			const lessonWithSection = await lessonRepository.findFirst({
+				where: { id: lessonId, deletedAt: null },
+				select: { section: { select: { courseId: true } } },
+			});
+			const courseId = lessonWithSection?.section?.courseId;
+			if (!courseId) return;
+
+			const [totalLessons, completedLessons] = await Promise.all([
+				db.lesson.count({ where: { section: { courseId }, deletedAt: null } }),
+				db.lessonProgress.count({
+					where: {
+						studentId,
+						isCompleted: true,
+						lesson: { section: { courseId }, deletedAt: null },
+					},
+				}),
+			]);
+
+			if (totalLessons === 0) return;
+
+			const progressPct = Math.round((completedLessons / totalLessons) * 100);
+			const lessonsRemaining = totalLessons - completedLessons;
+
+			const enrollment = await enrollmentRepository.findFirst({
+				where: { studentId, courseId },
+			});
+			if (!enrollment) return;
+
+			if (progressPct === 100) {
+				await enrollmentRepository.update(enrollment.id, {
+					progress: 100,
+					completedAt: enrollment.completedAt ?? new Date(),
+					status: "completed",
+				});
+				void notificationService
+					.fireCertificateEarned(enrollment.id)
+					.catch((err) => logger.warn("fireCertificateEarned failed:", err));
+			} else {
+				await enrollmentRepository.update(enrollment.id, { progress: progressPct });
+
+				if (lessonsRemaining === 1 || lessonsRemaining === 2) {
+					const completedIds = await db.lessonProgress
+						.findMany({
+							where: {
+								studentId,
+								isCompleted: true,
+								lesson: { section: { courseId } },
+							},
+							select: { lessonId: true },
+						})
+						.then((rows) => rows.map((r) => r.lessonId));
+
+					const nextLesson = await lessonRepository.findFirst({
+						where: {
+							section: { courseId },
+							deletedAt: null,
+							id: { notIn: completedIds },
+						},
+						select: { id: true, title: true },
+					});
+
+					void notificationService
+						.fireProgressNearCompletion(studentId, courseId, {
+							completedLessons,
+							totalLessons,
+							lessonsRemaining,
+							nextLessonId: nextLesson?.id ?? null,
+							nextLessonTitle: nextLesson?.title ?? "",
+						})
+						.catch((err) =>
+							logger.warn("fireProgressNearCompletion failed:", err),
+						);
+				}
+			}
+		} catch (err) {
+			logger.warn("syncProgressAndFireEvents failed:", err);
 		}
 	}
 
