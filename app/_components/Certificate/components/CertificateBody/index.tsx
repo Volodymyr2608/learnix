@@ -1,13 +1,17 @@
 import { Text, View } from "@react-pdf/renderer";
-import { styles } from "../styles";
+import { styles } from "../../styles";
 
-type Props = {
+type CertificateBodyProps = {
 	studentName: string;
 	courseTitle: string;
 	instructorName: string;
 };
 
-export function CertificateBody({ studentName, courseTitle, instructorName }: Props) {
+export const CertificateBody = ({
+	studentName,
+	courseTitle,
+	instructorName,
+}: CertificateBodyProps) => {
 	return (
 		<View style={styles.body}>
 			<Text style={styles.bodyPresented}>This certifies that</Text>
@@ -17,4 +21,4 @@ export function CertificateBody({ studentName, courseTitle, instructorName }: Pr
 			<Text style={styles.bodyInstructor}>Instructor: {instructorName}</Text>
 		</View>
 	);
-}
+};

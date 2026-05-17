@@ -1,14 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const N8N_URL = process.env.N8N_API_URL;
-const N8N_KEY = process.env.N8N_API_KEY;
+const N8N_WEBHOOK_BASE_URL = process.env.N8N_WEBHOOK_BASE_URL;
+const N8N_API_TOKEN = process.env.N8N_API_TOKEN;
 
-if (!N8N_URL || !N8N_KEY) {
-	console.error("N8N_API_URL and N8N_API_KEY must be set");
+if (!N8N_WEBHOOK_BASE_URL || !N8N_API_TOKEN) {
+	console.error("N8N_WEBHOOK_BASE_URL and N8N_API_TOKEN must be set");
 	process.exit(1);
 }
 
+const N8N_URL = new URL(N8N_WEBHOOK_BASE_URL).origin;
 const dir = path.join(process.cwd(), "n8n/workflows");
 
 async function upsertWorkflow(jsonPath: string) {
@@ -18,7 +19,7 @@ async function upsertWorkflow(jsonPath: string) {
 	};
 	const listRes = await fetch(
 		`${N8N_URL}/api/v1/workflows?name=${encodeURIComponent(wf.name)}`,
-		{ headers: { "X-N8N-API-KEY": N8N_KEY! } },
+		{ headers: { "X-N8N-API-KEY": N8N_API_TOKEN! } },
 	);
 	const list = (await listRes.json()) as { data?: { id: string }[] };
 	const existing = list.data?.[0];
@@ -31,7 +32,7 @@ async function upsertWorkflow(jsonPath: string) {
 	const res = await fetch(url, {
 		method,
 		headers: {
-			"X-N8N-API-KEY": N8N_KEY!,
+			"X-N8N-API-KEY": N8N_API_TOKEN!,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify(wf),

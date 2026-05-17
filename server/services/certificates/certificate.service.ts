@@ -1,4 +1,4 @@
-import { CertificateDocument } from "@/app/_components/Certificate/CertificateDocument";
+import { CertificateDocument } from "@/app/_components/Certificate";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { type DocumentProps, renderToBuffer } from "@react-pdf/renderer";
 import { createElement, type ReactElement } from "react";

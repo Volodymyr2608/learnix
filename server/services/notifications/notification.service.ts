@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
 import { notificationLogRepository } from "@/server/repositories/notificationLog.repository";
 import { signUnsubscribeToken } from "@/server/services/email/unsubscribe-token";
 import { format, subDays } from "date-fns";
@@ -114,7 +115,7 @@ class NotificationService {
 			const totalLessons = allLessons.length;
 			if (totalLessons === 0) continue;
 
-			const progresses = await enrollmentRepository.findCompletedLessonsForStudent(
+			const progresses = await lessonProgressRepository.findCompletedByLessonIds(
 				enr.studentId,
 				allLessons.map((l) => l.id),
 			);

@@ -3,16 +3,9 @@ import { CertificateBody } from "./components/CertificateBody";
 import { CertificateFooter } from "./components/CertificateFooter";
 import { CertificateHeader } from "./components/CertificateHeader";
 import { styles } from "./styles";
+import type { CertificateProps } from "./types";
 
-export type CertificateProps = {
-	studentName: string;
-	courseTitle: string;
-	instructorName: string;
-	completedAt: Date;
-	enrollmentId: string;
-};
-
-export function CertificateDocument(props: CertificateProps) {
+export const CertificateDocument = (props: CertificateProps) => {
 	return (
 		<Document>
 			<Page size="A4" orientation="landscape" style={styles.page}>
@@ -29,4 +22,4 @@ export function CertificateDocument(props: CertificateProps) {
 			</Page>
 		</Document>
 	);
-}
+};

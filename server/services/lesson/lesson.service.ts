@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import type { LessonContentUpdateDto } from "@/server/entities/lesson";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
+import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
@@ -186,14 +187,8 @@ class LessonService {
 			if (!courseId) return;
 
 			const [totalLessons, completedLessons] = await Promise.all([
-				db.lesson.count({ where: { section: { courseId }, deletedAt: null } }),
-				db.lessonProgress.count({
-					where: {
-						studentId,
-						isCompleted: true,
-						lesson: { section: { courseId }, deletedAt: null },
-					},
-				}),
+				lessonRepository.count({ section: { courseId }, deletedAt: null }),
+				lessonProgressRepository.countCompleted(studentId, courseId),
 			]);
 
 			if (totalLessons === 0) return;
@@ -219,16 +214,10 @@ class LessonService {
 				await enrollmentRepository.update(enrollment.id, { progress: progressPct });
 
 				if (lessonsRemaining === 1 || lessonsRemaining === 2) {
-					const completedIds = await db.lessonProgress
-						.findMany({
-							where: {
-								studentId,
-								isCompleted: true,
-								lesson: { section: { courseId } },
-							},
-							select: { lessonId: true },
-						})
-						.then((rows) => rows.map((r) => r.lessonId));
+					const completedIds = await lessonProgressRepository.findCompletedIds(
+						studentId,
+						courseId,
+					);
 
 					const nextLesson = await lessonRepository.findFirst({
 						where: {

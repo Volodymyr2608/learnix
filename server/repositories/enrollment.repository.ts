@@ -97,18 +97,6 @@ class EnrollmentRepository extends BaseRepository<
 		});
 	}
 
-	findCompletedLessonsForStudent(studentId: string, lessonIds: string[]) {
-		return db.lessonProgress.findMany({
-			where: {
-				studentId,
-				lessonId: { in: lessonIds },
-				isCompleted: true,
-			},
-			orderBy: { updatedAt: "desc" },
-			select: { lessonId: true, updatedAt: true },
-		});
-	}
-
 	findByStudentCourse(studentId: string, courseId: string) {
 		return this.findFirst({
 			where: {

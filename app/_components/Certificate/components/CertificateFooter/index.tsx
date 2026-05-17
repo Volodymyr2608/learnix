@@ -1,12 +1,12 @@
 import { Text, View } from "@react-pdf/renderer";
-import { styles } from "../styles";
+import { styles } from "../../styles";
 
-type Props = {
+type CertificateFooterProps = {
 	completedAt: Date;
 	enrollmentId: string;
 };
 
-export function CertificateFooter({ completedAt, enrollmentId }: Props) {
+export const CertificateFooter = ({ completedAt, enrollmentId }: CertificateFooterProps) => {
 	const dateStr = completedAt.toLocaleDateString("en-US", {
 		year: "numeric",
 		month: "long",
@@ -18,4 +18,4 @@ export function CertificateFooter({ completedAt, enrollmentId }: Props) {
 			<Text style={styles.footerText}>ID: {enrollmentId}</Text>
 		</View>
 	);
-}
+};

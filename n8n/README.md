@@ -6,11 +6,7 @@ Three workflows for Learnix lifecycle emails: certificate earned, inactivity nud
 
 1. `pnpm dev:n8n` — starts n8n at http://localhost:5678
 2. Complete owner setup in the UI.
-3. **Settings → API** → enable + copy API key → add to `.env.local`:
-   ```
-   N8N_API_KEY=<copied key>
-   N8N_API_URL=http://localhost:5678
-   ```
+3. **Settings → API** → enable + copy the API key → set it as `N8N_API_TOKEN` in `.env.local` (same value used for Bearer auth).
 4. Create credentials (see below).
 5. **Settings → Environment Variables** → add:
    - `N8N_WEBHOOK_SECRET` = value from `.env.local`
@@ -35,7 +31,7 @@ Credential values are **not** stored in the workflow JSONs.
 3. Open the n8n HTTPS URL, create credentials and env vars with production values:
    - `N8N_WEBHOOK_SECRET` = production secret
    - `BASE_URL` = `https://yourdomain.com`
-4. `N8N_API_URL=https://n8n.yourdomain.com N8N_API_KEY=<prod key> pnpm sync:n8n`
+4. `pnpm sync:n8n` (reads `N8N_API_TOKEN` and `N8N_WEBHOOK_BASE_URL` from env)
 5. Activate workflows. Smoke-test with `pnpm tsx scripts/fire-test-event.ts`.
 
 ## Workflow files
