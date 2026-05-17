@@ -1,0 +1,164 @@
+{
+  "name": "learnix-inactivity-7d",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 9 * * *" }]
+        }
+      },
+      "id": "cron-daily",
+      "name": "Every Day 09:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.BASE_URL }}/api/notifications/inactive-students?inactiveDays=7&minProgressPct=10&maxProgressPct=99",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "fetch-inactive",
+      "name": "Fetch Inactive Students",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": { "batchSize": 50 }
+      },
+      "id": "split-batches",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.emailNotificationsEnabled }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-notifications-enabled",
+      "name": "Notifications Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BASE_URL }}/api/notifications/log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ dedupKey: $json.dedupKey, userId: $json.userId, automation: 'inactivity_7d', payload: $json }) }}",
+        "options": {}
+      },
+      "id": "log-dedup",
+      "name": "Log (dedup)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.created }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-created",
+      "name": "Not Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BASE_URL }}/api/notifications/send-email",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ templateKey: 'engagement.inactivity-7d', toEmail: $('Split In Batches').item.json.email, userId: $('Split In Batches').item.json.userId, payload: { studentName: $('Split In Batches').item.json.name, courseTitle: $('Split In Batches').item.json.courseTitle, nextLessonTitle: $('Split In Batches').item.json.nextLessonTitle, resumeUrl: $('Split In Batches').item.json.resumeUrl, progressPct: $('Split In Batches').item.json.progressPct, unsubscribeUrl: $('Split In Batches').item.json.unsubscribeUrl } }) }}",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300],
+      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $env.BASE_URL }}/api/notifications/log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [{ "name": "dedupKey", "value": "={{ $('Log (dedup)').item.json.dedupKey }}" }]
+        },
+        "options": {}
+      },
+      "id": "rollback-log",
+      "name": "Rollback Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 480],
+      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+    }
+  ],
+  "connections": {
+    "Every Day 09:00 UTC": {
+      "main": [[{ "node": "Fetch Inactive Students", "type": "main", "index": 0 }]]
+    },
+    "Fetch Inactive Students": {
+      "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]]
+    },
+    "Split In Batches": {
+      "main": [[{ "node": "Notifications Enabled?", "type": "main", "index": 0 }]]
+    },
+    "Notifications Enabled?": {
+      "main": [[{ "node": "Log (dedup)", "type": "main", "index": 0 }], []]
+    },
+    "Log (dedup)": {
+      "main": [[{ "node": "Not Duplicate?", "type": "main", "index": 0 }]]
+    },
+    "Not Duplicate?": {
+      "main": [
+        [{ "node": "Send Email", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Send Email": {
+      "main": [[]],
+      "error": [{ "node": "Rollback Log", "type": "main", "index": 0 }]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null
+}

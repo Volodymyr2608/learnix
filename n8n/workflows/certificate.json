@@ -1,0 +1,162 @@
+{
+  "name": "learnix-certificate-earned",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "certificate.earned",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-certificate",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "certificate-earned"
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {}
+      },
+      "id": "respond-immediately",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [460, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst body = JSON.stringify($input.first().json);\nconst sig = $input.first().headers['x-learnix-signature'];\nconst expected = 'sha256=' + crypto.createHmac('sha256', $env.N8N_WEBHOOK_SECRET).update(body).digest('hex');\nif (expected !== sig) throw new Error('Invalid HMAC signature');\nreturn $input.all();"
+      },
+      "id": "verify-hmac",
+      "name": "Verify HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.user.emailNotificationsEnabled }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-notifications-enabled",
+      "name": "Notifications Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BASE_URL }}/api/notifications/log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"dedupKey\": \"{{ $json.user.id }}:certificate:{{ $json.enrollment.id }}\", \"userId\": \"{{ $json.user.id }}\", \"automation\": \"certificate\", \"payload\": {{ $json }} }",
+        "options": {}
+      },
+      "id": "log-dedup",
+      "name": "Log (dedup)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.created }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-created",
+      "name": "Not Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BASE_URL }}/api/notifications/send-email",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ templateKey: 'course.certificate', toEmail: $('Webhook').item.json.user.email, userId: $('Webhook').item.json.user.id, payload: { studentName: $('Webhook').item.json.user.name, courseTitle: $('Webhook').item.json.course.title, instructorName: $('Webhook').item.json.course.instructorName, certificatePdfUrl: $('Webhook').item.json.certificatePdfUrl, unsubscribeUrl: $('Webhook').item.json.unsubscribeUrl } }) }}",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $env.BASE_URL }}/api/notifications/log",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [{ "name": "dedupKey", "value": "={{ $('Log (dedup)').item.json.dedupKey }}" }]
+        },
+        "options": {}
+      },
+      "id": "rollback-log",
+      "name": "Rollback Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 480],
+      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }],
+        [{ "node": "Verify HMAC", "type": "main", "index": 0 }]
+      ]
+    },
+    "Verify HMAC": {
+      "main": [[{ "node": "Notifications Enabled?", "type": "main", "index": 0 }]]
+    },
+    "Notifications Enabled?": {
+      "main": [[{ "node": "Log (dedup)", "type": "main", "index": 0 }], []]
+    },
+    "Log (dedup)": {
+      "main": [[{ "node": "Not Duplicate?", "type": "main", "index": 0 }]]
+    },
+    "Not Duplicate?": {
+      "main": [
+        [{ "node": "Send Email", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Send Email": {
+      "main": [[]],
+      "error": [{ "node": "Rollback Log", "type": "main", "index": 0 }]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null
+}
