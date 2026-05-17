@@ -22,6 +22,8 @@
 		"typecheck": "tsc --noEmit",
 		"eval": "tsx evals/runEvals.ts",
 		"reindex": "tsx scripts/reindex-embeddings.ts",
+		"dev:n8n": "docker compose -f docker-compose.n8n.yml up -d",
+		"dev:n8n:down": "docker compose -f docker-compose.n8n.yml down",
 		"vercel-build": "prisma generate && prisma migrate deploy && next build",
 		"prepare": "husky"
 	},
