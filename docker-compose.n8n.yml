@@ -10,6 +10,8 @@ services:
       - WEBHOOK_URL=http://localhost:5678/
       - GENERIC_TIMEZONE=UTC
       - N8N_LOG_LEVEL=info
+      - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
+      - BASE_URL=http://host.docker.internal:3000
     volumes:
       - n8n-data:/home/node/.n8n
     extra_hosts:
