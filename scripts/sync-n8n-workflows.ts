@@ -9,7 +9,10 @@ if (!N8N_WEBHOOK_BASE_URL || !N8N_API_TOKEN) {
 	process.exit(1);
 }
 
-const N8N_URL = new URL(N8N_WEBHOOK_BASE_URL).origin;
+const N8N_URL = new URL(N8N_WEBHOOK_BASE_URL).origin.replace(
+	"host.docker.internal",
+	"localhost",
+);
 const dir = path.join(process.cwd(), "n8n/workflows");
 
 async function upsertWorkflow(jsonPath: string) {
