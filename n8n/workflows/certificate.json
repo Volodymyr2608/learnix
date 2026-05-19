@@ -1,162 +1,314 @@
 {
-  "name": "learnix-certificate-earned",
+  "name": "Certificate earned",
   "nodes": [
     {
       "parameters": {
+        "httpMethod": "POST",
         "path": "certificate.earned",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "rawBody": true
+        }
       },
-      "id": "webhook-certificate",
-      "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [240, 300],
-      "webhookId": "certificate-earned"
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7b3b836b-cbc6-403d-8421-69f7cc60fbef",
+      "name": "Webhook",
+      "webhookId": "077ad5f5-a41f-4076-9842-662b19378edc"
     },
     {
       "parameters": {
         "respondWith": "noData",
         "options": {}
       },
-      "id": "respond-immediately",
-      "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [460, 180]
+      "typeVersion": 1.5,
+      "position": [
+        208,
+        0
+      ],
+      "id": "cef38678-f658-477e-8372-a39318a3fee0",
+      "name": "Respond to Webhook"
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst body = JSON.stringify($input.first().json);\nconst sig = $input.first().headers['x-learnix-signature'];\nconst expected = 'sha256=' + crypto.createHmac('sha256', $env.N8N_WEBHOOK_SECRET).update(body).digest('hex');\nif (expected !== sig) throw new Error('Invalid HMAC signature');\nreturn $input.all();"
+        "jsCode": "const crypto = require('crypto');\n\nconst item = $input.first();\n\nconst rawBody = Buffer.from(JSON.stringify(item.json.body));\n\nconst sig = item.json.headers['x-learnix-signature'];\n\nif (!sig) {\n\tthrow new Error('Missing signature');\n}\n\nconst expected =\n\t'sha256=' +\n\tcrypto\n\t\t.createHmac('sha256', $env.N8N_WEBHOOK_SECRET)\n\t\t.update(rawBody)\n\t\t.digest('hex');\n\nconst sigBuffer = Buffer.from(sig);\nconst expectedBuffer = Buffer.from(expected);\n\nif (\n\tsigBuffer.length !== expectedBuffer.length ||\n\t!crypto.timingSafeEqual(sigBuffer, expectedBuffer)\n) {\n\tthrow new Error('Invalid HMAC signature');\n}\n\nreturn $input.all();"
       },
-      "id": "verify-hmac",
-      "name": "Verify HMAC",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [
+        384,
+        0
+      ],
+      "id": "64b78530-3789-4c01-8faa-7b7fbc12a880",
+      "name": "Verify HMAC"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
           "conditions": [
             {
-              "leftValue": "={{ $json.user.emailNotificationsEnabled }}",
+              "id": "6a4819bc-3c8d-4627-b746-700ae7dda85d",
+              "leftValue": "={{ $('Webhook').item.json.body.user.emailNotificationsEnabled }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "equals" }
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
-        }
+        },
+        "options": {}
       },
-      "id": "check-notifications-enabled",
-      "name": "Notifications Enabled?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [680, 300]
+      "typeVersion": 2.3,
+      "position": [
+        592,
+        0
+      ],
+      "id": "85c337fe-32bd-4f38-a91d-462aef150866",
+      "name": "Notifications Enabled?"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.BASE_URL }}/api/notifications/log",
+        "url": "={{ $env[\"BASE_URL\"] }}/api/notifications/log",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
+        "nodeCredentialType": "httpBearerAuth",
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={ \"dedupKey\": \"{{ $json.user.id }}:certificate:{{ $json.enrollment.id }}\", \"userId\": \"{{ $json.user.id }}\", \"automation\": \"certificate\", \"payload\": {{ $json }} }",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "dedupKey",
+              "value": "={{ $('Webhook').item.json.body.user.id + \":certificate:\" + $('Webhook').item.json.body.course.id}}"
+            },
+            {
+              "name": "userId",
+              "value": "={{ $('Webhook').item.json.body.user.id }}"
+            },
+            {
+              "name": "automation",
+              "value": "certificate"
+            },
+            {
+              "name": "payload",
+              "value": "={{ $('Webhook').item.json.body }}"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "log-dedup",
-      "name": "Log (dedup)",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [900, 300],
-      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+      "typeVersion": 4.4,
+      "position": [
+        800,
+        -96
+      ],
+      "id": "2791fb09-bf16-443a-b192-fc4f76b52527",
+      "name": "Log (dedup)",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "1Zf9RSvdHnwGnXgi",
+          "name": "Bearer Auth account"
+        }
+      }
     },
     {
       "parameters": {
         "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
           "conditions": [
             {
+              "id": "db6278e5-f165-41e2-914d-e054bae3f382",
               "leftValue": "={{ $json.created }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "equals" }
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
-        }
+        },
+        "options": {}
       },
-      "id": "check-created",
-      "name": "Not Duplicate?",
       "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [1120, 300]
+      "typeVersion": 2.3,
+      "position": [
+        1008,
+        -96
+      ],
+      "id": "64a8cb98-f8e7-44b1-bb22-cbd33c5b704b",
+      "name": "Not Duplicate?"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.BASE_URL }}/api/notifications/send-email",
+        "url": "={{ $env[\"BASE_URL\"] }}/api/notifications/send-email",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
+        "nodeCredentialType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ templateKey: 'course.certificate', toEmail: $('Webhook').item.json.user.email, userId: $('Webhook').item.json.user.id, payload: { studentName: $('Webhook').item.json.user.name, courseTitle: $('Webhook').item.json.course.title, instructorName: $('Webhook').item.json.course.instructorName, certificatePdfUrl: $('Webhook').item.json.certificatePdfUrl, unsubscribeUrl: $('Webhook').item.json.unsubscribeUrl } }) }}",
+        "jsonBody": "={\n  \"templateKey\": \"course.certificate\",\n  \"toEmail\": \"{{ $('Webhook').item.json.body.user.email }}\",\n  \"userId\": \"{{ $('Webhook').item.json.body.user.id }}\",\n  \"payload\": {\n    \"studentName\": \"{{ $('Webhook').item.json.body.user.name }}\",\n    \"courseTitle\": \"{{ $('Webhook').item.json.body.course.title }}\",\n    \"instructorName\": \"{{ $('Webhook').item.json.body.course.instructorName }}\",\n    \"certificatePdfUrl\": \"{{ $('Webhook').item.json.body.certificatePdfUrl }}\",\n    \"unsubscribeUrl\": \"{{ $('Webhook').item.json.body.unsubscribeUrl }}\"\n  }\n} ",
         "options": {}
       },
-      "id": "send-email",
-      "name": "Send Email",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1340, 300],
-      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+      "typeVersion": 4.4,
+      "position": [
+        1216,
+        -192
+      ],
+      "id": "03f81fad-7d08-48de-8786-17abfb964b0d",
+      "name": "Send Email",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "1Zf9RSvdHnwGnXgi",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
         "method": "DELETE",
-        "url": "={{ $env.BASE_URL }}/api/notifications/log",
+        "url": "={{ $env[\"BASE_URL\"] }}/api/notifications/log",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
+        "nodeCredentialType": "httpBearerAuth",
         "sendQuery": true,
         "queryParameters": {
-          "parameters": [{ "name": "dedupKey", "value": "={{ $('Log (dedup)').item.json.dedupKey }}" }]
+          "parameters": [
+            {
+              "name": "dedupKey",
+              "value": "={{ $('Webhook').item.json.body.user.id + \":certificate:\" + $('Webhook').item.json.body.course.id}}"
+            }
+          ]
         },
         "options": {}
       },
-      "id": "rollback-log",
-      "name": "Rollback Log",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1340, 480],
-      "credentials": { "httpHeaderAuth": { "id": "learnix-api", "name": "learnix-api" } }
+      "typeVersion": 4.4,
+      "position": [
+        1424,
+        -96
+      ],
+      "id": "294ca07b-0053-4636-8ded-89dd1179a971",
+      "name": "Rollback Log",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "1Zf9RSvdHnwGnXgi",
+          "name": "Bearer Auth account"
+        }
+      }
     }
   ],
+  "pinData": {},
   "connections": {
     "Webhook": {
       "main": [
-        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }],
-        [{ "node": "Verify HMAC", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Verify HMAC": {
-      "main": [[{ "node": "Notifications Enabled?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Notifications Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Notifications Enabled?": {
-      "main": [[{ "node": "Log (dedup)", "type": "main", "index": 0 }], []]
+      "main": [
+        [
+          {
+            "node": "Log (dedup)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Log (dedup)": {
-      "main": [[{ "node": "Not Duplicate?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Not Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Not Duplicate?": {
       "main": [
-        [{ "node": "Send Email", "type": "main", "index": 0 }],
-        []
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send Email": {
-      "main": [[]],
-      "error": [{ "node": "Rollback Log", "type": "main", "index": 0 }]
+      "main": [
+        [],
+        [
+          {
+            "node": "Rollback Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" },
-  "staticData": null
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e0275f4a-0d94-48ab-82cd-6fd3fa15167f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ddb404ad27503ddbe09b1ba2c9562a5e4877a0cc71b33ac07846fc0b8b895b4d"
+  },
+  "id": "twLrTsnC65e4D0yW",
+  "tags": []
 }

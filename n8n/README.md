@@ -36,11 +36,11 @@ Credential values are **not** stored in the workflow JSONs.
 
 ## Workflow files
 
-| File | Trigger | Description |
-|---|---|---|
-| `workflows/certificate.json` | Webhook `certificate.earned` | Sends certificate email on course completion |
-| `workflows/inactivity.json` | Cron 09:00 UTC daily | Nudges students inactive for 7+ days |
-| `workflows/near-completion.json` | Webhook `progress.near_completion` | Nudges students with 1-2 lessons left |
+| File | Trigger | Description | Docs |
+|---|---|---|---|
+| `workflows/certificate.json` | Webhook `certificate.earned` | Sends certificate email on course completion | [certificate.md](workflows/certificate.md) |
+| `workflows/inactivity.json` | Cron 09:00 UTC daily | Nudges students inactive for 7+ days | [inactivity.md](workflows/inactivity.md) |
+| `workflows/near-completion.json` | Webhook `progress.near_completion` | Nudges students with 1-2 lessons left | [near-completion.md](workflows/near-completion.md) |
 
 **To update a workflow:** edit in n8n UI → **⋮ menu → Download** → overwrite the JSON file → commit → `pnpm sync:n8n` on target instance.
 

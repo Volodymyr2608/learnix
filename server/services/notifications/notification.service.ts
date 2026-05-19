@@ -1,7 +1,6 @@
 import { env } from "@/lib/env";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
-import { notificationLogRepository } from "@/server/repositories/notificationLog.repository";
 import { signUnsubscribeToken } from "@/server/services/email/unsubscribe-token";
 import { format, subDays } from "date-fns";
 import { signCertificateToken } from "./auth";
@@ -17,6 +16,7 @@ export type InactiveStudentItem = {
 	progressPct: number;
 	nextLessonTitle: string;
 	resumeUrl: string;
+	unsubscribeUrl: string;
 	lastActivityAt: string;
 	dedupKey: string;
 };
@@ -64,15 +64,6 @@ class NotificationService {
 			nextLessonTitle: string;
 		},
 	): Promise<void> {
-		const dedupKey = `${studentId}:near_completion:${courseId}`;
-		const { created } = await notificationLogRepository.tryLog({
-			dedupKey,
-			userId: studentId,
-			automation: "near_completion",
-			payload: progress,
-		});
-		if (!created) return;
-
 		const enr = await enrollmentRepository.findByStudentCourseWithRelations(
 			studentId,
 			courseId,
@@ -135,6 +126,9 @@ class NotificationService {
 				? `${env.BASE_URL}/dashboard/courses/${enr.courseId}/learn/${nextLesson.id}`
 				: `${env.BASE_URL}/dashboard/courses/${enr.courseId}/learn`;
 
+			const unsubToken = await signUnsubscribeToken(enr.studentId);
+			const unsubscribeUrl = `${env.BASE_URL}/unsubscribe?token=${unsubToken}`;
+
 			results.push({
 				userId: enr.studentId,
 				email: enr.student.email,
@@ -145,6 +139,7 @@ class NotificationService {
 				progressPct,
 				nextLessonTitle: nextLesson?.title ?? "",
 				resumeUrl,
+				unsubscribeUrl,
 				lastActivityAt: latestActivityAt.toISOString(),
 				dedupKey: `${enr.studentId}:inactivity_7d:${enr.courseId}:${today}`,
 			});

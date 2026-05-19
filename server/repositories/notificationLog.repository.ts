@@ -1,5 +1,4 @@
 import { Prisma, type NotificationLog } from "@/generated/prisma";
-import { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
 
 class NotificationLogRepository extends BaseRepository<
@@ -21,18 +20,18 @@ class NotificationLogRepository extends BaseRepository<
 		payload?: unknown;
 	}): Promise<{ created: true; row: NotificationLog } | { created: false }> {
 		try {
-			const row = await db.notificationLog.create({
-				data: {
-					dedupKey: input.dedupKey,
-					userId: input.userId,
-					automation: input.automation,
-					payload: (input.payload ?? {}) as Prisma.InputJsonValue,
-				},
+			const row = await this.createRaw({
+				dedupKey: input.dedupKey,
+				userId: input.userId,
+				automation: input.automation,
+				payload: (input.payload ?? {}) as Prisma.InputJsonValue,
 			});
 			return { created: true, row };
 		} catch (e) {
 			if (
-				e instanceof Prisma.PrismaClientKnownRequestError &&
+				e != null &&
+				typeof e === "object" &&
+				"code" in e &&
 				e.code === "P2002"
 			) {
 				return { created: false };
@@ -42,7 +41,7 @@ class NotificationLogRepository extends BaseRepository<
 	}
 
 	async deleteByDedupKey(dedupKey: string) {
-		return db.notificationLog.deleteMany({ where: { dedupKey } });
+		return this.deleteMany({ dedupKey });
 	}
 }
 

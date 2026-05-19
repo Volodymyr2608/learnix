@@ -7,11 +7,13 @@ services:
       - N8N_HOST=localhost
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
-      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_WEBHOOK_BASE_URL=${N8N_WEBHOOK_BASE_URL}
       - GENERIC_TIMEZONE=UTC
       - N8N_LOG_LEVEL=info
       - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
       - BASE_URL=http://host.docker.internal:3000
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
     volumes:
       - n8n-data:/home/node/.n8n
     extra_hosts:

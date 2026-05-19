@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 		inactiveDays,
 		minPct,
 		maxPct,
-	});
+	})
 
 	return Response.json({ items, generatedAt: new Date().toISOString() });
 }
