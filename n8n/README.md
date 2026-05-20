@@ -16,11 +16,11 @@ Three workflows for Learnix lifecycle emails: certificate earned, inactivity nud
 
 ## Credentials
 
-Create both in **Credentials → New Credential → Header Auth**:
+Create in **Credentials → New Credential → Bearer Auth**:
 
-| Name | Header | Value |
-|---|---|---|
-| `learnix-api` | `Authorization` | `Bearer <N8N_API_TOKEN>` |
+| Name | Token |
+|---|---|
+| `learnix-api` | `<N8N_API_TOKEN>` |
 
 Credential values are **not** stored in the workflow JSONs.
 

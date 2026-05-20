@@ -240,6 +240,7 @@ N8N_DOMAIN=n8n.learnixacademy.com
 N8N_ENCRYPTION_KEY=<generated above>
 N8N_DB_PASSWORD=<generated above>
 
+BASE_URL=https://learnixacademy.com
 N8N_WEBHOOK_BASE_URL=https://n8n.learnixacademy.com/webhook
 N8N_WEBHOOK_SECRET=<generated above>
 N8N_API_TOKEN=<generated above>
@@ -266,14 +267,14 @@ This pulls the images and starts three containers: `caddy`, `n8n`, and `n8n-post
 Check that everything started:
 
 ```bash
-docker compose -f docker-compose.n8n.prod.yml ps
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n ps
 # All three should show "running"
 ```
 
 Watch the logs to confirm Caddy obtained the HTTPS certificate:
 
 ```bash
-docker compose -f docker-compose.n8n.prod.yml logs caddy -f
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n logs caddy -f
 # Look for: "certificate obtained successfully"
 # Press Ctrl+C to stop watching
 ```
@@ -303,26 +304,24 @@ Once logged in, enable the REST API:
 
 ## 10. Add credentials and environment variables in n8n
 
-n8n stores secrets in its own UI — they're encrypted in the database and never travel through code.
-
 ### Environment variables
 
-1. In n8n: **Settings → Environment Variables**
-2. Add these two variables:
+Environment variables are passed directly via Docker Compose — no n8n UI needed (the UI option is Enterprise-only). Make sure your `.env.n8n` has these set before starting the services:
 
-| Name | Value |
-|------|-------|
-| `N8N_WEBHOOK_SECRET` | same value as in your `.env.n8n` |
-| `BASE_URL` | `https://learnixacademy.com` |
+```env
+N8N_WEBHOOK_SECRET=<your-secret>
+BASE_URL=https://learnixacademy.com
+```
+
+Workflows access them in Code nodes as `$env.N8N_WEBHOOK_SECRET` and `$env.BASE_URL`.
 
 ### Credentials
 
 1. In n8n: **Credentials** (left sidebar) → **Add credential**
-2. Search for **Header Auth** → select it
+2. Search for **Bearer Auth** → select it
 3. Fill in:
    - **Name**: `learnix-api`
-   - **Name** (header field): `Authorization`
-   - **Value**: `Bearer <N8N_API_TOKEN>` — use the `N8N_API_TOKEN` value from your `.env.n8n`
+   - **Token**: the `N8N_API_TOKEN` value from your `.env.n8n`
 4. Click **Save**
 
 ---
@@ -401,27 +400,27 @@ Then in the n8n UI → **Executions** — you should see a recent execution for 
 
 ```bash
 # All services
-docker compose -f docker-compose.n8n.prod.yml logs -f
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n logs -f
 
 # Just n8n
-docker compose -f docker-compose.n8n.prod.yml logs n8n -f
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n logs n8n -f
 
 # Just Caddy (useful for HTTPS issues)
-docker compose -f docker-compose.n8n.prod.yml logs caddy -f
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n logs caddy -f
 ```
 
 ### Restart a service
 
 ```bash
-docker compose -f docker-compose.n8n.prod.yml restart n8n
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n restart n8n
 ```
 
 ### Update n8n to the latest version
 
 ```bash
 cd ~/apps/learnix
-docker compose -f docker-compose.n8n.prod.yml pull
-docker compose -f docker-compose.n8n.prod.yml up -d
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n pull
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n up -d
 ```
 
 ### Pull latest workflow changes from git
@@ -437,7 +436,7 @@ git pull
 Postgres data is stored in the Docker volume `n8n-postgres-data`. To back it up:
 
 ```bash
-docker exec $(docker compose -f docker-compose.n8n.prod.yml ps -q n8n-postgres) \
+docker exec $(docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n ps -q n8n-postgres) \
   pg_dump -U n8n n8n > n8n-backup-$(date +%Y%m%d).sql
 ```
 
@@ -458,7 +457,7 @@ dig n8n.learnixacademy.com +short
 Then watch Caddy logs on the server:
 
 ```bash
-docker compose -f docker-compose.n8n.prod.yml logs caddy -f
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n logs caddy -f
 ```
 
 Caddy retries automatically every few minutes. Once DNS resolves, the cert is issued within seconds.
@@ -466,7 +465,7 @@ Caddy retries automatically every few minutes. Once DNS resolves, the cert is is
 ### n8n not starting
 
 ```bash
-docker compose -f docker-compose.n8n.prod.yml logs n8n
+docker compose -f docker-compose.n8n.prod.yml --env-file .env.n8n logs n8n
 ```
 
 Common causes:
