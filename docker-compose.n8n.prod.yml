@@ -1,9 +1,23 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - n8n-internal
+    depends_on:
+      - n8n
+
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
-    ports:
-      - "5678:5678"
     environment:
       - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
@@ -12,7 +26,7 @@ services:
       - GENERIC_TIMEZONE=UTC
       - N8N_LOG_LEVEL=info
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-      # n8n uses its own postgres (separate from Learnix DB)
+      - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=n8n-postgres
       - DB_POSTGRESDB_PORT=5432
@@ -21,6 +35,8 @@ services:
       - DB_POSTGRESDB_PASSWORD=${N8N_DB_PASSWORD}
     volumes:
       - n8n-data:/home/node/.n8n
+    networks:
+      - n8n-internal
     depends_on:
       n8n-postgres:
         condition: service_healthy
@@ -34,12 +50,19 @@ services:
       - POSTGRES_DB=n8n
     volumes:
       - n8n-postgres-data:/var/lib/postgresql/data
+    networks:
+      - n8n-internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U n8n"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+networks:
+  n8n-internal:
+
 volumes:
+  caddy-data:
+  caddy-config:
   n8n-data:
   n8n-postgres-data:
