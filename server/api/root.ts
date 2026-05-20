@@ -6,6 +6,7 @@ import { lessonRouter } from "@/server/api/routers/lesson";
 import { lessonAssistantRouter } from "@/server/api/routers/lessonAssistant";
 import { lessonInsightsAIRouter } from "@/server/api/routers/lessonInsightsAI";
 import { quizRouter } from "@/server/api/routers/quiz";
+import { notificationsRouter } from "@/server/api/routers/notifications";
 import { searchRouter } from "@/server/api/routers/search";
 import { userRouter } from "@/server/api/routers/user";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
@@ -26,6 +27,7 @@ export const appRouter = createTRPCRouter({
 	lessonInsightsAI: lessonInsightsAIRouter,
 	quiz: quizRouter,
 	search: searchRouter,
+	notifications: notificationsRouter,
 });
 
 // export type definition of API

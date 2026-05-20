@@ -172,6 +172,10 @@ export abstract class BaseRepository<
 		}
 	}
 
+	protected async createRaw(data: TCreateInput): Promise<TPayload> {
+		return this.model.create({ data });
+	}
+
 	public async bulkCreate(data: TCreateInput[]): Promise<number> {
 		try {
 			this.logger?.info("Bulk creating entities", { count: data.length });

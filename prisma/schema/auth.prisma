@@ -29,6 +29,7 @@ model User {
   learningPathCaches           LearningPathCache[]
   emailNotificationsEnabled    Boolean   @default(true) @map("email_notifications_enabled")
   welcomeEmailSentAt           DateTime? @map("welcome_email_sent_at")
+  notificationLogs             NotificationLog[]
 
   @@unique([email])
   @@map("users")

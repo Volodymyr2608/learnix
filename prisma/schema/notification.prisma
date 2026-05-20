@@ -1,0 +1,13 @@
+model NotificationLog {
+  id         String   @id @default(cuid())
+  userId     String
+  automation String
+  dedupKey   String   @unique
+  payload    Json
+  sentAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, automation])
+  @@map("notification_logs")
+}

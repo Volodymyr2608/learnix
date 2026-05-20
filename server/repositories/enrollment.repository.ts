@@ -1,5 +1,6 @@
 import type { Enrollment, Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
+import { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
 
 class EnrollmentRepository extends BaseRepository<
@@ -23,6 +24,77 @@ class EnrollmentRepository extends BaseRepository<
 			select: { courseId: true },
 		});
 		return rows.map((r) => (r as { courseId: string }).courseId);
+	}
+
+	findByIdWithRelations(enrollmentId: string) {
+		return this.findFirst({
+			where: { id: enrollmentId },
+			include: {
+				student: {
+					select: {
+						id: true,
+						email: true,
+						name: true,
+						emailNotificationsEnabled: true,
+					},
+				},
+				course: {
+					include: {
+						instructor: { select: { name: true } },
+					},
+				},
+			},
+		});
+	}
+
+	findActiveWithLessons() {
+		return db.enrollment.findMany({
+			where: {
+				status: { in: [EnrollmentStatus.active, EnrollmentStatus.completed] },
+				course: { deletedAt: null, status: "published" },
+			},
+			include: {
+				student: {
+					select: {
+						id: true,
+						email: true,
+						name: true,
+						emailNotificationsEnabled: true,
+					},
+				},
+				course: {
+					include: {
+						sections: {
+							where: { deletedAt: null },
+							orderBy: { order: "asc" },
+							include: {
+								lessons: {
+									where: { deletedAt: null },
+									orderBy: { order: "asc" },
+									select: { id: true, title: true },
+								},
+							},
+						},
+					},
+				},
+			},
+		});
+	}
+
+	findByStudentCourseWithRelations(studentId: string, courseId: string) {
+		return db.enrollment.findFirst({
+			where: { studentId, courseId },
+			include: {
+				student: {
+					select: {
+						email: true,
+						name: true,
+						emailNotificationsEnabled: true,
+					},
+				},
+				course: { select: { id: true, title: true } },
+			},
+		});
 	}
 
 	findByStudentCourse(studentId: string, courseId: string) {
