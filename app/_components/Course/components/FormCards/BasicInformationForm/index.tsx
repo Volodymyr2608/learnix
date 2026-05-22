@@ -11,6 +11,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import { COURSE_CATEGORIES } from "@/lib/constants/courseCategories";
 
 const BasicInformationForm = ({ isEdit = false }) => {
 	const {
@@ -64,13 +65,7 @@ const BasicInformationForm = ({ isEdit = false }) => {
 					<ControlledSelect
 						control={control}
 						id="category"
-						items={[
-							{ value: "development", label: "Development" },
-							{ value: "design", label: "Design" },
-							{ value: "business", label: "Business" },
-							{ value: "marketing", label: "Marketing" },
-							{ value: "data-science", label: "Data Science" },
-						]}
+						items={[...COURSE_CATEGORIES]}
 						label="Category *"
 						name="category"
 						placeholder="Select category"
