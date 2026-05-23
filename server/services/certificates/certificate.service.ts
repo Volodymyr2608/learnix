@@ -1,8 +1,11 @@
-import { CertificateDocument } from "@/app/_components/Certificate";
-import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { type DocumentProps, renderToBuffer } from "@react-pdf/renderer";
 import { createElement, type ReactElement } from "react";
-import { CertificateNotCompleteError, CertificateNotFoundError } from "./certificate.errors";
+import { CertificateDocument } from "@/app/_components/Certificate";
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import {
+	CertificateNotCompleteError,
+	CertificateNotFoundError,
+} from "./certificate.errors";
 
 class CertificateService {
 	async renderPdf(enrollmentId: string): Promise<Buffer> {

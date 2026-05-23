@@ -1,9 +1,9 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { embeddingRepository } from "@/server/repositories/embedding.repository";
 import { courseRepository } from "@/server/repositories/course.repository";
-import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
+import { embeddingRepository } from "@/server/repositories/embedding.repository";
 import { CourseAIToolError } from "@/server/services/courseAI/courseAI.errors";
+import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { logger } from "@/server/utils/logger";
 
 export const searchSimilarCoursesTool = tool(

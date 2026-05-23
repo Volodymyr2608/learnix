@@ -8,12 +8,12 @@ import type { CertificateProps } from "./types";
 export const CertificateDocument = (props: CertificateProps) => {
 	return (
 		<Document>
-			<Page size="A4" orientation="landscape" style={styles.page}>
+			<Page orientation="landscape" size="A4" style={styles.page}>
 				<CertificateHeader />
 				<CertificateBody
-					studentName={props.studentName}
 					courseTitle={props.courseTitle}
 					instructorName={props.instructorName}
+					studentName={props.studentName}
 				/>
 				<CertificateFooter
 					completedAt={props.completedAt}

@@ -28,7 +28,11 @@ async function upsertWorkflow(jsonPath: string) {
 		: `${N8N_URL}/api/v1/workflows`;
 
 	const { settings } = wf as { settings?: Record<string, unknown> };
-	const { binaryMode: _b, availableInMCP: _a, ...cleanSettings } = settings ?? {};
+	const {
+		binaryMode: _b,
+		availableInMCP: _a,
+		...cleanSettings
+	} = settings ?? {};
 	const payload = {
 		name: wf.name,
 		nodes: wf.nodes,

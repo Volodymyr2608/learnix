@@ -52,9 +52,7 @@ Rules:
 			return JSON.stringify(result);
 		} catch (err) {
 			logger.error(
-				new CourseAIToolError(
-					`validate_curriculum_coherence: ${String(err)}`,
-				),
+				new CourseAIToolError(`validate_curriculum_coherence: ${String(err)}`),
 			);
 			return JSON.stringify({
 				error: "tool failed; proceed without coherence check",

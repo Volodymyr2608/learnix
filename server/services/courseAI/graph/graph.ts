@@ -18,75 +18,75 @@ import { validate } from "./nodes/validate";
 import { CourseBuilderState, type CourseBuilderStateT } from "./state";
 
 const allTools = [
-  searchSimilarCoursesTool,
-  fetchInstructorPriorCoursesTool,
-  lookupCategoryTaxonomyTool,
-  validateCurriculumCoherenceTool,
+	searchSimilarCoursesTool,
+	fetchInstructorPriorCoursesTool,
+	lookupCategoryTaxonomyTool,
+	validateCurriculumCoherenceTool,
 ];
 
 // --- route predicates ---
 
 const routeByMode = (s: CourseBuilderStateT) =>
-  s.mode === "finalize" ? "finalize" : "chat";
+	s.mode === "finalize" ? "finalize" : "chat";
 
 const routeByIntent = (s: CourseBuilderStateT) =>
-  s.intent === "revise" ? "revise" : "continue";
+	s.intent === "revise" ? "revise" : "continue";
 
 // Use pendingToolCalls (not toolCalls) — toolCalls accumulates, pendingToolCalls is reset each pass
 const routeAfterToolRouter = (s: CourseBuilderStateT) =>
-  s.pendingToolCalls.length > 0 ? "use_tool" : "answer";
+	s.pendingToolCalls.length > 0 ? "use_tool" : "answer";
 
 const routeAfterAssess = (s: CourseBuilderStateT) =>
-  s.assessReady ? "ready" : "not_ready";
+	s.assessReady ? "ready" : "not_ready";
 
 const routeAfterValidate = (s: CourseBuilderStateT) =>
-  s.validationErrors === null ? "pass" : "fail";
+	s.validationErrors === null ? "pass" : "fail";
 
 const routeAfterConfidence = (s: CourseBuilderStateT) =>
-  s.mode === "finalize" || s.shouldAutoAdvance ? "persist" : "hold";
+	s.mode === "finalize" || s.shouldAutoAdvance ? "persist" : "hold";
 
 // --- builder ---
 
 export const courseBuilderGraph = new StateGraph(CourseBuilderState)
-  .addNode("classify_intent", classifyIntent)
-  .addNode("revise_prior_field", revisePriorField)
-  .addNode("tool_router", toolRouter)
-  .addNode("tool_node", new ToolNode(allTools))
-  .addNode("chat_response", chatResponse)
-  .addNode("assess_completion", assessCompletion)
-  .addNode("extract_step_data", extractStepData)
-  .addNode("validate", validate)
-  .addNode("confidence_score", confidenceScore)
-  .addNode("clarify", clarify)
-  .addNode("persist_and_emit", persistAndEmit)
-  .addConditionalEdges(START, routeByMode, {
-    chat: "classify_intent",
-    finalize: "extract_step_data",
-  })
-  .addConditionalEdges("classify_intent", routeByIntent, {
-    revise: "revise_prior_field",
-    continue: "tool_router",
-  })
-  .addConditionalEdges("tool_router", routeAfterToolRouter, {
-    use_tool: "tool_node",
-    answer: "chat_response",
-  })
-  .addEdge("tool_node", "tool_router")
-  .addEdge("chat_response", "assess_completion")
-  .addEdge("revise_prior_field", "assess_completion")
-  .addConditionalEdges("assess_completion", routeAfterAssess, {
-    not_ready: END,
-    ready: "extract_step_data",
-  })
-  .addEdge("extract_step_data", "validate")
-  .addConditionalEdges("validate", routeAfterValidate, {
-    pass: "confidence_score",
-    fail: "clarify",
-  })
-  .addConditionalEdges("confidence_score", routeAfterConfidence, {
-    persist: "persist_and_emit",
-    hold: END,
-  })
-  .addEdge("clarify", END)
-  .addEdge("persist_and_emit", END)
-  .compile();
+	.addNode("classify_intent", classifyIntent)
+	.addNode("revise_prior_field", revisePriorField)
+	.addNode("tool_router", toolRouter)
+	.addNode("tool_node", new ToolNode(allTools))
+	.addNode("chat_response", chatResponse)
+	.addNode("assess_completion", assessCompletion)
+	.addNode("extract_step_data", extractStepData)
+	.addNode("validate", validate)
+	.addNode("confidence_score", confidenceScore)
+	.addNode("clarify", clarify)
+	.addNode("persist_and_emit", persistAndEmit)
+	.addConditionalEdges(START, routeByMode, {
+		chat: "classify_intent",
+		finalize: "extract_step_data",
+	})
+	.addConditionalEdges("classify_intent", routeByIntent, {
+		revise: "revise_prior_field",
+		continue: "tool_router",
+	})
+	.addConditionalEdges("tool_router", routeAfterToolRouter, {
+		use_tool: "tool_node",
+		answer: "chat_response",
+	})
+	.addEdge("tool_node", "tool_router")
+	.addEdge("chat_response", "assess_completion")
+	.addEdge("revise_prior_field", "assess_completion")
+	.addConditionalEdges("assess_completion", routeAfterAssess, {
+		not_ready: END,
+		ready: "extract_step_data",
+	})
+	.addEdge("extract_step_data", "validate")
+	.addConditionalEdges("validate", routeAfterValidate, {
+		pass: "confidence_score",
+		fail: "clarify",
+	})
+	.addConditionalEdges("confidence_score", routeAfterConfidence, {
+		persist: "persist_and_emit",
+		hold: END,
+	})
+	.addEdge("clarify", END)
+	.addEdge("persist_and_emit", END)
+	.compile();

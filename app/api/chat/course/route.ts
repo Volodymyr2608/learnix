@@ -43,9 +43,7 @@ export async function POST(req: Request) {
 			const encoder = new TextEncoder();
 			const send = (data: unknown) => {
 				if (abortSignal.aborted) return;
-				controller.enqueue(
-					encoder.encode(`data: ${JSON.stringify(data)}\n\n`),
-				);
+				controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 			};
 
 			let assistantFullText = "";
@@ -98,9 +96,7 @@ export async function POST(req: Request) {
 						ev.event === "on_chain_end" &&
 						ev.name === "confidence_score"
 					) {
-						const out = ev.data?.output as
-							| { confidence?: number }
-							| undefined;
+						const out = ev.data?.output as { confidence?: number } | undefined;
 						if (typeof out?.confidence === "number") {
 							lastConfidence = out.confidence;
 							send({ type: "confidence", value: out.confidence });

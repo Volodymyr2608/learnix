@@ -18,7 +18,8 @@ async function postWithRetry(
 		try {
 			const res = await fetch(url, { method: "POST", body, headers });
 			if (res.ok) return { ok: true, status: res.status };
-			if (attempt === BACKOFF_MS.length) return { ok: false, status: res.status };
+			if (attempt === BACKOFF_MS.length)
+				return { ok: false, status: res.status };
 		} catch {
 			if (attempt === BACKOFF_MS.length) return { ok: false, status: 0 };
 		}

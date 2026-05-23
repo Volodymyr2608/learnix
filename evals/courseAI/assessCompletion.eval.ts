@@ -6,7 +6,11 @@ import { assessCompletion } from "@/server/services/courseAI/graph/nodes/assessC
 type Row = {
 	id: string;
 	currentStep: keyof typeof DraftStep;
-	history: { role: "user" | "assistant"; content: string; step: keyof typeof DraftStep }[];
+	history: {
+		role: "user" | "assistant";
+		content: string;
+		step: keyof typeof DraftStep;
+	}[];
 	assistantText: string;
 	expected: { ready: boolean };
 };
@@ -52,7 +56,9 @@ export async function runAssessCompletionEval() {
 	);
 
 	const truePositives = results.filter((r) => r.predicted && r.expected).length;
-	const falsePositives = results.filter((r) => r.predicted && !r.expected).length;
+	const falsePositives = results.filter(
+		(r) => r.predicted && !r.expected,
+	).length;
 	const precision =
 		truePositives + falsePositives === 0
 			? 1

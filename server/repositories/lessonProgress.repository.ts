@@ -33,7 +33,10 @@ class LessonProgressRepository extends BaseRepository<
 		} as Prisma.LessonProgressWhereInput);
 	}
 
-	async findCompletedIds(studentId: string, courseId: string): Promise<string[]> {
+	async findCompletedIds(
+		studentId: string,
+		courseId: string,
+	): Promise<string[]> {
 		const rows = await this.findMany({
 			where: {
 				studentId,

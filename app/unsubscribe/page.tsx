@@ -12,7 +12,7 @@ export default async function UnsubscribePage({
 		return (
 			<main className="flex min-h-screen items-center justify-center p-8">
 				<div className="max-w-md text-center">
-					<h1 className="text-2xl font-bold text-gray-900">Invalid link</h1>
+					<h1 className="font-bold text-2xl text-gray-900">Invalid link</h1>
 					<p className="mt-2 text-gray-600">
 						This unsubscribe link is invalid or has expired.
 					</p>
@@ -28,7 +28,7 @@ export default async function UnsubscribePage({
 		return (
 			<main className="flex min-h-screen items-center justify-center p-8">
 				<div className="max-w-md text-center">
-					<h1 className="text-2xl font-bold text-gray-900">
+					<h1 className="font-bold text-2xl text-gray-900">
 						You&apos;ve been unsubscribed
 					</h1>
 					<p className="mt-2 text-gray-600">
@@ -41,7 +41,7 @@ export default async function UnsubscribePage({
 		return (
 			<main className="flex min-h-screen items-center justify-center p-8">
 				<div className="max-w-md text-center">
-					<h1 className="text-2xl font-bold text-gray-900">Invalid link</h1>
+					<h1 className="font-bold text-2xl text-gray-900">Invalid link</h1>
 					<p className="mt-2 text-gray-600">
 						This unsubscribe link is invalid or has expired.
 					</p>

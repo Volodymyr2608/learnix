@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { SignJWT, jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { env } from "@/lib/env";
 
 const apiSecret = () => new TextEncoder().encode(env.N8N_API_TOKEN);
@@ -27,7 +27,9 @@ export function requireBearer(req: Request): void {
 	}
 }
 
-export async function signCertificateToken(enrollmentId: string): Promise<string> {
+export async function signCertificateToken(
+	enrollmentId: string,
+): Promise<string> {
 	return new SignJWT({ enrollmentId })
 		.setProtectedHeader({ alg: "HS256" })
 		.setExpirationTime("30d")

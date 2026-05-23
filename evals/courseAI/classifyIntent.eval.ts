@@ -64,7 +64,10 @@ export async function runClassifyIntentEval() {
 	);
 	const accuracy = results.filter((r) => r.ok).length / results.length;
 	console.log(`classifyIntent accuracy: ${(accuracy * 100).toFixed(1)}%`);
-	console.log("Failures:", results.filter((r) => !r.ok).map((r) => r.id));
+	console.log(
+		"Failures:",
+		results.filter((r) => !r.ok).map((r) => r.id),
+	);
 	if (accuracy < 0.85) {
 		console.error("FAIL: classifyIntent accuracy below 0.85 threshold");
 		process.exit(1);

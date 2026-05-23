@@ -6,7 +6,11 @@ import { confidenceScore } from "@/server/services/courseAI/graph/nodes/confiden
 type Row = {
 	id: string;
 	currentStep: keyof typeof DraftStep;
-	history: { role: "user" | "assistant"; content: string; step: keyof typeof DraftStep }[];
+	history: {
+		role: "user" | "assistant";
+		content: string;
+		step: keyof typeof DraftStep;
+	}[];
 	draftStepData: unknown;
 	expected: { complete: boolean };
 };

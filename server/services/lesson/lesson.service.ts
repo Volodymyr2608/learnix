@@ -4,8 +4,8 @@ import { db } from "@/server/db";
 import type { LessonContentUpdateDto } from "@/server/entities/lesson";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
-import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { notificationService } from "@/server/services/notifications/notification.service";
@@ -211,7 +211,9 @@ class LessonService {
 					.fireCertificateEarned(enrollment.id)
 					.catch((err) => logger.warn("fireCertificateEarned failed:", err));
 			} else {
-				await enrollmentRepository.update(enrollment.id, { progress: progressPct });
+				await enrollmentRepository.update(enrollment.id, {
+					progress: progressPct,
+				});
 
 				if (lessonsRemaining === 1 || lessonsRemaining === 2) {
 					const completedIds = await lessonProgressRepository.findCompletedIds(

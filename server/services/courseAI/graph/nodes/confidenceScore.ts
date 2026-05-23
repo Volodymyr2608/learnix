@@ -1,26 +1,27 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
+import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
 const CONFIDENCE_THRESHOLD = 0.8;
 
 const outSchema = z.object({
-  score: z.number().min(0).max(1),
-  rationale: z.string(),
+	score: z.number().min(0).max(1),
+	rationale: z.string(),
 });
 
 export const confidenceScore = withNodeErrors(
-  "confidence_score",
-  async (state: CourseBuilderStateT) => {
-    const model = new ChatOpenAI({
-      model: "gpt-4o-mini",
-      temperature: 0,
-      apiKey: env.OPENAI_API_KEY,
-    }).withStructuredOutput(outSchema);
+	"confidence_score",
+	async (state: CourseBuilderStateT) => {
+		const model = new ChatOpenAI({
+			model: "gpt-4o-mini",
+			temperature: 0,
+			apiKey: env.OPENAI_API_KEY,
+		}).withStructuredOutput(outSchema);
 
-    const prompt = `Rate your confidence (0..1) that the "${state.currentStep}" step is complete and correct.
+		const prompt =
+			`Rate your confidence (0..1) that the "${state.currentStep}" step is complete and correct.
 
 CONVERSATION:
 ${state.history.map((m) => `[${m.role}]: ${m.content}`).join("\n")}
@@ -36,10 +37,11 @@ Guidelines:
 - 0.4–0.7: gaps remain.
 - 0.0–0.4: clearly underspecified.`.trim();
 
-    const out = await model.invoke([{ role: "user", content: prompt }]);
-    const score = out.score;
-    const shouldAutoAdvance = score >= CONFIDENCE_THRESHOLD && state.validationErrors === null;
+		const out = await model.invoke([{ role: "user", content: prompt }]);
+		const score = out.score;
+		const shouldAutoAdvance =
+			score >= CONFIDENCE_THRESHOLD && state.validationErrors === null;
 
-    return { confidence: score, shouldAutoAdvance };
-  },
+		return { confidence: score, shouldAutoAdvance };
+	},
 );

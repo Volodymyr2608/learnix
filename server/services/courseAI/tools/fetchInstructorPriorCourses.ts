@@ -1,5 +1,5 @@
-import { tool } from "@langchain/core/tools";
 import type { RunnableConfig } from "@langchain/core/runnables";
+import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { CourseAIToolError } from "@/server/services/courseAI/courseAI.errors";
@@ -17,7 +17,9 @@ export const fetchInstructorPriorCoursesTool = tool(
 					"fetch_instructor_prior_courses: missing instructorId in RunnableConfig.configurable",
 				),
 			);
-			return JSON.stringify({ error: "tool failed; missing instructor context" });
+			return JSON.stringify({
+				error: "tool failed; missing instructor context",
+			});
 		}
 
 		try {
@@ -34,9 +36,7 @@ export const fetchInstructorPriorCoursesTool = tool(
 			return JSON.stringify({ results: courses });
 		} catch (err) {
 			logger.error(
-				new CourseAIToolError(
-					`fetch_instructor_prior_courses: ${String(err)}`,
-				),
+				new CourseAIToolError(`fetch_instructor_prior_courses: ${String(err)}`),
 			);
 			return JSON.stringify({
 				error: "tool failed; proceed without prior-course context",
