@@ -38,6 +38,7 @@ const AIChatBuilderDialog = ({
 	const [lastAutoAdvanced, setLastAutoAdvanced] = useState(false);
 	const [showAcceptButton, setShowAcceptButton] = useState(false);
 	const stepCommittedRef = useRef(false);
+	const autoAdvancedRef = useRef(false);
 	const lastAssistantMessageIdRef = useRef<string | null>(null);
 
 	const {
@@ -76,6 +77,7 @@ const AIChatBuilderDialog = ({
 
 				if (ev.autoAdvanced) {
 					setShowAcceptButton(false);
+					autoAdvancedRef.current = true;
 				}
 			} else if (ev.type === "done") {
 				setActiveToolCall(null);
@@ -83,6 +85,10 @@ const AIChatBuilderDialog = ({
 					setShowAcceptButton(true);
 				}
 				stepCommittedRef.current = false;
+				if (autoAdvancedRef.current) {
+					autoAdvancedRef.current = false;
+					triggerNextStep();
+				}
 			}
 		},
 	});
@@ -102,7 +108,7 @@ const AIChatBuilderDialog = ({
 		[streamAssistantMessage],
 	);
 
-	const { sendUserMessage } = useChatActions({
+	const { sendUserMessage, triggerNextStep } = useChatActions({
 		addMessage,
 		courseGenerationId,
 		setInput,

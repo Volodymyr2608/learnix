@@ -19,10 +19,6 @@ export async function POST(req: Request) {
 	};
 	const mode: Mode = body.mode === "finalize" ? "finalize" : "chat";
 
-	if (mode === "chat" && !body.userMessage) {
-		return new Response("Message is required", { status: 400 });
-	}
-
 	const abortSignal = req.signal;
 
 	const courseGeneration = await courseAIService.getOrCreateCourseGeneration({

@@ -35,5 +35,15 @@ export const useChatActions = ({
 		);
 	};
 
-	return { sendUserMessage };
+	// Silently trigger the AI for the next step after auto-advance (no user bubble).
+	const triggerNextStep = async () => {
+		const assistantMessage = createAssistantMessage();
+		addMessage(assistantMessage);
+		await streamAssistantMessage(
+			{ userMessage: "", courseGenerationId },
+			assistantMessage.id,
+		);
+	};
+
+	return { sendUserMessage, triggerNextStep };
 };
