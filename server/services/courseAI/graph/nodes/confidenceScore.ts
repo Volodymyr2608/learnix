@@ -23,19 +23,19 @@ export const confidenceScore = withNodeErrors(
 		const prompt =
 			`Rate your confidence (0..1) that the "${state.currentStep}" step is complete and correct.
 
-CONVERSATION:
-${state.history.map((m) => `[${m.role}]: ${m.content}`).join("\n")}
-[user]: ${state.userMessage}
-${state.assistantText ? `[assistant]: ${state.assistantText}` : ""}
-
-EXTRACTED DATA:
-${JSON.stringify(state.draftStepData, null, 2)}
-
-Guidelines:
-- 0.9–1.0: ship.
-- 0.7–0.9: solid but could improve.
-- 0.4–0.7: gaps remain.
-- 0.0–0.4: clearly underspecified.`.trim();
+			CONVERSATION:
+			${state.history.map((m) => `[${m.role}]: ${m.content}`).join("\n")}
+			[user]: ${state.userMessage}
+			${state.assistantText ? `[assistant]: ${state.assistantText}` : ""}
+			
+			EXTRACTED DATA:
+			${JSON.stringify(state.draftStepData, null, 2)}
+			
+			Guidelines:
+			- 0.9–1.0: ship.
+			- 0.7–0.9: solid but could improve.
+			- 0.4–0.7: gaps remain.
+			- 0.0–0.4: clearly underspecified.`.trim();
 
 		const out = await model.invoke([{ role: "user", content: prompt }], config);
 		const score = out.score;

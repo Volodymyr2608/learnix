@@ -20,13 +20,16 @@ export const clarify = withNodeErrors(
 		const prompt =
 			`You just tried to finalize the "${state.currentStep}" step but validation failed. Ask the user ONE concise, friendly follow-up question (in their language) that would unblock the most important missing field. Do not list every error. Do not show JSON.
 
-VALIDATION ERRORS:
-${issues}
+			VALIDATION ERRORS:
+			${issues}
+			
+			EXTRACTED (FAILING) DATA:
+			${JSON.stringify(state.draftStepData, null, 2)}`.trim();
 
-EXTRACTED (FAILING) DATA:
-${JSON.stringify(state.draftStepData, null, 2)}`.trim();
-
-		const stream = await model.stream([{ role: "system", content: prompt }], config);
+		const stream = await model.stream(
+			[{ role: "system", content: prompt }],
+			config,
+		);
 
 		let text = "";
 		for await (const chunk of stream) {

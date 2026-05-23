@@ -5,7 +5,9 @@ import { DraftStep } from "@/generated/prisma";
 
 const appendList = () =>
 	withLangGraph(
-		z.array(z.unknown()).default(() => []) as unknown as InteropZodType<unknown[]>,
+		z.array(z.unknown()).default(() => []) as unknown as InteropZodType<
+			unknown[]
+		>,
 		{
 			reducer: {
 				fn: (prev: unknown[], next: unknown | unknown[]) =>
@@ -72,7 +74,11 @@ export type CourseBuilderStateT = {
 	instructorId: string;
 	currentStep: DraftStep;
 	content: Record<string, unknown>;
-	history: Array<{ role: "user" | "assistant"; content: string; step: DraftStep }>;
+	history: Array<{
+		role: "user" | "assistant";
+		content: string;
+		step: DraftStep;
+	}>;
 	mode: "chat" | "finalize";
 	userMessage: string;
 	intent: "continue" | "revise" | "clarify" | null;

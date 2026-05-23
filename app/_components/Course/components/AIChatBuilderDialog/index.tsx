@@ -114,7 +114,13 @@ const AIChatBuilderDialog = ({
 			setCurrentStep(currentIndex);
 			setCompletedSteps(STEPS.slice(0, currentIndex).map((s) => s.id));
 		}
-	}, [open, initializeMessages, activeCourseGeneration, setCurrentStep, setCompletedSteps]);
+	}, [
+		open,
+		initializeMessages,
+		activeCourseGeneration,
+		setCurrentStep,
+		setCompletedSteps,
+	]);
 
 	const { setStatus, isPending: isApplyPending } = useCourseGenerationStatus();
 
