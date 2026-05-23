@@ -2,7 +2,6 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { DraftStep } from "@/generated/prisma";
 import { env } from "@/lib/env";
-import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
 const outSchema = z.object({

@@ -1,6 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
-import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 
