@@ -11,8 +11,8 @@ const outSchema = z.object({
 export const assessCompletion = withNodeErrors(
 	"assess_completion",
 	async (state) => {
-		// Revision turns never auto-advance.
-		if (state.intent === "revise") return { assessReady: false };
+		// Auto-trigger turns (empty userMessage) and revision turns must never commit.
+		if (!state.userMessage || state.intent === "revise") return { assessReady: false };
 
 		const model = new ChatOpenAI({
 			model: "gpt-4o-mini",
@@ -21,16 +21,12 @@ export const assessCompletion = withNodeErrors(
 		}).withStructuredOutput(outSchema, { method: "functionCalling" });
 
 		const historyText = [
-			...state.history,
-			...(state.userMessage
-				? [
-						{
-							role: "user" as const,
-							content: state.userMessage,
-							step: state.currentStep,
-						},
-					]
-				: []),
+			...state.history.filter((m) => m.step === state.currentStep),
+			{
+				role: "user" as const,
+				content: state.userMessage,
+				step: state.currentStep,
+			},
 			{
 				role: "assistant" as const,
 				content: state.assistantText,
