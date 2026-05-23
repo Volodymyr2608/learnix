@@ -22,7 +22,7 @@ export const classifyIntent = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
-		}).withStructuredOutput(outSchema);
+		}).withStructuredOutput(outSchema, { strict: false });
 
 		const historyText = state.history
 			.map((m) => `[${m.role}@${m.step}]: ${m.content}`)

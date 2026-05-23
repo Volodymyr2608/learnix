@@ -17,7 +17,7 @@ export const revisePriorField = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
-		}).withStructuredOutput(partial);
+		}).withStructuredOutput(partial, { strict: false });
 
 		const prompt = `The user wants to revise a field in the "${target}" step.
 Current values for that step: ${JSON.stringify(state.content[target] ?? {}, null, 2)}
