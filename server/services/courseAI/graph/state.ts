@@ -55,6 +55,8 @@ export const CourseBuilderState = z.object({
     },
   ),
   validationErrors: z.array(z.unknown()).nullable().default(null),
+  // Cleared each toolRouter pass — never accumulated. Used only for routing.
+  pendingToolCalls: z.array(z.unknown()).default(() => []),
 });
 
 export type CourseBuilderStateT = z.infer<typeof CourseBuilderState>;

@@ -49,5 +49,5 @@ export const toolRouter = withNodeErrors("tool_router", async (state) => {
     args: tc.args,
   }));
 
-  return { toolCalls };
+  return { toolCalls, pendingToolCalls: toolCalls };
 });
