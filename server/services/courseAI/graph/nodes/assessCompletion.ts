@@ -22,25 +22,36 @@ export const assessCompletion = withNodeErrors(
 
 		const historyText = [
 			...state.history,
+			...(state.userMessage
+				? [
+						{
+							role: "user" as const,
+							content: state.userMessage,
+							step: state.currentStep,
+						},
+					]
+				: []),
 			{
 				role: "assistant" as const,
 				content: state.assistantText,
 				step: state.currentStep,
 			},
 		]
-			.map((m) => `[${m.role}@${m.step}]: ${m.content}`)
+			.map((m) => `[${m.role}]: ${m.content}`)
 			.join("\n");
 
 		const prompt =
-			`Decide whether the "${state.currentStep}" step has enough information to be extracted into structured data without further user input.
+			`Decide whether the "${state.currentStep}" step has enough concrete information in the conversation to be extracted into structured data.
 
-Be CONSERVATIVE — false positives trigger premature auto-persist. Only return ready=true if a competent instructional designer would say "yes, ship this step as-is right now."
+Return ready=true when ANY of these are true:
+- The conversation contains specific values for the required fields of this step.
+- The user has explicitly approved AI-proposed content for this step (e.g. "ok", "yes", "looks good", "that's fine").
+- The user asked to finalize or move on.
+
+Return ready=false only when the step data is genuinely missing or incomplete and the user has not confirmed anything.
 
 CONVERSATION:
-${historyText}
-
-CURRENT STRUCTURED CONTENT FOR THIS STEP:
-${JSON.stringify(state.content[state.currentStep] ?? {}, null, 2)}`.trim();
+${historyText}`.trim();
 
 		try {
 			const out = await model.invoke([{ role: "user", content: prompt }]);
