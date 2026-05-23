@@ -17,6 +17,9 @@ const ChatMessage = ({
 }: ChatMessageProps) => {
 	const isUser = message.role === "user";
 
+	// Hide empty assistant placeholders left by finalize/accept runs that produced no tokens
+	if (!isUser && !message.content && !message.isStreaming) return null;
+
 	return (
 		<div className={`flex gap-3 ${isUser ? "justify-end" : ""}`}>
 			{!isUser && (

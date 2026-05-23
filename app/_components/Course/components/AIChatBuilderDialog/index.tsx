@@ -39,6 +39,7 @@ const AIChatBuilderDialog = ({
 	const [showAcceptButton, setShowAcceptButton] = useState(false);
 	const stepCommittedRef = useRef(false);
 	const autoAdvancedRef = useRef(false);
+	const confidenceFiredRef = useRef(false);
 	const lastAssistantMessageIdRef = useRef<string | null>(null);
 
 	const {
@@ -63,6 +64,7 @@ const AIChatBuilderDialog = ({
 				setActiveToolCall(null);
 			} else if (ev.type === "confidence") {
 				setLastConfidence(ev.value);
+				confidenceFiredRef.current = true;
 			} else if (ev.type === "step_committed") {
 				stepCommittedRef.current = true;
 				setLastAutoAdvanced(ev.autoAdvanced);
@@ -75,16 +77,16 @@ const AIChatBuilderDialog = ({
 					);
 				}
 
-				if (ev.autoAdvanced) {
-					setShowAcceptButton(false);
-					autoAdvancedRef.current = true;
-				}
+				setShowAcceptButton(false);
+				autoAdvancedRef.current = true;
 			} else if (ev.type === "done") {
 				setActiveToolCall(null);
-				if (!stepCommittedRef.current) {
+				// Only show Accept if confidence scoring actually ran this turn
+				if (!stepCommittedRef.current && confidenceFiredRef.current) {
 					setShowAcceptButton(true);
 				}
 				stepCommittedRef.current = false;
+				confidenceFiredRef.current = false;
 				if (autoAdvancedRef.current) {
 					autoAdvancedRef.current = false;
 					triggerNextStep();
@@ -102,6 +104,7 @@ const AIChatBuilderDialog = ({
 			setLastAutoAdvanced(false);
 			setLastConfidence(null);
 			stepCommittedRef.current = false;
+			confidenceFiredRef.current = false;
 			lastAssistantMessageIdRef.current = messageId;
 			return streamAssistantMessage(payload, messageId);
 		},
