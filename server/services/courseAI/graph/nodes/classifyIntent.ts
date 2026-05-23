@@ -6,7 +6,9 @@ import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors"
 
 const outSchema = z.object({
 	intent: z.enum(["continue", "revise", "clarify"]),
-	reviseTarget: z.enum(Object.values(DraftStep) as [DraftStep, ...DraftStep[]]).nullable(),
+	reviseTarget: z
+		.enum(Object.values(DraftStep) as [DraftStep, ...DraftStep[]])
+		.nullable(),
 	reason: z.string(),
 });
 
@@ -48,7 +50,10 @@ export const classifyIntent = withNodeErrors(
 			Otherwise default to "continue".`.trim();
 
 		try {
-			const out = await model.invoke([{ role: "user", content: prompt }], config);
+			const out = await model.invoke(
+				[{ role: "user", content: prompt }],
+				config,
+			);
 			return {
 				intent: out.intent,
 				reviseTarget: out.intent === "revise" ? out.reviseTarget : null,

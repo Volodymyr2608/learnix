@@ -34,7 +34,11 @@ const ChatMessage = ({
 						"bg-primary text-primary-foreground": isUser,
 					})}
 				>
-					<div className={cn("prose prose-sm m-0 text-sm", { "text-primary-foreground": isUser })}>
+					<div
+						className={cn("prose prose-sm m-0 text-sm", {
+							"text-primary-foreground": isUser,
+						})}
+					>
 						{isUser ? (
 							message.content
 						) : (

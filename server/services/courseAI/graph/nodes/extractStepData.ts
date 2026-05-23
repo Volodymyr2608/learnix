@@ -45,7 +45,10 @@ export const extractStepData = withNodeErrors(
 			history: historyForPrompt,
 		});
 
-		const draft = await model.invoke([{ role: "system", content: prompt }], config);
+		const draft = await model.invoke(
+			[{ role: "system", content: prompt }],
+			config,
+		);
 
 		return { draftStepData: draft };
 	},

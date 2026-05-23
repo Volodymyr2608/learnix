@@ -4,7 +4,7 @@ import { courseGenerationMessageRepository } from "@/server/repositories/courseG
 import { traced } from "@/server/services/_shared/tracing";
 import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
 import { courseBuilderGraph } from "@/server/services/courseAI/graph/graph";
-import { type CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
+import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import {
 	isMessageShape,
 	type MessageShape,
@@ -113,14 +113,11 @@ export class CourseAIService {
 		const run = traced(
 			"courseAI.graph",
 			async () =>
-				courseBuilderGraph.streamEvents(
-					initialState,
-					{
-						version: "v2",
-						signal,
-						configurable: { instructorId: courseGeneration.instructorId },
-					},
-				),
+				courseBuilderGraph.streamEvents(initialState, {
+					version: "v2",
+					signal,
+					configurable: { instructorId: courseGeneration.instructorId },
+				}),
 			{
 				feature: "builder",
 				userId: courseGeneration.instructorId,
@@ -145,14 +142,11 @@ export class CourseAIService {
 		const run = traced(
 			"courseAI.graph",
 			async () =>
-				courseBuilderGraph.streamEvents(
-					initialState,
-					{
-						version: "v2",
-						signal,
-						configurable: { instructorId: courseGeneration.instructorId },
-					},
-				),
+				courseBuilderGraph.streamEvents(initialState, {
+					version: "v2",
+					signal,
+					configurable: { instructorId: courseGeneration.instructorId },
+				}),
 			{
 				feature: "builder",
 				userId: courseGeneration.instructorId,
