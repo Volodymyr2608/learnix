@@ -57,11 +57,11 @@ export const useChatStreaming = (
 						setCourseGenerationId(parsed.courseGenerationId);
 					}
 
-					if (parsed.type === "actions") {
+					if (parsed.type === "step_committed") {
 						updateMessage(messageId, (m) => ({
 							...m,
 							showActions: true,
-							step: parsed.currentStep,
+							step: parsed.step,
 						}));
 					}
 
