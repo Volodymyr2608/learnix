@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/app/_components/_shared/ui/dialog";
@@ -33,6 +33,13 @@ const AIChatBuilderDialog = ({
 		string | undefined
 	>(activeCourseGeneration?.id);
 
+	const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
+	const [lastConfidence, setLastConfidence] = useState<number | null>(null);
+	const [lastAutoAdvanced, setLastAutoAdvanced] = useState(false);
+	const [showAcceptButton, setShowAcceptButton] = useState(false);
+	const stepCommittedRef = useRef(false);
+	const lastAssistantMessageIdRef = useRef<string | null>(null);
+
 	const {
 		initializeMessages,
 		messages,
@@ -43,27 +50,72 @@ const AIChatBuilderDialog = ({
 		setInput,
 	} = useChatState();
 
-	const { simulateTyping, isTyping } = useTypingSimulation(updateMessage);
+	const { isTyping } = useTypingSimulation(updateMessage);
 
-	const { streamAssistantMessage } = useChatStreaming(
+	const { streamAssistantMessage, streamFinalize } = useChatStreaming({
 		updateMessage,
 		setCourseGenerationId,
+		onStreamEvent: (ev) => {
+			if (ev.type === "tool_call") {
+				setActiveToolCall(ev.name);
+			} else if (ev.type === "token") {
+				setActiveToolCall(null);
+			} else if (ev.type === "confidence") {
+				setLastConfidence(ev.value);
+			} else if (ev.type === "step_committed") {
+				stepCommittedRef.current = true;
+				setLastAutoAdvanced(ev.autoAdvanced);
+
+				const committedIndex = STEPS.findIndex((s) => s.id === ev.step);
+				if (committedIndex >= 0) {
+					setCurrentStep(committedIndex + 1);
+					setCompletedSteps((prev) =>
+						prev.includes(ev.step) ? prev : [...prev, ev.step],
+					);
+				}
+
+				if (ev.autoAdvanced) {
+					setShowAcceptButton(false);
+				}
+			} else if (ev.type === "done") {
+				setActiveToolCall(null);
+				if (!stepCommittedRef.current) {
+					setShowAcceptButton(true);
+				}
+				stepCommittedRef.current = false;
+			}
+		},
+	});
+
+	const wrappedStreamAssistantMessage = useCallback(
+		(
+			payload: { userMessage: string; courseGenerationId?: string },
+			messageId: string,
+		) => {
+			setShowAcceptButton(false);
+			setLastAutoAdvanced(false);
+			setLastConfidence(null);
+			stepCommittedRef.current = false;
+			lastAssistantMessageIdRef.current = messageId;
+			return streamAssistantMessage(payload, messageId);
+		},
+		[streamAssistantMessage],
 	);
 
 	const { sendUserMessage } = useChatActions({
 		addMessage,
 		courseGenerationId,
 		setInput,
-		streamAssistantMessage,
+		streamAssistantMessage: wrappedStreamAssistantMessage,
 	});
 
 	const { acceptStep } = useCourseStepFlow({
 		addMessage,
 		courseGenerationId,
-		currentStep,
-		setCompletedSteps,
-		setCurrentStep,
-		simulateTyping,
+		streamFinalize,
+		onAssistantPlaceholder: (id) => {
+			lastAssistantMessageIdRef.current = id;
+		},
 	});
 
 	useEffect(() => {
@@ -109,21 +161,30 @@ const AIChatBuilderDialog = ({
 		resetChat();
 		setCurrentStep(0);
 		setCompletedSteps([]);
+		setActiveToolCall(null);
+		setLastConfidence(null);
+		setLastAutoAdvanced(false);
+		setShowAcceptButton(false);
+		stepCommittedRef.current = false;
 	};
 
 	return (
 		<Dialog onOpenChange={handleClose} open={open}>
 			<DialogContent className="flex h-[85vh] gap-0 overflow-hidden p-0 lg:max-w-6xl">
 				<ChatPanel
+					activeToolCall={activeToolCall}
 					completedSteps={completedSteps}
 					currentStep={currentStep}
 					input={input}
 					isTyping={isTyping}
+					lastAutoAdvanced={lastAutoAdvanced}
+					lastConfidence={lastConfidence}
 					messages={messages}
 					onAcceptBlock={acceptStep}
 					onInputChange={setInput}
 					onSend={() => sendUserMessage(input)}
 					onSuggestionClick={sendUserMessage}
+					showAcceptButton={showAcceptButton}
 				/>
 
 				<PreviewPanel

@@ -4,4 +4,6 @@ export type ChatMessageProps = Omit<ChatMessagesProps, "messages"> & {
 	message: ChatMessagesProps["messages"][number];
 	isLastMessage: boolean;
 	countMessages: number;
+	showAcceptButton?: boolean;
+	lastAutoAdvanced?: boolean;
 };

@@ -12,4 +12,8 @@ export interface ChatPanelProps {
 	onAcceptBlock: (step: DraftStep) => Promise<void>;
 	currentStep: number;
 	completedSteps: string[];
+	activeToolCall?: string | null;
+	lastAutoAdvanced?: boolean;
+	lastConfidence?: number | null;
+	showAcceptButton?: boolean;
 }
