@@ -46,6 +46,7 @@ export async function runConfidenceScoreEval() {
 				shouldAutoAdvance: false,
 				assistantText: "",
 				validationErrors: null,
+				messages: [],
 			});
 			return {
 				id: r.id,

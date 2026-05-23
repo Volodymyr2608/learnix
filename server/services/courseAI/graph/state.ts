@@ -57,6 +57,23 @@ export const CourseBuilderState = z.object({
 	validationErrors: z.array(z.unknown()).nullable().default(null),
 	// Cleared each toolRouter pass — never accumulated. Used only for routing.
 	pendingToolCalls: z.array(z.unknown()).default(() => []),
+	// LangChain BaseMessage[] for the current tool-call loop. Append-only within a single request.
+	// ToolNode reads the last AIMessage here; toolRouter appends its response and reads prior results.
+	messages: withLangGraph(
+		z.array(z.unknown()).default(() => []) as unknown as InteropZodType<
+			unknown[]
+		>,
+		{
+			reducer: {
+				fn: (prev: unknown[], next: unknown | unknown[]) =>
+					prev.concat(Array.isArray(next) ? next : [next]),
+				schema: z.union([
+					z.unknown(),
+					z.array(z.unknown()),
+				]) as unknown as InteropZodType<unknown | unknown[]>,
+			},
+		},
+	),
 });
 
 export type CourseBuilderStateT = z.infer<typeof CourseBuilderState>;

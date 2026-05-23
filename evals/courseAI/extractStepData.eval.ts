@@ -74,6 +74,7 @@ export async function runExtractStepDataEval() {
 				shouldAutoAdvance: false,
 				assistantText: "",
 				validationErrors: null,
+				messages: [],
 			});
 			const schema = getValidatorForStep(step);
 			const parsed = schema.safeParse(out.draftStepData);

@@ -52,6 +52,7 @@ export async function runClassifyIntentEval() {
 				shouldAutoAdvance: false,
 				assistantText: "",
 				validationErrors: null,
+				messages: [],
 			});
 			const ok =
 				out.intent === row.expected.intent &&

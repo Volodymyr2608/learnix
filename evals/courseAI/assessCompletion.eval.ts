@@ -46,6 +46,7 @@ export async function runAssessCompletionEval() {
 				shouldAutoAdvance: false,
 				assistantText: r.assistantText,
 				validationErrors: null,
+				messages: [],
 			});
 			return {
 				id: r.id,

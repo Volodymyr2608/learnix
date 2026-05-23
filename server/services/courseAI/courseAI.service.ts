@@ -85,6 +85,7 @@ export class CourseAIService {
 			reviseTarget: null,
 			toolCalls: [],
 			pendingToolCalls: [],
+			messages: [],
 			assessReady: false,
 			draftStepData: undefined,
 			confidence: 0,

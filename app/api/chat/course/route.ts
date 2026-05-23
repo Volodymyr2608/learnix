@@ -72,6 +72,7 @@ export async function POST(req: Request) {
 							});
 
 				let lastConfidence: number | null = null;
+				const STREAMING_NODES = new Set(["chat_response", "clarify"]);
 
 				for await (const ev of events) {
 					if (abortSignal.aborted) {
@@ -80,6 +81,8 @@ export async function POST(req: Request) {
 					}
 
 					if (ev.event === "on_chat_model_stream") {
+						const node = ev.metadata?.langgraph_node as string | undefined;
+						if (!node || !STREAMING_NODES.has(node)) continue;
 						const chunk = ev.data?.chunk as { content?: unknown } | undefined;
 						const token = chunk?.content?.toString();
 						if (token) {
