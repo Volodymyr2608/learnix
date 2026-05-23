@@ -14,7 +14,7 @@ export const extractStepData = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
-		}).withStructuredOutput(schema, { strict: false });
+		}).withStructuredOutput(schema, { method: "functionCalling" });
 
 		const historyForPrompt = [
 			...state.history,

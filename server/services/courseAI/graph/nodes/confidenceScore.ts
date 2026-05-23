@@ -18,7 +18,7 @@ export const confidenceScore = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
-		}).withStructuredOutput(outSchema, { strict: false });
+		}).withStructuredOutput(outSchema, { method: "functionCalling" });
 
 		const prompt =
 			`Rate your confidence (0..1) that the "${state.currentStep}" step is complete and correct.
