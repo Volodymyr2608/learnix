@@ -84,7 +84,25 @@ Replaces keyword `LIKE` search with pgvector cosine similarity (ADR-012). Embedd
 **Backfill:** `pnpm reindex` (`scripts/reindex-embeddings.ts`) iterates all published courses, lessons with content, and users with enrollments in sequence.
 
 ### AI course builder
-Streaming SSE endpoint at `app/api/chat/course/route.ts`. Uses LangChain + OpenAI (`gpt-4o-mini`) to guide instructors through a multi-step course creation flow (`DraftStep` enum). Each step collects specific course data, persisted to `CourseGeneration.content`. The `CourseAIService` (`server/services/courseAI/`) handles streaming, step extraction, and message persistence. Frontend: `app/_components/Course/components/AIChatBuilderDialog/` — a chat panel with a live preview panel.
+Streaming SSE endpoint at `app/api/chat/course/route.ts`. Uses a **LangGraph `StateGraph`** (`server/services/courseAI/graph/`) with OpenAI `gpt-4o-mini` to guide instructors through a multi-step course creation flow (`DraftStep` enum: `basic → objectives → requirements → curriculum`).
+
+**Graph nodes:** `classify_intent → tool_router → ToolNode (loop) → chat_response → assess_completion → extract_step_data → validate → confidence_score → persist_and_emit` (or `→ clarify` on validation failure). Two run modes: `chat` (entry at `classify_intent`) and `finalize` (entry at `extract_step_data`).
+
+**`classify_intent` intents:** `continue` (→ `tool_router`), `revise` (→ `revise_prior_field → chat_response`), `clarify` (→ `chat_response` directly, bypasses tools — streams one question to resolve ambiguity between continue and revise, never triggers extraction).
+
+**Revision flow:** `revise_prior_field` updates `content[reviseTarget]` using a flat merge (`{ ...content, ...stepData }`), persists to DB immediately, emits `content_revised` SSE so the preview refetches. Routes to `chat_response` which streams a short confirmation; `assess_completion` returns `ready: false` for revise turns.
+
+**Tools (4):** `search_similar_courses`, `fetch_instructor_prior_courses`, `validate_curriculum_coherence`, `lookup_category_taxonomy`. Instructor ID is sourced from `RunnableConfig.configurable`, not LLM input. `tool_router` includes per-tool guidance in the system prompt.
+
+**Confirmation-gated extraction:** `assess_completion` requires explicit user approval ("ok", "yes", "looks good", etc.). It distinguishes approval of the current step from acknowledgment of a prior-step revision. All LangGraph nodes forward `RunnableConfig` to model calls so `on_chat_model_stream` events propagate correctly.
+
+**Node progress:** `on_chain_start` for informative nodes emits `node_start` SSE; `ToolCallIndicator` shows labels for both tools and nodes.
+
+**Auto-advance:** `confidence_score` ≥ 0.8 triggers automatic step commit; below that the UI shows an Accept button.
+
+**No LangGraph checkpointer** — state is hydrated each request from `CourseGeneration` + `CourseGenerationMessage` tables via repositories (ADR-003). See ADR-016 for full design.
+
+`CourseAIService` (`server/services/courseAI/`) exposes `runChat` and `runFinalize`. Frontend: `app/_components/Course/components/AIChatBuilderDialog/` — a chat panel (with `ToolCallIndicator`, `ConfidenceBadge`) and a live preview panel (ADR-011).
 
 ### File uploads
 Vercel Blob via `app/api/uploads/route.ts`. Course thumbnails (≤2MB images) and preview videos (≤100MB) are uploaded client-side before the tRPC course mutation.

@@ -31,6 +31,7 @@ export const buildSystemPrompt = ({
       3. Use the OFFICIAL COURSE DATA above to ensure consistency (e.g., if the level is "Beginner", requirements should be basic).
       4. IMPORTANT: Do not show raw JSON to the user.
       5. Speak the same language as the user.
-      6. If the user provides enough information, summarize what you've gathered and suggest moving to the next step.
+      6. NEVER ask the user if they want to move to the next step or confirm readiness to proceed. The system handles step transitions automatically.
+      7. If the user's message is a confirmation or approval ("ok", "yes", "looks good", "perfect", "go ahead", etc.), respond with ONE short sentence only (e.g. "Great, finalizing this step!"). Do NOT re-list, re-summarize, or re-propose any content — the original proposal is already recorded.
     `.trim();
 };

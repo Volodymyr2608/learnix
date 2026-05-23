@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { env } from "@/lib/env";
 
 const secret = () => new TextEncoder().encode(env.N8N_API_TOKEN);

@@ -1,72 +1,143 @@
+import type { DraftStep } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 
 export const runtime = "nodejs";
 
+type Mode = "chat" | "finalize";
+
 export async function POST(req: Request) {
 	const session = await getSession();
-
 	if (!session?.user) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	const { courseGenerationId, userMessage } = await req.json();
-
-	if (!userMessage) {
-		return new Response("Message is required", { status: 400 });
-	}
+	const body = (await req.json()) as {
+		courseGenerationId?: string;
+		userMessage?: string;
+		mode?: Mode;
+	};
+	const mode: Mode = body.mode === "finalize" ? "finalize" : "chat";
 
 	const abortSignal = req.signal;
 
 	const courseGeneration = await courseAIService.getOrCreateCourseGeneration({
-		courseGenerationId,
+		courseGenerationId: body.courseGenerationId,
 		userId: session.user.id,
 	});
 
-	await courseAIService.saveMessage(courseGeneration.id, {
-		role: "user",
-		content: userMessage,
-		step: courseGeneration.step,
-	});
+	if (mode === "chat" && body.userMessage) {
+		await courseAIService.saveMessage(courseGeneration.id, {
+			role: "user",
+			content: body.userMessage,
+			step: courseGeneration.step,
+		});
+	}
 
 	const stream = new ReadableStream<Uint8Array>({
 		async start(controller) {
 			const encoder = new TextEncoder();
 			const send = (data: unknown) => {
 				if (abortSignal.aborted) return;
-
 				controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 			};
 
 			let assistantFullText = "";
 			let aborted = false;
-
 			const onAbort = () => {
 				aborted = true;
 				try {
 					controller.close();
 				} catch {}
 			};
-
 			abortSignal.addEventListener("abort", onAbort);
 
 			try {
 				send({ type: "start", courseGenerationId: courseGeneration.id });
 
-				for await (const chunk of courseAIService.streamChatResponse({
-					courseGeneration,
-					userMessage,
-					signal: abortSignal,
-				})) {
+				const events =
+					mode === "chat"
+						? await courseAIService.runChat({
+								courseGeneration,
+								userMessage: body.userMessage ?? "",
+								signal: abortSignal,
+							})
+						: await courseAIService.runFinalize({
+								courseGeneration,
+								signal: abortSignal,
+							});
+
+				let lastConfidence: number | null = null;
+				const STREAMING_NODES = new Set(["chat_response", "clarify"]);
+				const INFORMATIVE_NODES = new Set([
+					"classify_intent",
+					"assess_completion",
+					"extract_step_data",
+					"validate",
+					"confidence_score",
+					"revise_prior_field",
+				]);
+
+				for await (const ev of events) {
 					if (abortSignal.aborted) {
 						aborted = true;
 						break;
 					}
 
-					if (chunk.type === "token" && "value" in chunk) {
-						assistantFullText += chunk.value;
+					if (ev.event === "on_chat_model_stream") {
+						const node = ev.metadata?.langgraph_node as string | undefined;
+						if (!node || !STREAMING_NODES.has(node)) continue;
+						const chunk = ev.data?.chunk as { content?: unknown } | undefined;
+						const token = chunk?.content?.toString();
+						if (token) {
+							assistantFullText += token;
+							send({ type: "token", value: token });
+						}
+					} else if (
+						ev.event === "on_chain_end" &&
+						ev.name === "revise_prior_field"
+					) {
+						send({ type: "content_revised" });
+					} else if (
+						ev.event === "on_chain_start" &&
+						INFORMATIVE_NODES.has(ev.name as string)
+					) {
+						send({ type: "node_start", node: ev.name });
+					} else if (ev.event === "on_tool_start") {
+						send({
+							type: "tool_call",
+							name: ev.name,
+							args: (ev.data?.input ?? {}) as Record<string, unknown>,
+						});
+					} else if (
+						ev.event === "on_chain_end" &&
+						ev.name === "confidence_score"
+					) {
+						const out = ev.data?.output as { confidence?: number } | undefined;
+						if (typeof out?.confidence === "number") {
+							lastConfidence = out.confidence;
+							send({ type: "confidence", value: out.confidence });
+						}
+					} else if (
+						ev.event === "on_chain_end" &&
+						ev.name === "persist_and_emit"
+					) {
+						const state = (ev.data?.input ?? {}) as Partial<{
+							currentStep: DraftStep;
+							shouldAutoAdvance: boolean;
+							mode: Mode;
+							confidence: number;
+						}>;
+						if (state.currentStep) {
+							send({
+								type: "step_committed",
+								step: state.currentStep,
+								autoAdvanced:
+									state.mode === "chat" && state.shouldAutoAdvance === true,
+								confidence: lastConfidence ?? state.confidence ?? 0,
+							});
+						}
 					}
-					send(chunk);
 				}
 
 				if (!aborted && assistantFullText) {
@@ -75,20 +146,15 @@ export async function POST(req: Request) {
 						content: assistantFullText,
 						step: courseGeneration.step,
 					});
-
-					send({ type: "done" });
 				}
+				if (!aborted) send({ type: "done" });
 			} catch (e) {
 				if (!abortSignal.aborted) {
 					console.error("[Course AI stream error]", e);
-					send({
-						type: "error",
-						message: "Failed to generate AI response",
-					});
+					send({ type: "error", message: "Failed to generate AI response" });
 				}
 			} finally {
 				abortSignal.removeEventListener("abort", onAbort);
-
 				try {
 					controller.close();
 				} catch {}

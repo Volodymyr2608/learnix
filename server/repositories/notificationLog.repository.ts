@@ -1,4 +1,4 @@
-import { Prisma, type NotificationLog } from "@/generated/prisma";
+import type { NotificationLog, Prisma } from "@/generated/prisma";
 import { BaseRepository } from "./base/base.repository";
 
 class NotificationLogRepository extends BaseRepository<

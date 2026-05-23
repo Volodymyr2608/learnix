@@ -2,5 +2,10 @@ import type { ChatPanelProps } from "@/app/_components/Course/components/AIChatB
 
 export type ChatMessagesProps = Pick<
 	ChatPanelProps,
-	"messages" | "isTyping" | "onSuggestionClick" | "onAcceptBlock"
+	| "messages"
+	| "isTyping"
+	| "onSuggestionClick"
+	| "onAcceptBlock"
+	| "showAcceptButton"
+	| "lastAutoAdvanced"
 >;

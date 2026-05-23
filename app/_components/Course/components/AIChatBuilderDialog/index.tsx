@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/app/_components/_shared/ui/dialog";
@@ -12,10 +12,10 @@ import { useChatState } from "@/app/_components/Course/components/AIChatBuilderD
 import { useChatStreaming } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useChatStreaming";
 import { useCourseGenerationStatus } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCourseGenerationStatus";
 import { useCourseStepFlow } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCourseStepFlow";
+import { useStreamEvents } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useStreamEvents";
 import { useTypingSimulation } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useTypingSimulation";
 import type { AIChatBuilderDialogProps } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
 import { adaptCourse } from "@/app/_components/Course/components/AIChatBuilderDialog/utils/adaptCourse";
-import type { DraftStep } from "@/generated/prisma";
 import type {
 	CourseSchemaInput,
 	CourseSchemaOutput,
@@ -27,11 +27,25 @@ const AIChatBuilderDialog = ({
 	activeCourseGeneration,
 }: AIChatBuilderDialogProps) => {
 	const { reset } = useFormContext<CourseSchemaInput>();
-	const [currentStep, setCurrentStep] = useState(0);
-	const [completedSteps, setCompletedSteps] = useState<DraftStep[]>([]);
 	const [courseGenerationId, setCourseGenerationId] = useState<
 		string | undefined
 	>(activeCourseGeneration?.id);
+
+	const {
+		currentStep,
+		setCurrentStep,
+		completedSteps,
+		setCompletedSteps,
+		activeToolCall,
+		lastConfidence,
+		lastAutoAdvanced,
+		showAcceptButton,
+		revisionCount,
+		onStreamEvent,
+		triggerNextStepRef,
+		resetBeforeStream,
+		resetAll,
+	} = useStreamEvents();
 
 	const {
 		initializeMessages,
@@ -43,27 +57,39 @@ const AIChatBuilderDialog = ({
 		setInput,
 	} = useChatState();
 
-	const { simulateTyping, isTyping } = useTypingSimulation(updateMessage);
+	const { isTyping } = useTypingSimulation(updateMessage);
 
-	const { streamAssistantMessage } = useChatStreaming(
+	const { streamAssistantMessage, streamFinalize } = useChatStreaming({
 		updateMessage,
 		setCourseGenerationId,
+		onStreamEvent,
+	});
+
+	const wrappedStreamAssistantMessage = useCallback(
+		(
+			payload: { userMessage: string; courseGenerationId?: string },
+			messageId: string,
+		) => {
+			resetBeforeStream();
+			return streamAssistantMessage(payload, messageId);
+		},
+		[streamAssistantMessage, resetBeforeStream],
 	);
 
-	const { sendUserMessage } = useChatActions({
+	const { sendUserMessage, triggerNextStep } = useChatActions({
 		addMessage,
 		courseGenerationId,
 		setInput,
-		streamAssistantMessage,
+		streamAssistantMessage: wrappedStreamAssistantMessage,
 	});
+
+	// Keep the ref current each render so onStreamEvent always calls the latest version.
+	triggerNextStepRef.current = triggerNextStep;
 
 	const { acceptStep } = useCourseStepFlow({
 		addMessage,
 		courseGenerationId,
-		currentStep,
-		setCompletedSteps,
-		setCurrentStep,
-		simulateTyping,
+		streamFinalize,
 	});
 
 	useEffect(() => {
@@ -86,11 +112,9 @@ const AIChatBuilderDialog = ({
 				currentIndex += 1;
 			}
 			setCurrentStep(currentIndex);
-
-			const completed = STEPS.slice(0, currentIndex).map((s) => s.id);
-			setCompletedSteps(completed);
+			setCompletedSteps(STEPS.slice(0, currentIndex).map((s) => s.id));
 		}
-	}, [open, initializeMessages, activeCourseGeneration]);
+	}, [open, initializeMessages, activeCourseGeneration, setCurrentStep, setCompletedSteps]);
 
 	const { setStatus, isPending: isApplyPending } = useCourseGenerationStatus();
 
@@ -98,7 +122,6 @@ const AIChatBuilderDialog = ({
 		if (courseGenerationId) {
 			await setStatus(courseGenerationId, "completed");
 		}
-
 		reset(adaptCourse(data));
 		handleClose();
 		toast.success("✨ Course data successfully applied ");
@@ -107,23 +130,26 @@ const AIChatBuilderDialog = ({
 	const handleClose = () => {
 		onOpenChange(false);
 		resetChat();
-		setCurrentStep(0);
-		setCompletedSteps([]);
+		resetAll();
 	};
 
 	return (
 		<Dialog onOpenChange={handleClose} open={open}>
 			<DialogContent className="flex h-[85vh] gap-0 overflow-hidden p-0 lg:max-w-6xl">
 				<ChatPanel
+					activeToolCall={activeToolCall}
 					completedSteps={completedSteps}
 					currentStep={currentStep}
 					input={input}
 					isTyping={isTyping}
+					lastAutoAdvanced={lastAutoAdvanced}
+					lastConfidence={lastConfidence}
 					messages={messages}
 					onAcceptBlock={acceptStep}
 					onInputChange={setInput}
 					onSend={() => sendUserMessage(input)}
 					onSuggestionClick={sendUserMessage}
+					showAcceptButton={showAcceptButton}
 				/>
 
 				<PreviewPanel
@@ -131,6 +157,7 @@ const AIChatBuilderDialog = ({
 					courseGenerationId={courseGenerationId}
 					isApplyPending={isApplyPending}
 					onApply={handleApply}
+					revisionCount={revisionCount}
 				/>
 			</DialogContent>
 		</Dialog>

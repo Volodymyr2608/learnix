@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ScrollArea } from "@/app/_components/_shared/ui/scroll-area";
 import BasicInfoCard from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/BasicInfoCard";
 import CurriculumCard from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/CurriculumCard";
@@ -14,8 +15,9 @@ const PreviewPanel = ({
 	completedSteps,
 	onApply,
 	isApplyPending,
+	revisionCount,
 }: PreviewPanelProps) => {
-	const { data } = api.courseAI.getGenerationStatus.useQuery(
+	const { data, refetch } = api.courseAI.getGenerationStatus.useQuery(
 		{
 			courseGenerationId: courseGenerationId ?? "",
 		},
@@ -23,6 +25,18 @@ const PreviewPanel = ({
 			enabled: !!courseGenerationId,
 		},
 	);
+
+	useEffect(() => {
+		if (courseGenerationId && completedSteps.length > 0) {
+			void refetch();
+		}
+	}, [completedSteps.length, courseGenerationId, refetch]);
+
+	useEffect(() => {
+		if (courseGenerationId && revisionCount) {
+			void refetch();
+		}
+	}, [revisionCount, courseGenerationId, refetch]);
 
 	const sectionsData = (
 		!!data && "sectionsData" in data ? data.sectionsData : {}

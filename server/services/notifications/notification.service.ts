@@ -1,8 +1,8 @@
+import { format, subDays } from "date-fns";
 import { env } from "@/lib/env";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
 import { signUnsubscribeToken } from "@/server/services/email/unsubscribe-token";
-import { format, subDays } from "date-fns";
 import { signCertificateToken } from "./auth";
 import { notificationEmitter } from "./notificationEmitter";
 
@@ -106,10 +106,11 @@ class NotificationService {
 			const totalLessons = allLessons.length;
 			if (totalLessons === 0) continue;
 
-			const progresses = await lessonProgressRepository.findCompletedByLessonIds(
-				enr.studentId,
-				allLessons.map((l) => l.id),
-			);
+			const progresses =
+				await lessonProgressRepository.findCompletedByLessonIds(
+					enr.studentId,
+					allLessons.map((l) => l.id),
+				);
 
 			if (progresses.length === 0) continue;
 

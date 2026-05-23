@@ -25,7 +25,7 @@ export const extractStepDataPrompt = ({
 
     RULES:
     1. Return ONLY a JSON object. No explanations, no extra text.
-    2. Use the data discussed in the chat history as the primary source.
+    2. Use the data discussed in the chat history as the primary source. If multiple versions of the content appear (e.g., an original detailed proposal followed by a short confirmation summary), always extract from the MOST COMPLETE AND DETAILED version, ignoring short acknowledgment messages like "Great, finalizing this step!".
     3. If some fields are missing in the chat history, infer them realistically based on the course topic.
     4. The language of ALL generated content must match the language of the conversation.
     5. CONTENT CONSTRAINTS:

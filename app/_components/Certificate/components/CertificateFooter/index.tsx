@@ -6,7 +6,10 @@ type CertificateFooterProps = {
 	enrollmentId: string;
 };
 
-export const CertificateFooter = ({ completedAt, enrollmentId }: CertificateFooterProps) => {
+export const CertificateFooter = ({
+	completedAt,
+	enrollmentId,
+}: CertificateFooterProps) => {
 	const dateStr = completedAt.toLocaleDateString("en-US", {
 		year: "numeric",
 		month: "long",

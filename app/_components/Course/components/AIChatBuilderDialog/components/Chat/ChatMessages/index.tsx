@@ -4,7 +4,13 @@ import { ScrollArea } from "@/app/_components/_shared/ui/scroll-area";
 import ChatMessage from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatMessages/components/ChatMessage";
 import type { ChatMessagesProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatMessages/types";
 
-const ChatMessages = ({ messages, isTyping, ...props }: ChatMessagesProps) => {
+const ChatMessages = ({
+	messages,
+	isTyping,
+	showAcceptButton,
+	lastAutoAdvanced,
+	...props
+}: ChatMessagesProps) => {
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 
 	useLayoutEffect(() => {
@@ -28,7 +34,9 @@ const ChatMessages = ({ messages, isTyping, ...props }: ChatMessagesProps) => {
 						isLastMessage={index === messages.length - 1}
 						isTyping={isTyping}
 						key={message.id}
+						lastAutoAdvanced={lastAutoAdvanced}
 						message={message}
+						showAcceptButton={showAcceptButton}
 						{...props}
 					/>
 				))}

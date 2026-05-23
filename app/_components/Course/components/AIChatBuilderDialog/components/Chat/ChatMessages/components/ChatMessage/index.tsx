@@ -1,5 +1,6 @@
 import { Bot, Check, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import type { ChatMessageProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatMessages/components/ChatMessage/types";
 import { cn } from "@/lib/utils/cn";
@@ -11,8 +12,13 @@ const ChatMessage = ({
 	onAcceptBlock,
 	isLastMessage,
 	countMessages,
+	showAcceptButton,
+	lastAutoAdvanced,
 }: ChatMessageProps) => {
 	const isUser = message.role === "user";
+
+	// Hide empty assistant placeholders left by finalize/accept runs that produced no tokens
+	if (!isUser && !message.content && !message.isStreaming) return null;
 
 	return (
 		<div className={`flex gap-3 ${isUser ? "justify-end" : ""}`}>
@@ -28,7 +34,7 @@ const ChatMessage = ({
 						"bg-primary text-primary-foreground": isUser,
 					})}
 				>
-					<div className="prose prose-sm m-0 text-sm">
+					<div className={cn("prose prose-sm m-0 text-sm", { "text-primary-foreground": isUser })}>
 						{isUser ? (
 							message.content
 						) : (
@@ -58,22 +64,24 @@ const ChatMessage = ({
 				)}
 
 				{/* Action Buttons */}
-				{message.showActions &&
+				{isLastMessage &&
 					!message.isStreaming &&
-					message.step &&
-					isLastMessage && (
+					((showAcceptButton ?? false) || (lastAutoAdvanced ?? false)) && (
 						<div className="mt-2 flex gap-2">
-							<Button
-								className="h-8"
-								disabled={isTyping}
-								onClick={() =>
-									message.step ? onAcceptBlock(message.step) : undefined
-								}
-								size="sm"
-							>
-								<Check className="mr-1.5 h-3.5 w-3.5" />
-								Apply suggestions
-							</Button>
+							{showAcceptButton && !lastAutoAdvanced && (
+								<Button
+									className="h-8"
+									disabled={isTyping}
+									onClick={onAcceptBlock}
+									size="sm"
+								>
+									<Check className="mr-1.5 h-3.5 w-3.5" />
+									Apply suggestions
+								</Button>
+							)}
+							{lastAutoAdvanced && (
+								<Badge variant="default">Auto-advanced ✓</Badge>
+							)}
 						</div>
 					)}
 			</div>
