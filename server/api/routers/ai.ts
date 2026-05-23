@@ -7,23 +7,9 @@ import {
 	UpdateCourseGenerationStatusSchema,
 } from "@/server/entities/course";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
-import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 
 export const courseAIRouter = createTRPCRouter({
-	acceptStep: instructorProcedure
-		.input(processStepSchema)
-		.mutation(async ({ ctx, input }) => {
-			try {
-				return await courseAIService.acceptStep({
-					courseGenerationId: input.courseGenerationId,
-					userId: ctx.session.user.id,
-				});
-			} catch (error) {
-				handleServiceError(error);
-			}
-		}),
-
 	getGenerationStatus: instructorProcedure
 		.input(processStepSchema)
 		.query(async ({ input }) => {
@@ -31,7 +17,6 @@ export const courseAIRouter = createTRPCRouter({
 				const courseGen = await courseGenerationRepository.findOne(
 					input.courseGenerationId,
 				);
-
 				return {
 					currentStep: courseGen?.step,
 					sectionsData: courseGen?.content
@@ -46,17 +31,9 @@ export const courseAIRouter = createTRPCRouter({
 	getActiveCourseGeneration: instructorProcedure.query(async ({ ctx }) => {
 		try {
 			const data = await courseGenerationRepository.findFirst({
-				where: {
-					instructorId: ctx.session.user.id,
-					status: "active",
-				},
+				where: { instructorId: ctx.session.user.id, status: "active" },
 				orderBy: { createdAt: "desc" },
-				include: {
-					messages: {
-						orderBy: { createdAt: "asc" },
-						take: 50,
-					},
-				},
+				include: { messages: { orderBy: { createdAt: "asc" }, take: 50 } },
 			});
 			return data as CourseGenerationWithRelations;
 		} catch (error) {
@@ -70,14 +47,12 @@ export const courseAIRouter = createTRPCRouter({
 			const entity = await courseGenerationRepository.findFirst({
 				where: { id: input.id, instructorId: ctx.session.user.id },
 			});
-
 			if (!entity) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: "Course generation not found",
 				});
 			}
-
 			try {
 				return await courseGenerationRepository.update(input.id, {
 					status: input.status,
