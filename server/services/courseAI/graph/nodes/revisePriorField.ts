@@ -11,29 +11,24 @@ export const revisePriorField = withNodeErrors(
 		}
 
 		const target = state.reviseTarget;
-		const partial = getValidatorForStep(target).partial();
+		const schema = getValidatorForStep(target);
 
 		const model = new ChatOpenAI({
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
-		}).withStructuredOutput(partial, { method: "functionCalling" });
+		}).withStructuredOutput(schema, { method: "functionCalling" });
 
-		const prompt = `The user wants to revise a field in the "${target}" step.
+		const prompt = `The user wants to revise the "${target}" step of their course.
 Current values for that step: ${JSON.stringify(state.content[target] ?? {}, null, 2)}
 User's revision request: "${state.userMessage}"
 
-Return ONLY the fields that should change. Do not repeat unchanged fields.`.trim();
+Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`.trim();
 
-		const patch = await model.invoke([{ role: "user", content: prompt }]);
+		const updated = await model.invoke([{ role: "user", content: prompt }]);
 
-		const mergedTargetContent = {
-			...((state.content[target] as Record<string, unknown> | undefined) ?? {}),
-			...(patch as Record<string, unknown>),
-		};
-
-		const nextContent = { ...state.content, [target]: mergedTargetContent };
-		const summary = `Updated ${target}: ${Object.keys(patch as object).join(", ")}.`;
+		const nextContent = { ...state.content, [target]: updated };
+		const summary = `Updated ${target}.`;
 
 		return { content: nextContent, assistantText: summary };
 	},
