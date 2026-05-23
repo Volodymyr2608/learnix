@@ -32,7 +32,8 @@ No database schema changes. No LangGraph checkpointer. State is hydrated per req
 
 ### Graph behavior
 
-- FR-1. The graph SHALL classify the user's turn as `continue` or `revise`. Default to `continue` if the classifier abstains.
+- FR-1. The graph SHALL classify the user's turn as `continue`, `revise`, or `clarify`. Default to `continue` if the classifier abstains.
+- FR-1a. When `intent = clarify`, the graph SHALL route directly to `chat_response` (bypassing `tool_router`) and generate one focused question that resolves the ambiguity between continuing the current step and revising an earlier one. `assess_completion` SHALL return `ready: false` for clarify turns.
 - FR-2. When `intent = revise`, the graph SHALL update only `content[reviseTarget]`, preserve all later step content, and stream a short confirmation. It SHALL NOT change `currentStep`.
 - FR-3. When `intent = continue`, the graph SHALL allow the model to call zero or more of the four tools before streaming a chat response.
 - FR-4. In **chat mode**, after `chat_response` the graph SHALL run an `assess_completion` node — a cheap structured-output call returning `{ ready: boolean, reason: string }`. If `ready: false`, the graph SHALL terminate without persisting.
@@ -101,7 +102,7 @@ type CourseBuilderState = {
 
   // current turn
   userMessage: string;
-  intent: "continue" | "revise" | null;
+  intent: "continue" | "revise" | "clarify" | null;
   reviseTarget: DraftStep | null;
   toolCalls: ToolCall[];
   assessReady: boolean;            // set by assess_completion (chat mode only)
@@ -111,6 +112,45 @@ type CourseBuilderState = {
   assistantText: string;
   validationErrors: ZodIssue[] | null;
 };
+```
+
+## Graph topology
+
+```mermaid
+flowchart TD
+    START([START]) --> routeByMode{mode?}
+    routeByMode -->|chat| classify_intent
+    routeByMode -->|finalize| extract_step_data
+
+    classify_intent --> routeByIntent{intent?}
+    routeByIntent -->|revise| revise_prior_field
+    routeByIntent -->|continue| tool_router
+    routeByIntent -->|clarify| chat_response
+
+    tool_router --> routeAfterToolRouter{pending\ntool calls?}
+    routeAfterToolRouter -->|yes| tool_node
+    routeAfterToolRouter -->|no| chat_response
+    tool_node -->|loop| tool_router
+
+    chat_response --> assess_completion
+    revise_prior_field --> assess_completion
+
+    assess_completion --> routeAfterAssess{ready?}
+    routeAfterAssess -->|no| END_A([END])
+    routeAfterAssess -->|yes| extract_step_data
+
+    extract_step_data --> validate
+
+    validate --> routeAfterValidate{valid?}
+    routeAfterValidate -->|fail| clarify
+    routeAfterValidate -->|pass| confidence_score
+
+    confidence_score --> routeAfterConfidence{finalize or\nauto-advance?}
+    routeAfterConfidence -->|yes| persist_and_emit
+    routeAfterConfidence -->|no| END_B([END])
+
+    clarify --> END_C([END])
+    persist_and_emit --> END_D([END])
 ```
 
 ## Out of scope

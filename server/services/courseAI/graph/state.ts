@@ -41,7 +41,7 @@ export const CourseBuilderState = z.object({
 	userMessage: z.string().default(""),
 
 	// produced by nodes
-	intent: z.enum(["continue", "revise"]).nullable().default(null),
+	intent: z.enum(["continue", "revise", "clarify"]).nullable().default(null),
 	reviseTarget: draftStep.nullable().default(null),
 	toolCalls: appendList(),
 	assessReady: z.boolean().default(false),
@@ -65,4 +65,25 @@ export const CourseBuilderState = z.object({
 	messages: appendList(),
 });
 
-export type CourseBuilderStateT = z.infer<typeof CourseBuilderState>;
+// z.infer<> gives `unknown` for withLangGraph fields due to the `as unknown as InteropZodType<>`
+// casts those fields require. Declare the runtime shape explicitly instead.
+export type CourseBuilderStateT = {
+	generationId: string;
+	instructorId: string;
+	currentStep: DraftStep;
+	content: Record<string, unknown>;
+	history: Array<{ role: "user" | "assistant"; content: string; step: DraftStep }>;
+	mode: "chat" | "finalize";
+	userMessage: string;
+	intent: "continue" | "revise" | "clarify" | null;
+	reviseTarget: DraftStep | null;
+	toolCalls: unknown[];
+	assessReady: boolean;
+	draftStepData: unknown;
+	confidence: number;
+	shouldAutoAdvance: boolean;
+	assistantText: string;
+	validationErrors: unknown[] | null;
+	pendingToolCalls: unknown[];
+	messages: unknown[];
+};

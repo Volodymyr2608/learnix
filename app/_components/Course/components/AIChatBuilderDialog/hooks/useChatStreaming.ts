@@ -47,7 +47,7 @@ export const useChatStreaming = (cb: Callbacks) => {
 				for (const line of lines) {
 					if (!line.startsWith("data: ")) continue;
 					const parsed = JSON.parse(line.replace("data: ", ""));
-					if (!isStreamEvent(parsed)) return;
+					if (!isStreamEvent(parsed)) continue;
 
 					onStreamEvent?.(parsed);
 

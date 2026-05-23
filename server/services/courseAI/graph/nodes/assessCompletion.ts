@@ -10,9 +10,9 @@ const outSchema = z.object({
 
 export const assessCompletion = withNodeErrors(
 	"assess_completion",
-	async (state) => {
-		// Auto-trigger turns (empty userMessage) and revision turns must never commit.
-		if (!state.userMessage || state.intent === "revise") return { assessReady: false };
+	async (state, config) => {
+		// Auto-trigger, revision, and clarify turns must never commit.
+		if (!state.userMessage || state.intent === "revise" || state.intent === "clarify") return { assessReady: false };
 
 		const model = new ChatOpenAI({
 			model: "gpt-4o-mini",
@@ -37,20 +37,20 @@ export const assessCompletion = withNodeErrors(
 			.join("\n");
 
 		const prompt =
-			`Decide whether the "${state.currentStep}" step has enough concrete information in the conversation to be extracted into structured data.
+			`Decide whether the user has explicitly confirmed the content for the "${state.currentStep}" step.
 
-Return ready=true when ANY of these are true:
-- The conversation contains specific values for the required fields of this step.
-- The user has explicitly approved AI-proposed content for this step (e.g. "ok", "yes", "looks good", "that's fine").
-- The user asked to finalize or move on.
+Return ready=true when the user's latest message is a clear approval ("ok", "yes", "looks good", "alright", "perfect", "go ahead", "proceed", "confirm", "next", "move on", etc.) AND the conversation is about the current "${state.currentStep}" step — not about updating a field from an earlier step (like title, duration, subtitle, level, language).
 
-Return ready=false only when the step data is genuinely missing or incomplete and the user has not confirmed anything.
+Return ready=false when:
+- The most recent AI message was confirming a revision to an EARLIER step (e.g., "Updated the duration to 30 hours", "The subtitle has been rephrased"). In that case the user's approval is acknowledging the revision, not confirming the current step.
+- The user asked a question, made a correction, or is still discussing.
+- The user provided new information without explicitly confirming.
 
 CONVERSATION:
 ${historyText}`.trim();
 
 		try {
-			const out = await model.invoke([{ role: "user", content: prompt }]);
+			const out = await model.invoke([{ role: "user", content: prompt }], config);
 			return { assessReady: out.ready };
 		} catch {
 			return { assessReady: false };

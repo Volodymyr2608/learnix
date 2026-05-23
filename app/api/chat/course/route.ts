@@ -69,6 +69,14 @@ export async function POST(req: Request) {
 
 				let lastConfidence: number | null = null;
 				const STREAMING_NODES = new Set(["chat_response", "clarify"]);
+				const INFORMATIVE_NODES = new Set([
+					"classify_intent",
+					"assess_completion",
+					"extract_step_data",
+					"validate",
+					"confidence_score",
+					"revise_prior_field",
+				]);
 
 				for await (const ev of events) {
 					if (abortSignal.aborted) {
@@ -85,6 +93,16 @@ export async function POST(req: Request) {
 							assistantFullText += token;
 							send({ type: "token", value: token });
 						}
+					} else if (
+						ev.event === "on_chain_end" &&
+						ev.name === "revise_prior_field"
+					) {
+						send({ type: "content_revised" });
+					} else if (
+						ev.event === "on_chain_start" &&
+						INFORMATIVE_NODES.has(ev.name as string)
+					) {
+						send({ type: "node_start", node: ev.name });
 					} else if (ev.event === "on_tool_start") {
 						send({
 							type: "tool_call",

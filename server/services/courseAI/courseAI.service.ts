@@ -4,6 +4,7 @@ import { courseGenerationMessageRepository } from "@/server/repositories/courseG
 import { traced } from "@/server/services/_shared/tracing";
 import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
 import { courseBuilderGraph } from "@/server/services/courseAI/graph/graph";
+import { type CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import {
 	isMessageShape,
 	type MessageShape,
@@ -59,7 +60,7 @@ export class CourseAIService {
 		courseGeneration: CourseGeneration;
 		userMessage: string;
 		mode: "chat" | "finalize";
-	}): Promise<Record<string, unknown>> {
+	}): Promise<CourseBuilderStateT> {
 		const { courseGeneration: gen, userMessage, mode } = args;
 
 		const lastMessages = await courseGenerationMessageRepository.findMany({
@@ -113,8 +114,7 @@ export class CourseAIService {
 			"courseAI.graph",
 			async () =>
 				courseBuilderGraph.streamEvents(
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					initialState as any,
+					initialState,
 					{
 						version: "v2",
 						signal,
@@ -146,8 +146,7 @@ export class CourseAIService {
 			"courseAI.graph",
 			async () =>
 				courseBuilderGraph.streamEvents(
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					initialState as any,
+					initialState,
 					{
 						version: "v2",
 						signal,

@@ -1,16 +1,14 @@
 import type { CourseGenerationMessage, DraftStep } from "@/generated/prisma";
-import type { ChatRoleType } from "@/prisma/zod";
 
 export type MessageShape = {
-	role: ChatRoleType;
+	role: "user" | "assistant";
 	content: string;
 	step: DraftStep;
 };
 
-export const isMessageShape = (courseGenMessage: CourseGenerationMessage) => {
-	return (
-		(courseGenMessage.role === "user" ||
-			courseGenMessage.role === "assistant") &&
-		typeof courseGenMessage.content === "string"
-	);
-};
+export const isMessageShape = (
+	m: CourseGenerationMessage,
+): m is CourseGenerationMessage & MessageShape =>
+	(m.role === "user" || m.role === "assistant") &&
+	typeof m.content === "string" &&
+	m.step !== null;

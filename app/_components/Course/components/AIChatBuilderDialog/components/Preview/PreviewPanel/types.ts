@@ -5,4 +5,5 @@ export type PreviewPanelProps = {
 	completedSteps: string[];
 	onApply: (data: CourseSchemaOutput) => Promise<void>;
 	isApplyPending: boolean;
+	revisionCount?: number;
 };

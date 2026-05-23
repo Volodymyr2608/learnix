@@ -86,9 +86,17 @@ Replaces keyword `LIKE` search with pgvector cosine similarity (ADR-012). Embedd
 ### AI course builder
 Streaming SSE endpoint at `app/api/chat/course/route.ts`. Uses a **LangGraph `StateGraph`** (`server/services/courseAI/graph/`) with OpenAI `gpt-4o-mini` to guide instructors through a multi-step course creation flow (`DraftStep` enum: `basic → objectives → requirements → curriculum`).
 
-**Graph nodes:** `classify_intent → tool_router → ToolNode (loop) → extract_step_data → validate → confidence_score → persist_and_emit` (or `→ clarify` on validation failure). Two run modes: `chat` (entry at `classify_intent`) and `finalize` (entry at `extract_step_data`).
+**Graph nodes:** `classify_intent → tool_router → ToolNode (loop) → chat_response → assess_completion → extract_step_data → validate → confidence_score → persist_and_emit` (or `→ clarify` on validation failure). Two run modes: `chat` (entry at `classify_intent`) and `finalize` (entry at `extract_step_data`).
 
-**Tools (4):** `search_similar_courses`, `fetch_instructor_prior_courses`, `validate_curriculum_coherence`, `lookup_category_taxonomy`. Instructor ID is sourced from `RunnableConfig.configurable`, not LLM input.
+**`classify_intent` intents:** `continue` (→ `tool_router`), `revise` (→ `revise_prior_field → chat_response`), `clarify` (→ `chat_response` directly, bypasses tools — streams one question to resolve ambiguity between continue and revise, never triggers extraction).
+
+**Revision flow:** `revise_prior_field` updates `content[reviseTarget]` using a flat merge (`{ ...content, ...stepData }`), persists to DB immediately, emits `content_revised` SSE so the preview refetches. Routes to `chat_response` which streams a short confirmation; `assess_completion` returns `ready: false` for revise turns.
+
+**Tools (4):** `search_similar_courses`, `fetch_instructor_prior_courses`, `validate_curriculum_coherence`, `lookup_category_taxonomy`. Instructor ID is sourced from `RunnableConfig.configurable`, not LLM input. `tool_router` includes per-tool guidance in the system prompt.
+
+**Confirmation-gated extraction:** `assess_completion` requires explicit user approval ("ok", "yes", "looks good", etc.). It distinguishes approval of the current step from acknowledgment of a prior-step revision. All LangGraph nodes forward `RunnableConfig` to model calls so `on_chat_model_stream` events propagate correctly.
+
+**Node progress:** `on_chain_start` for informative nodes emits `node_start` SSE; `ToolCallIndicator` shows labels for both tools and nodes.
 
 **Auto-advance:** `confidence_score` ≥ 0.8 triggers automatic step commit; below that the UI shows an Accept button.
 

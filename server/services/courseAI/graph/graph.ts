@@ -29,8 +29,11 @@ const allTools = [
 const routeByMode = (s: CourseBuilderStateT) =>
 	s.mode === "finalize" ? "finalize" : "chat";
 
-const routeByIntent = (s: CourseBuilderStateT) =>
-	s.intent === "revise" ? "revise" : "continue";
+const routeByIntent = (s: CourseBuilderStateT) => {
+	if (s.intent === "revise") return "revise";
+	if (s.intent === "clarify") return "clarify";
+	return "continue";
+};
 
 // Use pendingToolCalls (not toolCalls) — toolCalls accumulates, pendingToolCalls is reset each pass
 const routeAfterToolRouter = (s: CourseBuilderStateT) =>
@@ -66,6 +69,7 @@ export const courseBuilderGraph = new StateGraph(CourseBuilderState)
 	.addConditionalEdges("classify_intent", routeByIntent, {
 		revise: "revise_prior_field",
 		continue: "tool_router",
+		clarify: "chat_response",
 	})
 	.addConditionalEdges("tool_router", routeAfterToolRouter, {
 		use_tool: "tool_node",
@@ -73,7 +77,7 @@ export const courseBuilderGraph = new StateGraph(CourseBuilderState)
 	})
 	.addEdge("tool_node", "tool_router")
 	.addEdge("chat_response", "assess_completion")
-	.addEdge("revise_prior_field", "assess_completion")
+	.addEdge("revise_prior_field", "chat_response")
 	.addConditionalEdges("assess_completion", routeAfterAssess, {
 		not_ready: END,
 		ready: "extract_step_data",

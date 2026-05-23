@@ -24,7 +24,7 @@ export const toolsForState = (state: CourseBuilderStateT) => {
 	return base;
 };
 
-export const toolRouter = withNodeErrors("tool_router", async (state) => {
+export const toolRouter = withNodeErrors("tool_router", async (state, config) => {
 	const tools = toolsForState(state);
 
 	const model = new ChatOpenAI({
@@ -33,10 +33,26 @@ export const toolRouter = withNodeErrors("tool_router", async (state) => {
 		apiKey: env.OPENAI_API_KEY,
 	}).bindTools(tools);
 
-	const systemPrompt = buildSystemPrompt({
+	const basePrompt = buildSystemPrompt({
 		step: state.currentStep,
 		currentCourseData: state.content as Record<string, unknown>,
 	});
+
+	const toolGuidance = [
+		"TOOLS AVAILABLE — use them proactively before composing your reply:",
+		"- search_similar_courses: find published courses similar to this one. Use it to ground suggestions in real examples.",
+		"- fetch_instructor_prior_courses: retrieve this instructor's past courses to match their style and avoid duplication.",
+		"- lookup_category_taxonomy: confirm valid category values when uncertain.",
+		state.currentStep === DraftStep.curriculum
+			? "- validate_curriculum_coherence: verify that sections cover the stated objectives and fit the course level. Call this before finalising curriculum suggestions."
+			: null,
+		"",
+		"Call tools BEFORE generating your response when they would make your answer more accurate or grounded. You may call multiple tools in sequence.",
+	]
+		.filter(Boolean)
+		.join("\n");
+
+	const systemPrompt = `${basePrompt}\n\n${toolGuidance}`;
 
 	// Build messages: history + current user turn + any tool call/result pairs from prior loop iterations
 	const messages: BaseMessage[] = [
@@ -48,7 +64,7 @@ export const toolRouter = withNodeErrors("tool_router", async (state) => {
 		...(state.messages as BaseMessage[]),
 	];
 
-	const response = await model.invoke(messages);
+	const response = await model.invoke(messages, config);
 	const toolCalls = (response.tool_calls ?? []).map((tc) => ({
 		id: tc.id,
 		name: tc.name,

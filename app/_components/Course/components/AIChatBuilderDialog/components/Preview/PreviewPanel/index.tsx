@@ -15,6 +15,7 @@ const PreviewPanel = ({
 	completedSteps,
 	onApply,
 	isApplyPending,
+	revisionCount,
 }: PreviewPanelProps) => {
 	const { data, refetch } = api.courseAI.getGenerationStatus.useQuery(
 		{
@@ -30,6 +31,12 @@ const PreviewPanel = ({
 			void refetch();
 		}
 	}, [completedSteps.length, courseGenerationId, refetch]);
+
+	useEffect(() => {
+		if (courseGenerationId && revisionCount) {
+			void refetch();
+		}
+	}, [revisionCount, courseGenerationId, refetch]);
 
 	const sectionsData = (
 		!!data && "sectionsData" in data ? data.sectionsData : {}

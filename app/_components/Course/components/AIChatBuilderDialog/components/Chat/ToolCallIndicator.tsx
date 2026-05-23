@@ -3,6 +3,12 @@ const LABELS: Record<string, string> = {
 	fetch_instructor_prior_courses: "Reviewing your prior courses…",
 	validate_curriculum_coherence: "Checking curriculum coherence…",
 	lookup_category_taxonomy: "Looking up categories…",
+	classify_intent: "Analyzing your message…",
+	revise_prior_field: "Updating earlier step…",
+	assess_completion: "Checking completeness…",
+	extract_step_data: "Extracting step data…",
+	validate: "Validating…",
+	confidence_score: "Scoring confidence…",
 };
 
 export const ToolCallIndicator = ({ name }: { name: string }) => {

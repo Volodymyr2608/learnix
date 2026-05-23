@@ -7,7 +7,7 @@ import { getValidatorForStep } from "@/server/services/courseAI/validators/getVa
 
 export const extractStepData = withNodeErrors(
 	"extract_step_data",
-	async (state: CourseBuilderStateT) => {
+	async (state: CourseBuilderStateT, config) => {
 		const schema = getValidatorForStep(state.currentStep);
 
 		const model = new ChatOpenAI({
@@ -45,7 +45,7 @@ export const extractStepData = withNodeErrors(
 			history: historyForPrompt,
 		});
 
-		const draft = await model.invoke([{ role: "system", content: prompt }]);
+		const draft = await model.invoke([{ role: "system", content: prompt }], config);
 
 		return { draftStepData: draft };
 	},

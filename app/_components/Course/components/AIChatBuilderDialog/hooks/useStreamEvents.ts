@@ -7,6 +7,7 @@ export const useStreamEvents = () => {
 	const [currentStep, setCurrentStep] = useState(0);
 	const [completedSteps, setCompletedSteps] = useState<DraftStep[]>([]);
 	const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
+	const [revisionCount, setRevisionCount] = useState(0);
 	const [lastConfidence, setLastConfidence] = useState<number | null>(null);
 	const [lastAutoAdvanced, setLastAutoAdvanced] = useState(false);
 	const [showAcceptButton, setShowAcceptButton] = useState(false);
@@ -21,6 +22,12 @@ export const useStreamEvents = () => {
 		switch (ev.type) {
 			case "tool_call":
 				setActiveToolCall(ev.name);
+				break;
+			case "node_start":
+				setActiveToolCall(ev.node);
+				break;
+			case "content_revised":
+				setRevisionCount((n) => n + 1);
 				break;
 			case "token":
 				setActiveToolCall(null);
@@ -73,6 +80,7 @@ export const useStreamEvents = () => {
 		setLastConfidence(null);
 		setLastAutoAdvanced(false);
 		setShowAcceptButton(false);
+		setRevisionCount(0);
 		stepCommittedRef.current = false;
 	}, []);
 
@@ -85,6 +93,7 @@ export const useStreamEvents = () => {
 		lastConfidence,
 		lastAutoAdvanced,
 		showAcceptButton,
+		revisionCount,
 		onStreamEvent,
 		triggerNextStepRef,
 		resetBeforeStream,

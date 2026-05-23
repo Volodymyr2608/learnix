@@ -13,7 +13,7 @@ const outSchema = z.object({
 
 export const confidenceScore = withNodeErrors(
 	"confidence_score",
-	async (state: CourseBuilderStateT) => {
+	async (state: CourseBuilderStateT, config) => {
 		const model = new ChatOpenAI({
 			model: "gpt-4o-mini",
 			temperature: 0,
@@ -37,7 +37,7 @@ Guidelines:
 - 0.4–0.7: gaps remain.
 - 0.0–0.4: clearly underspecified.`.trim();
 
-		const out = await model.invoke([{ role: "user", content: prompt }]);
+		const out = await model.invoke([{ role: "user", content: prompt }], config);
 		const score = out.score;
 		const shouldAutoAdvance =
 			score >= CONFIDENCE_THRESHOLD && state.validationErrors === null;

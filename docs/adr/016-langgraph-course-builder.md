@@ -15,14 +15,30 @@ Replace the LCEL chain with a **LangGraph `StateGraph`** compiled to `courseBuil
 
 ```
 classify_intent
-  ├─► tool_router  ──► ToolNode ──► tool_router (loop until no pending calls)
-  │       └─► extract_step_data ──► validate ──► confidence_score
-  │                                    └─► clarify (on validation failure)
-  └─► (finalize mode) extract_step_data ──► ...
-                                              └─► persist_and_emit
+  ├─► (intent=continue)  tool_router ──► ToolNode ──► tool_router (loop)
+  │                           └─► chat_response ──► assess_completion
+  │                                                       ├─► (ready) extract_step_data ──► validate
+  │                                                       │                                    ├─► (pass) confidence_score ──► persist_and_emit
+  │                                                       │                                    └─► (fail) clarify
+  │                                                       └─► (not ready) END
+  ├─► (intent=revise)    revise_prior_field ──► chat_response ──► assess_completion (→ not ready → END)
+  ├─► (intent=clarify)   chat_response (clarify-question branch, bypasses tools)
+  └─► (finalize mode)    extract_step_data ──► validate ──► confidence_score ──► persist_and_emit
 ```
 
 Entry node for `chat` mode: `classify_intent`. Entry node for `finalize` mode: `extract_step_data`.
+
+### Intent classification
+
+`classify_intent` uses a structured-output LLM call to classify every chat-mode turn into one of three intents:
+
+| Intent | Meaning | Route |
+|---|---|---|
+| `continue` | User is moving forward with the current step | `tool_router → chat_response` |
+| `revise` | User wants to update a field from an earlier step | `revise_prior_field` |
+| `clarify` | Message is genuinely ambiguous between continue and revise | `chat_response` (clarify-question branch, no tools) |
+
+When `intent = clarify`, `chat_response` generates one focused question to resolve the ambiguity (e.g. "Did you mean to update the level from the Basic Info step, or are you adding detail for the current objectives step?"). `assess_completion` returns `ready: false` for clarify turns so the turn never triggers extraction.
 
 ### State
 
@@ -61,12 +77,28 @@ Four tools are registered on the LLM via `tool_router`:
 | `validate_curriculum_coherence` | Checks curriculum section/lesson structure |
 | `lookup_category_taxonomy` | Returns valid category and subcategory values |
 
+### Revision persistence
+
+`revise_prior_field` persists the updated content directly to `CourseGeneration.content` using `courseGenerationRepository.update()`. Content is stored as a **flat merged object** (all step fields at the top level). The node emits a `content_revised` SSE event so the preview panel refetches without waiting for a step commit.
+
+### Node progress events
+
+`on_chain_start` for informative nodes emits a `node_start` SSE event so the UI can display in-progress indicators. The six informative nodes are: `classify_intent`, `assess_completion`, `extract_step_data`, `validate`, `confidence_score`, `revise_prior_field`.
+
+`ToolCallIndicator` labels both tool names and node names, cleared on the first `token` event.
+
+### Confirmation-gated extraction
+
+`assess_completion` requires **explicit user confirmation** ("ok", "yes", "looks good", etc.) before returning `ready: true`. It distinguishes confirmation of the current step's content from acknowledgment of a revision to an earlier step (e.g., "alright" after "Updated the duration to 30 hours" is NOT treated as step confirmation).
+
 ### SSE event mapping
 
 | LangGraph event | SSE type |
 |---|---|
-| `on_chat_model_stream` | `token` |
+| `on_chat_model_stream` (nodes: `chat_response`, `clarify`) | `token` |
 | `on_tool_start` | `tool_call` |
+| `on_chain_start` (informative nodes) | `node_start` |
+| `on_chain_end` (node = `revise_prior_field`) | `content_revised` |
 | `on_chain_end` (node = `confidence_score`) | `confidence` |
 | `on_chain_end` (node = `persist_and_emit`) | `step_committed` |
 | stream end | `done` |
@@ -90,7 +122,7 @@ No new top-level component folders were created; both sub-components slot into t
 
 **Negative:**
 - `classify_intent` LLM call adds latency before every chat-mode turn
-- LangGraph `InteropZodType` generics require an `initialState as any` cast in `CourseAIService`
+- `classify_intent` adds a third `"clarify"` path that asks a question instead of responding, which adds one extra turn when intent is ambiguous
 - No mid-session state persistence means a server restart between turns re-hydrates from the message history limit (`HISTORY_LIMIT = 4`)
 
 ## References

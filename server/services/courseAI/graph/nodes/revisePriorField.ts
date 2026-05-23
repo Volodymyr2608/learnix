@@ -1,11 +1,13 @@
+import type { Prisma } from "@/generated/prisma";
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
+import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 
 export const revisePriorField = withNodeErrors(
 	"revise_prior_field",
-	async (state) => {
+	async (state, config) => {
 		if (!state.reviseTarget) {
 			return { assistantText: "I couldn't tell which field to revise." };
 		}
@@ -25,11 +27,15 @@ User's revision request: "${state.userMessage}"
 
 Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`.trim();
 
-		const updated = await model.invoke([{ role: "user", content: prompt }]);
+		const updated = await model.invoke([{ role: "user", content: prompt }], config);
 
-		const nextContent = { ...state.content, [target]: updated };
-		const summary = `Updated ${target}.`;
+		// Content is a flat merged object — spread updated fields directly (no nesting by step key)
+		const mergedContent = { ...state.content, ...updated };
 
-		return { content: nextContent, assistantText: summary };
+		await courseGenerationRepository.update(state.generationId, {
+			content: mergedContent as Prisma.JsonObject,
+		});
+
+		return { content: mergedContent, assistantText: "" };
 	},
 );

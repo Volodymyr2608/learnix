@@ -5,7 +5,7 @@ import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors"
 
 export const clarify = withNodeErrors(
 	"clarify",
-	async (state: CourseBuilderStateT) => {
+	async (state: CourseBuilderStateT, config) => {
 		const model = new ChatOpenAI({
 			model: "gpt-4o-mini",
 			temperature: 0.3,
@@ -26,7 +26,7 @@ ${issues}
 EXTRACTED (FAILING) DATA:
 ${JSON.stringify(state.draftStepData, null, 2)}`.trim();
 
-		const stream = await model.stream([{ role: "system", content: prompt }]);
+		const stream = await model.stream([{ role: "system", content: prompt }], config);
 
 		let text = "";
 		for await (const chunk of stream) {

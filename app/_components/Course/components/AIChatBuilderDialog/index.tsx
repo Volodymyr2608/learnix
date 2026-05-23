@@ -40,6 +40,7 @@ const AIChatBuilderDialog = ({
 		lastConfidence,
 		lastAutoAdvanced,
 		showAcceptButton,
+		revisionCount,
 		onStreamEvent,
 		triggerNextStepRef,
 		resetBeforeStream,
@@ -156,6 +157,7 @@ const AIChatBuilderDialog = ({
 					courseGenerationId={courseGenerationId}
 					isApplyPending={isApplyPending}
 					onApply={handleApply}
+					revisionCount={revisionCount}
 				/>
 			</DialogContent>
 		</Dialog>
