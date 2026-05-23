@@ -72,12 +72,7 @@ const ChatMessage = ({
 								<Button
 									className="h-8"
 									disabled={isTyping}
-									onClick={() =>
-										onAcceptBlock(
-											message.step ??
-												("basic" as import("@/generated/prisma").DraftStep),
-										)
-									}
+									onClick={onAcceptBlock}
 									size="sm"
 								>
 									<Check className="mr-1.5 h-3.5 w-3.5" />

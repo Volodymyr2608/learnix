@@ -1,4 +1,3 @@
-import type { DraftStep } from "@/generated/prisma";
 import type { Message } from "../types";
 import { createAssistantMessage } from "../utils/messageFactory";
 
@@ -9,20 +8,17 @@ type UseCourseStepFlowProps = {
 		payload: { courseGenerationId: string },
 		messageId: string,
 	) => Promise<void>;
-	onAssistantPlaceholder?: (id: string) => void;
 };
 
 export const useCourseStepFlow = ({
 	addMessage,
 	courseGenerationId,
 	streamFinalize,
-	onAssistantPlaceholder,
 }: UseCourseStepFlowProps) => {
-	const acceptStep = async (_step: DraftStep) => {
+	const acceptStep = async () => {
 		if (!courseGenerationId) return;
 		const assistantMessage = createAssistantMessage();
 		addMessage(assistantMessage);
-		onAssistantPlaceholder?.(assistantMessage.id);
 		await streamFinalize({ courseGenerationId }, assistantMessage.id);
 	};
 

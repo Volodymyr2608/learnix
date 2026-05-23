@@ -3,7 +3,24 @@ import { withLangGraph } from "@langchain/langgraph/zod";
 import { z } from "zod";
 import { DraftStep } from "@/generated/prisma";
 
-const draftStep = z.nativeEnum(DraftStep);
+const appendList = () =>
+	withLangGraph(
+		z.array(z.unknown()).default(() => []) as unknown as InteropZodType<unknown[]>,
+		{
+			reducer: {
+				fn: (prev: unknown[], next: unknown | unknown[]) =>
+					prev.concat(Array.isArray(next) ? next : [next]),
+				schema: z.union([
+					z.unknown(),
+					z.array(z.unknown()),
+				]) as unknown as InteropZodType<unknown | unknown[]>,
+			},
+		},
+	);
+
+const draftStep = z.enum(
+	Object.values(DraftStep) as [DraftStep, ...DraftStep[]],
+);
 
 const historyEntry = z.object({
 	role: z.enum(["user", "assistant"]),
@@ -26,21 +43,7 @@ export const CourseBuilderState = z.object({
 	// produced by nodes
 	intent: z.enum(["continue", "revise"]).nullable().default(null),
 	reviseTarget: draftStep.nullable().default(null),
-	toolCalls: withLangGraph(
-		z.array(z.unknown()).default(() => []) as unknown as InteropZodType<
-			unknown[]
-		>,
-		{
-			reducer: {
-				fn: (prev: unknown[], next: unknown | unknown[]) =>
-					prev.concat(Array.isArray(next) ? next : [next]),
-				schema: z.union([
-					z.unknown(),
-					z.array(z.unknown()),
-				]) as unknown as InteropZodType<unknown | unknown[]>,
-			},
-		},
-	),
+	toolCalls: appendList(),
 	assessReady: z.boolean().default(false),
 	draftStepData: z.unknown().default(undefined),
 	confidence: z.number().min(0).max(1).default(0),
@@ -59,21 +62,7 @@ export const CourseBuilderState = z.object({
 	pendingToolCalls: z.array(z.unknown()).default(() => []),
 	// LangChain BaseMessage[] for the current tool-call loop. Append-only within a single request.
 	// ToolNode reads the last AIMessage here; toolRouter appends its response and reads prior results.
-	messages: withLangGraph(
-		z.array(z.unknown()).default(() => []) as unknown as InteropZodType<
-			unknown[]
-		>,
-		{
-			reducer: {
-				fn: (prev: unknown[], next: unknown | unknown[]) =>
-					prev.concat(Array.isArray(next) ? next : [next]),
-				schema: z.union([
-					z.unknown(),
-					z.array(z.unknown()),
-				]) as unknown as InteropZodType<unknown | unknown[]>,
-			},
-		},
-	),
+	messages: appendList(),
 });
 
 export type CourseBuilderStateT = z.infer<typeof CourseBuilderState>;

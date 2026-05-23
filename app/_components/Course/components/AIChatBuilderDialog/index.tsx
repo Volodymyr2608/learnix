@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/app/_components/_shared/ui/dialog";
@@ -12,10 +12,10 @@ import { useChatState } from "@/app/_components/Course/components/AIChatBuilderD
 import { useChatStreaming } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useChatStreaming";
 import { useCourseGenerationStatus } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCourseGenerationStatus";
 import { useCourseStepFlow } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useCourseStepFlow";
+import { useStreamEvents } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useStreamEvents";
 import { useTypingSimulation } from "@/app/_components/Course/components/AIChatBuilderDialog/hooks/useTypingSimulation";
 import type { AIChatBuilderDialogProps } from "@/app/_components/Course/components/AIChatBuilderDialog/types";
 import { adaptCourse } from "@/app/_components/Course/components/AIChatBuilderDialog/utils/adaptCourse";
-import type { DraftStep } from "@/generated/prisma";
 import type {
 	CourseSchemaInput,
 	CourseSchemaOutput,
@@ -27,20 +27,24 @@ const AIChatBuilderDialog = ({
 	activeCourseGeneration,
 }: AIChatBuilderDialogProps) => {
 	const { reset } = useFormContext<CourseSchemaInput>();
-	const [currentStep, setCurrentStep] = useState(0);
-	const [completedSteps, setCompletedSteps] = useState<DraftStep[]>([]);
 	const [courseGenerationId, setCourseGenerationId] = useState<
 		string | undefined
 	>(activeCourseGeneration?.id);
 
-	const [activeToolCall, setActiveToolCall] = useState<string | null>(null);
-	const [lastConfidence, setLastConfidence] = useState<number | null>(null);
-	const [lastAutoAdvanced, setLastAutoAdvanced] = useState(false);
-	const [showAcceptButton, setShowAcceptButton] = useState(false);
-	const stepCommittedRef = useRef(false);
-	const autoAdvancedRef = useRef(false);
-	const confidenceFiredRef = useRef(false);
-	const lastAssistantMessageIdRef = useRef<string | null>(null);
+	const {
+		currentStep,
+		setCurrentStep,
+		completedSteps,
+		setCompletedSteps,
+		activeToolCall,
+		lastConfidence,
+		lastAutoAdvanced,
+		showAcceptButton,
+		onStreamEvent,
+		triggerNextStepRef,
+		resetBeforeStream,
+		resetAll,
+	} = useStreamEvents();
 
 	const {
 		initializeMessages,
@@ -57,42 +61,7 @@ const AIChatBuilderDialog = ({
 	const { streamAssistantMessage, streamFinalize } = useChatStreaming({
 		updateMessage,
 		setCourseGenerationId,
-		onStreamEvent: (ev) => {
-			if (ev.type === "tool_call") {
-				setActiveToolCall(ev.name);
-			} else if (ev.type === "token") {
-				setActiveToolCall(null);
-			} else if (ev.type === "confidence") {
-				setLastConfidence(ev.value);
-				confidenceFiredRef.current = true;
-			} else if (ev.type === "step_committed") {
-				stepCommittedRef.current = true;
-				setLastAutoAdvanced(ev.autoAdvanced);
-
-				const committedIndex = STEPS.findIndex((s) => s.id === ev.step);
-				if (committedIndex >= 0) {
-					setCurrentStep(committedIndex + 1);
-					setCompletedSteps((prev) =>
-						prev.includes(ev.step) ? prev : [...prev, ev.step],
-					);
-				}
-
-				setShowAcceptButton(false);
-				autoAdvancedRef.current = true;
-			} else if (ev.type === "done") {
-				setActiveToolCall(null);
-				// Only show Accept if confidence scoring actually ran this turn
-				if (!stepCommittedRef.current && confidenceFiredRef.current) {
-					setShowAcceptButton(true);
-				}
-				stepCommittedRef.current = false;
-				confidenceFiredRef.current = false;
-				if (autoAdvancedRef.current) {
-					autoAdvancedRef.current = false;
-					triggerNextStep();
-				}
-			}
-		},
+		onStreamEvent,
 	});
 
 	const wrappedStreamAssistantMessage = useCallback(
@@ -100,15 +69,10 @@ const AIChatBuilderDialog = ({
 			payload: { userMessage: string; courseGenerationId?: string },
 			messageId: string,
 		) => {
-			setShowAcceptButton(false);
-			setLastAutoAdvanced(false);
-			setLastConfidence(null);
-			stepCommittedRef.current = false;
-			confidenceFiredRef.current = false;
-			lastAssistantMessageIdRef.current = messageId;
+			resetBeforeStream();
 			return streamAssistantMessage(payload, messageId);
 		},
-		[streamAssistantMessage],
+		[streamAssistantMessage, resetBeforeStream],
 	);
 
 	const { sendUserMessage, triggerNextStep } = useChatActions({
@@ -118,13 +82,13 @@ const AIChatBuilderDialog = ({
 		streamAssistantMessage: wrappedStreamAssistantMessage,
 	});
 
+	// Keep the ref current each render so onStreamEvent always calls the latest version.
+	triggerNextStepRef.current = triggerNextStep;
+
 	const { acceptStep } = useCourseStepFlow({
 		addMessage,
 		courseGenerationId,
 		streamFinalize,
-		onAssistantPlaceholder: (id) => {
-			lastAssistantMessageIdRef.current = id;
-		},
 	});
 
 	useEffect(() => {
@@ -147,11 +111,9 @@ const AIChatBuilderDialog = ({
 				currentIndex += 1;
 			}
 			setCurrentStep(currentIndex);
-
-			const completed = STEPS.slice(0, currentIndex).map((s) => s.id);
-			setCompletedSteps(completed);
+			setCompletedSteps(STEPS.slice(0, currentIndex).map((s) => s.id));
 		}
-	}, [open, initializeMessages, activeCourseGeneration]);
+	}, [open, initializeMessages, activeCourseGeneration, setCurrentStep, setCompletedSteps]);
 
 	const { setStatus, isPending: isApplyPending } = useCourseGenerationStatus();
 
@@ -159,7 +121,6 @@ const AIChatBuilderDialog = ({
 		if (courseGenerationId) {
 			await setStatus(courseGenerationId, "completed");
 		}
-
 		reset(adaptCourse(data));
 		handleClose();
 		toast.success("✨ Course data successfully applied ");
@@ -168,13 +129,7 @@ const AIChatBuilderDialog = ({
 	const handleClose = () => {
 		onOpenChange(false);
 		resetChat();
-		setCurrentStep(0);
-		setCompletedSteps([]);
-		setActiveToolCall(null);
-		setLastConfidence(null);
-		setLastAutoAdvanced(false);
-		setShowAcceptButton(false);
-		stepCommittedRef.current = false;
+		resetAll();
 	};
 
 	return (
