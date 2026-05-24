@@ -19,9 +19,12 @@ import {
 export const courseRouter = createTRPCRouter({
 	create: instructorProcedure
 		.input(CourseFullCreateDto)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
 			try {
-				return await courseService.createCourse(input);
+				return await courseService.createCourse({
+					...input,
+					instructorId: ctx.session.user.id,
+				});
 			} catch (error) {
 				handleServiceError(error);
 			}
