@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { QuizQuestion } from "./schemas/quizOutput.schema";
 import { validateSemantics } from "./quizAI.validator";
+import type { QuizQuestion } from "./schemas/quizOutput.schema";
 
 const q = (over: Partial<QuizQuestion> = {}): QuizQuestion => ({
 	question: "What is 2+2?",
@@ -14,7 +14,11 @@ describe("validateSemantics", () => {
 		expect(
 			validateSemantics([
 				q(),
-				q({ question: "Capital of France?", options: ["A", "B", "Paris", "C"], correct: "Paris" }),
+				q({
+					question: "Capital of France?",
+					options: ["A", "B", "Paris", "C"],
+					correct: "Paris",
+				}),
 			]),
 		).toBeNull();
 	});
@@ -24,7 +28,9 @@ describe("validateSemantics", () => {
 		);
 	});
 	it("flags duplicate options", () => {
-		expect(validateSemantics([q({ options: ["4", "4", "5", "6"] })])).toMatch(/duplicate options/);
+		expect(validateSemantics([q({ options: ["4", "4", "5", "6"] })])).toMatch(
+			/duplicate options/,
+		);
 	});
 	it("flags duplicate question text", () => {
 		expect(validateSemantics([q(), q()])).toMatch(/Duplicate question text/);

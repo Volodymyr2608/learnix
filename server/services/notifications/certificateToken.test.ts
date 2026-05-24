@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	signCertificateToken,
-	verifyCertificateToken,
-} from "./auth";
+import { signCertificateToken, verifyCertificateToken } from "./auth";
 
 describe("certificate token", () => {
 	it("round-trips an enrollmentId", async () => {
