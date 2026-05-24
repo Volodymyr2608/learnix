@@ -116,14 +116,14 @@ class CourseService {
 		);
 	}
 
-	async updateCourse(courseId: string, dto: CourseFullUpdateDto) {
+	async updateCourse(courseId: string, dto: CourseFullUpdateDto, instructorId: string) {
 		try {
 			const { sections: newSections, ...incomingCourseData } = dto;
 			let existingStatus: string | undefined;
 
 			const result = await courseRepository.transaction(async () => {
 				const existingCourse = await courseRepository.findFirst({
-					where: { id: courseId },
+					where: { id: courseId, instructorId },
 					include: {
 						sections: { include: { lessons: true } },
 					},
@@ -189,6 +189,11 @@ class CourseService {
 			return result;
 		} catch (error: unknown) {
 			logger.error("Error updating course:", error);
+
+			if (error instanceof CourseError) {
+				throw error;
+			}
+
 			throw new CourseError(
 				"Failed to update course",
 				"INTERNAL_SERVER_ERROR",

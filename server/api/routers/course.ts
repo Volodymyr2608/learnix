@@ -29,9 +29,9 @@ export const courseRouter = createTRPCRouter({
 
 	update: instructorProcedure
 		.input(CourseFullUpdateDto)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
 			try {
-				return await courseService.updateCourse(input.id, input);
+				return await courseService.updateCourse(input.id, input, ctx.session.user.id);
 			} catch (error) {
 				handleServiceError(error);
 			}
