@@ -53,7 +53,29 @@ class LessonInsightsAIService {
 		return coreGenerate(lessonId);
 	}
 
-	async getForLesson(lessonId: string) {
+	async getForLesson(lessonId: string, userId: string) {
+		const lesson = await lessonRepository.findFirst({
+			where: {
+				id: lessonId,
+				deletedAt: null,
+				OR: [
+					{ section: { course: { instructorId: userId } } },
+					{
+						section: {
+							course: {
+								enrollments: {
+									some: { studentId: userId, status: { not: "cancelled" } },
+								},
+							},
+						},
+					},
+				],
+			},
+			select: { id: true },
+		});
+
+		if (!lesson) return null;
+
 		return lessonInsightsRepository.findByLessonId(lessonId);
 	}
 }
