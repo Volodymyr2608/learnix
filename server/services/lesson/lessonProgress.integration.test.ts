@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EnrollmentStatus, Role } from "@/generated/prisma";
 import { testDb } from "@/test/db";
 import {
@@ -47,6 +47,8 @@ async function seedLesson() {
 }
 
 describe("LessonService progress", () => {
+	beforeEach(() => vi.clearAllMocks());
+
 	it("marks a lesson complete (idempotent)", async () => {
 		const { student, lesson } = await seedLesson();
 
@@ -71,5 +73,6 @@ describe("LessonService progress", () => {
 			where: { lessonId: lesson.id, studentId: student.id },
 		});
 		expect(row?.isCompleted).toBe(false);
+		expect(row?.completedAt).toBeNull();
 	});
 });
