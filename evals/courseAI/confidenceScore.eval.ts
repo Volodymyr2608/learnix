@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
 import { confidenceScore } from "@/server/services/courseAI/graph/nodes/confidenceScore";
+import { accuracyGate, type EvalResult } from "../_shared/score";
 
 type Row = {
 	id: string;
@@ -20,13 +21,13 @@ const DATASET = resolve(
 	"evals/datasets/courseAI/confidenceScore.jsonl",
 );
 
-export async function runConfidenceScoreEval() {
+export async function runConfidenceScoreEval(): Promise<boolean> {
 	const rows: Row[] = readFileSync(DATASET, "utf-8")
 		.split("\n")
 		.filter(Boolean)
 		.map((l) => JSON.parse(l));
 
-	const results = await Promise.all(
+	const raw = await Promise.all(
 		rows.map(async (r) => {
 			const out = await confidenceScore({
 				generationId: "eval",
@@ -56,19 +57,18 @@ export async function runConfidenceScoreEval() {
 		}),
 	);
 
-	const highConf = results.filter((r) => r.score >= 0.8);
-	const completeAmongHigh = highConf.filter((r) => r.expected).length;
-	const calibration =
-		highConf.length === 0 ? 1 : completeAmongHigh / highConf.length;
+	console.log(
+		`High-confidence predictions: ${raw.filter((r) => r.score >= 0.8).length}/${raw.length}`,
+	);
 
-	console.log(
-		`confidenceScore calibration (score≥0.8 → complete): ${(calibration * 100).toFixed(1)}%`,
+	// Calibration: among high-confidence predictions (score≥0.8), measure fraction that are actually complete
+	const highConf: EvalResult[] = raw
+		.filter((r) => r.score >= 0.8)
+		.map((r) => ({ id: r.id, ok: r.expected }));
+
+	return accuracyGate(
+		"confidenceScore calibration (score≥0.8 → complete)",
+		highConf,
+		0.85,
 	);
-	console.log(
-		`High-confidence predictions: ${highConf.length}/${results.length}`,
-	);
-	if (calibration < 0.85) {
-		console.error("FAIL: calibration below 0.85 threshold");
-		process.exit(1);
-	}
 }

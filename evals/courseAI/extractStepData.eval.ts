@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
 import { extractStepData } from "@/server/services/courseAI/graph/nodes/extractStepData";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
+import { accuracyGate, type EvalResult } from "../_shared/score";
 
 type Row = {
 	id: string;
@@ -47,13 +48,13 @@ const keyFieldsMatch = (
 	});
 };
 
-export async function runExtractStepDataEval() {
+export async function runExtractStepDataEval(): Promise<boolean> {
 	const rows: Row[] = readFileSync(DATASET, "utf-8")
 		.split("\n")
 		.filter(Boolean)
 		.map((l) => JSON.parse(l));
 
-	const results = await Promise.all(
+	const results: EvalResult[] = await Promise.all(
 		rows.map(async (r) => {
 			const step = DraftStep[r.currentStep];
 			const out = await extractStepData({
@@ -80,18 +81,8 @@ export async function runExtractStepDataEval() {
 			const parsed = schema.safeParse(out.draftStepData);
 			const ok =
 				parsed.success && keyFieldsMatch(out.draftStepData, r.keyFields);
-			return { id: r.id, ok, zodOk: parsed.success };
+			return { id: r.id, ok };
 		}),
 	);
-
-	const pass = results.filter((r) => r.ok).length / results.length;
-	console.log(`extractStepData pass rate: ${(pass * 100).toFixed(1)}%`);
-	console.log(
-		"Failures:",
-		results.filter((r) => !r.ok).map((r) => r.id),
-	);
-	if (pass < 0.9) {
-		console.error("FAIL: extractStepData below 0.9 threshold");
-		process.exit(1);
-	}
+	return accuracyGate("extractStepData", results, 0.9);
 }

@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { evaluate } from "langsmith/evaluation";
 import { DraftStep } from "@/generated/prisma";
 import { classifyIntent } from "@/server/services/courseAI/graph/nodes/classifyIntent";
+import { accuracyGate, type EvalResult } from "../_shared/score";
 
 type Row = {
 	id: string;
@@ -30,9 +30,9 @@ const loadDataset = (): Row[] =>
 		.filter(Boolean)
 		.map((l) => JSON.parse(l) as Row);
 
-export async function runClassifyIntentEval() {
+export async function runClassifyIntentEval(): Promise<boolean> {
 	const data = loadDataset();
-	const results = await Promise.all(
+	const results: EvalResult[] = await Promise.all(
 		data.map(async (row) => {
 			const out = await classifyIntent({
 				generationId: "eval",
@@ -63,15 +63,5 @@ export async function runClassifyIntentEval() {
 			return { id: row.id, ok };
 		}),
 	);
-	const accuracy = results.filter((r) => r.ok).length / results.length;
-	console.log(`classifyIntent accuracy: ${(accuracy * 100).toFixed(1)}%`);
-	console.log(
-		"Failures:",
-		results.filter((r) => !r.ok).map((r) => r.id),
-	);
-	if (accuracy < 0.85) {
-		console.error("FAIL: classifyIntent accuracy below 0.85 threshold");
-		process.exit(1);
-	}
-	void evaluate;
+	return accuracyGate("classifyIntent", results, 0.85);
 }
