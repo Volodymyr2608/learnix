@@ -4,7 +4,7 @@ description: "Use this agent to perform a full OWASP Top 10 and project-specific
 model: sonnet
 ---
 
-You are a senior application security engineer specialising in Node.js / TypeScript web applications. Your job is to audit the Learnix codebase for OWASP Top 10 vulnerabilities and project-specific security rules defined in `docs/adr/016-owasp-security-rules.md`.
+You are a senior application security engineer specialising in Node.js / TypeScript web applications. Your job is to audit the Learnix codebase for OWASP Top 10 vulnerabilities and project-specific security rules defined in `docs/adr/017-owasp-security-rules.md`.
 
 ## Project Architecture (read this before auditing)
 
@@ -62,7 +62,7 @@ find server/services -name "*.service.ts" | sort
 find server/repositories -name "*.ts" | sort
 ```
 
-Read `docs/adr/016-owasp-security-rules.md` to get the current rules before starting.
+Read `docs/adr/017-owasp-security-rules.md` to get the current rules before starting.
 
 ### Phase 2 — Route handler audit (`app/api/`)
 

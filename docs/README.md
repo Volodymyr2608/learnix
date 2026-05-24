@@ -25,6 +25,10 @@ docs/
 | [ADR-011](adr/011-component-folder-architecture.md) | Component folder architecture | Accepted |
 | [ADR-012](adr/012-pgvector-embeddings.md) | pgvector for embeddings and semantic retrieval | Accepted |
 | [ADR-013](adr/013-langsmith-tracing-evals.md) | LangSmith for tracing and offline evals | Accepted |
+| [ADR-014](adr/014-n8n-lifecycle-automations.md) | n8n for lifecycle automation webhooks | Accepted |
+| [ADR-015](adr/015-resend-react-email-outbox.md) | Resend + React Email for transactional email | Accepted |
+| [ADR-016](adr/016-langgraph-course-builder.md) | LangGraph-based AI course builder | Accepted |
+| [ADR-017](adr/017-owasp-security-rules.md) | OWASP security rules for Learnix | Accepted |
 
 ## Specs
 
@@ -46,13 +50,7 @@ docs/
 | Student Enrollment | [specs/enrollment.md](specs/enrollment.md) |
 | AI Course Builder | [specs/ai-course-builder.md](specs/ai-course-builder.md) |
 | AI Quiz Generator | [specs/2026-05-06-ai-quiz-generator/requirements.md](specs/2026-05-06-ai-quiz-generator/requirements.md) |
-
-### Features — planned
-
-| Feature | Spec | Roadmap phase |
-|---------|------|--------------|
-| AI Lesson Assistant (v1 + v2 RAG) | [specs/2026-05-05-ai-lesson-assistant/requirements.md](specs/2026-05-05-ai-lesson-assistant/requirements.md) | Phase 8 |
-| Semantic Search & Recommendations | [specs/2026-05-08-semantic-search-recommendations/requirements.md](specs/2026-05-08-semantic-search-recommendations/requirements.md) | Phase 9 |
-| Lesson Auto-Summary & Study Guide | [specs/2026-05-08-lesson-auto-summary/requirements.md](specs/2026-05-08-lesson-auto-summary/requirements.md) | Phase 9 |
-| Instructor Insights Agent | [specs/2026-05-08-instructor-insights-agent/requirements.md](specs/2026-05-08-instructor-insights-agent/requirements.md) | Phase 9 |
-| Lesson Rich Text Editor (WYSIWYG) | [specs/2026-05-09-lesson-rich-text-editor/requirements.md](specs/2026-05-09-lesson-rich-text-editor/requirements.md) | Phase 4 polish |
+| AI Lesson Assistant | [specs/2026-05-05-ai-lesson-assistant/requirements.md](specs/2026-05-05-ai-lesson-assistant/requirements.md) |
+| Semantic Search & Recommendations | [specs/2026-05-08-semantic-search-recommendations/requirements.md](specs/2026-05-08-semantic-search-recommendations/requirements.md) |
+| Lesson Auto-Summary & Study Guide | [specs/2026-05-08-lesson-auto-summary/requirements.md](specs/2026-05-08-lesson-auto-summary/requirements.md) |
+| Lesson Rich Text Editor (WYSIWYG) | [specs/2026-05-09-lesson-rich-text-editor/requirements.md](specs/2026-05-09-lesson-rich-text-editor/requirements.md) |

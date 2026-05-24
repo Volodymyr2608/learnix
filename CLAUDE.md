@@ -30,7 +30,7 @@ docker-compose up -d  # Start the database
 
 ## Architecture
 
-T3 Stack app: Next.js 15 App Router + tRPC + Prisma + Better Auth.
+T3 Stack app: Next.js 16 App Router + tRPC + Prisma + Better Auth.
 
 ### Route groups
 - `app/(auth)/` — sign-in, sign-up pages
@@ -41,7 +41,7 @@ T3 Stack app: Next.js 15 App Router + tRPC + Prisma + Better Auth.
 ### tRPC setup
 - **Server RSC** (`trpc/server.ts`): `api` exported from here for Server Components, using `createCaller`.
 - **Client** (`trpc/client.tsx`): `api` exported from here for Client Components, using `createTRPCReact`.
-- **Routers** (`server/api/routers/`): `course`, `courseAI`, `instructor`, `user`, `search` — composed in `server/api/root.ts`.
+- **Routers** (`server/api/routers/`): `course`, `courseAI`, `instructor`, `lesson`, `learningPath`, `lessonAssistant`, `lessonInsightsAI`, `notifications`, `quiz`, `search`, `user` — composed in `server/api/root.ts`.
 - **Procedure types** (`server/api/trpc.ts`): `publicProcedure`, `protectedProcedure`, `instructorProcedure`, `studentProcedure`, `adminProcedure` — role enforcement is done at the procedure level.
 
 ### Auth
@@ -100,7 +100,7 @@ Streaming SSE endpoint at `app/api/chat/course/route.ts`. Uses a **LangGraph `St
 
 **Auto-advance:** `confidence_score` ≥ 0.8 triggers automatic step commit; below that the UI shows an Accept button.
 
-**No LangGraph checkpointer** — state is hydrated each request from `CourseGeneration` + `CourseGenerationMessage` tables via repositories (ADR-003). See ADR-016 for full design.
+**No LangGraph checkpointer** — state is hydrated each request from `CourseGeneration` + `CourseGenerationMessage` tables via repositories (ADR-003). See ADR-016 (LangGraph course builder) for full design.
 
 `CourseAIService` (`server/services/courseAI/`) exposes `runChat` and `runFinalize`. Frontend: `app/_components/Course/components/AIChatBuilderDialog/` — a chat panel (with `ToolCallIndicator`, `ConfidenceBadge`) and a live preview panel (ADR-011).
 
@@ -111,7 +111,28 @@ Vercel Blob via `app/api/uploads/route.ts`. Course thumbnails (≤2MB images) an
 Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Controlled form components in `app/_components/_shared/components/Form/`. Course forms use `react-hook-form` + Zod via `useCourseForm` hook. Drag-and-drop curriculum reordering uses `@dnd-kit`.
 
 ### Environment variables
-Validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`. Required vars: `DATABASE_URL`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_GITHUB_CLIENT_ID/SECRET`, `BETTER_AUTH_GOOGLE_CLIENT_ID/SECRET`, `BASE_URL`, and `OPENAI_API_KEY` (used directly in `CourseAIService`, not validated in env schema).
+All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `BETTER_AUTH_URL` | Yes | Auth base URL |
+| `BETTER_AUTH_SECRET` | Prod only | Auth signing secret |
+| `BETTER_AUTH_GITHUB_CLIENT_ID/SECRET` | Yes | GitHub OAuth |
+| `BETTER_AUTH_GOOGLE_CLIENT_ID/SECRET` | Yes | Google OAuth |
+| `BASE_URL` | Yes | Public app URL |
+| `OPENAI_API_KEY` | Yes | AI features (course builder, quiz, lesson assistant, embeddings) |
+| `LANGSMITH_API_KEY` | Optional | LangSmith tracing |
+| `LANGSMITH_PROJECT` | Optional | LangSmith project name |
+| `LANGSMITH_TRACING` | Optional | Enable LangSmith tracing (`"true"`) |
+| `RESEND_API_KEY` | Yes | Transactional email |
+| `EMAIL_FROM_ADDRESS` | Yes | Sender address for emails |
+| `EMAIL_REPLY_TO` | Optional | Reply-to address |
+| `N8N_API_TOKEN` | Yes | Bearer token for n8n webhook routes |
+| `N8N_WEBHOOK_BASE_URL` | Yes | n8n instance webhook base URL |
+| `N8N_WEBHOOK_SECRET` | Yes | HMAC secret for outbound n8n calls |
+| `CERTIFICATE_SECRET` | Yes | JWT signing secret for certificate download tokens |
+| `UNSUBSCRIBE_SECRET` | Yes | JWT signing secret for email unsubscribe tokens |
 
 ### Linting / formatting
 Biome (not ESLint/Prettier). Config in `biome.jsonc`. Auto-sorts imports and Tailwind classes (`useSortedClasses` for `clsx`/`cva`/`cn` calls).
