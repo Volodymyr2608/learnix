@@ -2,12 +2,16 @@ import { runAssessCompletionEval } from "./courseAI/assessCompletion.eval";
 import { runClassifyIntentEval } from "./courseAI/classifyIntent.eval";
 import { runConfidenceScoreEval } from "./courseAI/confidenceScore.eval";
 import { runExtractStepDataEval } from "./courseAI/extractStepData.eval";
+import { runTutorEval } from "./lessonAI/tutor.eval";
+import { runLessonInsightsEval } from "./lessonInsightsAI/lessonInsights.eval";
 
 const EVALS: Record<string, () => Promise<boolean>> = {
 	"courseAI:classifyIntent": runClassifyIntentEval,
 	"courseAI:assessCompletion": runAssessCompletionEval,
 	"courseAI:extractStepData": runExtractStepDataEval,
 	"courseAI:confidenceScore": runConfidenceScoreEval,
+	"lessonAI:tutor": runTutorEval,
+	"lessonInsightsAI:lessonInsights": runLessonInsightsEval,
 };
 
 async function main() {
