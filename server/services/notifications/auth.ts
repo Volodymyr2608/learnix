@@ -2,7 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { jwtVerify, SignJWT } from "jose";
 import { env } from "@/lib/env";
 
-const apiSecret = () => new TextEncoder().encode(env.N8N_API_TOKEN);
+const certificateSecret = () =>
+	new TextEncoder().encode(env.CERTIFICATE_SECRET);
 
 export function signHmac(body: string): string {
 	return (
@@ -37,12 +38,12 @@ export async function signCertificateToken(
 	return new SignJWT({ enrollmentId })
 		.setProtectedHeader({ alg: "HS256" })
 		.setExpirationTime("30d")
-		.sign(apiSecret());
+		.sign(certificateSecret());
 }
 
 export async function verifyCertificateToken(
 	token: string,
 ): Promise<{ enrollmentId: string }> {
-	const { payload } = await jwtVerify(token, apiSecret());
+	const { payload } = await jwtVerify(token, certificateSecret());
 	return payload as { enrollmentId: string };
 }
