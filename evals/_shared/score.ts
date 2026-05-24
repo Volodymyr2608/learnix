@@ -18,3 +18,34 @@ export function accuracyGate(
 	}
 	return true;
 }
+
+// Precision gate: penalises false positives (predicted=true, expected=false) more
+// harshly than false negatives. Used by evals where premature advancement is
+// more costly than excessive caution.
+export function precisionGate(
+	label: string,
+	results: Array<{ id: string; predicted: boolean; expected: boolean }>,
+	threshold: number,
+): boolean {
+	const truePositives = results.filter((r) => r.predicted && r.expected).length;
+	const falsePositives = results.filter(
+		(r) => r.predicted && !r.expected,
+	).length;
+	const precision =
+		truePositives + falsePositives === 0
+			? 1
+			: truePositives / (truePositives + falsePositives);
+	console.log(
+		`${label} precision on ready=true: ${(precision * 100).toFixed(1)}%`,
+	);
+	const falsePositiveIds = results
+		.filter((r) => r.predicted && !r.expected)
+		.map((r) => r.id);
+	if (falsePositiveIds.length)
+		console.log(`${label} false positives:`, falsePositiveIds);
+	if (precision < threshold) {
+		console.error(`FAIL: ${label} precision below ${threshold} threshold`);
+		return false;
+	}
+	return true;
+}

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
 import { assessCompletion } from "@/server/services/courseAI/graph/nodes/assessCompletion";
-import { accuracyGate, type EvalResult } from "../_shared/score";
+import { precisionGate } from "../_shared/score";
 
 type Row = {
 	id: string;
@@ -27,7 +27,7 @@ export async function runAssessCompletionEval(): Promise<boolean> {
 		.filter(Boolean)
 		.map((l) => JSON.parse(l));
 
-	const results: EvalResult[] = await Promise.all(
+	const results = await Promise.all(
 		rows.map(async (r) => {
 			const out = await assessCompletion({
 				generationId: "eval",
@@ -51,9 +51,10 @@ export async function runAssessCompletionEval(): Promise<boolean> {
 			});
 			return {
 				id: r.id,
-				ok: (out.assessReady ?? false) === r.expected.ready,
+				predicted: out.assessReady ?? false,
+				expected: r.expected.ready,
 			};
 		}),
 	);
-	return accuracyGate("assessCompletion", results, 0.9);
+	return precisionGate("assessCompletion", results, 0.9);
 }

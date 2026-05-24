@@ -1,6 +1,6 @@
 // Set NODE_ENV to production before importing tRPC so the timing middleware
 // (which adds 100–400 ms artificial delay when isDev=true) is skipped.
-process.env.NODE_ENV = "production";
+Object.assign(process.env, { NODE_ENV: "production" });
 
 import { describe, expect, it } from "vitest";
 import { Role } from "@/generated/prisma";
