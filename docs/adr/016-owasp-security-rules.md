@@ -76,6 +76,21 @@ if (!existing) throw new CourseError("Not found", "NOT_FOUND");
 
 **Pattern for student-owned resources:** filter by `studentId` / `userId` in every query or 404 if not found.
 
+**Nested entity IDs must also be verified.** When a DTO contains nested entity IDs (e.g., section IDs inside a course update, lesson IDs inside a section update), each ID must be confirmed to belong to the parent entity before being acted on. Verifying the top-level ownership does not protect nested writes:
+
+```ts
+// ✅ correct — validate section IDs against the verified course's sections
+const existingSectionIds = new Set(existingCourse.sections.map((s) => s.id));
+for (const sec of newSections) {
+  if (sec.id && !existingSectionIds.has(sec.id)) {
+    throw new CourseError("Section not found in this course", "NOT_FOUND");
+  }
+}
+
+// ❌ wrong — updating sectionData.id without checking it belongs to this course
+await sectionRepository.update(sectionData.id, { title: sectionData.title });
+```
+
 **Never** pass a raw ID from `input` to a repository `findOne` / `update` / `delete` without including the caller's userId in the where clause.
 
 ---
@@ -108,14 +123,36 @@ await someRepository.create(body);
 
 tRPC procedures are exempt because `.input(ZodSchema)` already validates.
 
+**Numeric query parameters must use `z.coerce.number()` with explicit bounds** — never use raw `Number()` conversion, which silently accepts `NaN`, `Infinity`, and values outside any meaningful range:
+
+```ts
+// ✅ correct
+const ParamsSchema = z.object({
+  inactiveDays: z.coerce.number().int().min(1).max(365).default(7),
+});
+const parsed = ParamsSchema.safeParse(Object.fromEntries(searchParams));
+if (!parsed.success) return Response.json({ error: "invalid_params" }, { status: 422 });
+
+// ❌ wrong — Number("abc") === NaN; Number("1e8") === 100000000
+const days = Number(searchParams.get("inactiveDays") ?? 7);
+```
+
 ---
 
 ### Rule 4 — File uploads must enforce MIME type and role (OWASP A04)
 
 Upload endpoints must:
-1. Require an authenticated session (Rule 1) and the correct role.
+1. Require an authenticated session (Rule 1) and verify the caller's role (`INSTRUCTOR` or `ADMIN`). Students must not be able to upload files.
 2. Validate `file.type` against an explicit allowlist before uploading.
 3. Never trust the file extension from the original filename for security decisions.
+
+```ts
+// ✅ correct — role check before processing
+const role = session?.user?.role as string | undefined;
+if (!session?.user || (role !== "INSTRUCTOR" && role !== "ADMIN")) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
+```
 
 ```ts
 const ALLOWED_MIME_TYPES = new Set([
@@ -171,6 +208,33 @@ if (req.headers.get("authorization") !== `Bearer ${env.N8N_API_TOKEN}`) { ... }
 
 ---
 
+### Rule 7 — Rate-limit AI-calling endpoints and cap user-controlled string lengths (OWASP A04)
+
+Any route that sends user-supplied text to an external AI API (OpenAI, LangChain, etc.) must:
+
+1. **Rate-limit per user** using `checkAiRateLimit(userId)` before processing the request.
+2. **Cap message/query length** using `validateMessageLength(text)` before passing text to an AI call. The cap prevents cost-amplification where a multi-megabyte string triggers an equally large embedding or completion call.
+
+```ts
+// ✅ correct — rate limit and length check before AI call
+if (!checkAiRateLimit(session.user.id)) {
+  return new Response("Too Many Requests", { status: 429 });
+}
+if (!validateMessageLength(userMessage)) {
+  return new Response("Message too long", { status: 413 });
+}
+
+// For search queries fed into embedding APIs, cap in the Zod schema:
+export const SemanticSearchDto = z.object({
+  query: z.string().min(1).max(500),
+  // ...
+});
+```
+
+The in-memory rate limiter (`server/utils/aiRateLimiter.ts`) is per-process. For multi-instance deployments, replace with a shared store (Redis). The current Map implementation self-evicts stale entries when it exceeds 5 000 entries.
+
+---
+
 ## Checklist for new features
 
 Before merging any PR that adds a new API route or tRPC procedure:
@@ -178,10 +242,13 @@ Before merging any PR that adds a new API route or tRPC procedure:
 - [ ] Route handlers: session check is the **first** thing in the handler
 - [ ] tRPC procedures: correct procedure type chosen (never `publicProcedure` for privileged actions)
 - [ ] Any entity ID in `input` is filtered by `userId` / `instructorId` / `studentId` in the DB query
+- [ ] **Nested entity IDs** (sections, lessons, etc.) are validated against the verified parent before update
 - [ ] Route handler `req.json()` body is parsed through a Zod schema before use
-- [ ] File upload endpoints validate `file.type` against an allowlist
+- [ ] Numeric query params use `z.coerce.number()` with `.min()` / `.max()` bounds — never raw `Number()`
+- [ ] File upload endpoints validate `file.type` against an allowlist **and** require `INSTRUCTOR` or `ADMIN` role
 - [ ] Role *elevation* of existing accounts is behind `adminProcedure`/internal only; any public role-granting signup creates a new account and cannot touch existing ones
 - [ ] Secret comparisons use `timingSafeEqual`
+- [ ] Routes that call AI APIs use `checkAiRateLimit` and `validateMessageLength` (or a Zod `.max()` cap)
 
 ## Consequences
 
