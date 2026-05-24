@@ -59,6 +59,11 @@ React component and end-to-end browser tests are **explicitly out of scope** for
 
 **Negative / Trade-offs**
 - Integration tests are slower than pure unit tests and need a running Postgres locally and a service container in CI — more setup than a mock-only suite.
-- Because services use singletons rather than DI, isolating a single service in a pure unit test requires module mocking, which is more brittle than constructor injection. We accept this rather than refactoring every service for DI now; integration coverage compensates.
+- Services use singletons rather than DI. We deliberately keep module mocking rare: services are thin orchestration over repositories + DB, so their logic is tested through integration tests against a real Postgres, not by mocking repos. `vi.mock` is reserved for fire-and-forget side effects (embedding / email calls) spied at their boundary. The residual cost: if a service ever grows pure branching logic that is expensive to set up in the DB, mocking that one case will feel clunky — acceptable and rare, and cheaper than refactoring ~20 services and their tRPC wiring for DI now.
 - A pgvector image and migration step add ~tens of seconds to CI runtime.
 - Evals being non-blocking means a prompt regression can still merge if a contributor skips the manual eval run; this is a known gap (CI eval gating remains a future addition, as in ADR-013).
+
+## Future work
+
+- **React component and E2E tests.** Deferred deliberately. Component testing is a separate tooling axis (a jsdom Vitest project + Testing Library) and is made fiddly by React 19 Server Components and tRPC data fetching; adding it now would dilute the round-one goal of core-logic coverage. Vitest accommodates it later via a third `dom` project with no change to the unit/integration split. A dedicated component-test round should follow once the server-logic suite is established, starting with the highest-risk interactive surfaces (course forms, the AI chat builder).
+- **CI eval gating.** Run evals automatically (nightly or on prompt-file changes) once cost and flakiness are understood, promoting them from manual to gated.
