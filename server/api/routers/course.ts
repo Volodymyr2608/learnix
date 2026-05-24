@@ -39,8 +39,15 @@ export const courseRouter = createTRPCRouter({
 
 	delete: instructorProcedure
 		.input(CourseSchema.shape.id)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
 			try {
+				const owned = await courseRepository.getOwnCourse(input, ctx.session.user.id);
+				if (!owned) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Course not found or access denied",
+					});
+				}
 				return await courseRepository.deleteCourse(input, true);
 			} catch (error) {
 				handleServiceError(error);
