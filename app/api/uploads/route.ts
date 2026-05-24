@@ -14,8 +14,9 @@ const ALLOWED_MIME_TYPES = new Set([
 
 export async function POST(req: NextRequest) {
 	const session = await getSession();
-	if (!session?.user) {
-		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	const role = session?.user?.role as string | undefined;
+	if (!session?.user || (role !== "INSTRUCTOR" && role !== "ADMIN")) {
+		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 
 	try {
