@@ -1,8 +1,7 @@
-import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig, defineProject } from "vitest/config";
 
 export default defineConfig({
-	plugins: [tsconfigPaths()],
+	resolve: { tsconfigPaths: true },
 	test: {
 		coverage: {
 			provider: "v8",
@@ -11,7 +10,6 @@ export default defineConfig({
 		},
 		projects: [
 			defineProject({
-				plugins: [tsconfigPaths()],
 				test: {
 					name: "unit",
 					environment: "node",
@@ -21,7 +19,6 @@ export default defineConfig({
 				},
 			}),
 			defineProject({
-				plugins: [tsconfigPaths()],
 				test: {
 					name: "integration",
 					environment: "node",
