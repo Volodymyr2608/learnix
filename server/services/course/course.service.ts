@@ -116,7 +116,11 @@ class CourseService {
 		);
 	}
 
-	async updateCourse(courseId: string, dto: CourseFullUpdateDto, instructorId: string) {
+	async updateCourse(
+		courseId: string,
+		dto: CourseFullUpdateDto,
+		instructorId: string,
+	) {
 		try {
 			const { sections: newSections, ...incomingCourseData } = dto;
 			let existingStatus: string | undefined;

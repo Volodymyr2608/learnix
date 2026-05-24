@@ -31,7 +31,11 @@ export const courseRouter = createTRPCRouter({
 		.input(CourseFullUpdateDto)
 		.mutation(async ({ ctx, input }) => {
 			try {
-				return await courseService.updateCourse(input.id, input, ctx.session.user.id);
+				return await courseService.updateCourse(
+					input.id,
+					input,
+					ctx.session.user.id,
+				);
 			} catch (error) {
 				handleServiceError(error);
 			}
@@ -41,7 +45,10 @@ export const courseRouter = createTRPCRouter({
 		.input(CourseSchema.shape.id)
 		.mutation(async ({ ctx, input }) => {
 			try {
-				const owned = await courseRepository.getOwnCourse(input, ctx.session.user.id);
+				const owned = await courseRepository.getOwnCourse(
+					input,
+					ctx.session.user.id,
+				);
 				if (!owned) {
 					throw new TRPCError({
 						code: "NOT_FOUND",
