@@ -139,6 +139,31 @@ class CourseService {
 
 				existingStatus = existingCourse.status;
 
+				const existingSections = (existingCourse as CourseWithSections).sections;
+				const existingSectionIds = new Set(existingSections.map((s) => s.id));
+				for (const sec of newSections) {
+					if (sec.id && !existingSectionIds.has(sec.id)) {
+						throw new CourseError(
+							"Section not found in this course",
+							"NOT_FOUND",
+						);
+					}
+					const existingSec = existingSections.find((s) => s.id === sec.id);
+					if (existingSec) {
+						const existingLessonIds = new Set(
+							existingSec.lessons.map((l) => l.id),
+						);
+						for (const lesson of sec.lessons) {
+							if (lesson.id && !existingLessonIds.has(lesson.id)) {
+								throw new CourseError(
+									"Lesson not found in this section",
+									"NOT_FOUND",
+								);
+							}
+						}
+					}
+				}
+
 				const courseDataToUpdate = this.prepareCourseUpdate(
 					existingCourse as CourseWithSections,
 					incomingCourseData,
@@ -148,9 +173,6 @@ class CourseService {
 					courseId,
 					courseDataToUpdate,
 				);
-
-				const existingSections = (existingCourse as CourseWithSections)
-					.sections;
 
 				const updatedSections = await this.syncSections(
 					existingSections,
