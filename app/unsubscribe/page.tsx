@@ -76,10 +76,10 @@ export default async function UnsubscribePage({
 					You will no longer receive notification emails from Learnix.
 				</p>
 				<form action={confirmUnsubscribe} className="mt-6">
-					<input type="hidden" name="token" value={token} />
+					<input name="token" type="hidden" value={token} />
 					<button
+						className="rounded-md bg-red-600 px-6 py-2 font-semibold text-sm text-white hover:bg-red-500"
 						type="submit"
-						className="rounded-md bg-red-600 px-6 py-2 text-sm font-semibold text-white hover:bg-red-500"
 					>
 						Confirm unsubscribe
 					</button>

@@ -14,6 +14,8 @@ const TABLES = [
 	"learning_path_cache",
 	"lesson_insights",
 	"lesson_chunk_embeddings",
+	"quiz_attempts",
+	"quizzes",
 	"lessons",
 	"sections",
 	"course_generation_messages",
@@ -32,7 +34,5 @@ const TABLES = [
 
 export async function truncateAll(): Promise<void> {
 	const list = TABLES.map((t) => `"${t}"`).join(", ");
-	await testDb.$executeRawUnsafe(
-		`TRUNCATE ${list} RESTART IDENTITY CASCADE;`,
-	);
+	await testDb.$executeRawUnsafe(`TRUNCATE ${list} RESTART IDENTITY CASCADE;`);
 }

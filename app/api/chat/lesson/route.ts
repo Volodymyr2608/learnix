@@ -1,12 +1,12 @@
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
+import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
 import {
 	checkAiRateLimit,
 	validateMessageLength,
 } from "@/server/utils/aiRateLimiter";
-import { lessonRepository } from "@/server/repositories/lesson.repository";
-import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
-import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
 
 export const runtime = "nodejs";
 

@@ -1,4 +1,4 @@
-import { type Role } from "@/generated/prisma";
+import type { Role } from "@/generated/prisma";
 import type { UserUpdateDto } from "@/server/entities/user";
 import { userRepository } from "@/server/repositories/user.repository";
 import { UserError } from "@/server/services/user/user.errors";

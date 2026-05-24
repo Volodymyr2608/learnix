@@ -139,7 +139,8 @@ class CourseService {
 
 				existingStatus = existingCourse.status;
 
-				const existingSections = (existingCourse as CourseWithSections).sections;
+				const existingSections = (existingCourse as CourseWithSections)
+					.sections;
 				const existingSectionIds = new Set(existingSections.map((s) => s.id));
 				for (const sec of newSections) {
 					if (sec.id && !existingSectionIds.has(sec.id)) {

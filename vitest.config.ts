@@ -1,7 +1,6 @@
 import { defineConfig, defineProject } from "vitest/config";
 
 export default defineConfig({
-	resolve: { tsconfigPaths: true },
 	test: {
 		coverage: {
 			provider: "v8",
