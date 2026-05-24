@@ -1,15 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { env } from "@/lib/env";
 import {
 	InvalidPayloadError,
 	ResendSendError,
 	UnknownTemplateError,
 } from "@/server/services/email/email.errors";
 import { emailService } from "@/server/services/email/email.service";
+import { requireBearer } from "@/server/services/notifications/auth";
 
 export async function POST(req: NextRequest) {
-	if (req.headers.get("authorization") !== `Bearer ${env.N8N_API_TOKEN}`) {
-		return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+	try {
+		requireBearer(req);
+	} catch (res) {
+		return res as Response;
 	}
 
 	try {
