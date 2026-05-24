@@ -1,6 +1,10 @@
 import type { DraftStep } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
+import {
+	checkAiRateLimit,
+	validateMessageLength,
+} from "@/server/utils/aiRateLimiter";
 
 export const runtime = "nodejs";
 
@@ -12,12 +16,29 @@ export async function POST(req: Request) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
+	if ((session.user.role as string) !== "INSTRUCTOR") {
+		return new Response("Forbidden", { status: 403 });
+	}
+
+	if (!checkAiRateLimit(session.user.id)) {
+		return new Response("Too Many Requests", { status: 429 });
+	}
+
+	const { courseGenerationId, userMessage } = await req.json();
+
+	if (!userMessage) {
+		return new Response("Message is required", { status: 400 });
+	}
 	const body = (await req.json()) as {
 		courseGenerationId?: string;
 		userMessage?: string;
 		mode?: Mode;
 	};
 	const mode: Mode = body.mode === "finalize" ? "finalize" : "chat";
+
+	if (!validateMessageLength(userMessage)) {
+		return new Response("Message too long", { status: 413 });
+	}
 
 	const abortSignal = req.signal;
 

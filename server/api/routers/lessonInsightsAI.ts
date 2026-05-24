@@ -23,9 +23,12 @@ export const lessonInsightsAIRouter = createTRPCRouter({
 
 	getLessonInsights: protectedProcedure
 		.input(LessonInsightsSchema.shape.lessonId)
-		.query(async ({ input }) => {
+		.query(async ({ ctx, input }) => {
 			try {
-				return await lessonInsightsAIService.getForLesson(input);
+				return await lessonInsightsAIService.getForLesson(
+					input,
+					ctx.session.user.id,
+				);
 			} catch (error) {
 				handleServiceError(error);
 			}

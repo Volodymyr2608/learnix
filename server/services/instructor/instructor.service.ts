@@ -23,9 +23,7 @@ class InstructorService {
 				});
 				userId = result.userId;
 
-				await userService.updateUser(userId, {
-					role: Role.INSTRUCTOR,
-				});
+				await userService.setRole(userId, Role.INSTRUCTOR);
 
 				return await instructorRepository.create({
 					userId,

@@ -116,14 +116,18 @@ class CourseService {
 		);
 	}
 
-	async updateCourse(courseId: string, dto: CourseFullUpdateDto) {
+	async updateCourse(
+		courseId: string,
+		dto: CourseFullUpdateDto,
+		instructorId: string,
+	) {
 		try {
 			const { sections: newSections, ...incomingCourseData } = dto;
 			let existingStatus: string | undefined;
 
 			const result = await courseRepository.transaction(async () => {
 				const existingCourse = await courseRepository.findFirst({
-					where: { id: courseId },
+					where: { id: courseId, instructorId },
 					include: {
 						sections: { include: { lessons: true } },
 					},
@@ -135,6 +139,31 @@ class CourseService {
 
 				existingStatus = existingCourse.status;
 
+				const existingSections = (existingCourse as CourseWithSections).sections;
+				const existingSectionIds = new Set(existingSections.map((s) => s.id));
+				for (const sec of newSections) {
+					if (sec.id && !existingSectionIds.has(sec.id)) {
+						throw new CourseError(
+							"Section not found in this course",
+							"NOT_FOUND",
+						);
+					}
+					const existingSec = existingSections.find((s) => s.id === sec.id);
+					if (existingSec) {
+						const existingLessonIds = new Set(
+							existingSec.lessons.map((l) => l.id),
+						);
+						for (const lesson of sec.lessons) {
+							if (lesson.id && !existingLessonIds.has(lesson.id)) {
+								throw new CourseError(
+									"Lesson not found in this section",
+									"NOT_FOUND",
+								);
+							}
+						}
+					}
+				}
+
 				const courseDataToUpdate = this.prepareCourseUpdate(
 					existingCourse as CourseWithSections,
 					incomingCourseData,
@@ -144,9 +173,6 @@ class CourseService {
 					courseId,
 					courseDataToUpdate,
 				);
-
-				const existingSections = (existingCourse as CourseWithSections)
-					.sections;
 
 				const updatedSections = await this.syncSections(
 					existingSections,
@@ -189,6 +215,11 @@ class CourseService {
 			return result;
 		} catch (error: unknown) {
 			logger.error("Error updating course:", error);
+
+			if (error instanceof CourseError) {
+				throw error;
+			}
+
 			throw new CourseError(
 				"Failed to update course",
 				"INTERNAL_SERVER_ERROR",

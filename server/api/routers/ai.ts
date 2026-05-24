@@ -12,15 +12,19 @@ import { handleServiceError } from "@/server/utils/handleServiceError";
 export const courseAIRouter = createTRPCRouter({
 	getGenerationStatus: instructorProcedure
 		.input(processStepSchema)
-		.query(async ({ input }) => {
+		.query(async ({ ctx, input }) => {
 			try {
-				const courseGen = await courseGenerationRepository.findOne(
-					input.courseGenerationId,
-				);
+				const courseGen = await courseGenerationRepository.findFirst({
+					where: {
+						id: input.courseGenerationId,
+						instructorId: ctx.session.user.id,
+					},
+				});
+
 				return {
 					currentStep: courseGen?.step,
 					sectionsData: courseGen?.content
-						? (courseGen?.content as unknown as CourseSchemaOutput)
+						? (courseGen.content as unknown as CourseSchemaOutput)
 						: {},
 				};
 			} catch (error) {

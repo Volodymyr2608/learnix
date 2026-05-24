@@ -7,17 +7,26 @@ import type { PathStep } from "./schemas/learningPath.schema";
 
 const rateLimitBucket = new Map<string, number>();
 const RATE_LIMIT_MS = 60_000;
+const EVICT_THRESHOLD = 5_000;
 
 function checkRateLimit(studentId: string, courseId: string): void {
 	const key = `${studentId}:${courseId}`;
+	const now = Date.now();
+
+	if (rateLimitBucket.size > EVICT_THRESHOLD) {
+		for (const [k, ts] of rateLimitBucket) {
+			if (now - ts >= RATE_LIMIT_MS) rateLimitBucket.delete(k);
+		}
+	}
+
 	const lastAt = rateLimitBucket.get(key) ?? 0;
-	if (Date.now() - lastAt < RATE_LIMIT_MS) {
+	if (now - lastAt < RATE_LIMIT_MS) {
 		throw new LearningPathRateLimitedError(
 			"You can only regenerate once per minute",
 			"TOO_MANY_REQUESTS",
 		);
 	}
-	rateLimitBucket.set(key, Date.now());
+	rateLimitBucket.set(key, now);
 }
 
 class LearningPathAIService {

@@ -1,5 +1,6 @@
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import { checkAiRateLimit } from "@/server/utils/aiRateLimiter";
 import { learningPathAIService } from "@/server/services/learningPathAI/learningPathAI.service";
 
 export const runtime = "nodejs";
@@ -8,6 +9,10 @@ export async function POST(req: Request) {
 	const session = await getSession();
 	if (!session?.user) {
 		return new Response("Unauthorized", { status: 401 });
+	}
+
+	if (!checkAiRateLimit(session.user.id)) {
+		return new Response("Too Many Requests", { status: 429 });
 	}
 
 	const { courseId } = await req.json();
