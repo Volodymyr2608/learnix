@@ -32,7 +32,6 @@ export const UserUpdateDto = UserDto.pick({
 	email: true,
 	emailVerified: true,
 	image: true,
-	role: true,
 }).partial();
 
 export type UserUpdateDto = z.infer<typeof UserUpdateDto>;
