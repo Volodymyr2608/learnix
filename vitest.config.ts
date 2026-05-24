@@ -10,6 +10,7 @@ export default defineConfig({
 		},
 		projects: [
 			defineProject({
+				resolve: { tsconfigPaths: true },
 				test: {
 					name: "unit",
 					environment: "node",
@@ -19,6 +20,7 @@ export default defineConfig({
 				},
 			}),
 			defineProject({
+				resolve: { tsconfigPaths: true },
 				test: {
 					name: "integration",
 					environment: "node",
