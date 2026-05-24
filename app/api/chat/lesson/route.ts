@@ -1,5 +1,9 @@
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import {
+	checkAiRateLimit,
+	validateMessageLength,
+} from "@/server/utils/aiRateLimiter";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
@@ -12,10 +16,18 @@ export async function POST(req: Request) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
+	if (!checkAiRateLimit(session.user.id)) {
+		return new Response("Too Many Requests", { status: 429 });
+	}
+
 	const { lessonId, message } = await req.json();
 
 	if (!lessonId || !message) {
 		return new Response("lessonId and message are required", { status: 400 });
+	}
+
+	if (!validateMessageLength(message)) {
+		return new Response("Message too long", { status: 413 });
 	}
 
 	const enrollment = await enrollmentRepository.findFirst({
