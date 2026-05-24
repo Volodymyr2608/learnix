@@ -16,6 +16,10 @@ export async function POST(req: Request) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
+	if ((session.user.role as string) !== "INSTRUCTOR") {
+		return new Response("Forbidden", { status: 403 });
+	}
+
 	if (!checkAiRateLimit(session.user.id)) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
