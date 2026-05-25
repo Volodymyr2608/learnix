@@ -19,6 +19,17 @@ pnpm db:push          # Push schema without migration (for dev)
 pnpm db:studio        # Open Prisma Studio
 pnpm generate         # Regenerate Prisma client (prisma generate)
 pnpm reindex          # Backfill all course/lesson/user embeddings (scripts/reindex-embeddings.ts)
+
+# Tests
+pnpm test             # Run all tests once (unit + integration)
+pnpm test:unit        # Unit tests only (no DB required)
+pnpm test:integration # Integration tests (requires learnix_test DB — see .env.test.example)
+pnpm test:watch       # Watch mode
+pnpm coverage         # Unit test coverage report
+
+# Evals (offline, call OpenAI — run before merging prompt changes)
+pnpm eval             # Run all evals
+pnpm eval <name>      # Run one eval, e.g. pnpm eval courseAI:classifyIntent
 ```
 
 **Local database**: PostgreSQL via Docker on port 5433.
@@ -26,7 +37,12 @@ pnpm reindex          # Backfill all course/lesson/user embeddings (scripts/rein
 docker-compose up -d  # Start the database
 ```
 
-**Pre-commit hook**: Biome runs on staged files via lint-staged. No test suite is configured.
+**Pre-commit hook**: Biome runs on staged files via lint-staged.
+
+**Testing pyramid**:
+- `*.test.ts` — unit tests, colocated next to source; no DB, no network
+- `*.integration.test.ts` — service + repository tests against a real `learnix_test` Postgres
+- `evals/` — offline LLM quality checks; manual before prompt changes, never in PR CI
 
 ## Architecture
 

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
 import { assessCompletion } from "@/server/services/courseAI/graph/nodes/assessCompletion";
+import { precisionGate } from "../_shared/score";
 
 type Row = {
 	id: string;
@@ -20,7 +21,7 @@ const DATASET = resolve(
 	"evals/datasets/courseAI/assessCompletion.jsonl",
 );
 
-export async function runAssessCompletionEval() {
+export async function runAssessCompletionEval(): Promise<boolean> {
 	const rows: Row[] = readFileSync(DATASET, "utf-8")
 		.split("\n")
 		.filter(Boolean)
@@ -55,25 +56,5 @@ export async function runAssessCompletionEval() {
 			};
 		}),
 	);
-
-	const truePositives = results.filter((r) => r.predicted && r.expected).length;
-	const falsePositives = results.filter(
-		(r) => r.predicted && !r.expected,
-	).length;
-	const precision =
-		truePositives + falsePositives === 0
-			? 1
-			: truePositives / (truePositives + falsePositives);
-
-	console.log(
-		`assessCompletion precision on ready=true: ${(precision * 100).toFixed(1)}%`,
-	);
-	console.log(
-		"False positives:",
-		results.filter((r) => r.predicted && !r.expected).map((r) => r.id),
-	);
-	if (precision < 0.9) {
-		console.error("FAIL: precision below 0.9 threshold");
-		process.exit(1);
-	}
+	return precisionGate("assessCompletion", results, 0.9);
 }
