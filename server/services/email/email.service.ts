@@ -10,8 +10,6 @@ import {
 import { renderTemplate } from "./email.renderer";
 import { emailTemplates, type TemplateKey } from "./email.templates";
 
-const resend = new Resend(env.RESEND_API_KEY);
-
 type SendInput = {
 	templateKey: string;
 	toEmail: string;
@@ -20,6 +18,12 @@ type SendInput = {
 };
 
 class EmailService {
+	private _resend: Resend | undefined;
+
+	private get resend(): Resend {
+		return (this._resend ??= new Resend(env.RESEND_API_KEY));
+	}
+
 	async send(
 		input: SendInput,
 	): Promise<{ id: string } | { skipped: "opted_out" }> {
@@ -44,7 +48,7 @@ class EmailService {
 			parsed.data,
 		);
 
-		const { data, error } = await resend.emails.send({
+		const { data, error } = await this.resend.emails.send({
 			from: env.EMAIL_FROM_ADDRESS,
 			...(env.EMAIL_REPLY_TO && { replyTo: env.EMAIL_REPLY_TO }),
 			to: input.toEmail,
