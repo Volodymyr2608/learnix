@@ -21,7 +21,8 @@ class EmailService {
 	private _resend: Resend | undefined;
 
 	private get resend(): Resend {
-		return (this._resend ??= new Resend(env.RESEND_API_KEY));
+		if (!this._resend) this._resend = new Resend(env.RESEND_API_KEY);
+		return this._resend;
 	}
 
 	async send(
