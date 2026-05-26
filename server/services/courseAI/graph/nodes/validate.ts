@@ -12,11 +12,10 @@ export const validate = withNodeErrors("validate", async (state) => {
 
 	// Cross-field rule (curriculum): check objectives coverage
 	if (state.currentStep === DraftStep.curriculum) {
-		const objectives = (
-			state.content[DraftStep.objectives] as
-				| { objectives?: { value: string }[] }
-				| undefined
-		)?.objectives;
+		// Content is flat: content["objectives"] is the array directly, not {objectives:[]}
+		const objectives = state.content["objectives"] as
+			| { value: string }[]
+			| undefined;
 
 		const sections = (
 			parsed.data as { sections: { lessons: { title: string }[] }[] }
