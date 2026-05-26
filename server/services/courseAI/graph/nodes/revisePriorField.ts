@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
+import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 
 export const revisePriorField = withNodeErrors(
@@ -13,17 +14,20 @@ export const revisePriorField = withNodeErrors(
 		}
 
 		const target = state.reviseTarget;
-		const schema = getValidatorForStep(target);
+		// Use the full schema's shape for key extraction, but the relaxed schema for
+		// withStructuredOutput to prevent min/max constraints leaking into LLM output.
+		const fullSchema = getValidatorForStep(target);
+		const extractionSchema = getExtractionSchemaForStep(target);
 
 		const model = new ChatOpenAI({
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
-		}).withStructuredOutput(schema, { method: "functionCalling" });
+		}).withStructuredOutput(extractionSchema, { method: "functionCalling" });
 
 		// DB content is flat ({title, subtitle, sections, …}), never nested by step name.
 		// Extract only the keys that belong to this step so the LLM knows what to preserve.
-		const stepKeys = Object.keys(schema.shape) as (keyof typeof state.content)[];
+		const stepKeys = Object.keys(fullSchema.shape) as (keyof typeof state.content)[];
 		const currentStepData = Object.fromEntries(
 			stepKeys
 				.filter((k) => k in state.content)

@@ -44,14 +44,16 @@ export const assessCompletion = withNodeErrors(
 		const prompt =
 			`Decide whether the user has explicitly confirmed the content for the "${state.currentStep}" step.
 
-			Return ready=true when the user's latest message is a clear approval ("ok", "yes", "looks good", "alright", "perfect", "go ahead", "proceed", "confirm", "next", "move on", etc.) directed at approving the CURRENT "${state.currentStep}" step as a whole — regardless of any field tweaks that happened earlier in this same step.
+			Return ready=true ONLY when ALL of the following are true:
+			1. The user's message is a clear, standalone approval or confirmation: "ok", "yes", "looks good", "alright", "perfect", "go ahead", "proceed", "confirm", "next", "move on", "sounds good", "that's fine", "great", etc.
+			2. The user is NOT making a request, asking a question, or providing information — they are simply accepting what was proposed.
+			3. The assistant's most recent message was presenting or discussing content for the CURRENT "${state.currentStep}" step, NOT confirming a revision to an already-committed step.
 
 			Return ready=false when:
-			- The most recent AI message confirmed a revision to a PREVIOUSLY COMMITTED step (a step that was already finished before this one). In that case the user's approval is acknowledging that earlier-step revision, not confirming the current step.
-			- The user asked a question, made a correction, or is still discussing content.
-			- The user provided new information without explicitly confirming.
-
-			NOTE: If the user made field changes WITHIN the current "${state.currentStep}" step (e.g., adjusted the level, duration, or category for a step that has not yet been committed), a subsequent "ok" / "yes" / "looks good" IS a valid confirmation of that step — return ready=true.
+			- The user's message contains a change request ("can you change", "update", "add", "remove", "make it", "adjust", etc.).
+			- The user is asking a question.
+			- The user is providing information or corrections.
+			- The most recent AI message was confirming a change to a previously committed step — the user's approval would be acknowledging that revision, not committing the current step.
 
 			CONVERSATION:
 			${historyText}`.trim();
