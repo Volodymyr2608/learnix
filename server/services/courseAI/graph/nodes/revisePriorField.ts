@@ -21,9 +21,18 @@ export const revisePriorField = withNodeErrors(
 			apiKey: env.OPENAI_API_KEY,
 		}).withStructuredOutput(schema, { method: "functionCalling" });
 
+		// DB content is flat ({title, subtitle, sections, …}), never nested by step name.
+		// Extract only the keys that belong to this step so the LLM knows what to preserve.
+		const stepKeys = Object.keys(schema.shape) as (keyof typeof state.content)[];
+		const currentStepData = Object.fromEntries(
+			stepKeys
+				.filter((k) => k in state.content)
+				.map((k) => [k, state.content[k]]),
+		);
+
 		const prompt =
 			`The user wants to revise the "${target}" step of their course.
-Current values for that step: ${JSON.stringify(state.content[target] ?? {}, null, 2)}
+Current values for that step: ${JSON.stringify(currentStepData, null, 2)}
 User's revision request: "${state.userMessage}"
 
 Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`.trim();
