@@ -54,7 +54,7 @@ Learnix (markLessonComplete)
 n8n cron (daily)
   → GET  /api/notifications/inactive-students  (Bearer)
   → POST /api/notifications/log                (Bearer, dedup)
-  → POST /api/notifications/send-email         (Bearer)
+  → POST /api/emails/send                       (Bearer)
   → DELETE /api/notifications/log              (Bearer, rollback on failure)
 ```
 

@@ -142,7 +142,7 @@
 		{
 			"parameters": {
 				"method": "POST",
-				"url": "={{ $env[\"BASE_URL\"] }}/api/notifications/send-email",
+				"url": "={{ $env[\"BASE_URL\"] }}/api/emails/send",
 				"authentication": "predefinedCredentialType",
 				"nodeCredentialType": "httpBearerAuth",
 				"sendBody": true,

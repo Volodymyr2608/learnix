@@ -24,17 +24,17 @@ export async function POST(req: Request) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
-	const { courseGenerationId, userMessage } = await req.json();
-
-	if (!userMessage) {
-		return new Response("Message is required", { status: 400 });
-	}
 	const body = (await req.json()) as {
 		courseGenerationId?: string;
 		userMessage?: string;
 		mode?: Mode;
 	};
+	const { userMessage } = body;
 	const mode: Mode = body.mode === "finalize" ? "finalize" : "chat";
+
+	if (!userMessage) {
+		return new Response("Message is required", { status: 400 });
+	}
 
 	if (!validateMessageLength(userMessage)) {
 		return new Response("Message too long", { status: 413 });
