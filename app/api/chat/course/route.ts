@@ -32,11 +32,11 @@ export async function POST(req: Request) {
 	const { userMessage } = body;
 	const mode: Mode = body.mode === "finalize" ? "finalize" : "chat";
 
-	if (!userMessage) {
+	if (mode === "chat" && !body.courseGenerationId && !userMessage) {
 		return new Response("Message is required", { status: 400 });
 	}
 
-	if (!validateMessageLength(userMessage)) {
+	if (userMessage && !validateMessageLength(userMessage)) {
 		return new Response("Message too long", { status: 413 });
 	}
 
