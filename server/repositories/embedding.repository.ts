@@ -91,7 +91,7 @@ class EmbeddingRepository {
 				${categoryClause}
 				${levelClause}
 			ORDER BY distance ASC
-			LIMIT ${limit}
+			LIMIT ${Prisma.raw(String(limit))}
 		`;
 	}
 
@@ -114,7 +114,7 @@ class EmbeddingRepository {
 				AND c.deleted_at IS NULL
 				${excludeClause}
 			ORDER BY distance ASC
-			LIMIT ${limit}
+			LIMIT ${Prisma.raw(String(limit))}
 		`;
 	}
 

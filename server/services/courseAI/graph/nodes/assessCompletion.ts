@@ -4,8 +4,9 @@ import { env } from "@/lib/env";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
 const outSchema = z.object({
-	ready: z.boolean(),
-	reason: z.string(),
+	decision: z.enum(["ready", "not_ready", "ask"]),
+	// Only set when decision === "ask": a short friendly question to resolve ambiguity.
+	question: z.string().optional(),
 });
 
 export const assessCompletion = withNodeErrors(
@@ -17,7 +18,7 @@ export const assessCompletion = withNodeErrors(
 			state.intent === "revise" ||
 			state.intent === "clarify"
 		)
-			return { assessReady: false };
+			return { assessReady: false, assessClarify: null };
 
 		const model = new ChatOpenAI({
 			model: "gpt-4o-mini",
@@ -42,15 +43,18 @@ export const assessCompletion = withNodeErrors(
 			.join("\n");
 
 		const prompt =
-			`Decide whether the user has explicitly confirmed the content for the "${state.currentStep}" step.
+			`Decide how to handle the user's latest message for the "${state.currentStep}" step.
 
-			Return ready=true when the user's latest message is a clear approval ("ok", "yes", "looks good", "alright", "perfect", "go ahead", "proceed", "confirm", "next", "move on", etc.) AND the conversation is about the current "${state.currentStep}" step — not about updating a field from an earlier step (like title, duration, subtitle, level, language).
-			
-			Return ready=false when:
-			- The most recent AI message was confirming a revision to an EARLIER step (e.g., "Updated the duration to 30 hours", "The subtitle has been rephrased"). In that case the user's approval is acknowledging the revision, not confirming the current step.
-			- The user asked a question, made a correction, or is still discussing.
-			- The user provided new information without explicitly confirming.
-			
+			Return one of three decisions:
+
+			"ready" — the user clearly wants to proceed (approve, finalize, move on). This includes approvals with typos, informal phrasing, expressions of liking ("I like it", "so i like it"), finalization requests ("can you finalize", "let's commit"), or any short message that expresses satisfaction or a desire to continue.
+
+			"not_ready" — the user clearly wants to make a change or provide more information before proceeding (change request, adding/removing items, asking a non-finalization question, etc.).
+
+			"ask" — the message is genuinely ambiguous and you cannot reliably infer intent. Use this sparingly. When you choose "ask", set "question" to a short, friendly clarifying question in the same language as the user that resolves the ambiguity (e.g., "Everything looks good — shall I finalize this step and move on?").
+
+			Default to "ready" for short messages that express satisfaction or a wish to continue, even if phrased informally or with typos.
+
 			CONVERSATION:
 			${historyText}`.trim();
 
@@ -59,9 +63,15 @@ export const assessCompletion = withNodeErrors(
 				[{ role: "user", content: prompt }],
 				config,
 			);
-			return { assessReady: out.ready };
+			return {
+				assessReady: out.decision === "ready",
+				assessClarify:
+					out.decision === "ask"
+						? (out.question ?? "Everything looks good — shall I finalize this step?")
+						: null,
+			};
 		} catch {
-			return { assessReady: false };
+			return { assessReady: false, assessClarify: null };
 		}
 	},
 );

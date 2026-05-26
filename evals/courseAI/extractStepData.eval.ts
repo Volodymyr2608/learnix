@@ -70,6 +70,7 @@ export async function runExtractStepDataEval(): Promise<boolean> {
 				toolCalls: [],
 				pendingToolCalls: [],
 				assessReady: false,
+				assessClarify: null,
 				draftStepData: undefined,
 				confidence: 0,
 				shouldAutoAdvance: false,

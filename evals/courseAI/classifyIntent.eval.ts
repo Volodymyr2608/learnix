@@ -47,6 +47,7 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 				toolCalls: [],
 				pendingToolCalls: [],
 				assessReady: false,
+				assessClarify: null,
 				draftStepData: undefined,
 				confidence: 0,
 				shouldAutoAdvance: false,

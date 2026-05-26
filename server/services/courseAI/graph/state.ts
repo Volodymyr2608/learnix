@@ -47,6 +47,9 @@ export const CourseBuilderState = z.object({
 	reviseTarget: draftStep.nullable().default(null),
 	toolCalls: appendList(),
 	assessReady: z.boolean().default(false),
+	// Set by assess_completion when the user's intent is genuinely ambiguous.
+	// Routes to clarify node which streams the question; null otherwise.
+	assessClarify: z.string().nullable().default(null),
 	draftStepData: z.unknown().default(undefined),
 	confidence: z.number().min(0).max(1).default(0),
 	shouldAutoAdvance: z.boolean().default(false),
@@ -85,6 +88,7 @@ export type CourseBuilderStateT = {
 	reviseTarget: DraftStep | null;
 	toolCalls: unknown[];
 	assessReady: boolean;
+	assessClarify: string | null;
 	draftStepData: unknown;
 	confidence: number;
 	shouldAutoAdvance: boolean;

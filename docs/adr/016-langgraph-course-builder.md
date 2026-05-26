@@ -34,11 +34,11 @@ Entry node for `chat` mode: `classify_intent`. Entry node for `finalize` mode: `
 
 | Intent | Meaning | Route |
 |---|---|---|
-| `continue` | User is moving forward with the current step | `tool_router → chat_response` |
-| `revise` | User wants to update a field from an earlier step | `revise_prior_field` |
-| `clarify` | Message is genuinely ambiguous between continue and revise | `chat_response` (clarify-question branch, no tools) |
+| `continue` | User is approving, moving forward, asking a question, or providing information for the current step | `tool_router → chat_response` |
+| `revise` | User explicitly wants to add, remove, or change stored content — in the current step or an earlier one | `revise_prior_field` |
+| `clarify` | Message is genuinely ambiguous between moving forward and requesting a content change | `chat_response` (clarify-question branch, no tools) |
 
-When `intent = clarify`, `chat_response` generates one focused question to resolve the ambiguity (e.g. "Did you mean to update the level from the Basic Info step, or are you adding detail for the current objectives step?"). `assess_completion` returns `ready: false` for clarify turns so the turn never triggers extraction.
+When `intent = clarify`, `chat_response` generates one focused question to resolve the ambiguity. `assess_completion` returns `not_ready` for clarify turns so the turn never triggers extraction.
 
 ### State
 
@@ -89,7 +89,7 @@ Four tools are registered on the LLM via `tool_router`:
 
 ### Confirmation-gated extraction
 
-`assess_completion` requires **explicit user confirmation** ("ok", "yes", "looks good", etc.) before returning `ready: true`. It distinguishes confirmation of the current step's content from acknowledgment of a revision to an earlier step (e.g., "alright" after "Updated the duration to 30 hours" is NOT treated as step confirmation).
+`assess_completion` uses a structured-output LLM call returning one of three decisions: `ready` (user wants to proceed), `not_ready` (user wants a change or asks a question), or `ask` (intent is genuinely ambiguous). When `ask` is returned the node populates `state.assessClarify` with a clarifying question and the graph routes to the `clarify` node, which streams it to the user. `revise` and `clarify` turns return `not_ready` immediately without an LLM call, so they never trigger extraction.
 
 ### SSE event mapping
 
@@ -111,6 +111,30 @@ Four tools are registered on the LLM via `tool_router`:
 - `ConfidenceBadge` — renders a badge with the AI confidence percentage
 
 No new top-level component folders were created; both sub-components slot into the existing `Chat/` folder per ADR-011 rules.
+
+## Implementation refinements
+
+The following design decisions were made during implementation to address issues not anticipated in the original spec.
+
+### Two-schema extraction pattern
+
+`withStructuredOutput` with Zod schemas containing `.min(n)` or `.max(n)` constraints generates JSON Schema `minItems`/`maxItems` properties that `gpt-4o-mini` occasionally echoes as literal output fields, crashing before `validate.ts` can handle them gracefully. To prevent this, extraction uses a separate relaxed schema (`server/services/courseAI/validators/getExtractionSchemaForStep.ts`) with no min/max constraints passed to `withStructuredOutput`. Full validation (including minimum-count checks and cross-field rules) still runs in `validate.ts` using the original `getValidatorForStep` schema. This applies to both `extractStepData` and `revisePriorField`.
+
+### Message persistence order
+
+User messages are saved to `CourseGenerationMessage` **after** the graph completes (in the route's `finally` block), not before. Saving before the graph caused `hydrateState` to load the current user message into `state.history`, creating duplication in every node that builds conversation context by appending `state.userMessage` explicitly (e.g. `toolRouter`, `chatResponse`, `assessCompletion`, `confidenceScore`). With the corrected order, `state.history` contains only prior turns and `state.userMessage` is the sole reference to the current turn.
+
+### `assess_completion` three-decision model
+
+`assessCompletion` uses a pure LLM approach with no hardcoded word lists. The model returns one of three decisions: `ready`, `not_ready`, or `ask`. The `ask` path generates a clarifying question in `state.assessClarify` and routes to the `clarify` node instead of ending the turn silently. This handles informal phrasing ("so i like it", "lets moeve on") and typos correctly without requiring an exhaustive word list, at the cost of one extra LLM call per turn.
+
+### `classify_intent` auto-trigger bypass
+
+When `state.userMessage` is empty (auto-trigger fired by the frontend after a step commit), `classifyIntent` immediately returns `intent: "continue"` without making an LLM call. An empty message can only be a trigger to start the next step's introduction, never a revision or clarification request.
+
+### Step-scoped history in `confidence_score`
+
+The history passed to the confidence model is filtered to messages where `step === state.currentStep`. Without this filter, revision confirmations and responses from earlier steps bleed into the confidence prompt and can suppress the score below the 0.8 auto-advance threshold even when the current step's data is complete.
 
 ## Consequences
 

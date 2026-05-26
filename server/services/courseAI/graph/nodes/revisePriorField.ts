@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
+import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 
 export const revisePriorField = withNodeErrors(
@@ -13,20 +14,43 @@ export const revisePriorField = withNodeErrors(
 		}
 
 		const target = state.reviseTarget;
-		const schema = getValidatorForStep(target);
+		// Use the full schema's shape for key extraction, but the relaxed schema for
+		// withStructuredOutput to prevent min/max constraints leaking into LLM output.
+		const fullSchema = getValidatorForStep(target);
+		const extractionSchema = getExtractionSchemaForStep(target);
 
 		const model = new ChatOpenAI({
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
-		}).withStructuredOutput(schema, { method: "functionCalling" });
+		}).withStructuredOutput(extractionSchema, { method: "functionCalling" });
 
-		const prompt =
-			`The user wants to revise the "${target}" step of their course.
-Current values for that step: ${JSON.stringify(state.content[target] ?? {}, null, 2)}
-User's revision request: "${state.userMessage}"
+		// DB content is flat ({title, subtitle, sections, …}), never nested by step name.
+		// Extract only the keys that belong to this step so the LLM knows what to preserve.
+		const stepKeys = Object.keys(fullSchema.shape) as (keyof typeof state.content)[];
+		const currentStepData = Object.fromEntries(
+			stepKeys
+				.filter((k) => k in state.content)
+				.map((k) => [k, state.content[k]]),
+		);
 
-Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`.trim();
+		// Include the step's conversation history so the LLM can reference
+		// original AI proposals when state.content is empty (no extraction yet).
+		const historyForTarget = state.history
+			.filter((m) => m.step === target)
+			.map((m) => `[${m.role}]: ${m.content}`)
+			.join("\n");
+
+		const prompt = [
+			`The user wants to revise the "${target}" step of their course.`,
+			historyForTarget &&
+				`CONVERSATION HISTORY FOR THIS STEP:\n${historyForTarget}`,
+			`CURRENT SAVED VALUES for this step:\n${JSON.stringify(currentStepData, null, 2)}`,
+			`User's revision request: "${state.userMessage}"`,
+			`Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`,
+		]
+			.filter(Boolean)
+			.join("\n\n");
 
 		const updated = await model.invoke(
 			[{ role: "user", content: prompt }],

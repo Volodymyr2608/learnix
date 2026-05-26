@@ -15,8 +15,8 @@ const outSchema = z.object({
 export const classifyIntent = withNodeErrors(
 	"classify_intent",
 	async (state, config) => {
-		// First turn cannot revise: skip the LLM call.
-		if (state.history.length === 0) {
+		// First turn or auto-trigger (empty message) cannot revise: skip the LLM call.
+		if (state.history.length === 0 || !state.userMessage) {
 			return { intent: "continue" as const, reviseTarget: null };
 		}
 
@@ -33,21 +33,22 @@ export const classifyIntent = withNodeErrors(
 		const prompt = `Classify the user's latest turn.
 
 			CURRENT STEP: ${state.currentStep}
-			
+
 			CONVERSATION SO FAR:
 			${historyText}
-			
+
 			USER'S NEW MESSAGE:
 			${state.userMessage}
-			
+
 			Decide:
-			- "continue": the user is clearly moving forward or answering for the current step.
-			- "revise": the user clearly wants to change a value from an earlier step.
-			- "clarify": you genuinely cannot tell which applies. Use sparingly — only when the message is truly ambiguous between revising an earlier field and continuing the current step.
-			
-			When returning "clarify", write a short, friendly question in "reason" that would resolve the ambiguity (e.g. "Did you mean to update the level from the Basic Info step, or are you adding detail for the current ${state.currentStep} step?").
-			
-			Otherwise default to "continue".`.trim();
+			- "continue": the user is approving, moving forward, asking a question, or providing information for the current step.
+			- "revise": the user explicitly wants to add, remove, or change specific stored content — whether from an earlier step or the current step. Examples: "add a bonus section", "change the title to X", "remove requirement 3", "can you update the curriculum".
+			- "clarify": you genuinely cannot tell if the user is approving/moving forward or requesting a content change. Use sparingly.
+
+			When returning "revise", set reviseTarget to the step whose stored content should be changed (e.g., "curriculum" if the user wants to add/remove/modify sections or lessons).
+			When returning "clarify", write a short friendly question in "reason" that resolves the ambiguity.
+
+			Default to "continue" for approvals, affirmations, and questions.`.trim();
 
 		try {
 			const out = await model.invoke(

@@ -47,7 +47,8 @@ export const useStreamEvents = () => {
 					);
 				}
 				setShowAcceptButton(false);
-				autoAdvancedRef.current = true;
+				// Only trigger next-step intro when there IS a next step.
+				autoAdvancedRef.current = idx >= 0 && idx + 1 < STEPS.length;
 				break;
 			}
 			case "done":

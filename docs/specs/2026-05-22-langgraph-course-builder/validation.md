@@ -54,7 +54,7 @@ Run `pnpm dev` and exercise the AI Builder dialog at `/instructor/courses/new` (
 2. Send: "actually change the level to Advanced".
 3. Expect `intent: "revise"` (visible via LangSmith trace).
 4. Expect a short streamed confirmation ("Updated level to Advanced…").
-5. Verify `CourseGeneration.content.basic.level === "Advanced"`. Verify `currentStep` is still `requirements`. Verify the `objectives` payload is untouched.
+5. Verify `CourseGeneration.content.level === "Advanced"`. Verify `currentStep` is still `requirements`. Verify the `objectives` array in `content` is untouched.
 
 ### Scenario 5 — Tool failure fallback
 

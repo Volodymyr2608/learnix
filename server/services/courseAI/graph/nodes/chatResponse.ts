@@ -48,17 +48,14 @@ Instructions:
 				},
 			];
 		} else if (state.intent === "revise") {
-			// Revision was applied — stream a brief confirmation of what changed.
+			// Revision was applied — confirm the change and invite the user to proceed.
 			messages = [
 				{
 					role: "system" as const,
 					content:
-						`You are helping an instructor build a course. They just revised an earlier step.
+						`You are helping an instructor build a course. The instructor just requested a change.
 
-Updated "${state.reviseTarget}" step data:
-${JSON.stringify(state.content[state.reviseTarget ?? ""] ?? {}, null, 2)}
-
-Write 1-2 friendly sentences confirming what was updated. Do not ask questions. Do not mention the next step. Speak the same language as the course data.`.trim(),
+Write 1-2 friendly sentences confirming the change was applied and briefly describing what was updated. Then ask if everything looks good. Speak the same language as the instructor's message.`.trim(),
 				},
 				{ role: "user" as const, content: state.userMessage },
 			];

@@ -42,6 +42,7 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 				toolCalls: [],
 				pendingToolCalls: [],
 				assessReady: true,
+				assessClarify: null,
 				draftStepData: r.draftStepData,
 				confidence: 0,
 				shouldAutoAdvance: false,

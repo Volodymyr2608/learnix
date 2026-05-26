@@ -39,8 +39,11 @@ const routeByIntent = (s: CourseBuilderStateT) => {
 const routeAfterToolRouter = (s: CourseBuilderStateT) =>
 	s.pendingToolCalls.length > 0 ? "use_tool" : "answer";
 
-const routeAfterAssess = (s: CourseBuilderStateT) =>
-	s.assessReady ? "ready" : "not_ready";
+const routeAfterAssess = (s: CourseBuilderStateT) => {
+	if (s.assessReady) return "ready";
+	if (s.assessClarify) return "ask";
+	return "not_ready";
+};
 
 const routeAfterValidate = (s: CourseBuilderStateT) =>
 	s.validationErrors === null ? "pass" : "fail";
@@ -79,8 +82,9 @@ export const courseBuilderGraph = new StateGraph(CourseBuilderState)
 	.addEdge("chat_response", "assess_completion")
 	.addEdge("revise_prior_field", "chat_response")
 	.addConditionalEdges("assess_completion", routeAfterAssess, {
-		not_ready: END,
 		ready: "extract_step_data",
+		ask: "clarify",
+		not_ready: END,
 	})
 	.addEdge("extract_step_data", "validate")
 	.addConditionalEdges("validate", routeAfterValidate, {

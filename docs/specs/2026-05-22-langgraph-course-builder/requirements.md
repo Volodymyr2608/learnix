@@ -33,11 +33,11 @@ No database schema changes. No LangGraph checkpointer. State is hydrated per req
 ### Graph behavior
 
 - FR-1. The graph SHALL classify the user's turn as `continue`, `revise`, or `clarify`. Default to `continue` if the classifier abstains.
-- FR-1a. When `intent = clarify`, the graph SHALL route directly to `chat_response` (bypassing `tool_router`) and generate one focused question that resolves the ambiguity between continuing the current step and revising an earlier one. `assess_completion` SHALL return `ready: false` for clarify turns.
-- FR-2. When `intent = revise`, the graph SHALL update only `content[reviseTarget]`, preserve all later step content, and stream a short confirmation. It SHALL NOT change `currentStep`.
+- FR-1a. When `intent = clarify`, the graph SHALL route directly to `chat_response` (bypassing `tool_router`) and generate one focused question that resolves the ambiguity between moving forward and requesting a content change. `assess_completion` SHALL return `not_ready` for clarify turns.
+- FR-2. When `intent = revise`, the graph SHALL update `content[reviseTarget]` (reviseTarget may be the current step or any earlier step), preserve all other step content, stream a short confirmation, and emit `content_revised` SSE so the preview refetches. It SHALL NOT change `currentStep`.
 - FR-3. When `intent = continue`, the graph SHALL allow the model to call zero or more of the four tools before streaming a chat response.
-- FR-4. In **chat mode**, after `chat_response` the graph SHALL run an `assess_completion` node — a cheap structured-output call returning `{ ready: boolean, reason: string }`. If `ready: false`, the graph SHALL terminate without persisting.
-- FR-5. If `assess_completion.ready: true` in chat mode, the graph SHALL automatically continue into `extract_step_data` → `validate` → `confidence_score`. On confidence ≥ 0.8 and validation pass, it SHALL persist via `persist_and_emit` with `autoAdvanced: true`. On confidence < 0.8 or validation pass with low confidence, the graph SHALL terminate without persisting (the user must click Accept to commit).
+- FR-4. In **chat mode**, after `chat_response` the graph SHALL run an `assess_completion` node — a structured-output call returning `{ decision: "ready" | "not_ready" | "ask", question?: string }`. If `decision = "ask"`, the graph SHALL route to `clarify` which streams the question. If `decision = "not_ready"`, the graph SHALL terminate without persisting.
+- FR-5. If `assess_completion.decision === "ready"` in chat mode, the graph SHALL automatically continue into `extract_step_data` → `validate` → `confidence_score`. On confidence ≥ 0.8 and validation pass, it SHALL persist via `persist_and_emit` with `autoAdvanced: true`. On confidence < 0.8 or validation pass with low confidence, the graph SHALL terminate without persisting (the user must click Accept to commit).
 - FR-6. In **finalize mode** (user clicked "Accept Step"), the graph SHALL skip the chat portion and run `extract_step_data` directly against the existing conversation history.
 - FR-7. If validation fails in either mode, the graph SHALL route to `clarify`, which streams a follow-up question. Step SHALL NOT advance. No throw.
 - FR-8. If finalize-mode validation passes, the graph SHALL self-score confidence in `[0, 1]` and persist via `persist_and_emit` with `autoAdvanced: false` regardless of the score (the user explicitly asked to finalize). Auto-advance threshold of **0.8** applies only to chat-mode auto-persistence.
@@ -184,6 +184,7 @@ server/services/courseAI/tools/searchSimilarCourses.ts
 server/services/courseAI/tools/fetchInstructorPriorCourses.ts
 server/services/courseAI/tools/validateCurriculumCoherence.ts
 server/services/courseAI/tools/lookupCategoryTaxonomy.ts
+server/services/courseAI/validators/getExtractionSchemaForStep.ts
 lib/constants/courseCategories.ts
 evals/courseAI/classifyIntent.eval.ts
 evals/courseAI/extractStepData.eval.ts
