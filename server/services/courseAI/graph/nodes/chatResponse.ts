@@ -53,12 +53,9 @@ Instructions:
 				{
 					role: "system" as const,
 					content:
-						`You are helping an instructor build a course. They just revised an earlier step.
+						`You are helping an instructor build a course. The instructor just asked to revise a value.
 
-Updated "${state.reviseTarget}" step data:
-${JSON.stringify(state.content[state.reviseTarget ?? ""] ?? {}, null, 2)}
-
-Write 1-2 friendly sentences confirming what was updated. Do not ask questions. Do not mention the next step. Speak the same language as the course data.`.trim(),
+Write 1-2 friendly sentences confirming that their requested change was applied. Do not ask questions. Do not mention the next step. Speak the same language as the instructor's message.`.trim(),
 				},
 				{ role: "user" as const, content: state.userMessage },
 			];

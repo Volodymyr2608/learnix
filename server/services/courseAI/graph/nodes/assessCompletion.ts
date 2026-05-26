@@ -44,13 +44,15 @@ export const assessCompletion = withNodeErrors(
 		const prompt =
 			`Decide whether the user has explicitly confirmed the content for the "${state.currentStep}" step.
 
-			Return ready=true when the user's latest message is a clear approval ("ok", "yes", "looks good", "alright", "perfect", "go ahead", "proceed", "confirm", "next", "move on", etc.) AND the conversation is about the current "${state.currentStep}" step — not about updating a field from an earlier step (like title, duration, subtitle, level, language).
-			
+			Return ready=true when the user's latest message is a clear approval ("ok", "yes", "looks good", "alright", "perfect", "go ahead", "proceed", "confirm", "next", "move on", etc.) directed at approving the CURRENT "${state.currentStep}" step as a whole — regardless of any field tweaks that happened earlier in this same step.
+
 			Return ready=false when:
-			- The most recent AI message was confirming a revision to an EARLIER step (e.g., "Updated the duration to 30 hours", "The subtitle has been rephrased"). In that case the user's approval is acknowledging the revision, not confirming the current step.
-			- The user asked a question, made a correction, or is still discussing.
+			- The most recent AI message confirmed a revision to a PREVIOUSLY COMMITTED step (a step that was already finished before this one). In that case the user's approval is acknowledging that earlier-step revision, not confirming the current step.
+			- The user asked a question, made a correction, or is still discussing content.
 			- The user provided new information without explicitly confirming.
-			
+
+			NOTE: If the user made field changes WITHIN the current "${state.currentStep}" step (e.g., adjusted the level, duration, or category for a step that has not yet been committed), a subsequent "ok" / "yes" / "looks good" IS a valid confirmation of that step — return ready=true.
+
 			CONVERSATION:
 			${historyText}`.trim();
 
