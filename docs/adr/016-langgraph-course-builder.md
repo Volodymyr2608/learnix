@@ -34,11 +34,11 @@ Entry node for `chat` mode: `classify_intent`. Entry node for `finalize` mode: `
 
 | Intent | Meaning | Route |
 |---|---|---|
-| `continue` | User is moving forward with the current step | `tool_router → chat_response` |
-| `revise` | User wants to update a field from an earlier step | `revise_prior_field` |
-| `clarify` | Message is genuinely ambiguous between continue and revise | `chat_response` (clarify-question branch, no tools) |
+| `continue` | User is approving, moving forward, asking a question, or providing information for the current step | `tool_router → chat_response` |
+| `revise` | User explicitly wants to add, remove, or change stored content — in the current step or an earlier one | `revise_prior_field` |
+| `clarify` | Message is genuinely ambiguous between moving forward and requesting a content change | `chat_response` (clarify-question branch, no tools) |
 
-When `intent = clarify`, `chat_response` generates one focused question to resolve the ambiguity (e.g. "Did you mean to update the level from the Basic Info step, or are you adding detail for the current objectives step?"). `assess_completion` returns `ready: false` for clarify turns so the turn never triggers extraction.
+When `intent = clarify`, `chat_response` generates one focused question to resolve the ambiguity. `assess_completion` returns `not_ready` for clarify turns so the turn never triggers extraction.
 
 ### State
 
@@ -89,7 +89,7 @@ Four tools are registered on the LLM via `tool_router`:
 
 ### Confirmation-gated extraction
 
-`assess_completion` requires **explicit user confirmation** ("ok", "yes", "looks good", etc.) before returning `ready: true`. It distinguishes confirmation of the current step's content from acknowledgment of a revision to an earlier step (e.g., "alright" after "Updated the duration to 30 hours" is NOT treated as step confirmation).
+`assess_completion` uses a structured-output LLM call returning one of three decisions: `ready` (user wants to proceed), `not_ready` (user wants a change or asks a question), or `ask` (intent is genuinely ambiguous). When `ask` is returned the node populates `state.assessClarify` with a clarifying question and the graph routes to the `clarify` node, which streams it to the user. `revise` and `clarify` turns return `not_ready` immediately without an LLM call, so they never trigger extraction.
 
 ### SSE event mapping
 
@@ -124,9 +124,9 @@ The following design decisions were made during implementation to address issues
 
 User messages are saved to `CourseGenerationMessage` **after** the graph completes (in the route's `finally` block), not before. Saving before the graph caused `hydrateState` to load the current user message into `state.history`, creating duplication in every node that builds conversation context by appending `state.userMessage` explicitly (e.g. `toolRouter`, `chatResponse`, `assessCompletion`, `confidenceScore`). With the corrected order, `state.history` contains only prior turns and `state.userMessage` is the sole reference to the current turn.
 
-### `assess_completion` deterministic fast-path
+### `assess_completion` three-decision model
 
-Before the LLM call, `assessCompletion` applies a deterministic short-circuit: if the trimmed user message is ≤ 50 characters, contains an approval word (`ok`, `yes`, `sure`, `great`, `proceed`, `move`, `continue`, etc.), and contains no change-request word (`change`, `update`, `add`, `remove`, `not`, `but`, etc.), it returns `ready: true` immediately. `classifyIntent` has already ruled out `revise` and `clarify` intents by this point, so the short-circuit is safe. This makes the common approval path ("ok", "yes", "let's move on") deterministic and avoids an extra LLM round-trip.
+`assessCompletion` uses a pure LLM approach with no hardcoded word lists. The model returns one of three decisions: `ready`, `not_ready`, or `ask`. The `ask` path generates a clarifying question in `state.assessClarify` and routes to the `clarify` node instead of ending the turn silently. This handles informal phrasing ("so i like it", "lets moeve on") and typos correctly without requiring an exhaustive word list, at the cost of one extra LLM call per turn.
 
 ### `classify_intent` auto-trigger bypass
 
