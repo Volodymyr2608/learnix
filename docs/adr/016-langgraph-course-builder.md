@@ -112,6 +112,30 @@ Four tools are registered on the LLM via `tool_router`:
 
 No new top-level component folders were created; both sub-components slot into the existing `Chat/` folder per ADR-011 rules.
 
+## Implementation refinements
+
+The following design decisions were made during implementation to address issues not anticipated in the original spec.
+
+### Two-schema extraction pattern
+
+`withStructuredOutput` with Zod schemas containing `.min(n)` or `.max(n)` constraints generates JSON Schema `minItems`/`maxItems` properties that `gpt-4o-mini` occasionally echoes as literal output fields, crashing before `validate.ts` can handle them gracefully. To prevent this, extraction uses a separate relaxed schema (`server/services/courseAI/validators/getExtractionSchemaForStep.ts`) with no min/max constraints passed to `withStructuredOutput`. Full validation (including minimum-count checks and cross-field rules) still runs in `validate.ts` using the original `getValidatorForStep` schema. This applies to both `extractStepData` and `revisePriorField`.
+
+### Message persistence order
+
+User messages are saved to `CourseGenerationMessage` **after** the graph completes (in the route's `finally` block), not before. Saving before the graph caused `hydrateState` to load the current user message into `state.history`, creating duplication in every node that builds conversation context by appending `state.userMessage` explicitly (e.g. `toolRouter`, `chatResponse`, `assessCompletion`, `confidenceScore`). With the corrected order, `state.history` contains only prior turns and `state.userMessage` is the sole reference to the current turn.
+
+### `assess_completion` deterministic fast-path
+
+Before the LLM call, `assessCompletion` applies a deterministic short-circuit: if the trimmed user message is ≤ 50 characters, contains an approval word (`ok`, `yes`, `sure`, `great`, `proceed`, `move`, `continue`, etc.), and contains no change-request word (`change`, `update`, `add`, `remove`, `not`, `but`, etc.), it returns `ready: true` immediately. `classifyIntent` has already ruled out `revise` and `clarify` intents by this point, so the short-circuit is safe. This makes the common approval path ("ok", "yes", "let's move on") deterministic and avoids an extra LLM round-trip.
+
+### `classify_intent` auto-trigger bypass
+
+When `state.userMessage` is empty (auto-trigger fired by the frontend after a step commit), `classifyIntent` immediately returns `intent: "continue"` without making an LLM call. An empty message can only be a trigger to start the next step's introduction, never a revision or clarification request.
+
+### Step-scoped history in `confidence_score`
+
+The history passed to the confidence model is filtered to messages where `step === state.currentStep`. Without this filter, revision confirmations and responses from earlier steps bleed into the confidence prompt and can suppress the score below the 0.8 auto-advance threshold even when the current step's data is complete.
+
 ## Consequences
 
 **Positive:**

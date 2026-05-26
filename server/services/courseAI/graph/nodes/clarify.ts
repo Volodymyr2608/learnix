@@ -13,18 +13,25 @@ export const clarify = withNodeErrors(
 			streaming: true,
 		});
 
-		const issues = (state.validationErrors ?? [])
-			.map((issue, i) => `${i + 1}. ${JSON.stringify(issue)}`)
-			.join("\n");
+		// assess_completion routes here when the user's intent was ambiguous.
+		// clarify also handles validation failures from the validate node.
+		const isAssessClarify =
+			!state.validationErrors || state.validationErrors.length === 0;
 
-		const prompt =
-			`You just tried to finalize the "${state.currentStep}" step but validation failed. Ask the user ONE concise, friendly follow-up question (in their language) that would unblock the most important missing field. Do not list every error. Do not show JSON.
+		const prompt = isAssessClarify
+			? `Ask the user the following question, in a friendly and concise way, in the same language as the conversation: "${state.assessClarify ?? "Everything looks good — shall I finalize this step and move on?"}"`
+			: (() => {
+					const issues = (state.validationErrors ?? [])
+						.map((issue, i) => `${i + 1}. ${JSON.stringify(issue)}`)
+						.join("\n");
+					return `You just tried to finalize the "${state.currentStep}" step but validation failed. Ask the user ONE concise, friendly follow-up question (in their language) that would unblock the most important missing field. Do not list every error. Do not show JSON.
 
 			VALIDATION ERRORS:
 			${issues}
-			
+
 			EXTRACTED (FAILING) DATA:
-			${JSON.stringify(state.draftStepData, null, 2)}`.trim();
+			${JSON.stringify(state.draftStepData, null, 2)}`;
+				})();
 
 		const stream = await model.stream(
 			[{ role: "system", content: prompt }],

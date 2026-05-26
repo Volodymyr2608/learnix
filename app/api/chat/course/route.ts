@@ -47,14 +47,6 @@ export async function POST(req: Request) {
 		userId: session.user.id,
 	});
 
-	if (mode === "chat" && body.userMessage) {
-		await courseAIService.saveMessage(courseGeneration.id, {
-			role: "user",
-			content: body.userMessage,
-			step: courseGeneration.step,
-		});
-	}
-
 	const stream = new ReadableStream<Uint8Array>({
 		async start(controller) {
 			const encoder = new TextEncoder();
@@ -175,6 +167,20 @@ export async function POST(req: Request) {
 					send({ type: "error", message: "Failed to generate AI response" });
 				}
 			} finally {
+				// Save user message after the graph so state.history never contains
+				// the current-turn message during this request (avoids duplication in
+				// every node that appends state.userMessage to the history it builds).
+				if (mode === "chat" && body.userMessage) {
+					await courseAIService
+						.saveMessage(courseGeneration.id, {
+							role: "user",
+							content: body.userMessage,
+							step: courseGeneration.step,
+						})
+						.catch((err) =>
+							console.error("[Course AI] Failed to save user message", err),
+						);
+				}
 				abortSignal.removeEventListener("abort", onAbort);
 				try {
 					controller.close();

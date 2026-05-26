@@ -42,6 +42,7 @@ export async function runAssessCompletionEval(): Promise<boolean> {
 				toolCalls: [],
 				pendingToolCalls: [],
 				assessReady: false,
+				assessClarify: null,
 				draftStepData: undefined,
 				confidence: 0,
 				shouldAutoAdvance: false,

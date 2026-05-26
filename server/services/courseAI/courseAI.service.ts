@@ -88,6 +88,7 @@ export class CourseAIService {
 			pendingToolCalls: [],
 			messages: [],
 			assessReady: false,
+			assessClarify: null,
 			draftStepData: undefined,
 			confidence: 0,
 			shouldAutoAdvance: false,

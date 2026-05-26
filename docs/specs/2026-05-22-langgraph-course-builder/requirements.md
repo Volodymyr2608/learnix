@@ -184,6 +184,7 @@ server/services/courseAI/tools/searchSimilarCourses.ts
 server/services/courseAI/tools/fetchInstructorPriorCourses.ts
 server/services/courseAI/tools/validateCurriculumCoherence.ts
 server/services/courseAI/tools/lookupCategoryTaxonomy.ts
+server/services/courseAI/validators/getExtractionSchemaForStep.ts
 lib/constants/courseCategories.ts
 evals/courseAI/classifyIntent.eval.ts
 evals/courseAI/extractStepData.eval.ts

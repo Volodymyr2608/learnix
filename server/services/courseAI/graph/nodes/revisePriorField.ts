@@ -34,12 +34,23 @@ export const revisePriorField = withNodeErrors(
 				.map((k) => [k, state.content[k]]),
 		);
 
-		const prompt =
-			`The user wants to revise the "${target}" step of their course.
-Current values for that step: ${JSON.stringify(currentStepData, null, 2)}
-User's revision request: "${state.userMessage}"
+		// Include the step's conversation history so the LLM can reference
+		// original AI proposals when state.content is empty (no extraction yet).
+		const historyForTarget = state.history
+			.filter((m) => m.step === target)
+			.map((m) => `[${m.role}]: ${m.content}`)
+			.join("\n");
 
-Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`.trim();
+		const prompt = [
+			`The user wants to revise the "${target}" step of their course.`,
+			historyForTarget &&
+				`CONVERSATION HISTORY FOR THIS STEP:\n${historyForTarget}`,
+			`CURRENT SAVED VALUES for this step:\n${JSON.stringify(currentStepData, null, 2)}`,
+			`User's revision request: "${state.userMessage}"`,
+			`Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`,
+		]
+			.filter(Boolean)
+			.join("\n\n");
 
 		const updated = await model.invoke(
 			[{ role: "user", content: prompt }],
