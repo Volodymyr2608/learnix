@@ -115,7 +115,7 @@ $json.created === true
 ### 7. Send Email — `httpRequest POST`
 
 ```
-POST $BASE_URL/api/notifications/send-email
+POST $BASE_URL/api/emails/send
 ```
 
 Body:
