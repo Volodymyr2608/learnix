@@ -27,12 +27,15 @@ export class LessonAIService {
 
 		// Layer 1: topic guardrail
 		try {
-			const guard = buildTopicGuardChain(lessonTitle);
+			const guard = buildTopicGuardChain(lessonTitle, courseTitle);
 			await guard.invoke({ userMessage });
 		} catch (err) {
 			if (err instanceof OffTopicError) {
-				console.log("Off-topic error:", err.message);
-				yield { type: "token" as const, value: err.message };
+				yield { type: "off_topic" as const, message: err.message };
+				await lessonAssistantRepository.saveMessage(lessonId, studentId, {
+					role: "assistant",
+					content: err.message,
+				});
 				return;
 			}
 			throw new LessonAIError(
