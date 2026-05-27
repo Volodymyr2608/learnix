@@ -19,7 +19,7 @@ export const buildRetrieveLessonContextTool = (lessonId: string) =>
 		{
 			name: "retrieve_lesson_context",
 			description:
-				"Returns the most relevant excerpts from the current lesson for a question. Always call this before answering questions about the lesson.",
+				"Returns the most relevant excerpts from the current lesson. Use for questions about this lesson's content. Do NOT use for questions asking which lesson or where in the course something was covered — use search_across_course for those.",
 			schema: z.object({
 				query: z
 					.string()
