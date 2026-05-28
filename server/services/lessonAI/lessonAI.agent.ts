@@ -13,7 +13,7 @@ Tool usage rules (follow in order):
 2. If the question is about the current lesson content — call retrieve_lesson_context first, then answer.
 3. If the question needs context from other lessons as prerequisites — call search_across_course.
 4. Call get_student_progress to personalise your explanation to what the student has already seen.
-5. Call mark_concept_understood only after the student explicitly demonstrates understanding — not after a successful explanation alone.
+5. Call mark_concept_understood only after the student explicitly demonstrates understanding — not after a successful explanation alone.{conceptConstraint}
 
 Answer rules:
 - Keep answers concise. Use examples from the lesson content when possible.
@@ -26,6 +26,7 @@ export function createLessonAgent(params: {
 	courseTitle: string;
 	studentId: string;
 	courseId: string;
+	lessonConcepts?: string[];
 }): ReactAgent {
 	const llm = new ChatOpenAI({
 		model: "gpt-4o-mini",
@@ -33,6 +34,11 @@ export function createLessonAgent(params: {
 		streaming: true,
 		apiKey: env.OPENAI_API_KEY,
 	});
+
+	const conceptConstraint =
+		params.lessonConcepts && params.lessonConcepts.length > 0
+			? `\n   When calling mark_concept_understood, use ONLY these exact concept names: ${params.lessonConcepts.map((c) => `"${c}"`).join(", ")}. Do not use any other names.`
+			: "";
 
 	return createAgent({
 		model: llm,
@@ -42,9 +48,8 @@ export function createLessonAgent(params: {
 			buildGetStudentProgressTool(params.studentId, params.courseId),
 			buildMarkConceptUnderstoodTool(params.studentId, params.courseId),
 		],
-		systemPrompt: SYSTEM_PROMPT.replace(
-			"{lessonTitle}",
-			params.lessonTitle,
-		).replace("{courseTitle}", params.courseTitle),
+		systemPrompt: SYSTEM_PROMPT.replace("{lessonTitle}", params.lessonTitle)
+			.replace("{courseTitle}", params.courseTitle)
+			.replace("{conceptConstraint}", conceptConstraint),
 	});
 }

@@ -1,5 +1,6 @@
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
+import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { traced } from "@/server/services/_shared/tracing";
 import { buildTopicGuardChain } from "./chains/topicGuard.chain";
 import { createLessonAgent } from "./lessonAI.agent";
@@ -47,11 +48,15 @@ export class LessonAIService {
 
 		if (signal?.aborted) return;
 
-		// Load conversation history
-		const history = await lessonAssistantRepository.getMessages(
-			lessonId,
-			studentId,
-		);
+		// Load conversation history and lesson concept list in parallel
+		const [history, lessonInsights] = await Promise.all([
+			lessonAssistantRepository.getMessages(lessonId, studentId),
+			lessonInsightsRepository.findByLessonId(lessonId),
+		]);
+		const lessonConcepts =
+			(lessonInsights?.concepts as { name: string }[] | null)?.map(
+				(c) => c.name,
+			) ?? [];
 
 		const langchainHistory = history.map((msg) =>
 			msg.role === "user"
@@ -66,6 +71,7 @@ export class LessonAIService {
 			courseTitle,
 			studentId,
 			courseId,
+			lessonConcepts,
 		});
 
 		const tracedStream = traced(
