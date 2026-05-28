@@ -117,8 +117,8 @@ class NotificationService {
 			const progressPct = Math.round((progresses.length / totalLessons) * 100);
 			if (progressPct < params.minPct || progressPct > params.maxPct) continue;
 
-			const latestActivityAt = progresses[0]!.updatedAt;
-			if (latestActivityAt >= cutoff) continue;
+			const latestActivityAt = progresses[0]?.updatedAt;
+			if (!latestActivityAt || latestActivityAt >= cutoff) continue;
 
 			const completedIds = new Set(progresses.map((p) => p.lessonId));
 			const nextLesson = allLessons.find((l) => !completedIds.has(l.id));

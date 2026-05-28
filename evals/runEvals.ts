@@ -31,7 +31,7 @@ async function main() {
 	let allPassed = true;
 	for (const name of names) {
 		console.log(`\n=== ${name} ===`);
-		const passed = await EVALS[name]!();
+		const passed = await (EVALS[name] as () => Promise<boolean>)();
 		allPassed &&= passed;
 	}
 	if (!allPassed) process.exit(1);
