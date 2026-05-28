@@ -304,7 +304,7 @@ export default class CourseRepository extends BaseRepository<
 
 	async findManyByIdsPreservingOrder(ids: string[]) {
 		if (ids.length === 0) return [];
-		const courses = await this.db.course.findMany({
+		const courses = await this.findMany({
 			where: {
 				id: { in: ids },
 				status: CourseStatus.published,
