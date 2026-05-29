@@ -17,7 +17,7 @@ async function upsertWorkflow(jsonPath: string) {
 	};
 	const listRes = await fetch(
 		`${N8N_URL}/api/v1/workflows?name=${encodeURIComponent(wf.name)}`,
-		{ headers: { "X-N8N-API-KEY": N8N_API_KEY! } },
+		{ headers: { "X-N8N-API-KEY": N8N_API_KEY as string } },
 	);
 	const list = (await listRes.json()) as { data?: { id: string }[] };
 	const existing = list.data?.[0];
@@ -43,7 +43,7 @@ async function upsertWorkflow(jsonPath: string) {
 	const res = await fetch(url, {
 		method,
 		headers: {
-			"X-N8N-API-KEY": N8N_API_KEY!,
+			"X-N8N-API-KEY": N8N_API_KEY as string,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify(payload),

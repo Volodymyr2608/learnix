@@ -38,9 +38,7 @@ export async function POST(req: Request) {
 				controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 			};
 
-			let aborted = false;
 			const onAbort = () => {
-				aborted = true;
 				try {
 					controller.close();
 				} catch {}
@@ -53,7 +51,6 @@ export async function POST(req: Request) {
 					courseId,
 				)) {
 					if (abortSignal.aborted) {
-						aborted = true;
 						break;
 					}
 					send(event);

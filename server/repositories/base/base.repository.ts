@@ -5,6 +5,7 @@ import { hasId } from "@/server/utils/hasId";
 
 type ModelName = {
 	[K in keyof typeof db]: (typeof db)[K] extends {
+		// biome-ignore lint/suspicious/noExplicitAny: structural duck-type check; Prisma arg types are incompatible with unknown[]
 		findMany: (...args: any[]) => any;
 	}
 		? K
@@ -58,6 +59,7 @@ export abstract class BaseRepository<
 	protected readonly isSoftDelete: boolean = false;
 
 	protected get model() {
+		// biome-ignore lint/suspicious/noExplicitAny: Prisma delegates share no common interface; dynamic access requires any
 		return db[this.modelName] as any;
 	}
 
