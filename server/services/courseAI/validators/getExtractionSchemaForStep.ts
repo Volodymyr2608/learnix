@@ -1,5 +1,5 @@
-import { DraftStep } from "@/generated/prisma";
 import { z } from "zod";
+import { DraftStep } from "@/generated/prisma";
 
 // Relaxed schemas for withStructuredOutput — no min/max constraints to avoid
 // schema-property leakage into LLM output. Full validation runs in validate.ts.

@@ -27,7 +27,9 @@ export const revisePriorField = withNodeErrors(
 
 		// DB content is flat ({title, subtitle, sections, …}), never nested by step name.
 		// Extract only the keys that belong to this step so the LLM knows what to preserve.
-		const stepKeys = Object.keys(fullSchema.shape) as (keyof typeof state.content)[];
+		const stepKeys = Object.keys(
+			fullSchema.shape,
+		) as (keyof typeof state.content)[];
 		const currentStepData = Object.fromEntries(
 			stepKeys
 				.filter((k) => k in state.content)

@@ -67,7 +67,8 @@ export const assessCompletion = withNodeErrors(
 				assessReady: out.decision === "ready",
 				assessClarify:
 					out.decision === "ask"
-						? (out.question ?? "Everything looks good — shall I finalize this step?")
+						? (out.question ??
+							"Everything looks good — shall I finalize this step?")
 						: null,
 			};
 		} catch {

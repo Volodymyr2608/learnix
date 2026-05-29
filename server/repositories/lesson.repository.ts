@@ -32,7 +32,10 @@ class LessonRepository extends BaseRepository<
 				title: l.title,
 				sectionOrder: s.order,
 				lessonOrder: l.order,
-				concepts: (l.lessonInsights?.concepts as string[] | null) ?? [],
+				concepts:
+					(l.lessonInsights?.concepts as { name: string }[] | null)?.map(
+						(c) => c.name,
+					) ?? [],
 			})),
 		);
 	}
