@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import type { Control } from "react-hook-form";
 import ControlledField from "@/app/_components/_shared/components/Form/ControlledField";
 import ControlledSelect from "@/app/_components/_shared/components/Form/ControlledSelect";
 import ControlledTextarea from "@/app/_components/_shared/components/Form/ControlledTextarea";
@@ -8,6 +9,7 @@ import FormField from "@/app/_components/_shared/components/Form/FormField";
 import { Button } from "@/app/_components/_shared/ui/button";
 import useCreateInstructor from "@/app/_components/Teach/ApplicationForm/components/InstructorApplicationForm/hooks/useCreateInstructor";
 import useInstructorForm from "@/app/_components/Teach/ApplicationForm/components/InstructorApplicationForm/hooks/useInstructorForm";
+import type { InstructorSchemaInput } from "@/server/entities/instructor";
 
 const InstructorApplicationForm = () => {
 	const {
@@ -63,14 +65,14 @@ const InstructorApplicationForm = () => {
 					/>
 
 					<ControlledField
-						control={control as any}
+						control={control as Control<InstructorSchemaInput>}
 						label="Password"
 						name="password"
 						placeholder="••••••••"
 						type="password"
 					/>
 					<ControlledField
-						control={control as any}
+						control={control as Control<InstructorSchemaInput>}
 						label="Confirm Password"
 						name="confirmPassword"
 						placeholder="••••••••"
@@ -84,7 +86,7 @@ const InstructorApplicationForm = () => {
 
 				<div className="grid gap-4 sm:grid-cols-2">
 					<ControlledSelect
-						control={control as any}
+						control={control as Control<InstructorSchemaInput>}
 						id="expertise"
 						items={[
 							{ value: "web-development", label: "Web Development" },
@@ -101,7 +103,7 @@ const InstructorApplicationForm = () => {
 					/>
 
 					<ControlledSelect
-						control={control as any}
+						control={control as Control<InstructorSchemaInput>}
 						id="experience"
 						items={[
 							{ value: "beginner", label: "Beginner (0-1 years)" },
@@ -116,7 +118,7 @@ const InstructorApplicationForm = () => {
 				</div>
 
 				<ControlledTextarea
-					control={control as any}
+					control={control as Control<InstructorSchemaInput>}
 					label="Professional Bio *"
 					name="bio"
 					placeholder="Tell us about your background, expertise, and why you want to teach..."
@@ -130,7 +132,7 @@ const InstructorApplicationForm = () => {
 				<h3 className="font-semibold text-lg">Course Information</h3>
 
 				<ControlledTextarea
-					control={control as any}
+					control={control as Control<InstructorSchemaInput>}
 					label="Course Idea *"
 					name="courseIdea"
 					placeholder="Describe the course you'd like to create, including topics you'll cover..."

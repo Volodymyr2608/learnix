@@ -97,13 +97,11 @@ export function useLessonAssistant(lessonId: string) {
 					}
 
 					if (parsed.type === "off_topic" && parsed.message) {
+						const message = parsed.message;
 						setLiveMessages((prev) => {
 							const last = prev[prev.length - 1];
 							if (!last || last.role !== "assistant") return prev;
-							return [
-								...prev.slice(0, -1),
-								{ ...last, content: parsed.message! },
-							];
+							return [...prev.slice(0, -1), { ...last, content: message }];
 						});
 					}
 
