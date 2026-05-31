@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { Prisma } from "@/generated/prisma";
 import { db } from "@/server/db";
 
 class EmbeddingRepository {
@@ -75,24 +74,31 @@ class EmbeddingRepository {
 		where?: { category?: string; level?: string },
 	) {
 		const literal = `[${queryVector.join(",")}]`;
-		const categoryClause = where?.category
-			? Prisma.sql`AND c.category = ${where.category}`
-			: Prisma.empty;
-		const levelClause = where?.level
-			? Prisma.sql`AND c.level = ${where.level}`
-			: Prisma.empty;
+		const params: unknown[] = [literal];
+		const conditions = ["c.status = 'published'", "c.deleted_at IS NULL"];
+		if (where?.category) {
+			params.push(where.category);
+			conditions.push(`c.category = $${params.length}`);
+		}
+		if (where?.level) {
+			params.push(where.level);
+			conditions.push(`c.level = $${params.length}`);
+		}
+		const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
 
-		return db.$queryRaw<Array<{ id: string; distance: number }>>`
-			SELECT c.id, ce.embedding <=> ${literal}::vector AS distance
+		const sql = `
+			SELECT c.id, ce.embedding <=> $1::vector AS distance
 			FROM course_embeddings ce
 			JOIN courses c ON c.id = ce."courseId"
-			WHERE c.status = 'published'
-				AND c.deleted_at IS NULL
-				${categoryClause}
-				${levelClause}
+			WHERE ${conditions.join(" AND ")}
 			ORDER BY distance ASC
-			LIMIT ${Prisma.raw(String(limit))}
+			LIMIT ${safeLimit}
 		`;
+
+		return db.$queryRawUnsafe<Array<{ id: string; distance: number }>>(
+			sql,
+			...params,
+		);
 	}
 
 	async searchCoursesExcluding(
@@ -101,21 +107,30 @@ class EmbeddingRepository {
 		excludeIds: string[],
 	) {
 		const literal = `[${queryVector.join(",")}]`;
-		const excludeClause =
-			excludeIds.length > 0
-				? Prisma.sql`AND c.id NOT IN (${Prisma.join(excludeIds.map((id) => Prisma.sql`${id}`))})`
-				: Prisma.empty;
+		const params: unknown[] = [literal];
+		const conditions = ["c.status = 'published'", "c.deleted_at IS NULL"];
+		if (excludeIds.length > 0) {
+			const placeholders = excludeIds.map((id) => {
+				params.push(id);
+				return `$${params.length}`;
+			});
+			conditions.push(`c.id NOT IN (${placeholders.join(", ")})`);
+		}
+		const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
 
-		return db.$queryRaw<Array<{ id: string; distance: number }>>`
-			SELECT c.id, ce.embedding <=> ${literal}::vector AS distance
+		const sql = `
+			SELECT c.id, ce.embedding <=> $1::vector AS distance
 			FROM course_embeddings ce
 			JOIN courses c ON c.id = ce."courseId"
-			WHERE c.status = 'published'
-				AND c.deleted_at IS NULL
-				${excludeClause}
+			WHERE ${conditions.join(" AND ")}
 			ORDER BY distance ASC
-			LIMIT ${Prisma.raw(String(limit))}
+			LIMIT ${safeLimit}
 		`;
+
+		return db.$queryRawUnsafe<Array<{ id: string; distance: number }>>(
+			sql,
+			...params,
+		);
 	}
 
 	async searchLessonChunks(lessonId: string, queryVector: number[], k: number) {

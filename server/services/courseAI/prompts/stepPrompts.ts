@@ -15,7 +15,7 @@ export const STEP_PROMPTS = {
     - Description should be a professional summary (50-500 chars).
     - Level: MUST be one of ["Beginner", "Intermediate", "Advanced", "All"].
 		- Category: MUST be one of ["Development", "Design", "Business", "Marketing", "Data-science"].
-		- Language: MUST be one of ["English", "Spanish", "French", "German"].
+		- Language: the language the course content will be taught in (this is course metadata, NOT the language you respond in — respond in whatever language the instructor writes in). Infer from context or default to "English".
 		- Duration: Should be a number representing hours as a decimal (e.g., 3.5), with a minimum of 0.5 and a maximum of 40.
   `,
 

@@ -48,7 +48,7 @@ class EnrollmentRepository extends BaseRepository<
 	}
 
 	findActiveWithLessons() {
-		return db.enrollment.findMany({
+		return this.findMany({
 			where: {
 				status: { in: [EnrollmentStatus.active, EnrollmentStatus.completed] },
 				course: { deletedAt: null, status: "published" },
@@ -82,7 +82,7 @@ class EnrollmentRepository extends BaseRepository<
 	}
 
 	findByStudentCourseWithRelations(studentId: string, courseId: string) {
-		return db.enrollment.findFirst({
+		return this.findFirst({
 			where: { studentId, courseId },
 			include: {
 				student: {

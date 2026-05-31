@@ -39,7 +39,7 @@ Instructions:
 - Write 1-2 friendly sentences transitioning to this step
 - Immediately provide concrete draft suggestions based on the course data above
 - Do NOT reference any previous messages or ask if the user is ready to proceed
-- Speak the same language as the course title/data
+- Respond in the same language the instructor is writing in. Never add translations or repeat content in multiple languages. The "language" field in the data is the course content language, not your response language
 - Do NOT show raw JSON`.trim(),
 				},
 				{
@@ -55,7 +55,7 @@ Instructions:
 					content:
 						`You are helping an instructor build a course. The instructor just requested a change.
 
-Write 1-2 friendly sentences confirming the change was applied and briefly describing what was updated. Then ask if everything looks good. Speak the same language as the instructor's message.`.trim(),
+Write 1-2 friendly sentences confirming the change was applied and briefly describing what was updated. Then ask if everything looks good. Respond in the same language the instructor wrote in. Never add translations.`.trim(),
 				},
 				{ role: "user" as const, content: state.userMessage },
 			];
@@ -69,7 +69,7 @@ Write 1-2 friendly sentences confirming the change was applied and briefly descr
 The instructor's last message was ambiguous — it could mean they want to continue with the current "${state.currentStep}" step, or revise a value from an earlier step.
 
 Ask ONE short, friendly question to clarify their intent. Reference the specific step and field that might be affected (e.g. "Did you mean to update the level from the Basic Info step, or are you providing more detail for the current ${state.currentStep} step?").
-Speak the same language as the user. Do not ask multiple questions.`.trim(),
+Respond in the same language the user is writing in. Never add translations. Do not ask multiple questions.`.trim(),
 				},
 				...state.history
 					.slice(-4)
