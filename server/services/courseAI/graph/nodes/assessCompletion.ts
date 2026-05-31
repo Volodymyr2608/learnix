@@ -49,11 +49,11 @@ export const assessCompletion = withNodeErrors(
 
 			"ready" — the user clearly wants to proceed (approve, finalize, move on). This includes approvals with typos, informal phrasing, expressions of liking ("I like it", "so i like it"), finalization requests ("can you finalize", "let's commit"), or any short message that expresses satisfaction or a desire to continue.
 
-			"not_ready" — the user clearly wants to make a change or provide more information before proceeding (change request, adding/removing items, asking a non-finalization question, etc.).
+			"not_ready" — the user clearly wants to make a change, provide more information, or is still discussing before proceeding (change request, adding/removing items, asking a non-finalization question, OR simply providing the topic/initial details while the assistant has just proposed a draft). This is the default when the user has not explicitly signaled they want to proceed.
 
-			"ask" — the message is genuinely ambiguous and you cannot reliably infer intent. Use this sparingly. When you choose "ask", set "question" to a short, friendly clarifying question in the same language as the user that resolves the ambiguity (e.g., "Everything looks good — shall I finalize this step and move on?").
+			"ask" — RARE. Only when the user's message looks like it could be an approval ("ok", "sure", "fine") but is genuinely ambiguous about whether they mean "proceed/finalize" vs. "ok, but I have more to say". Do NOT use "ask" when the user is just providing content or the conversation has only just started — that is "not_ready". When you do choose "ask", set "question" to a short, friendly clarifying question, written in the same language as the user's latest message (the last [user] entry below).
 
-			Default to "ready" for short messages that express satisfaction or a wish to continue, even if phrased informally or with typos.
+			Default to "not_ready" when in doubt. Only return "ready" for messages that clearly express satisfaction or an explicit wish to continue, and only return "ask" in the narrow approval-ambiguity case above.
 
 			CONVERSATION:
 			${historyText}`.trim();

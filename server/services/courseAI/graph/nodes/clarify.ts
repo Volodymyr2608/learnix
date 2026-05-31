@@ -19,12 +19,12 @@ export const clarify = withNodeErrors(
 			!state.validationErrors || state.validationErrors.length === 0;
 
 		const prompt = isAssessClarify
-			? `Ask the user the following question, in a friendly and concise way, in the same language as the conversation: "${state.assessClarify ?? "Everything looks good — shall I finalize this step and move on?"}"`
+			? `Ask the user the following question, in a friendly and concise way. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations or repeat it in another language: "${state.assessClarify ?? "Everything looks good — shall I finalize this step and move on?"}"`
 			: (() => {
 					const issues = (state.validationErrors ?? [])
 						.map((issue, i) => `${i + 1}. ${JSON.stringify(issue)}`)
 						.join("\n");
-					return `You just tried to finalize the "${state.currentStep}" step but validation failed. Ask the user ONE concise, friendly follow-up question (in their language) that would unblock the most important missing field. Do not list every error. Do not show JSON.
+					return `You just tried to finalize the "${state.currentStep}" step but validation failed. Ask the user ONE concise, friendly follow-up question about the most important missing field. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations. Do not list every error. Do not show JSON.
 
 			VALIDATION ERRORS:
 			${issues}
@@ -33,8 +33,21 @@ export const clarify = withNodeErrors(
 			${JSON.stringify(state.draftStepData, null, 2)}`;
 				})();
 
+		// Pass the recent conversation so the model has a real language anchor.
+		// Without this, "respond in the user's language" has nothing to match
+		// and the model drifts to Spanish/French.
+		const conversation = state.history
+			.slice(-4)
+			.map((m) => ({ role: m.role, content: m.content }));
+
 		const stream = await model.stream(
-			[{ role: "system", content: prompt }],
+			[
+				{ role: "system" as const, content: prompt },
+				...conversation,
+				...(state.userMessage
+					? [{ role: "user" as const, content: state.userMessage }]
+					: []),
+			],
 			config,
 		);
 

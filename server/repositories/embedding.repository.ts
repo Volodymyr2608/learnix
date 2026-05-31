@@ -75,21 +75,20 @@ class EmbeddingRepository {
 		where?: { category?: string; level?: string },
 	) {
 		const literal = `[${queryVector.join(",")}]`;
-		const categoryClause = where?.category
-			? Prisma.sql`AND c.category = ${where.category}`
-			: Prisma.empty;
-		const levelClause = where?.level
-			? Prisma.sql`AND c.level = ${where.level}`
-			: Prisma.empty;
+		const conditions: Prisma.Sql[] = [
+			Prisma.sql`c.status = 'published'`,
+			Prisma.sql`c.deleted_at IS NULL`,
+		];
+		if (where?.category)
+			conditions.push(Prisma.sql`c.category = ${where.category}`);
+		if (where?.level) conditions.push(Prisma.sql`c.level = ${where.level}`);
+		const whereClause = Prisma.join(conditions, " AND ");
 
 		return db.$queryRaw<Array<{ id: string; distance: number }>>`
 			SELECT c.id, ce.embedding <=> ${literal}::vector AS distance
 			FROM course_embeddings ce
 			JOIN courses c ON c.id = ce."courseId"
-			WHERE c.status = 'published'
-				AND c.deleted_at IS NULL
-				${categoryClause}
-				${levelClause}
+			WHERE ${whereClause}
 			ORDER BY distance ASC
 			LIMIT ${Prisma.raw(String(limit))}
 		`;
@@ -101,18 +100,22 @@ class EmbeddingRepository {
 		excludeIds: string[],
 	) {
 		const literal = `[${queryVector.join(",")}]`;
-		const excludeClause =
-			excludeIds.length > 0
-				? Prisma.sql`AND c.id NOT IN (${Prisma.join(excludeIds.map((id) => Prisma.sql`${id}`))})`
-				: Prisma.empty;
+		const conditions: Prisma.Sql[] = [
+			Prisma.sql`c.status = 'published'`,
+			Prisma.sql`c.deleted_at IS NULL`,
+		];
+		if (excludeIds.length > 0) {
+			conditions.push(
+				Prisma.sql`c.id NOT IN (${Prisma.join(excludeIds.map((id) => Prisma.sql`${id}`))})`,
+			);
+		}
+		const whereClause = Prisma.join(conditions, " AND ");
 
 		return db.$queryRaw<Array<{ id: string; distance: number }>>`
 			SELECT c.id, ce.embedding <=> ${literal}::vector AS distance
 			FROM course_embeddings ce
 			JOIN courses c ON c.id = ce."courseId"
-			WHERE c.status = 'published'
-				AND c.deleted_at IS NULL
-				${excludeClause}
+			WHERE ${whereClause}
 			ORDER BY distance ASC
 			LIMIT ${Prisma.raw(String(limit))}
 		`;
