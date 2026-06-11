@@ -22,6 +22,11 @@ const SignUpForm = () => {
 		if (searchParams.get("verified") === "true") {
 			toast.success("Email verified! You can now sign in.");
 		}
+		if (searchParams.get("reset") === "true") {
+			toast.success(
+				"Password reset! You can now sign in with your new password.",
+			);
+		}
 	}, [searchParams]);
 
 	const { handleSubmit, control } = useForm({

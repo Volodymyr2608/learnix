@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
 	Avatar,
 	AvatarFallback,
@@ -49,9 +50,13 @@ const UserProfile = async () => {
 			<DropdownMenuContent align="end" className="w-56">
 				<DropdownMenuLabel>My Account</DropdownMenuLabel>
 				<DropdownMenuSeparator />
-				<DropdownMenuItem>Profile</DropdownMenuItem>
+				<DropdownMenuItem asChild>
+					<Link href="/profile">Profile</Link>
+				</DropdownMenuItem>
+				<DropdownMenuItem asChild>
+					<Link href="/settings">Settings</Link>
+				</DropdownMenuItem>
 				<DropdownMenuItem>Billing</DropdownMenuItem>
-				<DropdownMenuItem>Settings</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem className="text-destructive">
 					<LogoutButton />

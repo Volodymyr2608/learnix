@@ -10,6 +10,8 @@ const INSTRUCTOR_URLS = {
 		`${MAIN_URL}/courses/${courseId}/lessons/${lessonId}/preview`,
 	editLesson: (courseId: string, lessonId: string) =>
 		`${MAIN_URL}/courses/${courseId}/lessons/${lessonId}`,
+	profile: "/profile",
+	accountSettings: "/settings",
 };
 
 export default INSTRUCTOR_URLS;

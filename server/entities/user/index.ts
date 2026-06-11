@@ -32,6 +32,7 @@ export const UserUpdateDto = UserDto.pick({
 	email: true,
 	emailVerified: true,
 	image: true,
+	emailNotificationsEnabled: true,
 }).partial();
 
 export type UserUpdateDto = z.infer<typeof UserUpdateDto>;
@@ -40,30 +41,47 @@ export type UserUpdateDto = z.infer<typeof UserUpdateDto>;
  * Schema for sign-up validation with password confirmation
  */
 
-const baseSignUpSchema = z.object({
+export const signUpSchema = z.object({
 	email: emailSchema,
 	name: nameSchema,
 	password: passwordSchema,
-	confirmPassword: passwordSchema,
 });
-
-export const signUpSchema = baseSignUpSchema.refine(
-	doesPasswordMatch,
-	onPasswordMismatch,
-);
-
 export type SignUpData = z.infer<typeof signUpSchema>;
 
-export const UserSignUpDto = baseSignUpSchema.pick({
-	name: true,
-	email: true,
-	password: true,
-});
-
+export const UserSignUpDto = signUpSchema;
 export type UserSignUpDto = z.infer<typeof UserSignUpDto>;
 
-export const signInSchema = baseSignUpSchema.pick({
-	email: true,
-	password: true,
+export const signInSchema = z.object({
+	email: emailSchema,
+	password: passwordSchema,
 });
 export type SignInData = z.infer<typeof signInSchema>;
+
+export const ProfileUpdateSchema = z.object({
+	name: nameSchema,
+	image: z.string().url().nullable(),
+});
+export type ProfileUpdateData = z.infer<typeof ProfileUpdateSchema>;
+
+export const EmailPreferencesSchema = z.object({
+	emailNotificationsEnabled: z.boolean(),
+});
+export type EmailPreferencesData = z.infer<typeof EmailPreferencesSchema>;
+
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+	.object({ newPassword: passwordSchema, confirmPassword: passwordSchema })
+	.refine(
+		({ newPassword, confirmPassword }) =>
+			doesPasswordMatch({ password: newPassword, confirmPassword }),
+		{ ...onPasswordMismatch, path: ["confirmPassword"] },
+	);
+export type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
+
+export const changePasswordSchema = z.object({
+	currentPassword: passwordSchema,
+	newPassword: passwordSchema,
+});
+export type ChangePasswordData = z.infer<typeof changePasswordSchema>;
