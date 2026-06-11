@@ -32,6 +32,7 @@ export const UserUpdateDto = UserDto.pick({
 	email: true,
 	emailVerified: true,
 	image: true,
+	emailNotificationsEnabled: true,
 }).partial();
 
 export type UserUpdateDto = z.infer<typeof UserUpdateDto>;
@@ -67,3 +68,14 @@ export const signInSchema = baseSignUpSchema.pick({
 	password: true,
 });
 export type SignInData = z.infer<typeof signInSchema>;
+
+export const ProfileUpdateSchema = z.object({
+	name: nameSchema,
+	image: z.string().url().nullable(),
+});
+export type ProfileUpdateData = z.infer<typeof ProfileUpdateSchema>;
+
+export const EmailPreferencesSchema = z.object({
+	emailNotificationsEnabled: z.boolean(),
+});
+export type EmailPreferencesData = z.infer<typeof EmailPreferencesSchema>;
