@@ -1,11 +1,5 @@
 "use client";
 
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@/app/_components/_shared/ui/tabs";
 import EmailSection from "@/app/_components/Account/EmailSection";
 import NotificationsSection from "@/app/_components/Account/NotificationsSection";
 import SessionsSection from "@/app/_components/Account/SessionsSection";
@@ -21,25 +15,9 @@ const SettingsShell = ({ emailNotificationsEnabled }: SettingsShellProps) => {
 				</p>
 			</div>
 
-			<Tabs defaultValue="email">
-				<TabsList>
-					<TabsTrigger value="email">Email</TabsTrigger>
-					<TabsTrigger value="notifications">Notifications</TabsTrigger>
-					<TabsTrigger value="sessions">Sessions</TabsTrigger>
-				</TabsList>
-
-				<TabsContent className="mt-6" value="email">
-					<EmailSection />
-				</TabsContent>
-
-				<TabsContent className="mt-6" value="notifications">
-					<NotificationsSection initialEnabled={emailNotificationsEnabled} />
-				</TabsContent>
-
-				<TabsContent className="mt-6" value="sessions">
-					<SessionsSection />
-				</TabsContent>
-			</Tabs>
+			<EmailSection />
+			<NotificationsSection initialEnabled={emailNotificationsEnabled} />
+			<SessionsSection />
 		</div>
 	);
 };
