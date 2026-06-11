@@ -1,5 +1,7 @@
 import type { ComponentType } from "react";
 import { z } from "zod";
+import { AuthAccountDeletionEmail } from "@/app/_emails/AuthAccountDeletionEmail";
+import { AuthEmailChangeEmail } from "@/app/_emails/AuthEmailChangeEmail";
 import { AuthPasswordResetEmail } from "@/app/_emails/AuthPasswordResetEmail";
 import { AuthVerifyEmail } from "@/app/_emails/AuthVerifyEmail";
 import { CourseCertificateEmail } from "@/app/_emails/CourseCertificateEmail";
@@ -27,6 +29,25 @@ export const emailTemplates = {
 		component: AuthPasswordResetEmail,
 		payload: z.object({ name: z.string(), resetUrl: z.string().url() }),
 		subject: () => "Reset your Learnix password",
+		criticality: "CRITICAL",
+	},
+	"auth.email-change": {
+		component: AuthEmailChangeEmail,
+		payload: z.object({
+			name: z.string(),
+			newEmail: z.string().email(),
+			verifyUrl: z.string().url(),
+		}),
+		subject: () => "Confirm your Learnix email change",
+		criticality: "CRITICAL",
+	},
+	"auth.account-deletion": {
+		component: AuthAccountDeletionEmail,
+		payload: z.object({
+			name: z.string(),
+			confirmUrl: z.string().url(),
+		}),
+		subject: () => "Confirm your Learnix account deletion",
 		criticality: "CRITICAL",
 	},
 	"user.welcome": {
