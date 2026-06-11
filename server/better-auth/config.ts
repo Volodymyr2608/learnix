@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/server/db";
+import { courseRepository } from "@/server/repositories/course.repository";
 import { emailService } from "@/server/services/email/email.service";
 import { env } from "../../lib/env";
 
@@ -52,6 +53,43 @@ export const auth = betterAuth({
 				type: "string",
 				input: false,
 			},
+		},
+		changeEmail: {
+			enabled: true,
+			// Confirmation sent to CURRENT email for security (ADR-017)
+			sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+				await emailService.send({
+					templateKey: "auth.email-change",
+					toEmail: user.email,
+					userId: user.id,
+					payload: { name: user.name ?? user.email, newEmail, verifyUrl: url },
+				});
+			},
+		},
+		deleteUser: {
+			enabled: true,
+			// Soft-delete instructor courses before removing the account so enrolled
+			// students retain access to their course history (FR5).
+			beforeDelete: async (user) => {
+				await courseRepository.updateMany(
+					{ instructorId: user.id, deletedAt: null },
+					{ deletedAt: new Date() },
+				);
+			},
+			sendDeleteAccountVerification: async ({ user, url }) => {
+				await emailService.send({
+					templateKey: "auth.account-deletion",
+					toEmail: user.email,
+					userId: user.id,
+					payload: { name: user.name ?? user.email, confirmUrl: url },
+				});
+			},
+		},
+	},
+	account: {
+		accountLinking: {
+			enabled: true,
+			trustedProviders: ["github", "google"],
 		},
 	},
 });
