@@ -18,7 +18,7 @@ const ProfileSection = () => {
 	const { data: session } = authClient.useSession();
 	const user = session?.user;
 
-	const { control, onSubmit, isPending } = useProfileForm(
+	const { control, onSubmit, isPending, isDirty } = useProfileForm(
 		user?.name ?? "",
 		user?.image ?? null,
 	);
@@ -48,9 +48,9 @@ const ProfileSection = () => {
 						/>
 					</FieldGroup>
 
-					<Button disabled={isPending} type="submit">
+					<Button disabled={isPending || !isDirty} type="submit">
 						{isPending ? <Loader2 className="animate-spin" /> : null}
-						Save profile
+						Save changes
 					</Button>
 				</form>
 			</CardContent>

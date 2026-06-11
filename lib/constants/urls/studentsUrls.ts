@@ -8,6 +8,8 @@ const STUDENT_URLS = {
 	messages: `${MAIN_URL}/messages`,
 	billing: `${MAIN_URL}/billing`,
 	settings: `${MAIN_URL}/settings`,
+	profile: "/profile",
+	accountSettings: "/settings",
 };
 
 export default STUDENT_URLS;

@@ -6,7 +6,6 @@ const defaultValues = {
 	fullName: "",
 	email: "",
 	password: "",
-	confirmPassword: "",
 	phone: "",
 	expertise: "",
 	experience: "",

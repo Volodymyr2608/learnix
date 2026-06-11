@@ -9,7 +9,12 @@ import {
 import { api } from "@/trpc/client";
 
 const useProfileForm = (initialName: string, initialImage: string | null) => {
-	const { control, handleSubmit, reset } = useForm<ProfileUpdateData>({
+	const {
+		control,
+		handleSubmit,
+		reset,
+		formState: { isDirty },
+	} = useForm<ProfileUpdateData>({
 		resolver: zodResolver(ProfileUpdateSchema),
 		defaultValues: { name: initialName, image: initialImage },
 	});
@@ -25,7 +30,7 @@ const useProfileForm = (initialName: string, initialImage: string | null) => {
 
 	const onSubmit = handleSubmit((data) => updateProfile.mutate(data));
 
-	return { control, onSubmit, isPending: updateProfile.isPending };
+	return { control, onSubmit, isPending: updateProfile.isPending, isDirty };
 };
 
 export default useProfileForm;

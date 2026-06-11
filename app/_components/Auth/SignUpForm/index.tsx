@@ -16,12 +16,7 @@ const SignUpForm = () => {
 
 	const { handleSubmit, control } = useForm({
 		resolver: zodResolver(signUpSchema),
-		defaultValues: {
-			name: "",
-			email: "",
-			password: "",
-			confirmPassword: "",
-		},
+		defaultValues: { name: "", email: "", password: "" },
 	});
 
 	return (
@@ -47,13 +42,6 @@ const SignUpForm = () => {
 						control={control}
 						label="Password"
 						name="password"
-						placeholder="••••••••"
-						type="password"
-					/>
-					<ControlledField
-						control={control}
-						label="Confirm Password"
-						name="confirmPassword"
 						placeholder="••••••••"
 						type="password"
 					/>

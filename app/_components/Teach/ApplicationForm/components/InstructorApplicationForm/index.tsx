@@ -71,13 +71,6 @@ const InstructorApplicationForm = () => {
 						placeholder="••••••••"
 						type="password"
 					/>
-					<ControlledField
-						control={control as Control<InstructorSchemaInput>}
-						label="Confirm Password"
-						name="confirmPassword"
-						placeholder="••••••••"
-						type="password"
-					/>
 				</div>
 			</div>
 

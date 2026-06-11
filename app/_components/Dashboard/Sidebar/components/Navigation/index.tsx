@@ -73,7 +73,7 @@ const instructorItems: NavItem[] = [
 	},
 	{
 		title: "Settings",
-		href: "/instructor/settings",
+		href: INSTRUCTOR_URLS.accountSettings,
 		icon: Settings,
 	},
 ];
@@ -112,7 +112,7 @@ const studentItems: NavItem[] = [
 	},
 	{
 		title: "Settings",
-		href: STUDENT_URLS.settings,
+		href: STUDENT_URLS.accountSettings,
 		icon: Settings,
 	},
 ];

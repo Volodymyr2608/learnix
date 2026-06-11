@@ -14,7 +14,7 @@ import { FieldGroup } from "@/app/_components/_shared/ui/field";
 import usePasswordForm from "@/app/_components/Account/PasswordSection/hooks/usePasswordForm";
 
 const PasswordSection = () => {
-	const { control, onSubmit, isPending } = usePasswordForm();
+	const { control, onSubmit, isPending, isDirty } = usePasswordForm();
 
 	return (
 		<Card>
@@ -41,18 +41,11 @@ const PasswordSection = () => {
 							placeholder="••••••••"
 							type="password"
 						/>
-						<ControlledField
-							control={control}
-							label="Confirm new password"
-							name="confirmPassword"
-							placeholder="••••••••"
-							type="password"
-						/>
 					</FieldGroup>
 
-					<Button disabled={isPending} type="submit">
+					<Button disabled={isPending || !isDirty} type="submit">
 						{isPending ? <Loader2 className="animate-spin" /> : null}
-						Change password
+						Save changes
 					</Button>
 				</form>
 			</CardContent>
