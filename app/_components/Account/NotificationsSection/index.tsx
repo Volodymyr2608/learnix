@@ -9,12 +9,11 @@ import {
 } from "@/app/_components/_shared/ui/card";
 import { Switch } from "@/app/_components/_shared/ui/switch";
 import useNotificationsToggle from "@/app/_components/Account/NotificationsSection/hooks/useNotificationsToggle";
+import type { NotificationsSectionProps } from "@/app/_components/Account/NotificationsSection/types";
 
-type Props = {
-	initialEnabled: boolean;
-};
-
-const NotificationsSection = ({ initialEnabled }: Props) => {
+const NotificationsSection = ({
+	initialEnabled,
+}: NotificationsSectionProps) => {
 	const { enabled, toggle, isPending } = useNotificationsToggle(initialEnabled);
 
 	return (

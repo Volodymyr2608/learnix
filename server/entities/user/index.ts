@@ -79,3 +79,15 @@ export const EmailPreferencesSchema = z.object({
 	emailNotificationsEnabled: z.boolean(),
 });
 export type EmailPreferencesData = z.infer<typeof EmailPreferencesSchema>;
+
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+	.object({ newPassword: passwordSchema, confirmPassword: passwordSchema })
+	.refine(
+		({ newPassword, confirmPassword }) =>
+			doesPasswordMatch({ password: newPassword, confirmPassword }),
+		{ ...onPasswordMismatch, path: ["confirmPassword"] },
+	);
+export type ResetPasswordData = z.infer<typeof resetPasswordSchema>;

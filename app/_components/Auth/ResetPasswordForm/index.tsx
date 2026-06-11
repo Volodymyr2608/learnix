@@ -5,26 +5,16 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import ControlledField from "@/app/_components/_shared/components/Form/ControlledField";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { FieldGroup } from "@/app/_components/_shared/ui/field";
+import AuthFormHeader from "@/app/_components/Auth/AuthFormHeader";
+import InvalidTokenMessage from "@/app/_components/Auth/ResetPasswordForm/components/InvalidTokenMessage";
 import useResetPassword from "@/app/_components/Auth/ResetPasswordForm/hooks/useResetPassword";
 import {
-	doesPasswordMatch,
-	onPasswordMismatch,
-} from "@/lib/utils/doesPasswordMatch";
-import { passwordSchema } from "@/server/entities/base";
-
-const resetPasswordSchema = z
-	.object({ newPassword: passwordSchema, confirmPassword: passwordSchema })
-	.refine(
-		({ newPassword, confirmPassword }) =>
-			doesPasswordMatch({ password: newPassword, confirmPassword }),
-		{ ...onPasswordMismatch, path: ["confirmPassword"] },
-	);
-
-type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
+	type ResetPasswordData,
+	resetPasswordSchema,
+} from "@/server/entities/user";
 
 const ResetPasswordForm = () => {
 	const searchParams = useSearchParams();
@@ -37,30 +27,15 @@ const ResetPasswordForm = () => {
 	});
 
 	if (!token) {
-		return (
-			<div className="w-full space-y-6">
-				<div className="space-y-2 text-center">
-					<h1 className="font-bold text-3xl">Invalid link</h1>
-					<p className="text-muted-foreground">
-						This reset link is missing or invalid.{" "}
-						<Link
-							className="text-primary hover:underline"
-							href="/forgot-password"
-						>
-							Request a new one.
-						</Link>
-					</p>
-				</div>
-			</div>
-		);
+		return <InvalidTokenMessage />;
 	}
 
 	return (
 		<div className="w-full space-y-6">
-			<div className="space-y-2 text-center">
-				<h1 className="font-bold text-3xl">Set new password</h1>
-				<p className="text-muted-foreground">Choose a strong new password.</p>
-			</div>
+			<AuthFormHeader
+				description="Choose a strong new password."
+				title="Set new password"
+			/>
 
 			<form
 				className="space-y-3"

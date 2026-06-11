@@ -14,12 +14,9 @@ import NotificationsSection from "@/app/_components/Account/NotificationsSection
 import PasswordSection from "@/app/_components/Account/PasswordSection";
 import ProfileSection from "@/app/_components/Account/ProfileSection";
 import SessionsSection from "@/app/_components/Account/SessionsSection";
+import type { SettingsShellProps } from "@/app/_components/Account/SettingsShell/types";
 
-type Props = {
-	emailNotificationsEnabled: boolean;
-};
-
-const SettingsShell = ({ emailNotificationsEnabled }: Props) => {
+const SettingsShell = ({ emailNotificationsEnabled }: SettingsShellProps) => {
 	return (
 		<div className="space-y-6">
 			<div>
