@@ -155,20 +155,31 @@ Biome (not ESLint/Prettier). Config in `biome.jsonc`. Auto-sorts imports and Tai
 
 ## Development Workflow
 
-Spec-driven development with two phases.
+Spec-driven development. Each feature gets **one folder** `docs/specs/<YYYY-MM-DD>-<feature>/`
+holding **four documents**, produced **sequentially with a manual approval gate between each** —
+never generate the next document until the previous one is approved. Start each document from the
+templates in [`docs/templates/`](docs/templates/) (`cp docs/templates/{requirements,spec,plan,validation}.md` into the feature folder):
 
-### Phase 1 — Planning (run with Opus)
+1. `requirements.md` — from the raw idea: problem, goal, scope decisions, functional requirements,
+   out-of-scope. The *what* and *why*. → **approve**
+2. `spec.md` — from `requirements.md`: technical design — data model, layering, component flow,
+   file list, env vars, referenced ADRs. The *how* (design). → **approve**
+3. `plan.md` — from `spec.md`: the **detailed implementation plan** (bite-sized TDD tasks with real
+   code, exact file paths, and commits), produced with the `writing-plans` skill. → **approve**
+4. `validation.md` — from all of the above: automated checks + manual test scenarios — how to verify.
 
-Specs live in `docs/specs/<YYYY-MM-DD>-<feature>/` with three files:
-- `requirements.md` — problem, goal, functional requirements, DB models, file list
-- `plan.md` — implementation order and code sketches
-- `validation.md` — automated checks and manual test scenarios
+The detailed plan **lives in the spec folder as `plan.md`**, not in `docs/superpowers/plans/`. When
+`writing-plans` runs, override its default save location to the spec folder.
 
-### Phase 2 — Implementation (run with Sonnet)
+If a feature warrants an architectural decision, also write an ADR in `docs/adr/NNN-<slug>.md` and
+reference it from `spec.md`.
 
-When `docs/specs/<feature>/` already exists:
+### Implementation
+
+When `docs/specs/<feature>/` already exists with an approved `plan.md`:
 1. **Skip `brainstorming`** — the spec is the design. Do not re-derive what is already written.
-2. Invoke `writing-plans` directly, reading all three spec files to produce a step-by-step execution plan in `docs/superpowers/plans/`.
-3. Execute with `subagent-driven-development` or `executing-plans`.
+2. If `plan.md` is not yet the detailed plan, invoke `writing-plans` directly (reading all spec
+   files) to produce it **in the spec folder as `plan.md`**.
+3. Execute `plan.md` with `subagent-driven-development` or `executing-plans`.
 
-Never run `brainstorming` when a spec already exists in `docs/specs/`.
+Never run `brainstorming` when a spec folder already exists in `docs/specs/`.
