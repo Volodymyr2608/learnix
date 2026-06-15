@@ -127,7 +127,7 @@ Vercel Blob via `app/api/uploads/route.ts`. Course thumbnails (≤2MB images) an
 
 Learnix is the **merchant of record**: each sale is a separate Stripe charge on the platform account, followed by a `Stripe.Transfer` to the instructor's connected account. See ADR-019.
 
-**Commission split:** controlled by `STRIPE_PLATFORM_FEE_PERCENT` (default 20%). `computeSplit(priceCents)` in `lib/platformFee.ts` returns `{ platformFeeCents, instructorAmountCents }`.
+**Commission split:** controlled by `STRIPE_PLATFORM_FEE_PERCENT` (default 20%). `computeSplit(priceCents, feePercent?)` in `lib/platformFee.ts` returns `{ platformFeeCents, instructorNetCents }`; `feePercent` falls back to `DEFAULT_PLATFORM_FEE_PERCENT` (20) when omitted or non-numeric, since env validation (and its zod default) is skipped under `SKIP_ENV_VALIDATION` in tests.
 
 **Checkout flow:**
 1. `payment.createCheckoutSession` (tRPC) creates a Stripe Checkout Session and returns the URL.
