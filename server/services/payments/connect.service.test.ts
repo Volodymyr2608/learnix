@@ -1,20 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Payment } from "@/generated/prisma";
 
+// Explicit vi.fn() variables — avoids vi.mocked() and Stripe SDK typing issues
+const mockAccountsCreate = vi.fn();
+const mockAccountsRetrieve = vi.fn();
+const mockAccountsCreateLoginLink = vi.fn();
+const mockAccountLinksCreate = vi.fn();
+const mockTransfersCreate = vi.fn();
+const mockTransfersCreateReversal = vi.fn();
+
 // Mock stripe client
 vi.mock("./stripe.client", () => ({
 	stripe: {
 		accounts: {
-			create: vi.fn(),
-			retrieve: vi.fn(),
-			createLoginLink: vi.fn(),
+			create: mockAccountsCreate,
+			retrieve: mockAccountsRetrieve,
+			createLoginLink: mockAccountsCreateLoginLink,
 		},
 		accountLinks: {
-			create: vi.fn(),
+			create: mockAccountLinksCreate,
 		},
 		transfers: {
-			create: vi.fn(),
-			createReversal: vi.fn(),
+			create: mockTransfersCreate,
+			createReversal: mockTransfersCreateReversal,
 		},
 	},
 }));
@@ -54,7 +62,6 @@ vi.mock("@/lib/connectStatus", () => ({
 }));
 
 const { connectService } = await import("./connect.service");
-const { stripe } = await import("./stripe.client");
 const { instructorRepository } = await import(
 	"@/server/repositories/instructor.repository"
 );
@@ -63,7 +70,6 @@ const { paymentRepository } = await import(
 );
 const { deriveConnectStatus } = await import("@/lib/connectStatus");
 
-const mockStripe = vi.mocked(stripe);
 const mockInstructorRepo = vi.mocked(instructorRepository);
 const mockPaymentRepo = vi.mocked(paymentRepository);
 const mockDeriveConnectStatus = vi.mocked(deriveConnectStatus);
@@ -96,6 +102,12 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	mockAccountsCreate.mockReset();
+	mockAccountsRetrieve.mockReset();
+	mockAccountsCreateLoginLink.mockReset();
+	mockAccountLinksCreate.mockReset();
+	mockTransfersCreate.mockReset();
+	mockTransfersCreateReversal.mockReset();
 });
 
 describe("ConnectService.getConnectStatus", () => {
@@ -116,7 +128,7 @@ describe("ConnectService.getConnectStatus", () => {
 			availableCents: 0,
 			owedCents: 0,
 		});
-		expect(mockStripe.accounts.retrieve).not.toHaveBeenCalled();
+		expect(mockAccountsRetrieve).not.toHaveBeenCalled();
 	});
 
 	it("retrieves Stripe account, calls deriveConnectStatus, and returns balances", async () => {
@@ -135,7 +147,7 @@ describe("ConnectService.getConnectStatus", () => {
 			payouts_enabled: true,
 			requirements: { currently_due: [], past_due: [], disabled_reason: null },
 		};
-		mockStripe.accounts.retrieve.mockResolvedValue(mockAccount as never);
+		mockAccountsRetrieve.mockResolvedValue(mockAccount);
 		mockDeriveConnectStatus.mockReturnValue("verified");
 		mockPaymentRepo.getOwedBalance.mockResolvedValue(4000);
 		mockPaymentRepo.aggregate.mockResolvedValue({
@@ -144,9 +156,7 @@ describe("ConnectService.getConnectStatus", () => {
 
 		const result = await connectService.getConnectStatus(INSTRUCTOR_ID);
 
-		expect(mockStripe.accounts.retrieve).toHaveBeenCalledWith(
-			STRIPE_ACCOUNT_ID,
-		);
+		expect(mockAccountsRetrieve).toHaveBeenCalledWith(STRIPE_ACCOUNT_ID);
 		expect(mockDeriveConnectStatus).toHaveBeenCalledWith(mockAccount);
 		expect(result).toEqual({
 			status: "verified",
@@ -171,12 +181,12 @@ describe("ConnectService.transferToInstructor", () => {
 		} as never);
 
 		const transfer = { id: "tr_test_xyz" };
-		mockStripe.transfers.create.mockResolvedValue(transfer as never);
+		mockTransfersCreate.mockResolvedValue(transfer);
 		mockPaymentRepo.update.mockResolvedValue(payment as never);
 
 		await connectService.transferToInstructor(payment);
 
-		expect(mockStripe.transfers.create).toHaveBeenCalledWith({
+		expect(mockTransfersCreate).toHaveBeenCalledWith({
 			amount: 4000,
 			currency: "usd",
 			destination: STRIPE_ACCOUNT_ID,
@@ -207,7 +217,7 @@ describe("ConnectService.transferToInstructor", () => {
 
 		await connectService.transferToInstructor(payment);
 
-		expect(mockStripe.transfers.create).not.toHaveBeenCalled();
+		expect(mockTransfersCreate).not.toHaveBeenCalled();
 		expect(mockPaymentRepo.update).toHaveBeenCalledWith(
 			payment.id,
 			expect.objectContaining({ transferStatus: "pending" }),
@@ -234,7 +244,7 @@ describe("ConnectService.sweepPendingTransfers", () => {
 		} as never);
 
 		const transfer = { id: "tr_test_sweep" };
-		mockStripe.transfers.create.mockResolvedValue(transfer as never);
+		mockTransfersCreate.mockResolvedValue(transfer);
 		mockPaymentRepo.update.mockResolvedValue({} as never);
 
 		await connectService.sweepPendingTransfers(INSTRUCTOR_ID);
@@ -242,7 +252,7 @@ describe("ConnectService.sweepPendingTransfers", () => {
 		expect(mockPaymentRepo.findMany).toHaveBeenCalledWith({
 			where: { instructorId: INSTRUCTOR_ID, transferStatus: "pending" },
 		});
-		expect(mockStripe.transfers.create).toHaveBeenCalledTimes(2);
+		expect(mockTransfersCreate).toHaveBeenCalledTimes(2);
 	});
 
 	it("does nothing when there are no pending payments", async () => {
@@ -250,7 +260,7 @@ describe("ConnectService.sweepPendingTransfers", () => {
 
 		await connectService.sweepPendingTransfers(INSTRUCTOR_ID);
 
-		expect(mockStripe.transfers.create).not.toHaveBeenCalled();
+		expect(mockTransfersCreate).not.toHaveBeenCalled();
 	});
 });
 
@@ -261,14 +271,12 @@ describe("ConnectService.reverseTransfer", () => {
 			transferStatus: "transferred",
 		});
 
-		mockStripe.transfers.createReversal.mockResolvedValue({
-			id: "trr_test",
-		} as never);
+		mockTransfersCreateReversal.mockResolvedValue({ id: "trr_test" });
 		mockPaymentRepo.update.mockResolvedValue(payment as never);
 
 		await connectService.reverseTransfer(payment);
 
-		expect(mockStripe.transfers.createReversal).toHaveBeenCalledWith(
+		expect(mockTransfersCreateReversal).toHaveBeenCalledWith(
 			"tr_to_reverse",
 			{ refund_application_fee: false },
 		);
@@ -287,24 +295,22 @@ describe("ConnectService.createOnboardingLink", () => {
 			stripeAccountId: null,
 		} as never);
 
-		mockStripe.accounts.create.mockResolvedValue({
-			id: "acct_new",
-		} as never);
+		mockAccountsCreate.mockResolvedValue({ id: "acct_new" });
 		mockInstructorRepo.update.mockResolvedValue({} as never);
-		mockStripe.accountLinks.create.mockResolvedValue({
+		mockAccountLinksCreate.mockResolvedValue({
 			url: "https://connect.stripe.com/onboard/acct_new",
-		} as never);
+		});
 
 		const result = await connectService.createOnboardingLink(INSTRUCTOR_ID);
 
-		expect(mockStripe.accounts.create).toHaveBeenCalledWith({
+		expect(mockAccountsCreate).toHaveBeenCalledWith({
 			type: "express",
 		});
 		expect(mockInstructorRepo.update).toHaveBeenCalledWith(
 			"prof-1",
 			expect.objectContaining({ stripeAccountId: "acct_new" }),
 		);
-		expect(mockStripe.accountLinks.create).toHaveBeenCalledWith(
+		expect(mockAccountLinksCreate).toHaveBeenCalledWith(
 			expect.objectContaining({
 				account: "acct_new",
 				type: "account_onboarding",
@@ -324,14 +330,14 @@ describe("ConnectService.createOnboardingLink", () => {
 			stripeAccountId: STRIPE_ACCOUNT_ID,
 		} as never);
 
-		mockStripe.accountLinks.create.mockResolvedValue({
+		mockAccountLinksCreate.mockResolvedValue({
 			url: "https://connect.stripe.com/onboard/acct_test123",
-		} as never);
+		});
 
 		await connectService.createOnboardingLink(INSTRUCTOR_ID);
 
-		expect(mockStripe.accounts.create).not.toHaveBeenCalled();
-		expect(mockStripe.accountLinks.create).toHaveBeenCalledWith(
+		expect(mockAccountsCreate).not.toHaveBeenCalled();
+		expect(mockAccountLinksCreate).toHaveBeenCalledWith(
 			expect.objectContaining({ account: STRIPE_ACCOUNT_ID }),
 		);
 	});
@@ -345,13 +351,13 @@ describe("ConnectService.createLoginLink", () => {
 			stripeAccountId: STRIPE_ACCOUNT_ID,
 		} as never);
 
-		mockStripe.accounts.createLoginLink.mockResolvedValue({
+		mockAccountsCreateLoginLink.mockResolvedValue({
 			url: "https://connect.stripe.com/login/acct_test123",
-		} as never);
+		});
 
 		const result = await connectService.createLoginLink(INSTRUCTOR_ID);
 
-		expect(mockStripe.accounts.createLoginLink).toHaveBeenCalledWith(
+		expect(mockAccountsCreateLoginLink).toHaveBeenCalledWith(
 			STRIPE_ACCOUNT_ID,
 		);
 		expect(result).toEqual({
