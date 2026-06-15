@@ -127,11 +127,24 @@ class ConnectService {
 			return;
 		}
 
+		// Resolve the Charge ID from the PaymentIntent so source_transaction is valid.
+		// Stripe transfers require a ch_xxx charge ID, not a pi_xxx payment intent ID.
+		let sourceTransaction: string | undefined = undefined;
+		if (payment.stripePaymentIntentId) {
+			const pi = await stripe.paymentIntents.retrieve(
+				payment.stripePaymentIntentId,
+			);
+			sourceTransaction =
+				typeof pi.latest_charge === "string"
+					? pi.latest_charge
+					: (pi.latest_charge?.id ?? undefined);
+		}
+
 		const transfer = await stripe.transfers.create({
 			amount: payment.instructorNetCents ?? 0,
 			currency: payment.currency,
 			destination: profile.stripeAccountId,
-			source_transaction: payment.stripePaymentIntentId ?? undefined,
+			source_transaction: sourceTransaction,
 		});
 
 		await paymentRepository.update(payment.id, {

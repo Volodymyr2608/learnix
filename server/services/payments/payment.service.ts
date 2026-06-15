@@ -108,6 +108,10 @@ class PaymentService {
 
 		// 3. Idempotency — already succeeded
 		if (payment.status === "succeeded") {
+			// Retry transfer if it was never attempted (e.g., prior run threw after marking succeeded)
+			if (payment.transferStatus === "none" && payment.instructorNetCents) {
+				await connectService.transferToInstructor(payment);
+			}
 			return { status: "succeeded" };
 		}
 
