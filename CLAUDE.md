@@ -149,6 +149,9 @@ All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
 | `N8N_WEBHOOK_SECRET` | Yes | HMAC secret for outbound n8n calls |
 | `CERTIFICATE_SECRET` | Yes | JWT signing secret for certificate download tokens |
 | `UNSUBSCRIBE_SECRET` | Yes | JWT signing secret for email unsubscribe tokens |
+| `STRIPE_SECRET_KEY` | Yes | Stripe secret key (test: `sk_test_...`) |
+| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret (`whsec_...`) |
+| `STRIPE_PLATFORM_FEE_PERCENT` | No (default 20) | Platform fee percentage taken from each sale |
 
 ### Linting / formatting
 Biome (not ESLint/Prettier). Config in `biome.jsonc`. Auto-sorts imports and Tailwind classes (`useSortedClasses` for `clsx`/`cva`/`cn` calls).
