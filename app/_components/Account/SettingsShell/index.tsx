@@ -2,10 +2,14 @@
 
 import EmailSection from "@/app/_components/Account/EmailSection";
 import NotificationsSection from "@/app/_components/Account/NotificationsSection";
+import PayoutsSection from "@/app/_components/Account/PayoutsSection";
 import SessionsSection from "@/app/_components/Account/SessionsSection";
 import type { SettingsShellProps } from "@/app/_components/Account/SettingsShell/types";
 
-const SettingsShell = ({ emailNotificationsEnabled }: SettingsShellProps) => {
+const SettingsShell = ({
+	emailNotificationsEnabled,
+	isInstructor,
+}: SettingsShellProps) => {
 	return (
 		<div className="space-y-6">
 			<div>
@@ -17,6 +21,7 @@ const SettingsShell = ({ emailNotificationsEnabled }: SettingsShellProps) => {
 
 			<EmailSection />
 			<NotificationsSection initialEnabled={emailNotificationsEnabled} />
+			{isInstructor && <PayoutsSection />}
 			<SessionsSection />
 		</div>
 	);
