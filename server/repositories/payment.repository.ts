@@ -1,5 +1,20 @@
 import type { Payment, Prisma } from "@/generated/prisma";
+import { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
+
+class ProcessedStripeEventRepository {
+	async exists(id: string): Promise<boolean> {
+		const count = await db.processedStripeEvent.count({ where: { id } });
+		return count > 0;
+	}
+
+	async record(id: string, type: string): Promise<void> {
+		await db.processedStripeEvent.create({ data: { id, type } });
+	}
+}
+
+export const processedStripeEventRepository =
+	new ProcessedStripeEventRepository();
 
 class PaymentRepository extends BaseRepository<
 	"payment",
