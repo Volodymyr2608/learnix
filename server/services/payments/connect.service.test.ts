@@ -14,9 +14,7 @@ vi.mock("./stripe.client", () => ({
 		},
 		transfers: {
 			create: vi.fn(),
-		},
-		transferReversals: {
-			create: vi.fn(),
+			createReversal: vi.fn(),
 		},
 	},
 }));
@@ -257,20 +255,20 @@ describe("ConnectService.sweepPendingTransfers", () => {
 });
 
 describe("ConnectService.reverseTransfer", () => {
-	it("calls transferReversals.create with the correct transfer id and marks payment reversed", async () => {
+	it("calls transfers.createReversal with the correct transfer id and marks payment reversed", async () => {
 		const payment = makePayment({
 			stripeTransferId: "tr_to_reverse",
 			transferStatus: "transferred",
 		});
 
-		mockStripe.transferReversals.create.mockResolvedValue({
+		mockStripe.transfers.createReversal.mockResolvedValue({
 			id: "trr_test",
 		} as never);
 		mockPaymentRepo.update.mockResolvedValue(payment as never);
 
 		await connectService.reverseTransfer(payment);
 
-		expect(mockStripe.transferReversals.create).toHaveBeenCalledWith(
+		expect(mockStripe.transfers.createReversal).toHaveBeenCalledWith(
 			"tr_to_reverse",
 			{ refund_application_fee: false },
 		);

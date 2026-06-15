@@ -158,7 +158,7 @@ class ConnectService {
 			);
 		}
 
-		await stripe.transferReversals.create(payment.stripeTransferId, {
+		await stripe.transfers.createReversal(payment.stripeTransferId!, {
 			refund_application_fee: false,
 		});
 
