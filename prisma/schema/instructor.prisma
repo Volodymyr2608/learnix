@@ -9,6 +9,10 @@ model InstructorProfile {
   courseIdea         String   @map("course_idea")
   linkedinUrl        String?  @map("linkedin_url")
   websiteUrl         String?  @map("website_url")
+  stripeAccountId      String?   @unique @map("stripe_account_id")
+  stripeChargesEnabled Boolean   @default(false) @map("stripe_charges_enabled")
+  stripePayoutsEnabled Boolean   @default(false) @map("stripe_payouts_enabled")
+  stripeOnboardedAt    DateTime? @map("stripe_onboarded_at")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
