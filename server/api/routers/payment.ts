@@ -78,4 +78,20 @@ export const paymentRouter = createTRPCRouter({
 			throw handleServiceError(error);
 		}
 	}),
+
+	sweepAllPendingTransfers: adminProcedure.mutation(async () => {
+		try {
+			const pending = await paymentRepository.findMany({
+				where: { transferStatus: "pending" },
+				select: { instructorId: true },
+			});
+			const instructorIds = [...new Set(pending.map((p) => p.instructorId))];
+			for (const instructorId of instructorIds) {
+				await connectService.sweepPendingTransfers(instructorId);
+			}
+			return { instructorsSwept: instructorIds.length };
+		} catch (error) {
+			throw handleServiceError(error);
+		}
+	}),
 });

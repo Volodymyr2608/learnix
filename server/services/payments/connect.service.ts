@@ -120,7 +120,17 @@ class ConnectService {
 			where: { userId: payment.instructorId },
 		});
 
-		if (!profile?.stripePayoutsEnabled || !profile.stripeAccountId) {
+		if (!profile?.stripeAccountId) {
+			await paymentRepository.update(payment.id, {
+				transferStatus: "pending",
+			});
+			return;
+		}
+
+		// Check live Stripe status — do not trust the DB field which depends on
+		// account.updated Connect webhooks that may not have been delivered yet.
+		const account = await stripe.accounts.retrieve(profile.stripeAccountId);
+		if (!account.payouts_enabled) {
 			await paymentRepository.update(payment.id, {
 				transferStatus: "pending",
 			});
@@ -129,7 +139,7 @@ class ConnectService {
 
 		// Resolve the Charge ID from the PaymentIntent so source_transaction is valid.
 		// Stripe transfers require a ch_xxx charge ID, not a pi_xxx payment intent ID.
-		let sourceTransaction: string | undefined = undefined;
+		let sourceTransaction: string | undefined;
 		if (payment.stripePaymentIntentId) {
 			const pi = await stripe.paymentIntents.retrieve(
 				payment.stripePaymentIntentId,
@@ -159,8 +169,26 @@ class ConnectService {
 			where: { instructorId, transferStatus: "pending" },
 		});
 
+		// Attempt every payment independently so one failure does not block the
+		// rest. Collect failures and rethrow at the end — already-transferred
+		// payments are skipped on retry, so re-running the sweep is idempotent.
+		const failures: { paymentId: string; error: unknown }[] = [];
+
 		for (const payment of payments) {
-			await this.transferToInstructor(payment);
+			try {
+				await this.transferToInstructor(payment);
+			} catch (error) {
+				failures.push({ paymentId: payment.id, error });
+			}
+		}
+
+		if (failures.length > 0) {
+			throw new AggregateError(
+				failures.map((f) => f.error),
+				`Failed to transfer ${failures.length}/${payments.length} pending payment(s) for instructor ${instructorId}: ${failures
+					.map((f) => f.paymentId)
+					.join(", ")}`,
+			);
 		}
 	}
 
@@ -171,7 +199,7 @@ class ConnectService {
 			);
 		}
 
-		await stripe.transfers.createReversal(payment.stripeTransferId!, {
+		await stripe.transfers.createReversal(payment.stripeTransferId, {
 			refund_application_fee: false,
 		});
 

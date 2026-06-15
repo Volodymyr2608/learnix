@@ -8,6 +8,7 @@ const mockAccountsCreateLoginLink = vi.fn();
 const mockAccountLinksCreate = vi.fn();
 const mockTransfersCreate = vi.fn();
 const mockTransfersCreateReversal = vi.fn();
+const mockPaymentIntentsRetrieve = vi.fn();
 
 // Mock stripe client
 vi.mock("./stripe.client", () => ({
@@ -23,6 +24,9 @@ vi.mock("./stripe.client", () => ({
 		transfers: {
 			create: mockTransfersCreate,
 			createReversal: mockTransfersCreateReversal,
+		},
+		paymentIntents: {
+			retrieve: mockPaymentIntentsRetrieve,
 		},
 	},
 }));
@@ -108,6 +112,7 @@ beforeEach(() => {
 	mockAccountLinksCreate.mockReset();
 	mockTransfersCreate.mockReset();
 	mockTransfersCreateReversal.mockReset();
+	mockPaymentIntentsRetrieve.mockReset();
 });
 
 describe("ConnectService.getConnectStatus", () => {
@@ -167,7 +172,7 @@ describe("ConnectService.getConnectStatus", () => {
 });
 
 describe("ConnectService.transferToInstructor", () => {
-	it("creates a Stripe Transfer and marks payment transferred when payoutsEnabled", async () => {
+	it("creates a Stripe Transfer with the charge id and marks payment transferred when live payouts are enabled", async () => {
 		const payment = makePayment({
 			stripePaymentIntentId: "pi_test_abc",
 		});
@@ -180,17 +185,25 @@ describe("ConnectService.transferToInstructor", () => {
 			stripePayoutsEnabled: true,
 		} as never);
 
+		// Live status check — source of truth, not the DB flag
+		mockAccountsRetrieve.mockResolvedValue({ payouts_enabled: true });
+		// PaymentIntent → Charge resolution for source_transaction
+		mockPaymentIntentsRetrieve.mockResolvedValue({
+			latest_charge: "ch_test_abc",
+		});
+
 		const transfer = { id: "tr_test_xyz" };
 		mockTransfersCreate.mockResolvedValue(transfer);
 		mockPaymentRepo.update.mockResolvedValue(payment as never);
 
 		await connectService.transferToInstructor(payment);
 
+		expect(mockPaymentIntentsRetrieve).toHaveBeenCalledWith("pi_test_abc");
 		expect(mockTransfersCreate).toHaveBeenCalledWith({
 			amount: 4000,
 			currency: "usd",
 			destination: STRIPE_ACCOUNT_ID,
-			source_transaction: "pi_test_abc",
+			source_transaction: "ch_test_abc",
 		});
 		expect(mockPaymentRepo.update).toHaveBeenCalledWith(
 			payment.id,
@@ -202,7 +215,7 @@ describe("ConnectService.transferToInstructor", () => {
 		);
 	});
 
-	it("leaves transferStatus as pending when payoutsEnabled is false", async () => {
+	it("leaves transferStatus as pending when live payouts are not enabled", async () => {
 		const payment = makePayment();
 
 		mockInstructorRepo.findFirst.mockResolvedValue({
@@ -213,10 +226,33 @@ describe("ConnectService.transferToInstructor", () => {
 			stripePayoutsEnabled: false,
 		} as never);
 
+		// Live Stripe status still reports payouts disabled (KYC incomplete)
+		mockAccountsRetrieve.mockResolvedValue({ payouts_enabled: false });
 		mockPaymentRepo.update.mockResolvedValue(payment as never);
 
 		await connectService.transferToInstructor(payment);
 
+		expect(mockTransfersCreate).not.toHaveBeenCalled();
+		expect(mockPaymentRepo.update).toHaveBeenCalledWith(
+			payment.id,
+			expect.objectContaining({ transferStatus: "pending" }),
+		);
+	});
+
+	it("leaves transferStatus as pending when the instructor has no Stripe account", async () => {
+		const payment = makePayment();
+
+		mockInstructorRepo.findFirst.mockResolvedValue({
+			id: "prof-1",
+			userId: INSTRUCTOR_ID,
+			stripeAccountId: null,
+		} as never);
+
+		mockPaymentRepo.update.mockResolvedValue(payment as never);
+
+		await connectService.transferToInstructor(payment);
+
+		expect(mockAccountsRetrieve).not.toHaveBeenCalled();
 		expect(mockTransfersCreate).not.toHaveBeenCalled();
 		expect(mockPaymentRepo.update).toHaveBeenCalledWith(
 			payment.id,
@@ -243,6 +279,9 @@ describe("ConnectService.sweepPendingTransfers", () => {
 			stripePayoutsEnabled: true,
 		} as never);
 
+		mockAccountsRetrieve.mockResolvedValue({ payouts_enabled: true });
+		mockPaymentIntentsRetrieve.mockResolvedValue({ latest_charge: "ch_sweep" });
+
 		const transfer = { id: "tr_test_sweep" };
 		mockTransfersCreate.mockResolvedValue(transfer);
 		mockPaymentRepo.update.mockResolvedValue({} as never);
@@ -253,6 +292,38 @@ describe("ConnectService.sweepPendingTransfers", () => {
 			where: { instructorId: INSTRUCTOR_ID, transferStatus: "pending" },
 		});
 		expect(mockTransfersCreate).toHaveBeenCalledTimes(2);
+	});
+
+	it("attempts every payment even when one fails, then throws an AggregateError", async () => {
+		const payments = [
+			makePayment({ id: "pay_1" }),
+			makePayment({ id: "pay_2" }),
+			makePayment({ id: "pay_3" }),
+		];
+
+		mockPaymentRepo.findMany.mockResolvedValue(payments as never);
+		mockInstructorRepo.findFirst.mockResolvedValue({
+			id: "prof-1",
+			userId: INSTRUCTOR_ID,
+			stripeAccountId: STRIPE_ACCOUNT_ID,
+			stripeChargesEnabled: true,
+			stripePayoutsEnabled: true,
+		} as never);
+		mockAccountsRetrieve.mockResolvedValue({ payouts_enabled: true });
+		mockPaymentIntentsRetrieve.mockResolvedValue({ latest_charge: "ch_sweep" });
+		mockPaymentRepo.update.mockResolvedValue({} as never);
+
+		// The second transfer fails; the first and third must still be attempted.
+		mockTransfersCreate
+			.mockResolvedValueOnce({ id: "tr_1" })
+			.mockRejectedValueOnce(new Error("insufficient funds"))
+			.mockResolvedValueOnce({ id: "tr_3" });
+
+		await expect(
+			connectService.sweepPendingTransfers(INSTRUCTOR_ID),
+		).rejects.toThrow(AggregateError);
+
+		expect(mockTransfersCreate).toHaveBeenCalledTimes(3);
 	});
 
 	it("does nothing when there are no pending payments", async () => {

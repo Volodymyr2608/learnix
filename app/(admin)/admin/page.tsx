@@ -1,11 +1,11 @@
 import { DollarSign } from "lucide-react";
-
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import { SweepButton } from "@/app/(admin)/admin/SweepButton";
 import { formatPrice } from "@/lib/formatPrice";
 import { api } from "@/trpc/server";
 
@@ -36,6 +36,11 @@ export default async function AdminPage() {
 						</p>
 					</CardContent>
 				</Card>
+			</div>
+
+			<div>
+				<h2 className="mb-3 font-semibold text-lg">Operations</h2>
+				<SweepButton />
 			</div>
 		</div>
 	);
