@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/app/_components/_shared/ui/card";
 import { Separator } from "@/app/_components/_shared/ui/separator";
 import type { CourseDetailEnrollCardProps } from "@/app/_components/Course/components/BrowseCourse/CourseDetailEnrollCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
+import { formatPrice } from "@/lib/formatPrice";
 
 const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
@@ -43,12 +44,14 @@ const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 				<CardContent className="space-y-4 p-6">
 					<div className="space-y-2">
 						<div className="flex items-baseline gap-2">
-							<span className="font-bold text-3xl">${course.price}</span>
+							<span className="font-bold text-3xl">
+								{formatPrice(course.price)}
+							</span>
 
 							{course.originalPrice && (
 								<>
 									<span className="text-lg text-muted-foreground line-through">
-										${course.originalPrice}
+										{formatPrice(course.originalPrice)}
 									</span>
 									<Badge variant="destructive">
 										{Math.round(

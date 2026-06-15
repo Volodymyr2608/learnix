@@ -18,6 +18,7 @@ import type {
 	SelectedCourse,
 } from "@/app/_components/Course/components/BrowseCourses/components/BrowseCourseCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
+import { formatPrice } from "@/lib/formatPrice";
 import { capitalize } from "@/lib/utils/capitalize";
 
 const BrowseCourseCard = ({
@@ -79,7 +80,9 @@ const BrowseCourseCard = ({
 					</div>
 
 					<div className="flex items-center justify-between">
-						<span className="font-bold text-xl">${course.price}</span>
+						<span className="font-bold text-xl">
+							{formatPrice(course.priceCents)}
+						</span>
 						{isEnrolled ? (
 							<Button asChild size="sm" variant="outline">
 								<Link

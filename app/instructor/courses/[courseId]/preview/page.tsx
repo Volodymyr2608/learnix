@@ -16,6 +16,7 @@ import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import { formatPrice } from "@/lib/formatPrice";
 import getCourseById from "@/lib/requests/course/getCourseById";
 import { capitalize } from "@/lib/utils/capitalize";
 
@@ -179,14 +180,16 @@ export default async function InstructorCoursePreviewPage({
 						<div className="space-y-4">
 							<div>
 								<div className="flex items-baseline gap-2">
-									<span className="font-bold text-3xl">${course.price}</span>
-									{course.originalPrice && (
+									<span className="font-bold text-3xl">
+										{formatPrice(course.priceCents)}
+									</span>
+									{course.originalPriceCents && (
 										<span className="text-lg text-muted-foreground line-through">
-											${course.originalPrice}
+											{formatPrice(course.originalPriceCents)}
 										</span>
 									)}
 								</div>
-								{!!course.originalPrice && (
+								{!!course.originalPriceCents && (
 									<p className="text-green-600 text-sm">55% off</p>
 								)}
 							</div>

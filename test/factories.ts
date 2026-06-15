@@ -34,7 +34,7 @@ export function makeCourse(
 			level: "Beginner",
 			language: "English",
 			duration: "2 hours",
-			price: "0",
+			priceCents: 0,
 			status: CourseStatus.draft,
 			...overrides,
 		},
