@@ -15,6 +15,7 @@ import PageLayout from "@/app/_components/_shared/components/Layouts/PageLayout"
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
+import { formatPrice } from "@/lib/formatPrice";
 
 export default async function InstructorProfilePage({
 	params,
@@ -56,8 +57,8 @@ export default async function InstructorProfilePage({
 			description:
 				"Master HTML, CSS, JavaScript, React, and Node.js from scratch",
 			thumbnail: "/web-development-coding.png",
-			price: 89.99,
-			originalPrice: 199.99,
+			priceCents: 8999,
+			originalPriceCents: 19999,
 			students: 4560,
 			rating: 4.9,
 			duration: "52 hours",
@@ -69,8 +70,8 @@ export default async function InstructorProfilePage({
 			description:
 				"Learn advanced React patterns and best practices for scalable applications",
 			thumbnail: "/react-patterns.png",
-			price: 79.99,
-			originalPrice: 149.99,
+			priceCents: 7999,
+			originalPriceCents: 14999,
 			students: 3420,
 			rating: 4.8,
 			duration: "38 hours",
@@ -82,7 +83,7 @@ export default async function InstructorProfilePage({
 			description:
 				"Deep dive into TypeScript for building type-safe applications",
 			thumbnail: "/typescript-code.png",
-			price: 69.99,
+			priceCents: 6999,
 			students: 2890,
 			rating: 4.9,
 			duration: "28 hours",
@@ -305,11 +306,11 @@ export default async function InstructorProfilePage({
 										</div>
 										<div className="flex items-center gap-2">
 											<span className="font-bold text-2xl">
-												${course.price}
+												{formatPrice(course.priceCents)}
 											</span>
-											{course.originalPrice && (
+											{course.originalPriceCents && (
 												<span className="text-muted-foreground text-sm line-through">
-													${course.originalPrice}
+													{formatPrice(course.originalPriceCents)}
 												</span>
 											)}
 										</div>

@@ -5,31 +5,33 @@ enum Role {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  name              String //@db.Text
-  email             String
-  emailVerified     Boolean            @default(false)
-  image             String? //@db.Text
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @default(now()) @updatedAt @map("updated_at")
-  sessions          Session[]
-  accounts          Account[]
-  posts             Post[]
-  courses           Course[]
-  progresses        LessonProgress[]
-  quizAttempts      QuizAttempt[]
-  role              Role               @default(STUDENT)
-  instructorProfile InstructorProfile?
-  enrollments       Enrollment[]
-  courseProgresses  CourseProgress[]
-  courseReviews     CourseReview[]
+  id                           String                        @id @default(cuid())
+  name                         String //@db.Text
+  email                        String
+  emailVerified                Boolean                       @default(false)
+  image                        String? //@db.Text
+  createdAt                    DateTime                      @default(now()) @map("created_at")
+  updatedAt                    DateTime                      @default(now()) @updatedAt @map("updated_at")
+  sessions                     Session[]
+  accounts                     Account[]
+  posts                        Post[]
+  courses                      Course[]
+  progresses                   LessonProgress[]
+  quizAttempts                 QuizAttempt[]
+  role                         Role                          @default(STUDENT)
+  instructorProfile            InstructorProfile?
+  enrollments                  Enrollment[]
+  courseProgresses             CourseProgress[]
+  courseReviews                CourseReview[]
   interestEmbedding            UserInterestEmbedding?
   lessonAssistantConversations LessonAssistantConversation[]
   conceptMasteries             ConceptMastery[]
   learningPathCaches           LearningPathCache[]
-  emailNotificationsEnabled    Boolean   @default(true) @map("email_notifications_enabled")
-  welcomeEmailSentAt           DateTime? @map("welcome_email_sent_at")
+  emailNotificationsEnabled    Boolean                       @default(true) @map("email_notifications_enabled")
+  welcomeEmailSentAt           DateTime?                     @map("welcome_email_sent_at")
   notificationLogs             NotificationLog[]
+  studentPayments              Payment[]                     @relation("StudentPayments")
+  instructorPayments           Payment[]                     @relation("InstructorPayments")
 
   @@unique([email])
   @@map("users")

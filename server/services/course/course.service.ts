@@ -449,10 +449,8 @@ class CourseService {
 				ratingDistribution,
 				students: course._count.enrollments,
 				duration: course.duration,
-				price: Number(course.price),
-				originalPrice: course.originalPrice
-					? Number(course.originalPrice)
-					: null,
+				priceCents: course.priceCents,
+				originalPriceCents: course.originalPriceCents ?? null,
 				level: course.level,
 				language: course.language,
 				lastUpdated: course.updatedAt.toLocaleDateString("en-US", {

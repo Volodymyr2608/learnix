@@ -47,8 +47,16 @@ export const courseSchema = z.object({
 	level: z.string().min(1, "Level is mandatory"),
 	language: z.string().min(1, "Language is mandatory"),
 	duration: z.string().min(1, "Duration is mandatory"),
-	price: z.string().min(1, "Price is mandatory"),
-	originalPrice: z.string().nullable().optional(),
+	priceCents: z
+		.number()
+		.min(0, "Price must be 0 or greater")
+		.transform((dollars) => Math.round(dollars * 100)),
+	originalPriceCents: z
+		.number()
+		.min(0)
+		.nullable()
+		.optional()
+		.transform((v) => (v != null ? Math.round(v * 100) : v)),
 	thumbnail: z
 		.preprocess(
 			(val) => {
@@ -110,8 +118,8 @@ export const CourseDto = CourseSchema.pick({
 	level: true,
 	language: true,
 	duration: true,
-	price: true,
-	originalPrice: true,
+	priceCents: true,
+	originalPriceCents: true,
 	objectives: true,
 	requirements: true,
 	status: true,

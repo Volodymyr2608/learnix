@@ -10,3 +10,10 @@ export type SelectedCourse = Pick<
 	PublishedCourse,
 	"id" | "title" | "instructor" | "thumbnail" | "duration" | "level"
 >;
+
+export type CourseCardActionProps = {
+	course: PublishedCourse;
+	isEnrolled: boolean;
+	nextLessonId: string | null;
+	onEnrollFree: () => void;
+};

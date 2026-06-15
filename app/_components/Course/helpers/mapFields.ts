@@ -8,7 +8,7 @@ export const extractCommonFields = (data: CourseSchemaInput) => {
 		objectives,
 		requirements,
 		subtitle,
-		originalPrice,
+		originalPriceCents,
 		sections,
 		...rest
 	} = data;
@@ -18,7 +18,7 @@ export const extractCommonFields = (data: CourseSchemaInput) => {
 		mappedObjectives: mapList(objectives),
 		mappedRequirements: mapList(requirements),
 		subtitle: subtitle ?? null,
-		originalPrice: originalPrice ?? null,
+		originalPriceCents: originalPriceCents ?? null,
 		sections: sections.map((section, index) => ({
 			...section,
 			order: index + 1,

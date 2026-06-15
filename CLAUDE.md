@@ -123,8 +123,65 @@ Streaming SSE endpoint at `app/api/chat/course/route.ts`. Uses a **LangGraph `St
 ### File uploads
 Vercel Blob via `app/api/uploads/route.ts`. Course thumbnails (≤2MB images) and preview videos (≤100MB) are uploaded client-side before the tRPC course mutation.
 
+### Payments
+
+Learnix is the **merchant of record**: each sale is a separate Stripe charge on the platform account, followed by a `Stripe.Transfer` to the instructor's connected account. See ADR-019.
+
+**Commission split:** controlled by `STRIPE_PLATFORM_FEE_PERCENT` (default 20%). `computeSplit(priceCents)` in `lib/platformFee.ts` returns `{ platformFeeCents, instructorAmountCents }`.
+
+**Checkout flow:**
+1. `payment.createCheckoutSession` (tRPC) creates a Stripe Checkout Session and returns the URL.
+2. Stripe redirects to `app/dashboard/checkout/success/page.tsx` after payment.
+3. `finalizeCheckout(sessionId)` is the **idempotent reconcile point** — called both from the webhook (`checkout.session.completed`) and the success page. It creates the `Payment` record and triggers enrollment.
+
+**Webhook:** `app/api/stripe/webhook/route.ts` handles `checkout.session.completed`, `charge.refunded`, and `account.updated`.
+
+**Unonboarded instructors ("allow sale, hold funds"):** if an instructor's Stripe connected account cannot yet receive funds, the sale proceeds and the payment is left `transferStatus: "pending"`. Owed balance is `SUM(instructorNetCents) WHERE transferStatus = 'pending'` (`paymentRepository.getOwedBalance`) — there is **no `owedBalanceCents` column**; the pending payments are the ledger. `transferToInstructor` checks the **live** Stripe account (`accounts.retrieve().payouts_enabled`), not the cached DB flag, so a transfer never depends on an `account.updated` webhook having arrived.
+
+**Sweeping pending transfers when KYC completes:**
+- **Automatic (primary):** `account.updated` with `payouts_enabled: true` → `syncAccountStatus` + `connectService.sweepPendingTransfers(userId)`. The sweep attempts each pending payment independently; failures are collected and rethrown as an `AggregateError` so Stripe retries the webhook (already-transferred payments are skipped, so it is idempotent).
+- **Manual (admin fallback):** `payment.sweepAllPendingTransfers` (`adminProcedure`), surfaced as a button on `/admin`, groups all `pending` payments by instructor and sweeps each. Use this when `account.updated` was never delivered (e.g. local `stripe listen` missing `--forward-connect-to`, or a newer Stripe API version emitting `v2.core.account.*` instead of `account.updated`).
+
+**tRPC router** (`server/api/routers/payment.ts`):
+- `payment.createCheckoutSession` (`studentProcedure`) — creates Stripe session.
+- `payment.getSessionStatus` (`studentProcedure`) — polls payment status for the success page.
+- `payment.createConnectOnboardingLink` / `payment.createConnectLoginLink` (`instructorProcedure`) — start/resume KYC, open the Express dashboard.
+- `payment.getConnectStatus` (`instructorProcedure`) — live KYC status badge + earnings/owed balances.
+- `payment.getPlatformRevenue` (`adminProcedure`) — returns `{ totalRevenueCents }` for the admin dashboard.
+- `payment.sweepAllPendingTransfers` (`adminProcedure`) — manual sweep of all pending instructor transfers.
+
+**Admin surface:** `app/(admin)/admin/page.tsx` shows total platform revenue via `api.payment.getPlatformRevenue` and a manual "Sweep pending instructor transfers" button.
+
 ### UI components
 Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Controlled form components in `app/_components/_shared/components/Form/`. Course forms use `react-hook-form` + Zod via `useCourseForm` hook. Drag-and-drop curriculum reordering uses `@dnd-kit`.
+
+**Component conventions (enforced across all features):**
+
+- **`types.ts` always.** Every component folder must have a colocated `types.ts`. All prop types — including internal sub-component props — live there, never inline in `index.tsx`. No `Record<string, never>` placeholder types; omit the type entirely if a component takes no props.
+
+- **No nested ternaries in JSX.** Two or more conditions branching on the same state must be expressed as early-return functions or separate named components, not chained `? ... : ... : ...`. The one allowed ternary is a single binary branch (e.g., loading spinner vs. content).
+
+  ```tsx
+  // ❌ nested ternary
+  {isEnrolled ? <ContinueBtn /> : priceCents > 0 ? <BuyBtn /> : <EnrollBtn />}
+
+  // ✅ extracted sub-component with early returns
+  function EnrollAction({ isEnrolled, priceCents, ... }: EnrollActionProps) {
+    if (isEnrolled) return <ContinueBtn />;
+    if (priceCents > 0) return <BuyBtn />;
+    return <EnrollBtn />;
+  }
+  ```
+
+- **Extract sub-components for repeated layout.** Any JSX structure copy-pasted more than twice (e.g., a card wrapper, a status icon + title + description pattern) must become a named function component above the main export. Its prop type goes in `types.ts`.
+
+- **Sub-components own their own mutations.** When a button triggers a tRPC mutation, the mutation lives inside the sub-component that owns the button — not hoisted to the parent. The parent passes a plain callback (e.g., `onEnrollFree: () => void`) only when it needs to coordinate shared state (like a dialog).
+
+- **Flatten loading states.** Instead of nesting `isLoading ? <Spinner /> : data ? <Content /> : null`, use sequential boolean guards that read independently:
+  ```tsx
+  {isLoading && <Spinner />}
+  {!isLoading && data && <Content data={data} />}
+  ```
 
 ### Environment variables
 All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
@@ -149,26 +206,41 @@ All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
 | `N8N_WEBHOOK_SECRET` | Yes | HMAC secret for outbound n8n calls |
 | `CERTIFICATE_SECRET` | Yes | JWT signing secret for certificate download tokens |
 | `UNSUBSCRIBE_SECRET` | Yes | JWT signing secret for email unsubscribe tokens |
+| `STRIPE_SECRET_KEY` | Yes | Stripe secret key (test: `sk_test_...`) |
+| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret for platform events (`whsec_...`) |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret for Connect events (`account.updated`) |
+| `STRIPE_PLATFORM_FEE_PERCENT` | No (default 20) | Platform fee percentage taken from each sale |
 
 ### Linting / formatting
 Biome (not ESLint/Prettier). Config in `biome.jsonc`. Auto-sorts imports and Tailwind classes (`useSortedClasses` for `clsx`/`cva`/`cn` calls).
 
 ## Development Workflow
 
-Spec-driven development with two phases.
+Spec-driven development. Each feature gets **one folder** `docs/specs/<YYYY-MM-DD>-<feature>/`
+holding **four documents**, produced **sequentially with a manual approval gate between each** —
+never generate the next document until the previous one is approved. Start each document from the
+templates in [`docs/templates/`](docs/templates/) (`cp docs/templates/{requirements,spec,plan,validation}.md` into the feature folder):
 
-### Phase 1 — Planning (run with Opus)
+1. `requirements.md` — from the raw idea: problem, goal, scope decisions, functional requirements,
+   out-of-scope. The *what* and *why*. → **approve**
+2. `spec.md` — from `requirements.md`: technical design — data model, layering, component flow,
+   file list, env vars, referenced ADRs. The *how* (design). → **approve**
+3. `plan.md` — from `spec.md`: the **detailed implementation plan** (bite-sized TDD tasks with real
+   code, exact file paths, and commits), produced with the `writing-plans` skill. → **approve**
+4. `validation.md` — from all of the above: automated checks + manual test scenarios — how to verify.
 
-Specs live in `docs/specs/<YYYY-MM-DD>-<feature>/` with three files:
-- `requirements.md` — problem, goal, functional requirements, DB models, file list
-- `plan.md` — implementation order and code sketches
-- `validation.md` — automated checks and manual test scenarios
+The detailed plan **lives in the spec folder as `plan.md`**, not in `docs/superpowers/plans/`. When
+`writing-plans` runs, override its default save location to the spec folder.
 
-### Phase 2 — Implementation (run with Sonnet)
+If a feature warrants an architectural decision, also write an ADR in `docs/adr/NNN-<slug>.md` and
+reference it from `spec.md`.
 
-When `docs/specs/<feature>/` already exists:
+### Implementation
+
+When `docs/specs/<feature>/` already exists with an approved `plan.md`:
 1. **Skip `brainstorming`** — the spec is the design. Do not re-derive what is already written.
-2. Invoke `writing-plans` directly, reading all three spec files to produce a step-by-step execution plan in `docs/superpowers/plans/`.
-3. Execute with `subagent-driven-development` or `executing-plans`.
+2. If `plan.md` is not yet the detailed plan, invoke `writing-plans` directly (reading all spec
+   files) to produce it **in the spec folder as `plan.md`**.
+3. Execute `plan.md` with `subagent-driven-development` or `executing-plans`.
 
-Never run `brainstorming` when a spec already exists in `docs/specs/`.
+Never run `brainstorming` when a spec folder already exists in `docs/specs/`.

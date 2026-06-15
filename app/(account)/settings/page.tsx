@@ -1,4 +1,5 @@
 import SettingsShell from "@/app/_components/Account/SettingsShell";
+import { Role } from "@/generated/prisma";
 import requireAuth from "@/lib/utils/user/requireAuth";
 import { getSession } from "@/server/better-auth/server";
 import { userRepository } from "@/server/repositories/user.repository";
@@ -14,6 +15,7 @@ const SettingsPage = async () => {
 	return (
 		<SettingsShell
 			emailNotificationsEnabled={data?.emailNotificationsEnabled ?? true}
+			isInstructor={user.role === Role.INSTRUCTOR}
 		/>
 	);
 };

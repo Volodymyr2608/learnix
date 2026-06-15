@@ -16,7 +16,7 @@ export const prepareCoursePayload = (params: {
 		mappedObjectives,
 		mappedRequirements,
 		subtitle,
-		originalPrice,
+		originalPriceCents,
 		sections,
 	} = extractCommonFields(data);
 
@@ -28,7 +28,7 @@ export const prepareCoursePayload = (params: {
 		objectives: mappedObjectives,
 		requirements: mappedRequirements,
 		subtitle,
-		originalPrice,
+		originalPriceCents,
 		sections,
 	};
 };

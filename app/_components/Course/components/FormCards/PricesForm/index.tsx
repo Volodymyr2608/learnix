@@ -22,11 +22,11 @@ const PricesForm = () => {
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<FormField
-					{...register("price")}
+					{...register("priceCents", { valueAsNumber: true })}
 					autoComplete="off"
 					error={
-						typeof errors.price?.message === "string"
-							? errors.price?.message
+						typeof errors.priceCents?.message === "string"
+							? errors.priceCents?.message
 							: undefined
 					}
 					label="Price (USD) *"
@@ -36,11 +36,11 @@ const PricesForm = () => {
 
 				<div className="space-y-2">
 					<FormField
-						{...register("originalPrice")}
+						{...register("originalPriceCents", { valueAsNumber: true })}
 						autoComplete="off"
 						error={
-							typeof errors.originalPrice?.message === "string"
-								? errors.originalPrice?.message
+							typeof errors.originalPriceCents?.message === "string"
+								? errors.originalPriceCents?.message
 								: undefined
 						}
 						label="Original Price (Optional)"

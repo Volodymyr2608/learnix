@@ -13,6 +13,7 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { Input } from "@/app/_components/_shared/ui/input";
+import { formatPrice } from "@/lib/formatPrice";
 
 const courses = [
 	{
@@ -24,8 +25,8 @@ const courses = [
 		reviews: 8542,
 		students: 12500,
 		duration: "52 hours",
-		price: 89.99,
-		originalPrice: 199.99,
+		priceCents: 8999,
+		originalPriceCents: 19999,
 		level: "Beginner",
 		category: "Development",
 		thumbnail: "/web-development-coding-screen.png",
@@ -40,8 +41,8 @@ const courses = [
 		reviews: 6234,
 		students: 9800,
 		duration: "45 hours",
-		price: 79.99,
-		originalPrice: 189.99,
+		priceCents: 7999,
+		originalPriceCents: 18999,
 		level: "Intermediate",
 		category: "Data Science",
 		thumbnail: "/data-science-python-analytics.jpg",
@@ -55,8 +56,8 @@ const courses = [
 		reviews: 4521,
 		students: 7600,
 		duration: "38 hours",
-		price: 69.99,
-		originalPrice: 179.99,
+		priceCents: 6999,
+		originalPriceCents: 17999,
 		level: "Beginner",
 		category: "Design",
 		thumbnail: "/ui-ux-design-interface-mockup.jpg",
@@ -71,8 +72,8 @@ const courses = [
 		reviews: 5432,
 		students: 8900,
 		duration: "28 hours",
-		price: 74.99,
-		originalPrice: 169.99,
+		priceCents: 7499,
+		originalPriceCents: 16999,
 		level: "Advanced",
 		category: "Development",
 		thumbnail: "/web-development-coding-screen.png",
@@ -87,8 +88,8 @@ const courses = [
 		reviews: 3821,
 		students: 6500,
 		duration: "42 hours",
-		price: 64.99,
-		originalPrice: 159.99,
+		priceCents: 6499,
+		originalPriceCents: 15999,
 		level: "Beginner",
 		category: "Marketing",
 		thumbnail: "/web-development-coding-screen.png",
@@ -102,8 +103,8 @@ const courses = [
 		reviews: 4123,
 		students: 7200,
 		duration: "35 hours",
-		price: 84.99,
-		originalPrice: 194.99,
+		priceCents: 8499,
+		originalPriceCents: 19499,
 		level: "Intermediate",
 		category: "Development",
 		thumbnail: "/web-development-coding-screen.png",
@@ -227,10 +228,10 @@ const CoursesPage = () => {
 									<CardFooter className="flex items-center justify-between">
 										<div className="flex items-baseline gap-2">
 											<span className="font-bold text-2xl">
-												${course.price}
+												{formatPrice(course.priceCents)}
 											</span>
 											<span className="text-muted-foreground text-sm line-through">
-												${course.originalPrice}
+												{formatPrice(course.originalPriceCents)}
 											</span>
 										</div>
 									</CardFooter>

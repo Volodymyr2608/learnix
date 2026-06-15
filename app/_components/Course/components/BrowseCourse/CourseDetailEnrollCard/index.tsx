@@ -11,12 +11,61 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card, CardContent } from "@/app/_components/_shared/ui/card";
 import { Separator } from "@/app/_components/_shared/ui/separator";
-import type { CourseDetailEnrollCardProps } from "@/app/_components/Course/components/BrowseCourse/CourseDetailEnrollCard/types";
+import type {
+	CourseDetailEnrollCardProps,
+	EnrollActionProps,
+} from "@/app/_components/Course/components/BrowseCourse/CourseDetailEnrollCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
+import { formatPrice } from "@/lib/formatPrice";
+import { api } from "@/trpc/client";
+
+function EnrollAction({ course, isEnrolled, onEnrollFree }: EnrollActionProps) {
+	const checkout = api.payment.createCheckoutSession.useMutation({
+		onSuccess: ({ url }) => {
+			window.location.href = url;
+		},
+		onError: (err) => {
+			toast.error(err.message || "Failed to start checkout. Please try again.");
+		},
+	});
+
+	if (isEnrolled) {
+		return (
+			<Button asChild className="w-full" size="lg">
+				<Link href={`/dashboard/courses/${course.id}/learn`}>
+					<PlayCircle className="mr-2 h-5 w-5" />
+					Continue Learning
+				</Link>
+			</Button>
+		);
+	}
+
+	if (course.priceCents > 0) {
+		return (
+			<Button
+				className="w-full"
+				disabled={checkout.isPending}
+				onClick={() => checkout.mutate({ courseId: course.id })}
+				size="lg"
+			>
+				{checkout.isPending
+					? "Redirecting..."
+					: `Buy now — ${formatPrice(course.priceCents)}`}
+			</Button>
+		);
+	}
+
+	return (
+		<Button className="w-full" onClick={onEnrollFree} size="lg">
+			Enroll Now
+		</Button>
+	);
+}
 
 const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
@@ -43,17 +92,18 @@ const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 				<CardContent className="space-y-4 p-6">
 					<div className="space-y-2">
 						<div className="flex items-baseline gap-2">
-							<span className="font-bold text-3xl">${course.price}</span>
-
-							{course.originalPrice && (
+							<span className="font-bold text-3xl">
+								{formatPrice(course.priceCents)}
+							</span>
+							{course.originalPriceCents && (
 								<>
 									<span className="text-lg text-muted-foreground line-through">
-										${course.originalPrice}
+										{formatPrice(course.originalPriceCents)}
 									</span>
 									<Badge variant="destructive">
 										{Math.round(
-											((course.originalPrice - course.price) /
-												course.originalPrice) *
+											((course.originalPriceCents - course.priceCents) /
+												course.originalPriceCents) *
 												100,
 										)}
 										% OFF
@@ -66,22 +116,11 @@ const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 						</p>
 					</div>
 
-					{isEnrolled ? (
-						<Button asChild className="w-full" size="lg">
-							<Link href={`/dashboard/courses/${course.id}/learn`}>
-								<PlayCircle className="mr-2 h-5 w-5" />
-								Continue Learning
-							</Link>
-						</Button>
-					) : (
-						<Button
-							className="w-full"
-							onClick={() => setEnrollDialogOpen(true)}
-							size="lg"
-						>
-							Enroll Now
-						</Button>
-					)}
+					<EnrollAction
+						course={course}
+						isEnrolled={isEnrolled}
+						onEnrollFree={() => setEnrollDialogOpen(true)}
+					/>
 
 					<p className="text-center text-muted-foreground text-xs">
 						30-Day Money-Back Guarantee
