@@ -276,10 +276,9 @@ describe("ConnectService.reverseTransfer", () => {
 
 		await connectService.reverseTransfer(payment);
 
-		expect(mockTransfersCreateReversal).toHaveBeenCalledWith(
-			"tr_to_reverse",
-			{ refund_application_fee: false },
-		);
+		expect(mockTransfersCreateReversal).toHaveBeenCalledWith("tr_to_reverse", {
+			refund_application_fee: false,
+		});
 		expect(mockPaymentRepo.update).toHaveBeenCalledWith(
 			payment.id,
 			expect.objectContaining({ transferStatus: "reversed" }),
@@ -357,9 +356,7 @@ describe("ConnectService.createLoginLink", () => {
 
 		const result = await connectService.createLoginLink(INSTRUCTOR_ID);
 
-		expect(mockAccountsCreateLoginLink).toHaveBeenCalledWith(
-			STRIPE_ACCOUNT_ID,
-		);
+		expect(mockAccountsCreateLoginLink).toHaveBeenCalledWith(STRIPE_ACCOUNT_ID);
 		expect(result).toEqual({
 			url: "https://connect.stripe.com/login/acct_test123",
 		});
