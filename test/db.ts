@@ -6,6 +6,8 @@ export const testDb = new PrismaClient();
 const TABLES = [
 	"lesson_progress",
 	"course_progress",
+	"payments",
+	"processed_stripe_events",
 	"enrollments",
 	"course_reviews",
 	"lesson_assistant_messages",
