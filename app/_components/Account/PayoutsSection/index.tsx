@@ -11,7 +11,10 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import type { StatusBadgeProps } from "@/app/_components/Account/PayoutsSection/types";
+import type {
+	EarningsTableProps,
+	StatusBadgeProps,
+} from "@/app/_components/Account/PayoutsSection/types";
 import type { ConnectStatus } from "@/lib/connectStatus";
 import { formatPrice } from "@/lib/formatPrice";
 import { api } from "@/trpc/client";
@@ -46,16 +49,47 @@ const STATUS_CONFIG: Record<
 	},
 };
 
-const StatusBadge = ({ status }: StatusBadgeProps) => {
+function StatusBadge({ status }: StatusBadgeProps) {
 	const config = STATUS_CONFIG[status];
 	return <Badge className={config.className}>{config.label}</Badge>;
-};
+}
 
-const getButtonLabel = (status: ConnectStatus): string => {
+function getButtonLabel(status: ConnectStatus): string {
 	if (status === "verified") return "Open Stripe dashboard";
 	if (status === "not_started") return "Set up payouts";
 	return "Continue verification";
-};
+}
+
+function EarningsTable({ earnings }: EarningsTableProps) {
+	return (
+		<div className="mt-2 rounded-md border">
+			<dl className="divide-y text-sm">
+				<div className="flex justify-between px-4 py-2.5">
+					<dt className="text-muted-foreground">Available / transferred</dt>
+					<dd className="font-medium">
+						{formatPrice(earnings.availableCents)}
+					</dd>
+				</div>
+				<div className="flex justify-between px-4 py-2.5">
+					<dt className="text-muted-foreground">Pending (owed)</dt>
+					<dd className="font-medium">{formatPrice(earnings.owedCents)}</dd>
+				</div>
+				<div className="flex justify-between px-4 py-2.5">
+					<dt className="text-muted-foreground">Lifetime gross</dt>
+					<dd className="font-medium">
+						{formatPrice(earnings.lifetimeGrossCents)}
+					</dd>
+				</div>
+				<div className="flex justify-between px-4 py-2.5">
+					<dt className="text-muted-foreground">Platform fees paid</dt>
+					<dd className="font-medium">
+						{formatPrice(earnings.platformFeesCents)}
+					</dd>
+				</div>
+			</dl>
+		</div>
+	);
+}
 
 const PayoutsSection = () => {
 	const { data: connectData, isLoading: connectLoading } =
@@ -104,63 +138,34 @@ const PayoutsSection = () => {
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				{connectLoading ? (
+				{connectLoading && (
 					<p className="text-muted-foreground text-sm">Loading…</p>
-				) : status !== undefined ? (
+				)}
+
+				{!connectLoading && status !== undefined && (
 					<>
 						<div className="flex items-center gap-3">
 							<span className="text-sm">Verification status:</span>
 							<StatusBadge status={status} />
 						</div>
-
 						<Button
 							disabled={isMutating}
 							onClick={handleAction}
 							size="sm"
 							variant={status === "verified" ? "outline" : "default"}
 						>
-							{isMutating ? <Loader2 className="animate-spin" /> : null}
+							{isMutating && <Loader2 className="animate-spin" />}
 							{getButtonLabel(status)}
 						</Button>
-
-						{earningsLoading ? (
-							<p className="text-muted-foreground text-sm">Loading earnings…</p>
-						) : earningsData !== undefined ? (
-							<div className="mt-2 rounded-md border">
-								<dl className="divide-y text-sm">
-									<div className="flex justify-between px-4 py-2.5">
-										<dt className="text-muted-foreground">
-											Available / transferred
-										</dt>
-										<dd className="font-medium">
-											{formatPrice(earningsData.availableCents)}
-										</dd>
-									</div>
-									<div className="flex justify-between px-4 py-2.5">
-										<dt className="text-muted-foreground">Pending (owed)</dt>
-										<dd className="font-medium">
-											{formatPrice(earningsData.owedCents)}
-										</dd>
-									</div>
-									<div className="flex justify-between px-4 py-2.5">
-										<dt className="text-muted-foreground">Lifetime gross</dt>
-										<dd className="font-medium">
-											{formatPrice(earningsData.lifetimeGrossCents)}
-										</dd>
-									</div>
-									<div className="flex justify-between px-4 py-2.5">
-										<dt className="text-muted-foreground">
-											Platform fees paid
-										</dt>
-										<dd className="font-medium">
-											{formatPrice(earningsData.platformFeesCents)}
-										</dd>
-									</div>
-								</dl>
-							</div>
-						) : null}
 					</>
-				) : null}
+				)}
+
+				{earningsLoading && (
+					<p className="text-muted-foreground text-sm">Loading earnings…</p>
+				)}
+				{!earningsLoading && earningsData && (
+					<EarningsTable earnings={earningsData} />
+				)}
 			</CardContent>
 		</Card>
 	);

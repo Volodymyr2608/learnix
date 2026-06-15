@@ -148,6 +148,34 @@ Learnix is the **merchant of record**: each sale is a separate Stripe charge on 
 ### UI components
 Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Controlled form components in `app/_components/_shared/components/Form/`. Course forms use `react-hook-form` + Zod via `useCourseForm` hook. Drag-and-drop curriculum reordering uses `@dnd-kit`.
 
+**Component conventions (enforced across all features):**
+
+- **`types.ts` always.** Every component folder must have a colocated `types.ts`. All prop types — including internal sub-component props — live there, never inline in `index.tsx`. No `Record<string, never>` placeholder types; omit the type entirely if a component takes no props.
+
+- **No nested ternaries in JSX.** Two or more conditions branching on the same state must be expressed as early-return functions or separate named components, not chained `? ... : ... : ...`. The one allowed ternary is a single binary branch (e.g., loading spinner vs. content).
+
+  ```tsx
+  // ❌ nested ternary
+  {isEnrolled ? <ContinueBtn /> : priceCents > 0 ? <BuyBtn /> : <EnrollBtn />}
+
+  // ✅ extracted sub-component with early returns
+  function EnrollAction({ isEnrolled, priceCents, ... }: EnrollActionProps) {
+    if (isEnrolled) return <ContinueBtn />;
+    if (priceCents > 0) return <BuyBtn />;
+    return <EnrollBtn />;
+  }
+  ```
+
+- **Extract sub-components for repeated layout.** Any JSX structure copy-pasted more than twice (e.g., a card wrapper, a status icon + title + description pattern) must become a named function component above the main export. Its prop type goes in `types.ts`.
+
+- **Sub-components own their own mutations.** When a button triggers a tRPC mutation, the mutation lives inside the sub-component that owns the button — not hoisted to the parent. The parent passes a plain callback (e.g., `onEnrollFree: () => void`) only when it needs to coordinate shared state (like a dialog).
+
+- **Flatten loading states.** Instead of nesting `isLoading ? <Spinner /> : data ? <Content /> : null`, use sequential boolean guards that read independently:
+  ```tsx
+  {isLoading && <Spinner />}
+  {!isLoading && data && <Content data={data} />}
+  ```
+
 ### Environment variables
 All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
 

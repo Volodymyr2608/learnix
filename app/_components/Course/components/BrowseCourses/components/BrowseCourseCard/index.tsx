@@ -16,12 +16,65 @@ import {
 } from "@/app/_components/_shared/ui/card";
 import type {
 	BrowseCourseCardProps,
+	CourseCardActionProps,
 	SelectedCourse,
 } from "@/app/_components/Course/components/BrowseCourses/components/BrowseCourseCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
 import { formatPrice } from "@/lib/formatPrice";
 import { capitalize } from "@/lib/utils/capitalize";
 import { api } from "@/trpc/client";
+
+function CourseCardAction({
+	course,
+	isEnrolled,
+	nextLessonId,
+	onEnrollFree,
+}: CourseCardActionProps) {
+	const checkout = api.payment.createCheckoutSession.useMutation({
+		onSuccess: ({ url }) => {
+			window.location.href = url;
+		},
+		onError: (err) => {
+			toast.error(err.message || "Failed to start checkout. Please try again.");
+		},
+	});
+
+	if (isEnrolled) {
+		return (
+			<Button asChild size="sm" variant="outline">
+				<Link
+					href={
+						nextLessonId
+							? `/dashboard/courses/${course.id}/learn/${nextLessonId}`
+							: `/dashboard/courses/${course.id}/learn`
+					}
+				>
+					Continue
+				</Link>
+			</Button>
+		);
+	}
+
+	if (course.priceCents > 0) {
+		return (
+			<Button
+				disabled={checkout.isPending}
+				onClick={() => checkout.mutate({ courseId: course.id })}
+				size="sm"
+			>
+				{checkout.isPending
+					? "Redirecting..."
+					: `Buy now — ${formatPrice(course.priceCents)}`}
+			</Button>
+		);
+	}
+
+	return (
+		<Button onClick={onEnrollFree} size="sm">
+			Enroll Now
+		</Button>
+	);
+}
 
 const BrowseCourseCard = ({
 	course,
@@ -33,17 +86,15 @@ const BrowseCourseCard = ({
 		null,
 	);
 
-	const checkout = api.payment.createCheckoutSession.useMutation({
-		onSuccess: ({ url }) => {
-			window.location.href = url;
-		},
-		onError: (err) => {
-			toast.error(err.message || "Failed to start checkout. Please try again.");
-		},
-	});
-
-	const handleEnrollClick = (course: typeof selectedCourse) => {
-		setSelectedCourse(course);
+	const handleEnrollClick = () => {
+		setSelectedCourse({
+			id: String(course.id),
+			title: course.title,
+			instructor: course.instructor,
+			thumbnail: course.thumbnail,
+			duration: course.duration,
+			level: course.level,
+		});
 		setEnrollDialogOpen(true);
 	};
 
@@ -94,45 +145,12 @@ const BrowseCourseCard = ({
 						<span className="font-bold text-xl">
 							{formatPrice(course.priceCents)}
 						</span>
-						{isEnrolled ? (
-							<Button asChild size="sm" variant="outline">
-								<Link
-									href={
-										nextLessonId
-											? `/dashboard/courses/${course.id}/learn/${nextLessonId}`
-											: `/dashboard/courses/${course.id}/learn`
-									}
-								>
-									Continue
-								</Link>
-							</Button>
-						) : course.priceCents > 0 ? (
-							<Button
-								disabled={checkout.isPending}
-								onClick={() => checkout.mutate({ courseId: course.id })}
-								size="sm"
-							>
-								{checkout.isPending
-									? "Redirecting..."
-									: `Buy now — ${formatPrice(course.priceCents)}`}
-							</Button>
-						) : (
-							<Button
-								onClick={() =>
-									handleEnrollClick({
-										id: String(course.id),
-										title: course.title,
-										instructor: course.instructor,
-										thumbnail: course.thumbnail,
-										duration: course.duration,
-										level: course.level,
-									})
-								}
-								size="sm"
-							>
-								Enroll Now
-							</Button>
-						)}
+						<CourseCardAction
+							course={course}
+							isEnrolled={isEnrolled}
+							nextLessonId={nextLessonId}
+							onEnrollFree={handleEnrollClick}
+						/>
 					</div>
 				</CardContent>
 			</Card>

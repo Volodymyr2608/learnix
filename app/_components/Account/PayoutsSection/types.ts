@@ -4,4 +4,11 @@ export type StatusBadgeProps = {
 	status: ConnectStatus;
 };
 
-export type PayoutsSectionProps = Record<string, never>;
+export type EarningsTableProps = {
+	earnings: {
+		availableCents: number;
+		owedCents: number;
+		lifetimeGrossCents: number;
+		platformFeesCents: number;
+	};
+};
