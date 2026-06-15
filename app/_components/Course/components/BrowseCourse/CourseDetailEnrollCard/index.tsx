@@ -45,18 +45,18 @@ const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 					<div className="space-y-2">
 						<div className="flex items-baseline gap-2">
 							<span className="font-bold text-3xl">
-								{formatPrice(course.price)}
+								{formatPrice(course.priceCents)}
 							</span>
 
-							{course.originalPrice && (
+							{course.originalPriceCents && (
 								<>
 									<span className="text-lg text-muted-foreground line-through">
-										{formatPrice(course.originalPrice)}
+										{formatPrice(course.originalPriceCents)}
 									</span>
 									<Badge variant="destructive">
 										{Math.round(
-											((course.originalPrice - course.price) /
-												course.originalPrice) *
+											((course.originalPriceCents - course.priceCents) /
+												course.originalPriceCents) *
 												100,
 										)}
 										% OFF
