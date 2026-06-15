@@ -4,6 +4,7 @@ import { Clock, Star, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {
@@ -20,6 +21,7 @@ import type {
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
 import { formatPrice } from "@/lib/formatPrice";
 import { capitalize } from "@/lib/utils/capitalize";
+import { api } from "@/trpc/client";
 
 const BrowseCourseCard = ({
 	course,
@@ -30,6 +32,15 @@ const BrowseCourseCard = ({
 	const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(
 		null,
 	);
+
+	const checkout = api.payment.createCheckoutSession.useMutation({
+		onSuccess: ({ url }) => {
+			window.location.href = url;
+		},
+		onError: (err) => {
+			toast.error(err.message || "Failed to start checkout. Please try again.");
+		},
+	});
 
 	const handleEnrollClick = (course: typeof selectedCourse) => {
 		setSelectedCourse(course);
@@ -94,6 +105,16 @@ const BrowseCourseCard = ({
 								>
 									Continue
 								</Link>
+							</Button>
+						) : course.priceCents > 0 ? (
+							<Button
+								disabled={checkout.isPending}
+								onClick={() => checkout.mutate({ courseId: course.id })}
+								size="sm"
+							>
+								{checkout.isPending
+									? "Redirecting..."
+									: `Buy now — ${formatPrice(course.priceCents)}`}
 							</Button>
 						) : (
 							<Button

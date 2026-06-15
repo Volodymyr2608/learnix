@@ -11,6 +11,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card, CardContent } from "@/app/_components/_shared/ui/card";
@@ -18,11 +19,21 @@ import { Separator } from "@/app/_components/_shared/ui/separator";
 import type { CourseDetailEnrollCardProps } from "@/app/_components/Course/components/BrowseCourse/CourseDetailEnrollCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
 import { formatPrice } from "@/lib/formatPrice";
+import { api } from "@/trpc/client";
 
 const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
 
 	const isEnrolled = false;
+
+	const checkout = api.payment.createCheckoutSession.useMutation({
+		onSuccess: ({ url }) => {
+			window.location.href = url;
+		},
+		onError: (err) => {
+			toast.error(err.message || "Failed to start checkout. Please try again.");
+		},
+	});
 
 	return (
 		<>
@@ -75,6 +86,17 @@ const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 								<PlayCircle className="mr-2 h-5 w-5" />
 								Continue Learning
 							</Link>
+						</Button>
+					) : course.priceCents > 0 ? (
+						<Button
+							className="w-full"
+							disabled={checkout.isPending}
+							onClick={() => checkout.mutate({ courseId: course.id })}
+							size="lg"
+						>
+							{checkout.isPending
+								? "Redirecting..."
+								: `Buy now — ${formatPrice(course.priceCents)}`}
 						</Button>
 					) : (
 						<Button

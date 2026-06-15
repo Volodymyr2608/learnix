@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { env } from "@/lib/env";
+import { instructorRepository } from "@/server/repositories/instructor.repository";
 import { processedStripeEventRepository } from "@/server/repositories/payment.repository";
 import { connectService } from "@/server/services/payments/connect.service";
 import { paymentService } from "@/server/services/payments/payment.service";
 import { stripe } from "@/server/services/payments/stripe.client";
-import { instructorRepository } from "@/server/repositories/instructor.repository";
 
 export const runtime = "nodejs";
 
