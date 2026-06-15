@@ -123,6 +123,28 @@ Streaming SSE endpoint at `app/api/chat/course/route.ts`. Uses a **LangGraph `St
 ### File uploads
 Vercel Blob via `app/api/uploads/route.ts`. Course thumbnails (≤2MB images) and preview videos (≤100MB) are uploaded client-side before the tRPC course mutation.
 
+### Payments
+
+Learnix is the **merchant of record**: each sale is a separate Stripe charge on the platform account, followed by a `Stripe.Transfer` to the instructor's connected account. See ADR-019.
+
+**Commission split:** controlled by `STRIPE_PLATFORM_FEE_PERCENT` (default 20%). `computeSplit(priceCents)` in `lib/platformFee.ts` returns `{ platformFeeCents, instructorAmountCents }`.
+
+**Checkout flow:**
+1. `payment.createCheckoutSession` (tRPC) creates a Stripe Checkout Session and returns the URL.
+2. Stripe redirects to `app/dashboard/checkout/success/page.tsx` after payment.
+3. `finalizeCheckout(sessionId)` is the **idempotent reconcile point** — called both from the webhook (`checkout.session.completed`) and the success page. It creates the `Payment` record and triggers enrollment.
+
+**Webhook:** `app/api/stripe/webhook/route.ts` handles `checkout.session.completed` and `account.updated`.
+
+**Unonboarded instructors ("allow sale, hold funds"):** if an instructor's Stripe connected account is not yet fully onboarded, the sale proceeds and the instructor's `owedBalanceCents` accrues in `InstructorProfile`. When the instructor completes onboarding, `account.updated` triggers a sweep that transfers the accumulated balance.
+
+**tRPC router** (`server/api/routers/payment.ts`):
+- `payment.createCheckoutSession` (`studentProcedure`) — creates Stripe session.
+- `payment.getSessionStatus` (`studentProcedure`) — polls payment status for the success page.
+- `payment.getPlatformRevenue` (`adminProcedure`) — returns `{ totalRevenueCents }` for the admin dashboard.
+
+**Admin surface:** `app/(admin)/admin/page.tsx` shows total platform revenue via `api.payment.getPlatformRevenue`.
+
 ### UI components
 Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Controlled form components in `app/_components/_shared/components/Form/`. Course forms use `react-hook-form` + Zod via `useCourseForm` hook. Drag-and-drop curriculum reordering uses `@dnd-kit`.
 

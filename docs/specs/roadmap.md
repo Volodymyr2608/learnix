@@ -51,11 +51,11 @@ Legend: ✅ done · 🔄 in progress · ⬜ planned
 
 ---
 
-## Phase 5 — Enrollment ✅ · Payments ⬜
+## Phase 5 — Enrollment ✅ · Payments ✅
 
 - Free course enrollment flow with `Enrollment` status tracking ✅
 - Re-enrollment / re-activation ✅
-- **Paid enrollment, Stripe checkout, and payment gating remain planned** — see **Next up → P0.2**.
+- Paid enrollment, Stripe Checkout, webhook reconciliation, instructor payouts (Stripe Connect), platform revenue admin surface ✅ — see ADR-019. Spec: [2026-06-12-payments/](2026-06-12-payments/requirements.md)
 
 ---
 
@@ -144,8 +144,8 @@ Forward-looking work, ranked by business value vs. effort. **Value:** High / Med
 
 ## P0 — Production blockers
 
-### P0.2 — Payments & monetization (Stripe) — *High · L*
-No revenue is possible today. Stripe Checkout, paid-enrollment gating, `Payment`/`Purchase` model (`prisma/schema/payments.prisma`), webhook route, instructor payout/revenue tracking. Needs a spec.
+### ✅ P0.2 — Payments & monetization (Stripe) — *delivered*
+Stripe Checkout, paid-enrollment gating, `Payment` model (`prisma/schema/payments.prisma`), webhook route (`app/api/stripe/webhook/route.ts`), instructor payout tracking (Stripe Connect + `owedBalanceCents` sweep), platform revenue admin surface. See ADR-019 and [2026-06-12-payments/](2026-06-12-payments/requirements.md).
 
 ### P0.3 — Wire course reviews backend — *High · S*
 Best value/effort: `CourseReview` model + `courseReview.repository.ts` + the review UI already exist; add a `courseReview` service + router, wire the (currently mock) submit, auto-aggregate `averageRating` / `reviewsCount`, and display reviews on course cards/detail.
