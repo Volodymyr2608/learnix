@@ -1,9 +1,5 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
-import { Badge } from "@/app/_components/_shared/ui/badge";
-import { Button } from "@/app/_components/_shared/ui/button";
 import {
 	Card,
 	CardContent,
@@ -11,85 +7,10 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import type {
-	EarningsTableProps,
-	StatusBadgeProps,
-} from "@/app/_components/Account/PayoutsSection/types";
-import type { ConnectStatus } from "@/lib/connectStatus";
-import { formatPrice } from "@/lib/formatPrice";
+import { EarningsTable } from "@/app/_components/Account/PayoutsSection/components/EarningsTable";
+import { PayoutsActionButton } from "@/app/_components/Account/PayoutsSection/components/PayoutsActionButton";
+import { StatusBadge } from "@/app/_components/Account/PayoutsSection/components/StatusBadge";
 import { api } from "@/trpc/client";
-
-const STATUS_CONFIG: Record<
-	ConnectStatus,
-	{ label: string; className: string }
-> = {
-	not_started: {
-		label: "Not started",
-		className: "border-transparent bg-secondary text-secondary-foreground",
-	},
-	action_required: {
-		label: "Action required",
-		className:
-			"border-transparent bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-	},
-	pending_review: {
-		label: "Pending review",
-		className:
-			"border-transparent bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-	},
-	verified: {
-		label: "Verified",
-		className:
-			"border-transparent bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-	},
-	restricted: {
-		label: "Restricted",
-		className:
-			"border-transparent bg-destructive text-white dark:bg-destructive/60",
-	},
-};
-
-function StatusBadge({ status }: StatusBadgeProps) {
-	const config = STATUS_CONFIG[status];
-	return <Badge className={config.className}>{config.label}</Badge>;
-}
-
-function getButtonLabel(status: ConnectStatus): string {
-	if (status === "verified") return "Open Stripe dashboard";
-	if (status === "not_started") return "Set up payouts";
-	return "Continue verification";
-}
-
-function EarningsTable({ earnings }: EarningsTableProps) {
-	return (
-		<div className="mt-2 rounded-md border">
-			<dl className="divide-y text-sm">
-				<div className="flex justify-between px-4 py-2.5">
-					<dt className="text-muted-foreground">Available / transferred</dt>
-					<dd className="font-medium">
-						{formatPrice(earnings.availableCents)}
-					</dd>
-				</div>
-				<div className="flex justify-between px-4 py-2.5">
-					<dt className="text-muted-foreground">Pending (owed)</dt>
-					<dd className="font-medium">{formatPrice(earnings.owedCents)}</dd>
-				</div>
-				<div className="flex justify-between px-4 py-2.5">
-					<dt className="text-muted-foreground">Lifetime gross</dt>
-					<dd className="font-medium">
-						{formatPrice(earnings.lifetimeGrossCents)}
-					</dd>
-				</div>
-				<div className="flex justify-between px-4 py-2.5">
-					<dt className="text-muted-foreground">Platform fees paid</dt>
-					<dd className="font-medium">
-						{formatPrice(earnings.platformFeesCents)}
-					</dd>
-				</div>
-			</dl>
-		</div>
-	);
-}
 
 const PayoutsSection = () => {
 	const { data: connectData, isLoading: connectLoading } =
@@ -98,35 +19,6 @@ const PayoutsSection = () => {
 	const { data: earningsData, isLoading: earningsLoading } =
 		api.payment.getInstructorEarnings.useQuery();
 
-	const onboardingMutation =
-		api.payment.createConnectOnboardingLink.useMutation({
-			onSuccess: ({ url }) => {
-				window.location.href = url;
-			},
-			onError: () => {
-				toast.error("Failed to start verification. Please try again.");
-			},
-		});
-
-	const loginMutation = api.payment.createConnectLoginLink.useMutation({
-		onSuccess: ({ url }) => {
-			window.location.href = url;
-		},
-		onError: () => {
-			toast.error("Failed to open Stripe dashboard. Please try again.");
-		},
-	});
-
-	const handleAction = () => {
-		if (!connectData) return;
-		if (connectData.status === "verified") {
-			loginMutation.mutate();
-		} else {
-			onboardingMutation.mutate();
-		}
-	};
-
-	const isMutating = onboardingMutation.isPending || loginMutation.isPending;
 	const status = connectData?.status;
 
 	return (
@@ -148,15 +40,7 @@ const PayoutsSection = () => {
 							<span className="text-sm">Verification status:</span>
 							<StatusBadge status={status} />
 						</div>
-						<Button
-							disabled={isMutating}
-							onClick={handleAction}
-							size="sm"
-							variant={status === "verified" ? "outline" : "default"}
-						>
-							{isMutating && <Loader2 className="animate-spin" />}
-							{getButtonLabel(status)}
-						</Button>
+						<PayoutsActionButton status={status} />
 					</>
 				)}
 

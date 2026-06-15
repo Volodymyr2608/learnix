@@ -12,3 +12,7 @@ export type EarningsTableProps = {
 		platformFeesCents: number;
 	};
 };
+
+export type PayoutsActionButtonProps = {
+	status: ConnectStatus;
+};
