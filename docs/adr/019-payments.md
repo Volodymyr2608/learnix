@@ -49,13 +49,31 @@ computes the split, and transfers (or holds). Idempotency makes access grant
 self-healing when the webhook lags or local dev has no Stripe CLI listener.
 
 ### Allow sale, hold funds + owed ledger
-A sale never blocks on instructor onboarding. If the connected account can receive
-funds, a `Transfer` of the net is created (`transferred`); otherwise the payment is
-left `pending` (owed). The `Payment` row *is* the ledger via a `TransferStatus` enum
+A sale never blocks on instructor onboarding. `transferToInstructor` checks the
+**live** Stripe account (`accounts.retrieve().payouts_enabled`) rather than the
+cached DB flag, because the transfer must not depend on an `account.updated` webhook
+that may not have arrived yet. If payouts are enabled, a `Transfer` of the net is
+created (`transferred`); otherwise the payment is left `pending` (owed). The
+`Payment` row *is* the ledger via a `TransferStatus` enum
 (`none | pending | transferred | reversed`); owed balance =
-`SUM(instructorNetCents) WHERE transferStatus = 'pending'`. When `account.updated`
-reports an account newly enabled, the handler **sweeps** all `pending` payments for
-that instructor into transfers.
+`SUM(instructorNetCents) WHERE transferStatus = 'pending'`. There is **no
+`owedBalanceCents` column** — the pending payments are the source of truth.
+
+**Automatic sweep on KYC completion (primary path).** When `account.updated` reports
+`payouts_enabled = true`, the webhook calls `syncAccountStatus` then
+`sweepPendingTransfers(userId)`, which loops every `pending` payment for that
+instructor through `transferToInstructor`. The sweep attempts each payment
+independently: a single failure does not block the rest, and all failures are
+collected and rethrown as an `AggregateError` so the webhook returns 500 and Stripe
+retries — already-`transferred` payments are skipped on retry, so the sweep is
+idempotent.
+
+**Manual sweep (admin fallback).** `payment.sweepAllPendingTransfers`
+(`adminProcedure`, surfaced as a button on `/admin`) groups all `pending` payments by
+instructor and runs `sweepPendingTransfers` for each. This is the recovery path when
+`account.updated` was never delivered (e.g. the local `stripe listen` missing
+`--forward-connect-to`, or a newer Stripe API version emitting `v2.core.account.*`
+events instead of classic `account.updated`).
 
 ### Connect Express + KYC + settings surface
 `payment.createConnectOnboardingLink` (instructorProcedure) creates the Express
@@ -72,8 +90,10 @@ instructor-only **Payouts & verification** card in account settings.
 onboarding — the platform never collects or stores identity or bank data. An
 instructor receives payouts only after Stripe clears verification, surfaced as
 `payouts_enabled = true`; later requirement changes are handled by the same
-`account.updated` sync. The cached `stripeChargesEnabled` / `stripePayoutsEnabled`
-flags drive the transfer/sweep logic; the live retrieve is only for the badge.
+`account.updated` sync. The transfer/sweep logic reads **live**
+`accounts.retrieve().payouts_enabled` at transfer time; the cached
+`stripeChargesEnabled` / `stripePayoutsEnabled` flags are only a denormalised mirror
+for display and are refreshed by `syncAccountStatus`.
 
 ### Refunds
 `charge.refunded` cancels the enrollment and marks the payment `refunded`;

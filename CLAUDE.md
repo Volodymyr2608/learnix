@@ -134,16 +134,23 @@ Learnix is the **merchant of record**: each sale is a separate Stripe charge on 
 2. Stripe redirects to `app/dashboard/checkout/success/page.tsx` after payment.
 3. `finalizeCheckout(sessionId)` is the **idempotent reconcile point** — called both from the webhook (`checkout.session.completed`) and the success page. It creates the `Payment` record and triggers enrollment.
 
-**Webhook:** `app/api/stripe/webhook/route.ts` handles `checkout.session.completed` and `account.updated`.
+**Webhook:** `app/api/stripe/webhook/route.ts` handles `checkout.session.completed`, `charge.refunded`, and `account.updated`.
 
-**Unonboarded instructors ("allow sale, hold funds"):** if an instructor's Stripe connected account is not yet fully onboarded, the sale proceeds and the instructor's `owedBalanceCents` accrues in `InstructorProfile`. When the instructor completes onboarding, `account.updated` triggers a sweep that transfers the accumulated balance.
+**Unonboarded instructors ("allow sale, hold funds"):** if an instructor's Stripe connected account cannot yet receive funds, the sale proceeds and the payment is left `transferStatus: "pending"`. Owed balance is `SUM(instructorNetCents) WHERE transferStatus = 'pending'` (`paymentRepository.getOwedBalance`) — there is **no `owedBalanceCents` column**; the pending payments are the ledger. `transferToInstructor` checks the **live** Stripe account (`accounts.retrieve().payouts_enabled`), not the cached DB flag, so a transfer never depends on an `account.updated` webhook having arrived.
+
+**Sweeping pending transfers when KYC completes:**
+- **Automatic (primary):** `account.updated` with `payouts_enabled: true` → `syncAccountStatus` + `connectService.sweepPendingTransfers(userId)`. The sweep attempts each pending payment independently; failures are collected and rethrown as an `AggregateError` so Stripe retries the webhook (already-transferred payments are skipped, so it is idempotent).
+- **Manual (admin fallback):** `payment.sweepAllPendingTransfers` (`adminProcedure`), surfaced as a button on `/admin`, groups all `pending` payments by instructor and sweeps each. Use this when `account.updated` was never delivered (e.g. local `stripe listen` missing `--forward-connect-to`, or a newer Stripe API version emitting `v2.core.account.*` instead of `account.updated`).
 
 **tRPC router** (`server/api/routers/payment.ts`):
 - `payment.createCheckoutSession` (`studentProcedure`) — creates Stripe session.
 - `payment.getSessionStatus` (`studentProcedure`) — polls payment status for the success page.
+- `payment.createConnectOnboardingLink` / `payment.createConnectLoginLink` (`instructorProcedure`) — start/resume KYC, open the Express dashboard.
+- `payment.getConnectStatus` (`instructorProcedure`) — live KYC status badge + earnings/owed balances.
 - `payment.getPlatformRevenue` (`adminProcedure`) — returns `{ totalRevenueCents }` for the admin dashboard.
+- `payment.sweepAllPendingTransfers` (`adminProcedure`) — manual sweep of all pending instructor transfers.
 
-**Admin surface:** `app/(admin)/admin/page.tsx` shows total platform revenue via `api.payment.getPlatformRevenue`.
+**Admin surface:** `app/(admin)/admin/page.tsx` shows total platform revenue via `api.payment.getPlatformRevenue` and a manual "Sweep pending instructor transfers" button.
 
 ### UI components
 Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Controlled form components in `app/_components/_shared/components/Form/`. Course forms use `react-hook-form` + Zod via `useCourseForm` hook. Drag-and-drop curriculum reordering uses `@dnd-kit`.
