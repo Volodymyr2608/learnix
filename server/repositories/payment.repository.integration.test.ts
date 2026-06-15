@@ -76,7 +76,8 @@ describe("PaymentRepository", () => {
 			stripePaymentIntentId: "pi_test_xyz789",
 		});
 
-		const found = await paymentRepository.findByPaymentIntentId("pi_test_xyz789");
+		const found =
+			await paymentRepository.findByPaymentIntentId("pi_test_xyz789");
 		expect(found?.id).toBe(payment.id);
 		expect(found?.stripePaymentIntentId).toBe("pi_test_xyz789");
 	});
