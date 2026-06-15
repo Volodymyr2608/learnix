@@ -25,10 +25,23 @@
 
 Prereqs:
 ```bash
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-# copy whsec_... into STRIPE_WEBHOOK_SECRET; set STRIPE_SECRET_KEY (test) and STRIPE_PLATFORM_FEE_PERCENT=20; restart
+# Forwards both platform and Connect events to the same local route.
+# The single whsec_... can be used for both STRIPE_WEBHOOK_SECRET and
+# STRIPE_CONNECT_WEBHOOK_SECRET in local dev.
+stripe listen \
+  --forward-to localhost:3000/api/stripe/webhook \
+  --forward-connect-to localhost:3000/api/stripe/webhook
+# Copy whsec_... into both STRIPE_WEBHOOK_SECRET and STRIPE_CONNECT_WEBHOOK_SECRET.
+# Set STRIPE_SECRET_KEY (test) and STRIPE_PLATFORM_FEE_PERCENT=20. Restart dev server.
 pnpm dev
 ```
+
+**Production:** create two separate Stripe webhook endpoints at
+`https://<app>/api/stripe/webhook` — one scoped to **Your account** (events:
+`checkout.session.completed`, `charge.refunded`), one scoped to **Connected
+accounts** (event: `account.updated`). Each produces its own `whsec_...` signing
+secret; set them as `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` in
+Vercel env vars.
 
 1. **Onboard an instructor:** Settings → Payouts & verification → "Set up payouts" → complete Stripe Express test onboarding → return → badge shows **Verified**, "Open Stripe dashboard" appears and opens the Express dashboard.
 2. **Paid purchase (onboarded instructor):** buy a paid course with `4242 4242 4242 4242` → land on success page → enrolled, learn page accessible, `Payment` `succeeded` with `platformFeeCents`/`instructorNetCents`, a `Transfer` created, instructor "available" balance + platform revenue increment.

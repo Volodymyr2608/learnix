@@ -207,7 +207,8 @@ All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
 | `CERTIFICATE_SECRET` | Yes | JWT signing secret for certificate download tokens |
 | `UNSUBSCRIBE_SECRET` | Yes | JWT signing secret for email unsubscribe tokens |
 | `STRIPE_SECRET_KEY` | Yes | Stripe secret key (test: `sk_test_...`) |
-| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret (`whsec_...`) |
+| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret for platform events (`whsec_...`) |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret for Connect events (`account.updated`) |
 | `STRIPE_PLATFORM_FEE_PERCENT` | No (default 20) | Platform fee percentage taken from each sale |
 
 ### Linting / formatting

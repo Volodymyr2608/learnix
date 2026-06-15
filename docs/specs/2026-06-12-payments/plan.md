@@ -57,6 +57,7 @@ are `*.integration.test.ts` against `learnix_test`; services and repositories ex
 ```js
 STRIPE_SECRET_KEY: z.string().min(1),
 STRIPE_WEBHOOK_SECRET: z.string().min(1),
+STRIPE_CONNECT_WEBHOOK_SECRET: z.string().min(1),
 STRIPE_PLATFORM_FEE_PERCENT: z.coerce.number().int().min(0).max(100).default(20),
 ```
 
@@ -65,6 +66,7 @@ and the matching `runtimeEnv` lines:
 ```js
 STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
 STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+STRIPE_CONNECT_WEBHOOK_SECRET: process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
 STRIPE_PLATFORM_FEE_PERCENT: process.env.STRIPE_PLATFORM_FEE_PERCENT,
 ```
 
@@ -474,9 +476,12 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   const body = await req.text();
   const sig = req.headers.get("stripe-signature");
+  // Connect events carry a Stripe-Account header; platform events do not.
+  const isConnectEvent = !!req.headers.get("stripe-account");
+  const secret = isConnectEvent ? env.STRIPE_CONNECT_WEBHOOK_SECRET : env.STRIPE_WEBHOOK_SECRET;
   let event;
   try {
-    event = stripe.webhooks.constructEvent(body, sig ?? "", env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(body, sig ?? "", secret);
   } catch {
     return new Response("invalid signature", { status: 400 });
   }

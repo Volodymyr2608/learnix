@@ -57,7 +57,7 @@ A complete course marketplace payment system:
 | FR3 | Checkout start | A `Payment` row is created `pending` (student + course + instructor + `amountCents`) **before** redirect; `stripeCheckoutSessionId` stored. |
 | FR4 | Payment success | Student is enrolled by reusing `enrollInCourse`; payment marked `succeeded`. Enrollment + revenue counting are **idempotent** across the webhook and the success-page reconcile. |
 | FR5 | Guard rails | Reject before any Stripe call when: course unpublished/soft-deleted, buyer is the course's own instructor, student already `active`/`completed`, or course is free. |
-| FR6 | Webhook | `stripe-signature` verified with `STRIPE_WEBHOOK_SECRET`; events **de-duplicated** via `ProcessedStripeEvent`. |
+| FR6 | Webhook | Two Stripe webhook endpoints hit the same route. Platform events (`checkout.session.completed`, `charge.refunded`) are verified with `STRIPE_WEBHOOK_SECRET`; Connect events (`account.updated`) are verified with `STRIPE_CONNECT_WEBHOOK_SECRET`. The route detects which secret to use from the `Stripe-Account` header. Events are **de-duplicated** via `ProcessedStripeEvent`. |
 | FR7 | Refund | `charge.refunded` → mark `Payment` `refunded` (+ `refundedAt`), cancel the enrollment, and (if already transferred) reverse the transfer. |
 
 ### Commission & payouts
@@ -67,7 +67,8 @@ A complete course marketplace payment system:
 | FR8 | Sale finalize | On a `succeeded` payment, compute `platformFeeCents = round(amount * feePercent/100)` and `instructorNetCents = amount − platformFeeCents`; persist both on the `Payment`. |
 | FR9 | Transfer (onboarded) | If the instructor's connected account can receive funds, create a Stripe `Transfer` of `instructorNetCents` to it and mark the payment `transferred`. |
 | FR10 | Transfer (held) | If not yet onboarded/verified, leave the payment `pending` (owed). No money moves to the instructor yet. |
-| FR11 | Onboarding sweep | When `account.updated` reports the account newly enabled, transfer **all** `pending` payments for that instructor and mark them `transferred`. |
+| FR11 | Onboarding sweep (automatic) | When `account.updated` reports the account newly enabled, transfer **all** `pending` payments for that instructor. Each payment is attempted independently — one failure does not block the rest. |
+| FR11b | Onboarding sweep (manual) | Admin can trigger a sweep of all pending instructor transfers via `payment.sweepAllPendingTransfers` (surfaced as a button on `/admin`). Recovery path when `account.updated` was not delivered. |
 | FR12 | Configurable rate | Rate from `STRIPE_PLATFORM_FEE_PERCENT` (default 20); changing it affects only **future** sales. |
 
 ### Instructor Connect / settings

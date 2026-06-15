@@ -102,9 +102,12 @@ back the instructor net (`reversed`); if still `pending`, it drops the owed amou
 
 ### Webhook
 `app/api/stripe/webhook/route.ts` runs on the **Node.js runtime** for raw-body
-access. It verifies `stripe-signature` with `STRIPE_WEBHOOK_SECRET` via
-`stripe.webhooks.constructEvent`, de-duplicates on `ProcessedStripeEvent`, then
-dispatches `checkout.session.completed` / `charge.refunded` / `account.updated`.
+access. Two Stripe webhook endpoints — one scoped to **Your account** (platform
+events), one to **Connected accounts** (Connect events) — both point at the same
+URL. The route selects the correct signing secret by checking for the
+`Stripe-Account` header: present → `STRIPE_CONNECT_WEBHOOK_SECRET`; absent →
+`STRIPE_WEBHOOK_SECRET`. Events are de-duplicated on `ProcessedStripeEvent`, then
+dispatched to `checkout.session.completed` / `charge.refunded` / `account.updated`.
 Mirrors the n8n raw-body + signature pattern (ADR-014).
 
 ### Layering

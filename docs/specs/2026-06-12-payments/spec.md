@@ -92,12 +92,16 @@ Add the named back-relations: `studentPayments Payment[] @relation("StudentPayme
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `STRIPE_SECRET_KEY` | Yes | Stripe API secret (server) |
-| `STRIPE_WEBHOOK_SECRET` | Yes | Verify `stripe-signature` on the webhook route |
-| `STRIPE_PLATFORM_FEE_PERCENT` | Yes | Flat commission rate, integer percent (default `20`) |
+| `STRIPE_WEBHOOK_SECRET` | Yes | Signing secret for the **platform** webhook endpoint (`checkout.session.completed`, `charge.refunded`) |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Yes | Signing secret for the **Connect** webhook endpoint (`account.updated`) |
+| `STRIPE_PLATFORM_FEE_PERCENT` | No (default 20) | Flat commission rate, integer percent |
 
-Connect Express account links and login links are created via the API with
-`STRIPE_SECRET_KEY`; no client id or publishable key is needed. Return/refresh URLs
-come from the existing `BASE_URL`.
+Two separate Stripe webhook endpoints point at the same `/api/stripe/webhook` URL —
+one scoped to **Your account** (platform events), one to **Connected accounts**
+(Connect events). The route detects which secret to use via the `Stripe-Account`
+header: present → Connect secret; absent → platform secret. Connect Express account
+links and login links are created via the API with `STRIPE_SECRET_KEY`; no client id
+or publishable key is needed. Return/refresh URLs come from the existing `BASE_URL`.
 
 ## Components / flow
 
@@ -117,7 +121,7 @@ INSTRUCTOR CONNECT (Settings → Payouts card; reads payment.getConnectStatus)
   │     payment.createConnectOnboardingLink → accounts.create({type:"express"}) (once) + accountLinks.create({type:"account_onboarding"})
   └─ onboarded ──► "Open Stripe dashboard"
         payment.createConnectLoginLink → accounts.createLoginLink(accountId)
-  Stripe ──► account.updated ──► sync charges/payouts flags; if newly enabled → sweep pending transfers (FR11)
+  Stripe (Connect endpoint) ──► account.updated ──► sync charges/payouts flags; if newly enabled → sweep pending transfers (FR11)
 ```
 
 `finalizeCheckout` is the single **idempotent** reconcile point, called by both the
@@ -126,9 +130,10 @@ self-healing if the webhook lags or local dev has no Stripe CLI listener.
 
 `getConnectStatus` retrieves the account live (`accounts.retrieve`) to derive the
 FR16 badge from `details_submitted` / `payouts_enabled` / `requirements.*`. The
-cached `stripeChargesEnabled` / `stripePayoutsEnabled` flags (synced by
-`account.updated`) drive the transfer/sweep logic; the live retrieve is only for the
-settings badge.
+cached `stripeChargesEnabled` / `stripePayoutsEnabled` flags are a denormalised
+mirror updated by `syncAccountStatus`; the live retrieve is only for the settings
+badge. `transferToInstructor` checks live `payouts_enabled` directly so a transfer
+never depends on `account.updated` having arrived.
 
 ## File list
 

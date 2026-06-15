@@ -13,13 +13,15 @@ export async function POST(req: NextRequest) {
 	const body = await req.text();
 	const sig = req.headers.get("stripe-signature");
 
+	// Connect events carry a Stripe-Account header; platform events do not.
+	const isConnectEvent = !!req.headers.get("stripe-account");
+	const secret = isConnectEvent
+		? env.STRIPE_CONNECT_WEBHOOK_SECRET
+		: env.STRIPE_WEBHOOK_SECRET;
+
 	let event: Stripe.Event;
 	try {
-		event = stripe.webhooks.constructEvent(
-			body,
-			sig ?? "",
-			env.STRIPE_WEBHOOK_SECRET,
-		);
+		event = stripe.webhooks.constructEvent(body, sig ?? "", secret);
 	} catch {
 		return new Response("invalid signature", { status: 400 });
 	}
