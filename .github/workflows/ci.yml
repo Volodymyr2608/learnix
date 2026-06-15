@@ -48,6 +48,10 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/learnix_test
       SKIP_ENV_VALIDATION: "true"
       CERTIFICATE_SECRET: test-certificate-secret-at-least-32-chars-long
+      STRIPE_SECRET_KEY: sk_test_stub
+      STRIPE_WEBHOOK_SECRET: whsec_stub
+      STRIPE_CONNECT_WEBHOOK_SECRET: whsec_connect_stub
+      STRIPE_PLATFORM_FEE_PERCENT: "20"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
