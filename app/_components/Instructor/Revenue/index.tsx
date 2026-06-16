@@ -38,6 +38,7 @@ export default function RevenueOverview() {
 			/>
 
 			<RevenuePayouts
+				isLoading={summary.isLoading}
 				paidOutCents={summary.data?.paidOutCents ?? 0}
 				pendingCents={summary.data?.pendingCents ?? 0}
 			/>

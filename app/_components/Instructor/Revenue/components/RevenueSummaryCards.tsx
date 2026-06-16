@@ -24,23 +24,26 @@ function DeltaBadge({ delta }: DeltaBadgeProps) {
 			</div>
 		);
 	}
-	if (delta.direction === "flat") {
+	if (delta.kind === "percent") {
+		if (delta.direction === "flat") {
+			return (
+				<p className="mt-2 text-muted-foreground text-sm">
+					No change from last month
+				</p>
+			);
+		}
+		const isUp = delta.direction === "up";
+		const Icon = isUp ? ArrowUpRight : ArrowDownRight;
 		return (
-			<p className="mt-2 text-muted-foreground text-sm">
-				No change from last month
-			</p>
+			<div
+				className={`mt-2 flex items-center gap-1 text-sm ${isUp ? "text-green-600" : "text-red-600"}`}
+			>
+				<Icon className="h-4 w-4" />
+				<span>{Math.abs(delta.value)}% from last month</span>
+			</div>
 		);
 	}
-	const isUp = delta.direction === "up";
-	const Icon = isUp ? ArrowUpRight : ArrowDownRight;
-	return (
-		<div
-			className={`mt-2 flex items-center gap-1 text-sm ${isUp ? "text-green-600" : "text-red-600"}`}
-		>
-			<Icon className="h-4 w-4" />
-			<span>{Math.abs(delta.value)}% from last month</span>
-		</div>
-	);
+	return null;
 }
 
 function StatCard({

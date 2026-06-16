@@ -24,6 +24,7 @@ export type DeltaBadgeProps = { delta: StatDelta };
 export type RevenuePayoutsProps = {
 	paidOutCents: number;
 	pendingCents: number;
+	isLoading: boolean;
 };
 
 export type RevenueRangeSelectProps = {

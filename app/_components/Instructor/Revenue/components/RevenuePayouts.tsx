@@ -9,6 +9,7 @@ import type { RevenuePayoutsProps } from "../types";
 export default function RevenuePayouts({
 	paidOutCents,
 	pendingCents,
+	isLoading,
 }: RevenuePayoutsProps) {
 	const { data: connect } = api.payment.getConnectStatus.useQuery();
 
@@ -18,12 +19,14 @@ export default function RevenuePayouts({
 				<div>
 					<p className="text-muted-foreground text-sm">Paid out</p>
 					<p className="mt-1 font-bold text-2xl text-green-600">
-						{formatUsd(paidOutCents)}
+						{isLoading ? "—" : formatUsd(paidOutCents)}
 					</p>
 				</div>
 				<div>
 					<p className="text-muted-foreground text-sm">Pending payout</p>
-					<p className="mt-1 font-bold text-2xl">{formatUsd(pendingCents)}</p>
+					<p className="mt-1 font-bold text-2xl">
+						{isLoading ? "—" : formatUsd(pendingCents)}
+					</p>
 				</div>
 			</div>
 			<div className="flex flex-col items-start gap-2 sm:items-end">
