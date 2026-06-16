@@ -53,3 +53,28 @@ describe("CourseReviewRepository.getAvgRatingByCourseIds", () => {
 		expect(map.has("no-such-course")).toBe(false);
 	});
 });
+
+describe("CourseReviewRepository.findRecentByInstructor", () => {
+	it("returns newest-first reviews scoped to the instructor", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			title: "Reviewed Course",
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT, name: "Reviewer One" });
+		const s2 = await makeUser({ role: Role.STUDENT, name: "Reviewer Two" });
+		await makeReview({ courseId: course.id, studentId: s1.id, rating: 4 });
+		await makeReview({ courseId: course.id, studentId: s2.id, rating: 5 });
+
+		const rows = await courseReviewRepository.findRecentByInstructor(
+			instructor.id,
+			5,
+		);
+
+		expect(rows.length).toBe(2);
+		expect(rows[0]).toMatchObject({ courseTitle: "Reviewed Course" });
+		expect(typeof rows[0]?.rating).toBe("number");
+		expect(typeof rows[0]?.studentName).toBe("string");
+	});
+});
