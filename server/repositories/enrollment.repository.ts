@@ -109,6 +109,39 @@ class EnrollmentRepository extends BaseRepository<
 		});
 	}
 
+	async findRecentByInstructor(
+		instructorId: string,
+		take: number,
+	): Promise<
+		{
+			id: string;
+			studentName: string;
+			courseTitle: string;
+			enrolledAt: Date;
+		}[]
+	> {
+		const rows = await this.findMany({
+			where: {
+				status: EnrollmentStatus.active,
+				course: { is: { instructorId, deletedAt: null } },
+			},
+			orderBy: { enrolledAt: "desc" },
+			take,
+			select: {
+				id: true,
+				enrolledAt: true,
+				student: { select: { name: true } },
+				course: { select: { title: true } },
+			},
+		});
+		return rows.map((r) => ({
+			id: r.id,
+			studentName: r.student.name,
+			courseTitle: r.course.title,
+			enrolledAt: r.enrolledAt,
+		}));
+	}
+
 	async getInstructorStudentStats(instructorId: string): Promise<{
 		total: number;
 		thisMonthNew: number;
