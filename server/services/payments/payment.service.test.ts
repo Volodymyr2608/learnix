@@ -506,18 +506,9 @@ describe("paymentService.getRevenueTimeSeries", () => {
 		const series = await paymentService.getRevenueTimeSeries("inst_1", "6m");
 
 		expect(series).toHaveLength(6); // Jan..Jun
-		const first = series[0]!;
-		expect(first).toEqual({
-			period: first.period,
-			grossCents: 0,
-			netCents: 0,
-		});
+		expect(series[0]).toMatchObject({ grossCents: 0, netCents: 0 });
 		const march = series.find((p) => p.period.startsWith("2026-03"));
-		expect(march).toEqual({
-			period: march?.period,
-			grossCents: 15000,
-			netCents: 12000,
-		});
+		expect(march).toMatchObject({ grossCents: 15000, netCents: 12000 });
 		vi.useRealTimers();
 	});
 });
@@ -583,7 +574,9 @@ describe("paymentService.getRecentTransactions", () => {
 			amountCents: 8900,
 			status: "completed",
 		});
-		expect(txns[1]!.status).toBe("refunded");
-		expect(txns[1]!.studentName).toBe("Unknown");
+		expect(txns[1]).toMatchObject({
+			status: "refunded",
+			studentName: "Unknown",
+		});
 	});
 });
