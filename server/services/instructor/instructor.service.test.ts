@@ -1,10 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Explicit mock objects per project convention (not vi.hoisted pattern)
-const mockPaymentRepo = { getInstructorRevenueStats: vi.fn() };
-const mockEnrollmentRepo = { getInstructorStudentStats: vi.fn() };
-const mockReviewRepo = { getInstructorRatingStats: vi.fn() };
-const mockCourseRepo = { getCoursesStats: vi.fn() };
+const mockPaymentRepo = {
+	getInstructorRevenueStats: vi.fn(),
+	getRevenueGroupedByCourse: vi.fn(),
+};
+const mockEnrollmentRepo = {
+	getInstructorStudentStats: vi.fn(),
+	findRecentByInstructor: vi.fn(),
+};
+const mockReviewRepo = {
+	getInstructorRatingStats: vi.fn(),
+	getAvgRatingByCourseIds: vi.fn(),
+	findRecentByInstructor: vi.fn(),
+};
+const mockCourseRepo = {
+	getCoursesStats: vi.fn(),
+	getCourseCardsByIds: vi.fn(),
+};
 
 vi.mock("@/server/repositories/payment.repository", () => ({
 	paymentRepository: mockPaymentRepo,
@@ -108,5 +121,74 @@ describe("InstructorService.getDashboardStats", () => {
 		await expect(
 			instructorService.getDashboardStats(INSTRUCTOR_ID),
 		).rejects.toThrow("DB connection lost");
+	});
+});
+
+describe("InstructorService.getTopPerformingCourses", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("ranks by revenue, attaches students + rating, drops missing courses", async () => {
+		mockPaymentRepo.getRevenueGroupedByCourse.mockResolvedValue([
+			{ courseId: "c1", grossCents: 5000 },
+			{ courseId: "c2", grossCents: 3000 },
+			{ courseId: "gone", grossCents: 1000 },
+		]);
+		mockCourseRepo.getCourseCardsByIds.mockResolvedValue(
+			new Map([
+				["c1", { title: "C One", students: 10 }],
+				["c2", { title: "C Two", students: 7 }],
+				// "gone" omitted → soft-deleted, must be dropped
+			]),
+		);
+		mockReviewRepo.getAvgRatingByCourseIds.mockResolvedValue(
+			new Map([["c1", 4.5]]), // c2 has no reviews → null
+		);
+
+		const result = await instructorService.getTopPerformingCourses("i1");
+
+		expect(result).toEqual([
+			{
+				courseId: "c1",
+				title: "C One",
+				students: 10,
+				rating: 4.5,
+				grossCents: 5000,
+			},
+			{
+				courseId: "c2",
+				title: "C Two",
+				students: 7,
+				rating: null,
+				grossCents: 3000,
+			},
+		]);
+	});
+
+	it("returns [] when the instructor has no revenue", async () => {
+		mockPaymentRepo.getRevenueGroupedByCourse.mockResolvedValue([]);
+		const result = await instructorService.getTopPerformingCourses("i1");
+		expect(result).toEqual([]);
+		expect(mockCourseRepo.getCourseCardsByIds).not.toHaveBeenCalled();
+	});
+
+	it("breaks revenue ties by students desc, then title asc", async () => {
+		mockPaymentRepo.getRevenueGroupedByCourse.mockResolvedValue([
+			{ courseId: "a", grossCents: 1000 },
+			{ courseId: "b", grossCents: 1000 },
+			{ courseId: "c", grossCents: 1000 },
+		]);
+		mockCourseRepo.getCourseCardsByIds.mockResolvedValue(
+			new Map([
+				["a", { title: "Zeta", students: 5 }],
+				["b", { title: "Alpha", students: 5 }],
+				["c", { title: "Beta", students: 9 }],
+			]),
+		);
+		mockReviewRepo.getAvgRatingByCourseIds.mockResolvedValue(new Map());
+
+		const result = await instructorService.getTopPerformingCourses("i1");
+		expect(result.map((r) => r.courseId)).toEqual(["c", "b", "a"]);
 	});
 });
