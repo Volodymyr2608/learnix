@@ -10,6 +10,7 @@ import { Card } from "@/app/_components/_shared/ui/card";
 import type {
 	DashboardStatsCardsProps,
 	DeltaBadgeProps,
+	RatingSublineProps,
 	StatCardProps,
 } from "./types";
 
@@ -75,7 +76,7 @@ function StatCard({
 	);
 }
 
-function RatingSubline({ reviewCount }: { reviewCount: number }) {
+function RatingSubline({ reviewCount }: RatingSublineProps) {
 	if (reviewCount === 0) {
 		return <p className="mt-2 text-muted-foreground text-sm">No reviews yet</p>;
 	}

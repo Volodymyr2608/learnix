@@ -19,3 +19,7 @@ export type StatCardProps = {
 export type DeltaBadgeProps = {
 	delta: StatDelta;
 };
+
+export type RatingSublineProps = {
+	reviewCount: number;
+};
