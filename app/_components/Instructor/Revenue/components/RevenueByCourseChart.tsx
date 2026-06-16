@@ -53,7 +53,7 @@ export default function RevenueByCourseChart({
 						<ChartTooltip
 							content={
 								<ChartTooltipContent
-									formatter={(value) => formatUsd(value as number)}
+									formatter={(value) => formatUsd(value)}
 								/>
 							}
 							cursor={false}

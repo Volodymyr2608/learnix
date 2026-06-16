@@ -85,9 +85,9 @@ export default function RevenueOverTimeChart({
 						<ChartTooltip
 							content={
 								<ChartTooltipContent
-									formatter={(value) => formatUsd(value as number)}
+									formatter={(value) => formatUsd(value)}
 									labelFormatter={(l) =>
-										format(parseISO(l as string), "MMM d, yyyy")
+										format(parseISO(l), "MMM d, yyyy")
 									}
 								/>
 							}
