@@ -26,3 +26,5 @@ export const instructorEarningsOutput = z.object({
 export const platformRevenueOutput = z.object({
 	totalRevenueCents: z.number().int(),
 });
+
+export * from "./revenue";
