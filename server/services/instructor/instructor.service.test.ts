@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockPaymentRepo, mockEnrollmentRepo, mockReviewRepo, mockCourseRepo } =
-	vi.hoisted(() => ({
-		mockPaymentRepo: { getInstructorRevenueStats: vi.fn() },
-		mockEnrollmentRepo: { getInstructorStudentStats: vi.fn() },
-		mockReviewRepo: { getInstructorRatingStats: vi.fn() },
-		mockCourseRepo: { getCoursesStats: vi.fn() },
-	}));
+// Explicit mock objects per project convention (not vi.hoisted pattern)
+const mockPaymentRepo = { getInstructorRevenueStats: vi.fn() };
+const mockEnrollmentRepo = { getInstructorStudentStats: vi.fn() };
+const mockReviewRepo = { getInstructorRatingStats: vi.fn() };
+const mockCourseRepo = { getCoursesStats: vi.fn() };
 
 vi.mock("@/server/repositories/payment.repository", () => ({
 	paymentRepository: mockPaymentRepo,
@@ -24,7 +22,7 @@ vi.mock("@/server/repositories/course.repository", () => ({
 	courseRepository: mockCourseRepo,
 }));
 
-import { instructorService } from "./instructor.service";
+const { instructorService } = await import("./instructor.service");
 
 const INSTRUCTOR_ID = "instructor-1";
 
@@ -101,5 +99,14 @@ describe("InstructorService.getDashboardStats", () => {
 			courses: { published: 0, drafts: 0 },
 			rating: { average: null, reviewCount: 0 },
 		});
+	});
+
+	it("rejects when a repository call fails", async () => {
+		mockPaymentRepo.getInstructorRevenueStats.mockRejectedValue(
+			new Error("DB connection lost"),
+		);
+		await expect(
+			instructorService.getDashboardStats(INSTRUCTOR_ID),
+		).rejects.toThrow("DB connection lost");
 	});
 });
