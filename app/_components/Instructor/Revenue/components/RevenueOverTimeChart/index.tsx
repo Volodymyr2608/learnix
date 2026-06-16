@@ -9,7 +9,7 @@ import {
 	ChartTooltipContent,
 } from "@/app/_components/_shared/ui/chart";
 import { formatUsd } from "@/lib/formatUsd";
-import type { RevenueOverTimeChartProps } from "../types";
+import type { RevenueOverTimeChartProps } from "./types";
 
 const config = {
 	grossCents: { label: "Revenue", color: "var(--chart-1)" },
@@ -86,9 +86,7 @@ export default function RevenueOverTimeChart({
 							content={
 								<ChartTooltipContent
 									formatter={(value) => formatUsd(value)}
-									labelFormatter={(l) =>
-										format(parseISO(l), "MMM d, yyyy")
-									}
+									labelFormatter={(l) => format(parseISO(l), "MMM d, yyyy")}
 								/>
 							}
 							cursor={false}

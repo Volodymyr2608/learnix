@@ -4,7 +4,7 @@ import { Card } from "@/app/_components/_shared/ui/card";
 import { PayoutsActionButton } from "@/app/_components/Account/PayoutsSection/components/PayoutsActionButton";
 import { formatUsd } from "@/lib/formatUsd";
 import { api } from "@/trpc/client";
-import type { RevenuePayoutsProps } from "../types";
+import type { RevenuePayoutsProps } from "./types";
 
 export default function RevenuePayouts({
 	paidOutCents,

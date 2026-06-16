@@ -8,8 +8,8 @@ import {
 	SelectValue,
 } from "@/app/_components/_shared/ui/select";
 import type { RevenueRange } from "@/server/entities/payment/revenue";
-import { RANGE_OPTIONS } from "../helpers";
-import type { RevenueRangeSelectProps } from "../types";
+import { RANGE_OPTIONS } from "../../constants/rangeOptions";
+import type { RevenueRangeSelectProps } from "./types";
 
 export default function RevenueRangeSelect({
 	value,

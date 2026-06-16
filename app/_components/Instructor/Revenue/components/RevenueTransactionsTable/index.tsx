@@ -12,8 +12,9 @@ import {
 	TableRow,
 } from "@/app/_components/_shared/ui/table";
 import { formatUsd } from "@/lib/formatUsd";
-import { STATUS_CLASS, STATUS_LABEL } from "../helpers";
-import type { RevenueTransactionsTableProps } from "../types";
+import { STATUS_CLASS } from "../../constants/statusClass";
+import { STATUS_LABEL } from "../../constants/statusLabel";
+import type { RevenueTransactionsTableProps } from "./types";
 
 export default function RevenueTransactionsTable({
 	transactions,

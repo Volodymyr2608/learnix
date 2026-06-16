@@ -8,7 +8,7 @@ import {
 	ChartTooltipContent,
 } from "@/app/_components/_shared/ui/chart";
 import { formatUsd } from "@/lib/formatUsd";
-import type { RevenueByCourseChartProps } from "../types";
+import type { RevenueByCourseChartProps } from "./types";
 
 const config = { grossCents: { label: "Revenue", color: "var(--chart-1)" } };
 
@@ -52,9 +52,7 @@ export default function RevenueByCourseChart({
 						/>
 						<ChartTooltip
 							content={
-								<ChartTooltipContent
-									formatter={(value) => formatUsd(value)}
-								/>
+								<ChartTooltipContent formatter={(value) => formatUsd(value)} />
 							}
 							cursor={false}
 						/>
