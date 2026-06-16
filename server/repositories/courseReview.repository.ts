@@ -32,6 +32,61 @@ export default class CourseReviewRepository extends BaseRepository<
 			reviewCount,
 		};
 	}
+
+	async getAvgRatingByCourseIds(
+		courseIds: string[],
+	): Promise<Map<string, number | null>> {
+		if (courseIds.length === 0) return new Map();
+		const grouped = await this.model.groupBy({
+			by: ["courseId"],
+			where: { courseId: { in: courseIds }, deletedAt: null },
+			_avg: { rating: true },
+		});
+		return new Map(
+			grouped.map(
+				(g: { courseId: string; _avg: { rating: number | null } }) => [
+					g.courseId,
+					g._avg.rating,
+				],
+			),
+		);
+	}
+
+	async findRecentByInstructor(
+		instructorId: string,
+		take: number,
+	): Promise<
+		{
+			id: string;
+			studentName: string;
+			courseTitle: string;
+			rating: number;
+			createdAt: Date;
+		}[]
+	> {
+		const rows = await this.findMany({
+			where: {
+				deletedAt: null,
+				course: { is: { instructorId, deletedAt: null } },
+			},
+			orderBy: { createdAt: "desc" },
+			take,
+			select: {
+				id: true,
+				rating: true,
+				createdAt: true,
+				student: { select: { name: true } },
+				course: { select: { title: true } },
+			},
+		});
+		return rows.map((r) => ({
+			id: r.id,
+			studentName: r.student.name,
+			courseTitle: r.course.title,
+			rating: r.rating,
+			createdAt: r.createdAt,
+		}));
+	}
 }
 
 export const courseReviewRepository = new CourseReviewRepository();

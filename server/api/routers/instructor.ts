@@ -25,4 +25,22 @@ export const instructorRouter = createTRPCRouter({
 			handleServiceError(error);
 		}
 	}),
+
+	getTopPerformingCourses: instructorProcedure.query(async ({ ctx }) => {
+		try {
+			return await instructorService.getTopPerformingCourses(
+				ctx.session.user.id,
+			);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+
+	getRecentActivity: instructorProcedure.query(async ({ ctx }) => {
+		try {
+			return await instructorService.getRecentActivity(ctx.session.user.id);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
 });

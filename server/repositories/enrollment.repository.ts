@@ -1,7 +1,6 @@
 import type { Enrollment, Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { getMonthWindows } from "@/lib/stats/monthWindows";
-import { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
 
 class EnrollmentRepository extends BaseRepository<
@@ -109,6 +108,39 @@ class EnrollmentRepository extends BaseRepository<
 		});
 	}
 
+	async findRecentByInstructor(
+		instructorId: string,
+		take: number,
+	): Promise<
+		{
+			id: string;
+			studentName: string;
+			courseTitle: string;
+			enrolledAt: Date;
+		}[]
+	> {
+		const rows = await this.findMany({
+			where: {
+				status: EnrollmentStatus.active,
+				course: { is: { instructorId, deletedAt: null } },
+			},
+			orderBy: { enrolledAt: "desc" },
+			take,
+			select: {
+				id: true,
+				enrolledAt: true,
+				student: { select: { name: true } },
+				course: { select: { title: true } },
+			},
+		});
+		return rows.map((r) => ({
+			id: r.id,
+			studentName: r.student.name,
+			courseTitle: r.course.title,
+			enrolledAt: r.enrolledAt,
+		}));
+	}
+
 	async getInstructorStudentStats(instructorId: string): Promise<{
 		total: number;
 		thisMonthNew: number;
@@ -122,7 +154,7 @@ class EnrollmentRepository extends BaseRepository<
 		};
 
 		const [totalResult, thisMonthNew, lastMonthNew] = await Promise.all([
-			db.$queryRaw<[{ cnt: bigint }]>`
+			this.db.$queryRaw<[{ cnt: bigint }]>`
 				SELECT COUNT(DISTINCT "studentId") AS cnt
 				FROM enrollments
 				WHERE status = 'active'

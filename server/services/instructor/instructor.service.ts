@@ -2,7 +2,11 @@ import { Role } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { computeDelta } from "@/lib/stats/computeDelta";
 import type { InstructorSchemaInput } from "@/server/entities/instructor";
-import type { DashboardStats } from "@/server/entities/instructor/dashboard";
+import type {
+	ActivityEvent,
+	DashboardStats,
+	TopCourse,
+} from "@/server/entities/instructor/dashboard";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
@@ -99,6 +103,84 @@ class InstructorService {
 			courses: { published: courses.published, drafts: courses.draft },
 			rating: { average: rating.average, reviewCount: rating.reviewCount },
 		};
+	}
+
+	async getTopPerformingCourses(
+		instructorId: string,
+		limit = 3,
+	): Promise<TopCourse[]> {
+		logger.info("Getting instructor top performing courses", { instructorId });
+
+		const ranked = await paymentRepository.getRevenueGroupedByCourse(
+			instructorId,
+			new Date(0),
+			limit,
+		);
+		if (ranked.length === 0) return [];
+
+		const courseIds = ranked.map((r) => r.courseId);
+		const [cards, ratings] = await Promise.all([
+			courseRepository.getCourseCardsByIds(instructorId, courseIds),
+			courseReviewRepository.getAvgRatingByCourseIds(courseIds),
+		]);
+
+		const rows: TopCourse[] = [];
+		for (const { courseId, grossCents } of ranked) {
+			const card = cards.get(courseId);
+			if (!card) continue; // soft-deleted / not owned → drop
+			rows.push({
+				courseId,
+				title: card.title,
+				students: card.students,
+				rating: ratings.get(courseId) ?? null,
+				grossCents,
+			});
+		}
+
+		rows.sort(
+			(a, b) =>
+				b.grossCents - a.grossCents ||
+				b.students - a.students ||
+				a.title.localeCompare(b.title),
+		);
+		return rows.slice(0, limit);
+	}
+
+	async getRecentActivity(
+		instructorId: string,
+		limit = 5,
+	): Promise<ActivityEvent[]> {
+		logger.info("Getting instructor recent activity", { instructorId });
+
+		const [enrollments, reviews] = await Promise.all([
+			enrollmentRepository.findRecentByInstructor(instructorId, limit),
+			courseReviewRepository.findRecentByInstructor(instructorId, limit),
+		]);
+
+		const events: ActivityEvent[] = [
+			...enrollments.map(
+				(e): ActivityEvent => ({
+					type: "enrollment",
+					id: e.id,
+					studentName: e.studentName,
+					courseTitle: e.courseTitle,
+					occurredAt: e.enrolledAt,
+				}),
+			),
+			...reviews.map(
+				(r): ActivityEvent => ({
+					type: "review",
+					id: r.id,
+					studentName: r.studentName,
+					courseTitle: r.courseTitle,
+					rating: r.rating,
+					occurredAt: r.createdAt,
+				}),
+			),
+		];
+
+		events.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+		return events.slice(0, limit);
 	}
 }
 
