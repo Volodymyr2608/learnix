@@ -1,5 +1,6 @@
 import type { Enrollment, Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
+import { getMonthWindows } from "@/lib/stats/monthWindows";
 import { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
 
@@ -106,6 +107,36 @@ class EnrollmentRepository extends BaseRepository<
 			},
 			include: { course: { select: { deletedAt: true, status: true } } },
 		});
+	}
+
+	async getInstructorStudentStats(instructorId: string): Promise<{
+		total: number;
+		thisMonthNew: number;
+		lastMonthNew: number;
+	}> {
+		const { startThisMonth, startLastMonth, startNextMonth } =
+			getMonthWindows();
+		const ownedActive = {
+			status: EnrollmentStatus.active,
+			course: { is: { instructorId, deletedAt: null } },
+		} as const;
+
+		const [distinctGroups, thisMonthNew, lastMonthNew] = await Promise.all([
+			db.enrollment.groupBy({
+				by: ["studentId"],
+				where: ownedActive,
+			}),
+			this.count({
+				...ownedActive,
+				enrolledAt: { gte: startThisMonth, lt: startNextMonth },
+			}),
+			this.count({
+				...ownedActive,
+				enrolledAt: { gte: startLastMonth, lt: startThisMonth },
+			}),
+		]);
+
+		return { total: distinctGroups.length, thisMonthNew, lastMonthNew };
 	}
 }
 

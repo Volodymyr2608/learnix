@@ -1,4 +1,5 @@
 import type { Payment, Prisma } from "@/generated/prisma";
+import { getMonthWindows } from "@/lib/stats/monthWindows";
 import { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
 
@@ -50,6 +51,44 @@ class PaymentRepository extends BaseRepository<
 			_sum: { platformFeeCents: true },
 		});
 		return r._sum.platformFeeCents ?? 0;
+	}
+
+	async getInstructorRevenueStats(instructorId: string): Promise<{
+		lifetimeGrossCents: number;
+		thisMonthGrossCents: number;
+		lastMonthGrossCents: number;
+	}> {
+		const { startThisMonth, startLastMonth, startNextMonth } =
+			getMonthWindows();
+		const base = {
+			instructorId,
+			status: "succeeded" as const,
+			refundedAt: null,
+		};
+
+		const [lifetime, thisMonth, lastMonth] = await Promise.all([
+			this.aggregate({ where: base, _sum: { amountCents: true } }),
+			this.aggregate({
+				where: {
+					...base,
+					createdAt: { gte: startThisMonth, lt: startNextMonth },
+				},
+				_sum: { amountCents: true },
+			}),
+			this.aggregate({
+				where: {
+					...base,
+					createdAt: { gte: startLastMonth, lt: startThisMonth },
+				},
+				_sum: { amountCents: true },
+			}),
+		]);
+
+		return {
+			lifetimeGrossCents: lifetime._sum.amountCents ?? 0,
+			thisMonthGrossCents: thisMonth._sum.amountCents ?? 0,
+			lastMonthGrossCents: lastMonth._sum.amountCents ?? 0,
+		};
 	}
 }
 
