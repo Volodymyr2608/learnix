@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { computeDelta } from "@/lib/stats/computeDelta";
 import type { InstructorSchemaInput } from "@/server/entities/instructor";
 import type {
+	ActivityEvent,
 	DashboardStats,
 	TopCourse,
 } from "@/server/entities/instructor/dashboard";
@@ -143,6 +144,43 @@ class InstructorService {
 				a.title.localeCompare(b.title),
 		);
 		return rows.slice(0, limit);
+	}
+
+	async getRecentActivity(
+		instructorId: string,
+		limit = 5,
+	): Promise<ActivityEvent[]> {
+		logger.info("Getting instructor recent activity", { instructorId });
+
+		const [enrollments, reviews] = await Promise.all([
+			enrollmentRepository.findRecentByInstructor(instructorId, limit),
+			courseReviewRepository.findRecentByInstructor(instructorId, limit),
+		]);
+
+		const events: ActivityEvent[] = [
+			...enrollments.map(
+				(e): ActivityEvent => ({
+					type: "enrollment",
+					id: e.id,
+					studentName: e.studentName,
+					courseTitle: e.courseTitle,
+					occurredAt: e.enrolledAt,
+				}),
+			),
+			...reviews.map(
+				(r): ActivityEvent => ({
+					type: "review",
+					id: r.id,
+					studentName: r.studentName,
+					courseTitle: r.courseTitle,
+					rating: r.rating,
+					occurredAt: r.createdAt,
+				}),
+			),
+		];
+
+		events.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+		return events.slice(0, limit);
 	}
 }
 

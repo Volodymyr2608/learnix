@@ -192,3 +192,62 @@ describe("InstructorService.getTopPerformingCourses", () => {
 		expect(result.map((r) => r.courseId)).toEqual(["c", "b", "a"]);
 	});
 });
+
+describe("InstructorService.getRecentActivity", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("merges enrollments and reviews newest-first and caps the count", async () => {
+		mockEnrollmentRepo.findRecentByInstructor.mockResolvedValue([
+			{
+				id: "e1",
+				studentName: "Ann",
+				courseTitle: "Course A",
+				enrolledAt: new Date("2026-03-03T00:00:00Z"),
+			},
+			{
+				id: "e2",
+				studentName: "Bob",
+				courseTitle: "Course B",
+				enrolledAt: new Date("2026-03-01T00:00:00Z"),
+			},
+		]);
+		mockReviewRepo.findRecentByInstructor.mockResolvedValue([
+			{
+				id: "r1",
+				studentName: "Cara",
+				courseTitle: "Course A",
+				rating: 5,
+				createdAt: new Date("2026-03-02T00:00:00Z"),
+			},
+		]);
+
+		const result = await instructorService.getRecentActivity("i1", 2);
+
+		expect(result).toEqual([
+			{
+				type: "enrollment",
+				id: "e1",
+				studentName: "Ann",
+				courseTitle: "Course A",
+				occurredAt: new Date("2026-03-03T00:00:00Z"),
+			},
+			{
+				type: "review",
+				id: "r1",
+				studentName: "Cara",
+				courseTitle: "Course A",
+				rating: 5,
+				occurredAt: new Date("2026-03-02T00:00:00Z"),
+			},
+		]);
+	});
+
+	it("returns [] when there is no activity", async () => {
+		mockEnrollmentRepo.findRecentByInstructor.mockResolvedValue([]);
+		mockReviewRepo.findRecentByInstructor.mockResolvedValue([]);
+		const result = await instructorService.getRecentActivity("i1");
+		expect(result).toEqual([]);
+	});
+});
