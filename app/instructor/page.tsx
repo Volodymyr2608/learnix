@@ -1,13 +1,16 @@
-import { Eye, Star, TrendingUp, Users } from "lucide-react";
+import { Eye, Star, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
+import DashboardRevenueChart from "@/app/_components/Instructor/DashboardRevenueChart";
 import DashboardStatsCards from "@/app/_components/Instructor/DashboardStatsCards";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import getDashboardStats from "@/lib/requests/instructor/getDashboardStats";
+import getRevenueTimeSeries from "@/lib/requests/instructor/getRevenueTimeSeries";
 
 export default async function DashboardPage() {
 	const stats = await getDashboardStats();
+	const revenueSeries = await getRevenueTimeSeries();
 
 	return (
 		<div className="space-y-6">
@@ -151,14 +154,7 @@ export default async function DashboardPage() {
 						<Link href="/instructor/revenue">View Details</Link>
 					</Button>
 				</div>
-				<div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed">
-					<div className="text-center">
-						<TrendingUp className="mx-auto h-12 w-12 text-muted-foreground" />
-						<p className="mt-2 text-muted-foreground text-sm">
-							Revenue chart will be displayed here
-						</p>
-					</div>
-				</div>
+				<DashboardRevenueChart data={revenueSeries} />
 			</Card>
 		</div>
 	);
