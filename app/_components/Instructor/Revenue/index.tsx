@@ -37,11 +37,7 @@ export default function RevenueOverview() {
 				summary={summary.data}
 			/>
 
-			<RevenuePayouts
-				isLoading={summary.isLoading}
-				paidOutCents={summary.data?.paidOutCents ?? 0}
-				pendingCents={summary.data?.pendingCents ?? 0}
-			/>
+			<RevenuePayouts />
 
 			<div className="grid gap-6 lg:grid-cols-3">
 				<RevenueOverTimeChart data={series.data} isLoading={series.isLoading} />
