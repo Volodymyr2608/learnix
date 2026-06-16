@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { createCheckoutSessionInput } from "@/server/entities/payment";
+import {
+	recentTransactionsInput,
+	revenueRangeInput,
+} from "@/server/entities/payment/revenue";
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { connectService } from "@/server/services/payments/connect.service";
 import { paymentService } from "@/server/services/payments/payment.service";
@@ -68,6 +72,53 @@ export const paymentRouter = createTRPCRouter({
 			throw handleServiceError(error);
 		}
 	}),
+
+	getRevenueSummary: instructorProcedure.query(async ({ ctx }) => {
+		try {
+			return await paymentService.getRevenueSummary(ctx.session.user.id);
+		} catch (error) {
+			throw handleServiceError(error);
+		}
+	}),
+
+	getRevenueTimeSeries: instructorProcedure
+		.input(revenueRangeInput)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await paymentService.getRevenueTimeSeries(
+					ctx.session.user.id,
+					input.range,
+				);
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
+
+	getRevenueByCourse: instructorProcedure
+		.input(revenueRangeInput)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await paymentService.getRevenueByCourse(
+					ctx.session.user.id,
+					input.range,
+				);
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
+
+	getRecentTransactions: instructorProcedure
+		.input(recentTransactionsInput)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await paymentService.getRecentTransactions(
+					ctx.session.user.id,
+					input.limit,
+				);
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
 
 	// Admin procedures
 	getPlatformRevenue: adminProcedure.query(async () => {
