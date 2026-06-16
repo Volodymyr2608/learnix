@@ -18,6 +18,7 @@ describe("PaymentRepository", () => {
 			status: "pending" | "succeeded" | "failed" | "refunded";
 			transferStatus: "none" | "pending" | "transferred" | "reversed";
 			refundedAt: Date | null;
+			createdAt: Date;
 		}> & {
 			studentId: string;
 			instructorId: string;
@@ -180,5 +181,100 @@ describe("PaymentRepository", () => {
 	it("getPlatformRevenue returns 0 when there are no qualifying payments", async () => {
 		const revenue = await paymentRepository.getPlatformRevenue();
 		expect(revenue).toBe(0);
+	});
+
+	it("getRevenueByBucket sums gross and net per month, excluding refunded/failed", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		// Two succeeded sales in Mar 2026 + one refunded (excluded).
+		await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			amountCents: 10000,
+			instructorNetCents: 8000,
+			createdAt: new Date(2026, 2, 5),
+		});
+		await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			amountCents: 5000,
+			instructorNetCents: 4000,
+			createdAt: new Date(2026, 2, 20),
+		});
+		await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			amountCents: 9999,
+			instructorNetCents: 8000,
+			status: "refunded",
+			refundedAt: new Date(2026, 2, 25),
+			createdAt: new Date(2026, 2, 25),
+		});
+
+		const rows = await paymentRepository.getRevenueByBucket(
+			instructor.id,
+			new Date(2026, 0, 1),
+			"month",
+		);
+
+		const march = rows.find(
+			(r) => r.period.getUTCMonth() === 2 && r.period.getUTCFullYear() === 2026,
+		);
+		expect(march?.grossCents).toBe(15000);
+		expect(march?.netCents).toBe(12000);
+	});
+
+	it("getRevenueByBucket scopes to the instructor", async () => {
+		const a = await makeUser({ role: Role.INSTRUCTOR });
+		const b = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+		const courseB = await makeCourse({ instructorId: b.id, status: "published" });
+		await makePayment({
+			studentId: student.id,
+			instructorId: b.id,
+			courseId: courseB.id,
+			amountCents: 10000,
+			createdAt: new Date(2026, 2, 5),
+		});
+
+		const rows = await paymentRepository.getRevenueByBucket(
+			a.id,
+			new Date(2026, 0, 1),
+			"month",
+		);
+		expect(rows).toHaveLength(0);
+	});
+
+	it("getRevenueGroupedByCourse returns courses ranked by gross, capped by limit", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+		const c1 = await makeCourse({ instructorId: instructor.id, status: "published" });
+		const c2 = await makeCourse({ instructorId: instructor.id, status: "published" });
+
+		await makePayment({
+			studentId: student.id, instructorId: instructor.id, courseId: c1.id,
+			amountCents: 3000, createdAt: new Date(2026, 2, 1),
+		});
+		await makePayment({
+			studentId: student.id, instructorId: instructor.id, courseId: c2.id,
+			amountCents: 8000, createdAt: new Date(2026, 2, 2),
+		});
+
+		const rows = await paymentRepository.getRevenueGroupedByCourse(
+			instructor.id,
+			new Date(2026, 0, 1),
+			5,
+		);
+		expect(rows.map((r) => ({ courseId: r.courseId, grossCents: r.grossCents }))).toEqual([
+			{ courseId: c2.id, grossCents: 8000 },
+			{ courseId: c1.id, grossCents: 3000 },
+		]);
 	});
 });

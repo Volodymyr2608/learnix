@@ -90,6 +90,55 @@ class PaymentRepository extends BaseRepository<
 			lastMonthGrossCents: lastMonth._sum.amountCents ?? 0,
 		};
 	}
+
+	async getRevenueByBucket(
+		instructorId: string,
+		since: Date,
+		bucket: "day" | "month",
+	): Promise<{ period: Date; grossCents: number; netCents: number }[]> {
+		const rows = await db.$queryRaw<
+			{ period: Date; gross: bigint | null; net: bigint | null }[]
+		>`
+			SELECT date_trunc(${bucket}, created_at) AS period,
+			       SUM(amount_cents) AS gross,
+			       SUM(instructor_net_cents) AS net
+			FROM payments
+			WHERE "instructorId" = ${instructorId}
+			  AND status = 'succeeded'
+			  AND refunded_at IS NULL
+			  AND created_at >= ${since}
+			GROUP BY period
+			ORDER BY period ASC
+		`;
+		return rows.map((r) => ({
+			period: r.period,
+			grossCents: Number(r.gross ?? 0),
+			netCents: Number(r.net ?? 0),
+		}));
+	}
+
+	async getRevenueGroupedByCourse(
+		instructorId: string,
+		since: Date,
+		limit: number,
+	): Promise<{ courseId: string; grossCents: number }[]> {
+		const grouped = await db.payment.groupBy({
+			by: ["courseId"],
+			where: {
+				instructorId,
+				status: "succeeded",
+				refundedAt: null,
+				createdAt: { gte: since },
+			},
+			_sum: { amountCents: true },
+			orderBy: { _sum: { amountCents: "desc" } },
+			take: limit,
+		});
+		return grouped.map((g) => ({
+			courseId: g.courseId,
+			grossCents: g._sum.amountCents ?? 0,
+		}));
+	}
 }
 
 export const paymentRepository = new PaymentRepository();
