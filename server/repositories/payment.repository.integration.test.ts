@@ -235,7 +235,10 @@ describe("PaymentRepository", () => {
 		const a = await makeUser({ role: Role.INSTRUCTOR });
 		const b = await makeUser({ role: Role.INSTRUCTOR });
 		const student = await makeUser({ role: Role.STUDENT });
-		const courseB = await makeCourse({ instructorId: b.id, status: "published" });
+		const courseB = await makeCourse({
+			instructorId: b.id,
+			status: "published",
+		});
 		await makePayment({
 			studentId: student.id,
 			instructorId: b.id,
@@ -255,16 +258,28 @@ describe("PaymentRepository", () => {
 	it("getRevenueGroupedByCourse returns courses ranked by gross, capped by limit", async () => {
 		const instructor = await makeUser({ role: Role.INSTRUCTOR });
 		const student = await makeUser({ role: Role.STUDENT });
-		const c1 = await makeCourse({ instructorId: instructor.id, status: "published" });
-		const c2 = await makeCourse({ instructorId: instructor.id, status: "published" });
+		const c1 = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		const c2 = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
 
 		await makePayment({
-			studentId: student.id, instructorId: instructor.id, courseId: c1.id,
-			amountCents: 3000, createdAt: new Date(2026, 2, 1),
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: c1.id,
+			amountCents: 3000,
+			createdAt: new Date(2026, 2, 1),
 		});
 		await makePayment({
-			studentId: student.id, instructorId: instructor.id, courseId: c2.id,
-			amountCents: 8000, createdAt: new Date(2026, 2, 2),
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: c2.id,
+			amountCents: 8000,
+			createdAt: new Date(2026, 2, 2),
 		});
 
 		const rows = await paymentRepository.getRevenueGroupedByCourse(
@@ -272,7 +287,9 @@ describe("PaymentRepository", () => {
 			new Date(2026, 0, 1),
 			5,
 		);
-		expect(rows.map((r) => ({ courseId: r.courseId, grossCents: r.grossCents }))).toEqual([
+		expect(
+			rows.map((r) => ({ courseId: r.courseId, grossCents: r.grossCents })),
+		).toEqual([
 			{ courseId: c2.id, grossCents: 8000 },
 			{ courseId: c1.id, grossCents: 3000 },
 		]);
