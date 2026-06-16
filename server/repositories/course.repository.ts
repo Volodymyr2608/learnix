@@ -1,4 +1,9 @@
-import { type Course, CourseStatus, type Prisma } from "@/generated/prisma";
+import {
+	type Course,
+	CourseStatus,
+	EnrollmentStatus,
+	type Prisma,
+} from "@/generated/prisma";
 import { BaseRepository } from "@/server/repositories/base/base.repository";
 import type CourseReviewRepository from "@/server/repositories/courseReview.repository";
 import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
@@ -300,6 +305,31 @@ export default class CourseRepository extends BaseRepository<
 			studentsCount,
 			instructorRating: instructorRatingResult._avg.rating,
 		};
+	}
+
+	async getCourseCardsByIds(
+		instructorId: string,
+		courseIds: string[],
+	): Promise<Map<string, { title: string; students: number }>> {
+		if (courseIds.length === 0) return new Map();
+		const courses = await this.findMany({
+			where: { id: { in: courseIds }, instructorId, deletedAt: null },
+			select: {
+				id: true,
+				title: true,
+				_count: {
+					select: {
+						enrollments: { where: { status: EnrollmentStatus.active } },
+					},
+				},
+			},
+		});
+		return new Map(
+			courses.map((c) => [
+				c.id,
+				{ title: c.title, students: c._count.enrollments },
+			]),
+		);
 	}
 
 	async findManyByIdsPreservingOrder(ids: string[]) {
