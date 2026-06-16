@@ -206,7 +206,7 @@ export default class CourseRepository extends BaseRepository<
 				take: PAGE_SIZE,
 				orderBy: { createdAt: "desc" },
 			}),
-			this.db.course.count({ where }),
+			this.count(where),
 		]);
 
 		return {

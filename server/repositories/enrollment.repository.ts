@@ -1,7 +1,6 @@
 import type { Enrollment, Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { getMonthWindows } from "@/lib/stats/monthWindows";
-import { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
 
 class EnrollmentRepository extends BaseRepository<
@@ -155,7 +154,7 @@ class EnrollmentRepository extends BaseRepository<
 		};
 
 		const [totalResult, thisMonthNew, lastMonthNew] = await Promise.all([
-			db.$queryRaw<[{ cnt: bigint }]>`
+			this.db.$queryRaw<[{ cnt: bigint }]>`
 				SELECT COUNT(DISTINCT "studentId") AS cnt
 				FROM enrollments
 				WHERE status = 'active'

@@ -1,36 +1,6 @@
-import { Star, Users } from "lucide-react";
 import { Card } from "@/app/_components/_shared/ui/card";
-import relativeTimeLabel from "@/lib/utils/date/relativeTime";
-import type { ActivityEvent } from "@/server/entities/instructor/dashboard";
-import type { ActivityRowProps, RecentActivityProps } from "./types";
-
-function ActivityIcon({ type }: { type: ActivityEvent["type"] }) {
-	if (type === "review") return <Star className="h-4 w-4 text-primary" />;
-	return <Users className="h-4 w-4 text-primary" />;
-}
-
-function activityText(event: ActivityEvent): string {
-	if (event.type === "review") {
-		return `${event.studentName} left a ${event.rating}-star review on ${event.courseTitle}`;
-	}
-	return `${event.studentName} enrolled in ${event.courseTitle}`;
-}
-
-function ActivityRow({ event }: ActivityRowProps) {
-	return (
-		<div className="flex items-start gap-3 rounded-lg border p-4">
-			<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-				<ActivityIcon type={event.type} />
-			</div>
-			<div className="flex-1">
-				<p className="font-medium text-sm">{activityText(event)}</p>
-				<p className="text-muted-foreground text-xs">
-					{relativeTimeLabel(event.occurredAt)}
-				</p>
-			</div>
-		</div>
-	);
-}
+import ActivityRow from "./components/ActivityRow";
+import type { RecentActivityProps } from "./types";
 
 export default function RecentActivity({ events }: RecentActivityProps) {
 	return (
