@@ -11,3 +11,30 @@ export type DashboardStats = {
 	courses: { published: number; drafts: number };
 	rating: { average: number | null; reviewCount: number };
 };
+
+/** One row of the "Top Performing Courses" card (FR1, FR2). */
+export type TopCourse = {
+	courseId: string;
+	title: string;
+	students: number; // active enrollments = distinct students (FR4)
+	rating: number | null; // avg review rating; null = no reviews yet → "—" (FR5)
+	grossCents: number; // lifetime gross revenue, ranking key (FR2)
+};
+
+/** One entry in the "Recent Activity" feed (FR7–FR10). Discriminated by `type`. */
+export type ActivityEvent =
+	| {
+			type: "enrollment";
+			id: string; // enrollment id (stable React key)
+			studentName: string;
+			courseTitle: string;
+			occurredAt: Date; // Enrollment.enrolledAt
+	  }
+	| {
+			type: "review";
+			id: string; // review id
+			studentName: string;
+			courseTitle: string;
+			rating: number; // 1..5
+			occurredAt: Date; // CourseReview.createdAt
+	  };
