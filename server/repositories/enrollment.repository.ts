@@ -119,13 +119,19 @@ class EnrollmentRepository extends BaseRepository<
 		const ownedActive = {
 			status: EnrollmentStatus.active,
 			course: { is: { instructorId, deletedAt: null } },
-		} as const;
+		};
 
-		const [distinctGroups, thisMonthNew, lastMonthNew] = await Promise.all([
-			db.enrollment.groupBy({
-				by: ["studentId"],
-				where: ownedActive,
-			}),
+		const [totalResult, thisMonthNew, lastMonthNew] = await Promise.all([
+			db.$queryRaw<[{ cnt: bigint }]>`
+				SELECT COUNT(DISTINCT "studentId") AS cnt
+				FROM enrollments
+				WHERE status = 'active'
+				  AND "courseId" IN (
+					SELECT id FROM courses
+					WHERE "instructorId" = ${instructorId}
+					  AND deleted_at IS NULL
+				  )
+			`,
 			this.count({
 				...ownedActive,
 				enrolledAt: { gte: startThisMonth, lt: startNextMonth },
@@ -136,7 +142,11 @@ class EnrollmentRepository extends BaseRepository<
 			}),
 		]);
 
-		return { total: distinctGroups.length, thisMonthNew, lastMonthNew };
+		return {
+			total: Number(totalResult[0]?.cnt ?? 0),
+			thisMonthNew,
+			lastMonthNew,
+		};
 	}
 }
 
