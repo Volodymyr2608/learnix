@@ -1,4 +1,9 @@
-import { eachDayOfInterval, eachMonthOfInterval, formatISO } from "date-fns";
+import {
+	eachDayOfInterval,
+	eachMonthOfInterval,
+	formatISO,
+	subDays,
+} from "date-fns";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { computeSplit } from "@/lib/platformFee";
@@ -268,7 +273,7 @@ class PaymentService {
 
 		const starts =
 			bucket === "day"
-				? eachDayOfInterval({ start: since, end: now })
+				? eachDayOfInterval({ start: since, end: subDays(now, 1) })
 				: eachMonthOfInterval({ start: since, end: now });
 
 		const keyOf = (d: Date) =>
@@ -292,7 +297,8 @@ class PaymentService {
 		instructorId: string,
 		range: RevenueRange,
 	): Promise<RevenueByCourseItem[]> {
-		const { since } = resolveRange(range);
+		const now = new Date();
+		const { since } = resolveRange(range, now);
 		const grouped = await paymentRepository.getRevenueGroupedByCourse(
 			instructorId,
 			since,

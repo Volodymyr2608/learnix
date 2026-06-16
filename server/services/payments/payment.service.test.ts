@@ -488,6 +488,15 @@ describe("paymentService.getRevenueSummary", () => {
 // -----------------------------------------------------------------------
 
 describe("paymentService.getRevenueTimeSeries", () => {
+	it("gap-fills exactly 30 daily buckets for 30d range", async () => {
+		vi.setSystemTime(new Date(2026, 5, 16)); // Jun 16
+		vi.spyOn(paymentRepository, "getRevenueByBucket").mockResolvedValue([]);
+
+		const series = await paymentService.getRevenueTimeSeries("inst_1", "30d");
+		expect(series).toHaveLength(30);
+		vi.useRealTimers();
+	});
+
 	it("gap-fills missing monthly buckets with zeros, ascending", async () => {
 		vi.setSystemTime(new Date(2026, 5, 16)); // Jun 2026; 6m → Jan..Jun
 		vi.spyOn(paymentRepository, "getRevenueByBucket").mockResolvedValue([
