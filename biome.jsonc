@@ -56,7 +56,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["app/layout.tsx"],
+			"includes": ["app/layout.tsx", "app/_components/_shared/ui/chart.tsx"],
 			"linter": {
 				"rules": {
 					"security": {

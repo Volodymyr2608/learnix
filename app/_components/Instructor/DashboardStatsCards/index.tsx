@@ -7,20 +7,13 @@ import {
 	Users,
 } from "lucide-react";
 import { Card } from "@/app/_components/_shared/ui/card";
+import { formatUsd } from "@/lib/formatUsd";
 import type {
 	DashboardStatsCardsProps,
 	DeltaBadgeProps,
 	RatingSublineProps,
 	StatCardProps,
 } from "./types";
-
-/**
- * USD whole-dollar formatting for revenue. Unlike lib/formatPrice, this shows
- * "$0" (not "Free") for zero, which the Total Revenue card requires.
- */
-function formatUsd(cents: number): string {
-	return `$${Math.round(cents / 100).toLocaleString("en-US")}`;
-}
 
 function DeltaBadge({ delta }: DeltaBadgeProps) {
 	if (delta.kind === "none") return null;

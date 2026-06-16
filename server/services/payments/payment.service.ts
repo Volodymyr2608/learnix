@@ -1,6 +1,22 @@
+import {
+	eachDayOfInterval,
+	eachMonthOfInterval,
+	formatISO,
+	subDays,
+} from "date-fns";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { computeSplit } from "@/lib/platformFee";
+import { computeDelta } from "@/lib/stats/computeDelta";
+import { resolveRange } from "@/lib/stats/revenueRange";
+import type {
+	RevenueByCourseItem,
+	RevenueRange,
+	RevenueSummary,
+	RevenueTimeSeriesPoint,
+	RevenueTransaction,
+	RevenueTransactionStatus,
+} from "@/server/entities/payment/revenue";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
@@ -222,6 +238,118 @@ class PaymentService {
 				.platformFeeCents ?? 0;
 
 		return { availableCents, owedCents, lifetimeGrossCents, platformFeesCents };
+	}
+
+	async getRevenueSummary(instructorId: string): Promise<RevenueSummary> {
+		const [earnings, monthStats] = await Promise.all([
+			this.getInstructorEarnings(instructorId),
+			paymentRepository.getInstructorRevenueStats(instructorId),
+		]);
+		return {
+			totalGrossCents: earnings.lifetimeGrossCents,
+			paidOutCents: earnings.availableCents,
+			pendingCents: earnings.owedCents,
+			thisMonth: {
+				grossCents: monthStats.thisMonthGrossCents,
+				delta: computeDelta(
+					monthStats.thisMonthGrossCents,
+					monthStats.lastMonthGrossCents,
+				),
+			},
+		};
+	}
+
+	async getRevenueTimeSeries(
+		instructorId: string,
+		range: RevenueRange,
+	): Promise<RevenueTimeSeriesPoint[]> {
+		const now = new Date();
+		const { since, bucket } = resolveRange(range, now);
+		const rows = await paymentRepository.getRevenueByBucket(
+			instructorId,
+			since,
+			bucket,
+		);
+
+		const starts =
+			bucket === "day"
+				? eachDayOfInterval({ start: since, end: subDays(now, 1) })
+				: eachMonthOfInterval({ start: since, end: now });
+
+		const keyOf = (d: Date) =>
+			bucket === "day"
+				? formatISO(d, { representation: "date" })
+				: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+		const byKey = new Map(rows.map((r) => [keyOf(r.period), r] as const));
+
+		return starts.map((start) => {
+			const hit = byKey.get(keyOf(start));
+			return {
+				period: formatISO(start, { representation: "date" }),
+				grossCents: hit?.grossCents ?? 0,
+				netCents: hit?.netCents ?? 0,
+			};
+		});
+	}
+
+	async getRevenueByCourse(
+		instructorId: string,
+		range: RevenueRange,
+	): Promise<RevenueByCourseItem[]> {
+		const now = new Date();
+		const { since } = resolveRange(range, now);
+		const grouped = await paymentRepository.getRevenueGroupedByCourse(
+			instructorId,
+			since,
+			5,
+		);
+		if (grouped.length === 0) return [];
+
+		const courses = await courseRepository.findMany({
+			where: { id: { in: grouped.map((g) => g.courseId) } },
+			select: { id: true, title: true },
+		});
+		const titleById = new Map(courses.map((c) => [c.id, c.title]));
+
+		return grouped.map((g) => ({
+			courseId: g.courseId,
+			title: titleById.get(g.courseId) ?? "Untitled course",
+			grossCents: g.grossCents,
+		}));
+	}
+
+	private toTransactionStatus(p: {
+		status: string;
+		refundedAt: Date | null;
+	}): RevenueTransactionStatus {
+		if (p.refundedAt) return "refunded";
+		if (p.status === "succeeded") return "completed";
+		if (p.status === "pending") return "pending";
+		return "failed";
+	}
+
+	async getRecentTransactions(
+		instructorId: string,
+		limit: number,
+	): Promise<RevenueTransaction[]> {
+		const rows = await paymentRepository.findMany({
+			where: { instructorId },
+			orderBy: { createdAt: "desc" },
+			take: limit,
+			include: {
+				course: { select: { title: true } },
+				student: { select: { name: true } },
+			},
+		});
+		return rows.map((p) => ({
+			id: p.id,
+			courseTitle: p.course?.title ?? "Untitled course",
+			studentName: p.student?.name ?? "Unknown",
+			createdAt: p.createdAt,
+			amountCents: p.amountCents,
+			status: this.toTransactionStatus(p),
+		}));
 	}
 }
 

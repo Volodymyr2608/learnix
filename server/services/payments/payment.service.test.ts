@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Payment } from "@/generated/prisma";
 
 // Explicit vi.fn() variables — avoids vi.mocked() and Stripe SDK typing issues
@@ -22,8 +22,12 @@ const mockPaymentRepo = {
 	findByPaymentIntentId: vi.fn(),
 	create: vi.fn(),
 	update: vi.fn(),
+	findMany: vi.fn(),
 	getOwedBalance: vi.fn(),
 	aggregate: vi.fn(),
+	getInstructorRevenueStats: vi.fn(),
+	getRevenueByBucket: vi.fn(),
+	getRevenueGroupedByCourse: vi.fn(),
 };
 vi.mock("@/server/repositories/payment.repository", () => ({
 	paymentRepository: mockPaymentRepo,
@@ -32,6 +36,7 @@ vi.mock("@/server/repositories/payment.repository", () => ({
 // Mock course repository
 const mockCourseRepo = {
 	findFirst: vi.fn(),
+	findMany: vi.fn(),
 };
 vi.mock("@/server/repositories/course.repository", () => ({
 	courseRepository: mockCourseRepo,
@@ -74,6 +79,12 @@ vi.mock("@/lib/env", () => ({
 }));
 
 const { paymentService } = await import("./payment.service");
+const { paymentRepository } = await import(
+	"@/server/repositories/payment.repository"
+);
+const { courseRepository } = await import(
+	"@/server/repositories/course.repository"
+);
 
 const STUDENT_ID = "student-1";
 const INSTRUCTOR_ID = "instructor-1";
@@ -417,6 +428,155 @@ describe("PaymentService.getInstructorEarnings", () => {
 			owedCents: 0,
 			lifetimeGrossCents: 0,
 			platformFeesCents: 0,
+		});
+	});
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+// -----------------------------------------------------------------------
+// getRevenueSummary
+// -----------------------------------------------------------------------
+
+describe("paymentService.getRevenueSummary", () => {
+	it("maps earnings + month stats into the summary DTO with a delta", async () => {
+		vi.spyOn(paymentService, "getInstructorEarnings").mockResolvedValue({
+			availableCents: 8420,
+			owedCents: 2180,
+			lifetimeGrossCents: 95150,
+			platformFeesCents: 19030,
+		});
+		vi.spyOn(paymentRepository, "getInstructorRevenueStats").mockResolvedValue({
+			lifetimeGrossCents: 95150,
+			thisMonthGrossCents: 12450,
+			lastMonthGrossCents: 11500,
+		});
+
+		const summary = await paymentService.getRevenueSummary("inst_1");
+
+		expect(summary.totalGrossCents).toBe(95150);
+		expect(summary.paidOutCents).toBe(8420);
+		expect(summary.pendingCents).toBe(2180);
+		expect(summary.thisMonth.grossCents).toBe(12450);
+		expect(summary.thisMonth.delta).toEqual({
+			kind: "percent",
+			value: 8,
+			direction: "up",
+		});
+	});
+
+	it("returns a 'new' delta when last month was zero", async () => {
+		vi.spyOn(paymentService, "getInstructorEarnings").mockResolvedValue({
+			availableCents: 0,
+			owedCents: 0,
+			lifetimeGrossCents: 5000,
+			platformFeesCents: 1000,
+		});
+		vi.spyOn(paymentRepository, "getInstructorRevenueStats").mockResolvedValue({
+			lifetimeGrossCents: 5000,
+			thisMonthGrossCents: 5000,
+			lastMonthGrossCents: 0,
+		});
+
+		const summary = await paymentService.getRevenueSummary("inst_1");
+		expect(summary.thisMonth.delta).toEqual({ kind: "new" });
+	});
+});
+
+// -----------------------------------------------------------------------
+// getRevenueTimeSeries
+// -----------------------------------------------------------------------
+
+describe("paymentService.getRevenueTimeSeries", () => {
+	it("gap-fills exactly 30 daily buckets for 30d range", async () => {
+		vi.setSystemTime(new Date(2026, 5, 16)); // Jun 16
+		vi.spyOn(paymentRepository, "getRevenueByBucket").mockResolvedValue([]);
+
+		const series = await paymentService.getRevenueTimeSeries("inst_1", "30d");
+		expect(series).toHaveLength(30);
+		vi.useRealTimers();
+	});
+
+	it("gap-fills missing monthly buckets with zeros, ascending", async () => {
+		vi.setSystemTime(new Date(2026, 5, 16)); // Jun 2026; 6m → Jan..Jun
+		vi.spyOn(paymentRepository, "getRevenueByBucket").mockResolvedValue([
+			{ period: new Date(2026, 2, 1), grossCents: 15000, netCents: 12000 }, // Mar only
+		]);
+
+		const series = await paymentService.getRevenueTimeSeries("inst_1", "6m");
+
+		expect(series).toHaveLength(6); // Jan..Jun
+		expect(series[0]).toMatchObject({ grossCents: 0, netCents: 0 });
+		const march = series.find((p) => p.period.startsWith("2026-03"));
+		expect(march).toMatchObject({ grossCents: 15000, netCents: 12000 });
+		vi.useRealTimers();
+	});
+});
+
+// -----------------------------------------------------------------------
+// getRevenueByCourse
+// -----------------------------------------------------------------------
+
+describe("paymentService.getRevenueByCourse", () => {
+	it("hydrates titles and preserves repo ranking", async () => {
+		vi.setSystemTime(new Date(2026, 5, 16));
+		vi.spyOn(paymentRepository, "getRevenueGroupedByCourse").mockResolvedValue([
+			{ courseId: "c2", grossCents: 8000 },
+			{ courseId: "c1", grossCents: 3000 },
+		]);
+		vi.spyOn(courseRepository, "findMany").mockResolvedValue([
+			{ id: "c1", title: "React" },
+			{ id: "c2", title: "Web Dev" },
+		] as never);
+
+		const result = await paymentService.getRevenueByCourse("inst_1", "12m");
+		expect(result).toEqual([
+			{ courseId: "c2", title: "Web Dev", grossCents: 8000 },
+			{ courseId: "c1", title: "React", grossCents: 3000 },
+		]);
+		vi.useRealTimers();
+	});
+});
+
+// -----------------------------------------------------------------------
+// getRecentTransactions
+// -----------------------------------------------------------------------
+
+describe("paymentService.getRecentTransactions", () => {
+	it("maps payment rows to the transaction DTO with derived status", async () => {
+		vi.spyOn(paymentRepository, "findMany").mockResolvedValue([
+			{
+				id: "p1",
+				amountCents: 8900,
+				status: "succeeded",
+				refundedAt: null,
+				createdAt: new Date(2026, 5, 14),
+				course: { title: "Web Dev" },
+				student: { name: "Sarah Johnson" },
+			},
+			{
+				id: "p2",
+				amountCents: 6900,
+				status: "succeeded",
+				refundedAt: new Date(2026, 5, 11),
+				createdAt: new Date(2026, 5, 10),
+				course: { title: "TypeScript" },
+				student: { name: null },
+			},
+		] as never);
+
+		const txns = await paymentService.getRecentTransactions("inst_1", 10);
+		expect(txns[0]).toEqual({
+			id: "p1",
+			courseTitle: "Web Dev",
+			studentName: "Sarah Johnson",
+			createdAt: new Date(2026, 5, 14),
+			amountCents: 8900,
+			status: "completed",
+		});
+		expect(txns[1]).toMatchObject({
+			status: "refunded",
+			studentName: "Unknown",
 		});
 	});
 });

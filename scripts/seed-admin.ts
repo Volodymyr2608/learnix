@@ -8,21 +8,24 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
 	process.exit(1);
 }
 
+const email = ADMIN_EMAIL;
+const password = ADMIN_PASSWORD;
+
 async function main() {
-	const existing = await db.user.findUnique({ where: { email: ADMIN_EMAIL! } });
+	const existing = await db.user.findUnique({ where: { email } });
 
 	if (!existing) {
 		await auth.api.signUpEmail({
-			body: { email: ADMIN_EMAIL!, password: ADMIN_PASSWORD!, name: "Admin" },
+			body: { email, password, name: "Admin" },
 		});
 	}
 
 	await db.user.update({
-		where: { email: ADMIN_EMAIL! },
+		where: { email },
 		data: { role: "ADMIN", emailVerified: true },
 	});
 
-	console.log(`Admin seeded: ${ADMIN_EMAIL}`);
+	console.log(`Admin seeded: ${email}`);
 }
 
 main()
