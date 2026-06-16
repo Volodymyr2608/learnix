@@ -32,6 +32,23 @@ export default class CourseReviewRepository extends BaseRepository<
 			reviewCount,
 		};
 	}
+
+	async getAvgRatingByCourseIds(
+		courseIds: string[],
+	): Promise<Map<string, number | null>> {
+		if (courseIds.length === 0) return new Map();
+		const grouped = await this.model.groupBy({
+			by: ["courseId"],
+			where: { courseId: { in: courseIds }, deletedAt: null },
+			_avg: { rating: true },
+		});
+		return new Map(
+			grouped.map((g: { courseId: string; _avg: { rating: number | null } }) => [
+				g.courseId,
+				g._avg.rating,
+			]),
+		);
+	}
 }
 
 export const courseReviewRepository = new CourseReviewRepository();
