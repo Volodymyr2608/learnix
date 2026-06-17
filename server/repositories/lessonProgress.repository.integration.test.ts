@@ -102,6 +102,15 @@ async function seedCompletedLessons() {
 	return { studentId: student.id };
 }
 
+describe("lessonProgressRepository.getCompletionDays (integration)", () => {
+	it("returns distinct completion days, newest first, with proper filtering and DISTINCT", async () => {
+		const { studentId } = await seedTwoCompletionDays();
+		const days = await lessonProgressRepository.getCompletionDays(studentId);
+		expect(days).toHaveLength(2);
+		expect(days[0]!.getTime()).toBeGreaterThan(days[1]!.getTime());
+	});
+});
+
 async function seedDailyCompletions() {
 	const student = await makeUser({ role: Role.STUDENT });
 	const instructor = await makeUser({ role: Role.INSTRUCTOR });
@@ -168,4 +177,67 @@ async function seedDailyCompletions() {
 	});
 
 	return { studentId: student.id, since };
+}
+
+async function seedTwoCompletionDays() {
+	const student = await makeUser({ role: Role.STUDENT });
+	const instructor = await makeUser({ role: Role.INSTRUCTOR });
+	const course = await makeCourse({
+		instructorId: instructor.id,
+		status: CourseStatus.published,
+	});
+	const section = await makeSection({ courseId: course.id });
+
+	const now = new Date();
+	const dayA = startOfDay(subDays(now, 1)); // 1 day ago
+	const dayB = startOfDay(subDays(now, 3)); // 3 days ago
+
+	// Day A: 2 completions (different times) on the same calendar day
+	const lessonA1 = await makeLesson({
+		sectionId: section.id,
+		durationMinutes: 30,
+	});
+	await makeLessonProgress({
+		studentId: student.id,
+		lessonId: lessonA1.id,
+		isCompleted: true,
+		completedAt: dayA,
+	});
+
+	const lessonA2 = await makeLesson({
+		sectionId: section.id,
+		durationMinutes: 20,
+	});
+	await makeLessonProgress({
+		studentId: student.id,
+		lessonId: lessonA2.id,
+		isCompleted: true,
+		completedAt: new Date(dayA.getTime() + 3600000), // 1 hour later same day
+	});
+
+	// Day B: 1 completion
+	const lessonB = await makeLesson({
+		sectionId: section.id,
+		durationMinutes: 60,
+	});
+	await makeLessonProgress({
+		studentId: student.id,
+		lessonId: lessonB.id,
+		isCompleted: true,
+		completedAt: dayB,
+	});
+
+	// Incomplete lesson (no completedAt)
+	const lessonIncomplete = await makeLesson({
+		sectionId: section.id,
+		durationMinutes: 40,
+	});
+	await makeLessonProgress({
+		studentId: student.id,
+		lessonId: lessonIncomplete.id,
+		isCompleted: false,
+		completedAt: null,
+	});
+
+	return { studentId: student.id };
 }

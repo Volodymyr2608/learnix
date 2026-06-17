@@ -93,6 +93,18 @@ class LessonProgressRepository extends BaseRepository<
 		`;
 		return rows.map((r) => ({ day: r.day, minutes: Number(r.minutes) }));
 	}
+
+	async getCompletionDays(studentId: string): Promise<Date[]> {
+		const rows = await this.db.$queryRaw<{ day: Date }[]>`
+			SELECT DISTINCT date_trunc('day', lp."completedAt") AS day
+			FROM lesson_progress lp
+			WHERE lp."studentId" = ${studentId}
+			  AND lp."isCompleted" = true
+			  AND lp."completedAt" IS NOT NULL
+			ORDER BY day DESC
+		`;
+		return rows.map((r) => r.day);
+	}
 }
 
 export const lessonProgressRepository = new LessonProgressRepository();
