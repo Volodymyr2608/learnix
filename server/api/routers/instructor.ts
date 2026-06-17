@@ -4,6 +4,7 @@ import {
 	publicProcedure,
 } from "@/server/api/trpc";
 import { instructorSchema } from "@/server/entities/instructor";
+import { getStudentsInput } from "@/server/entities/instructor/students";
 import { instructorService } from "@/server/services/instructor/instructor.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 
@@ -39,6 +40,26 @@ export const instructorRouter = createTRPCRouter({
 	getRecentActivity: instructorProcedure.query(async ({ ctx }) => {
 		try {
 			return await instructorService.getRecentActivity(ctx.session.user.id);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+
+	getStudents: instructorProcedure
+		.input(getStudentsInput)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await instructorService.getStudents(ctx.session.user.id, input);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
+	getStudentStatusCounts: instructorProcedure.query(async ({ ctx }) => {
+		try {
+			return await instructorService.getStudentStatusCounts(
+				ctx.session.user.id,
+			);
 		} catch (error) {
 			handleServiceError(error);
 		}
