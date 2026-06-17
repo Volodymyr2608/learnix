@@ -1,4 +1,4 @@
-import type { StatDelta } from "@/server/entities/instructor/dashboard";
+import type { StatDelta } from "@/lib/stats/statDelta";
 
 /** Month-over-month delta with explicit zero-period handling (FR2/FR4). */
 export function computeDelta(current: number, previous: number): StatDelta {
