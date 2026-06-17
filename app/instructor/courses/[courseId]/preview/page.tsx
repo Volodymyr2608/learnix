@@ -16,6 +16,7 @@ import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import { formatDuration } from "@/lib/format/formatDuration";
 import { formatPrice } from "@/lib/formatPrice";
 import getCourseById from "@/lib/requests/course/getCourseById";
 import { capitalize } from "@/lib/utils/capitalize";
@@ -148,9 +149,9 @@ export default async function InstructorCoursePreviewPage({
 													<div className="flex items-center gap-2 text-muted-foreground">
 														<PlayCircle className="h-4 w-4 shrink-0" />
 														<span>{lesson.title}</span>
-														{lesson.duration && (
+														{lesson.durationMinutes != null && (
 															<span className="text-xs">
-																• {lesson.duration}
+																• {formatDuration(lesson.durationMinutes)}
 															</span>
 														)}
 													</div>

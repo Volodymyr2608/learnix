@@ -250,7 +250,7 @@ export default class CourseRepository extends BaseRepository<
 							select: {
 								id: true,
 								title: true,
-								duration: true,
+								durationMinutes: true,
 							},
 						},
 					},

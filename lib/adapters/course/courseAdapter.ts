@@ -16,7 +16,7 @@ const courseAdapter = (course: FullCourse) => {
 			lessons: section.lessons.map((lesson) => ({
 				id: lesson.id,
 				title: lesson.title,
-				duration: lesson.duration,
+				durationMinutes: lesson.durationMinutes,
 			})),
 		})),
 	};

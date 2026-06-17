@@ -2,7 +2,6 @@ model Lesson {
   id       String  @id @default(cuid())
   title    String
   durationMinutes Int? @map("duration_minutes")
-  duration String?
 
   description String?
   videoUrl    String? @map("video_url")

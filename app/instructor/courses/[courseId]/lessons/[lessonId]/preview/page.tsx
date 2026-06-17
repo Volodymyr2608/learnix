@@ -25,6 +25,7 @@ import {
 	TabsTrigger,
 } from "@/app/_components/_shared/ui/tabs";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import { formatDuration } from "@/lib/format/formatDuration";
 import getCourseById from "@/lib/requests/course/getCourseById";
 import getLessonById from "@/lib/requests/lesson/getLessonById";
 
@@ -129,8 +130,10 @@ export default async function InstructorLessonPreviewPage({
 							<Card>
 								<CardHeader>
 									<CardTitle>{lesson.title}</CardTitle>
-									{lesson.duration && (
-										<CardDescription>{lesson.duration}</CardDescription>
+									{lesson.durationMinutes != null && (
+										<CardDescription>
+											{formatDuration(lesson.durationMinutes)}
+										</CardDescription>
 									)}
 								</CardHeader>
 								<CardContent className="space-y-4">
@@ -260,10 +263,12 @@ export default async function InstructorLessonPreviewPage({
 										<span className="font-medium">{course.title}</span>
 									</div>
 								)}
-								{lesson.duration && (
+								{lesson.durationMinutes != null && (
 									<div className="flex justify-between text-sm">
 										<span className="text-muted-foreground">Duration:</span>
-										<span className="font-medium">{lesson.duration}</span>
+										<span className="font-medium">
+											{formatDuration(lesson.durationMinutes)}
+										</span>
 									</div>
 								)}
 								<div className="flex justify-between text-sm">

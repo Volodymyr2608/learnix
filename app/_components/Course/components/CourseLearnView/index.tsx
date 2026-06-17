@@ -38,6 +38,7 @@ import { LearningPathCard } from "@/app/_components/Course/components/LearningPa
 import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
 import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
+import { formatDuration } from "@/lib/format/formatDuration";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
 
@@ -173,10 +174,10 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 									<div className="flex items-start justify-between">
 										<div>
 											<CardTitle>{lesson?.title}</CardTitle>
-											{lesson?.duration && (
+											{lesson?.durationMinutes != null && (
 												<CardDescription>
 													Lesson {currentIndex + 1} of {allLessons.length} •{" "}
-													{lesson.duration}
+													{formatDuration(lesson.durationMinutes)}
 												</CardDescription>
 											)}
 										</div>
@@ -369,9 +370,11 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 																>
 																	{sectionLesson.title}
 																</p>
-																{sectionLesson.duration && (
+																{sectionLesson.durationMinutes != null && (
 																	<p className="text-muted-foreground text-xs">
-																		{sectionLesson.duration}
+																		{formatDuration(
+																			sectionLesson.durationMinutes,
+																		)}
 																	</p>
 																)}
 															</div>

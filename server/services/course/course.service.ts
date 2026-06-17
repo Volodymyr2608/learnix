@@ -1,3 +1,4 @@
+import { formatDuration } from "@/lib/format/formatDuration";
 import type { Section } from "@/prisma/zod";
 import type {
 	CourseFullCreateDto,
@@ -415,7 +416,7 @@ class CourseService {
 				lessons: section.lessons.map((lesson, index) => ({
 					id: lesson.id,
 					title: lesson.title,
-					duration: lesson.duration,
+					durationMinutes: lesson.durationMinutes,
 					preview: index === 0,
 				})),
 			}));
@@ -481,23 +482,13 @@ class CourseService {
 		}
 	}
 
-	private sumDurations(lessons: { duration: string | null }[]) {
-		let totalMinutes = 0;
+	private sumDurations(lessons: { durationMinutes: number | null }[]) {
+		const totalMinutes = lessons.reduce(
+			(sum, lesson) => sum + (lesson.durationMinutes ?? 0),
+			0,
+		);
 
-		for (const lesson of lessons) {
-			if (!lesson.duration) continue;
-
-			const [min, sec] = lesson.duration.split(":").map(Number);
-
-			if (min && sec) {
-				totalMinutes += Math.floor(min + sec / 60);
-			}
-		}
-
-		const hours = Math.floor(totalMinutes / 60);
-		const minutes = totalMinutes % 60;
-
-		return `${hours}h ${minutes}m`;
+		return formatDuration(totalMinutes);
 	}
 }
 
