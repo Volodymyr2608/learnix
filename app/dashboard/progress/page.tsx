@@ -1,4 +1,4 @@
-import { Award, Calendar, Target, TrendingUp } from "lucide-react";
+import { Award } from "lucide-react";
 import {
 	Card,
 	CardContent,
@@ -7,17 +7,12 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { Progress } from "@/app/_components/_shared/ui/progress";
+import ProgressStatsCards from "@/app/_components/Dashboard/Progress/ProgressStatsCards";
+import WeeklyActivity from "@/app/_components/Dashboard/Progress/WeeklyActivity";
+import getProgressStats from "@/lib/requests/student/getProgressStats";
 
-export default function ProgressPage() {
-	const weeklyActivity = [
-		{ day: "Mon", hours: 2.5 },
-		{ day: "Tue", hours: 3.2 },
-		{ day: "Wed", hours: 1.8 },
-		{ day: "Thu", hours: 4.1 },
-		{ day: "Fri", hours: 2.9 },
-		{ day: "Sat", hours: 5.5 },
-		{ day: "Sun", hours: 3.7 },
-	];
+export default async function ProgressPage() {
+	const stats = await getProgressStats();
 
 	const achievements = [
 		{
@@ -61,81 +56,10 @@ export default function ProgressPage() {
 			</div>
 
 			{/* Stats Overview */}
-			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="font-medium text-sm">Total Hours</CardTitle>
-						<TrendingUp className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="font-bold text-2xl">156.5</div>
-						<p className="text-muted-foreground text-xs">+23.7 this week</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="font-medium text-sm">
-							Courses Completed
-						</CardTitle>
-						<Award className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="font-bold text-2xl">8</div>
-						<p className="text-muted-foreground text-xs">+2 this month</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="font-medium text-sm">
-							Current Streak
-						</CardTitle>
-						<Target className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="font-bold text-2xl">12 days</div>
-						<p className="text-muted-foreground text-xs">Keep it up!</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="font-medium text-sm">
-							Avg. Daily Time
-						</CardTitle>
-						<Calendar className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="font-bold text-2xl">3.4 hrs</div>
-						<p className="text-muted-foreground text-xs">Above your goal</p>
-					</CardContent>
-				</Card>
-			</div>
+			<ProgressStatsCards stats={stats} />
 
 			<div className="grid gap-6 lg:grid-cols-2">
-				{/* Weekly Activity */}
-				<Card>
-					<CardHeader>
-						<CardTitle>Weekly Activity</CardTitle>
-						<CardDescription>Your learning hours this week</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="space-y-4">
-							{weeklyActivity.map((day) => (
-								<div className="space-y-2" key={day.day}>
-									<div className="flex items-center justify-between text-sm">
-										<span className="font-medium">{day.day}</span>
-										<span className="text-muted-foreground">
-											{day.hours} hours
-										</span>
-									</div>
-									<Progress value={(day.hours / 6) * 100} />
-								</div>
-							))}
-						</div>
-					</CardContent>
-				</Card>
+				<WeeklyActivity days={stats.weeklyActivity} />
 
 				{/* Achievements */}
 				<Card>
