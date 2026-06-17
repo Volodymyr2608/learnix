@@ -4,7 +4,7 @@ const structures = {
 	[DraftStep.basic]: `{ "title": "string", "subtitle": "string", "description": "string", "category": "string", "level": "Beginner | Intermediate | Advanced", "language": "string", "duration": "string" }`,
 	[DraftStep.objectives]: `{ "objectives": [{ "value": "string" }] }`,
 	[DraftStep.requirements]: `{ "requirements": [{ "value": "string" }] }`,
-	[DraftStep.curriculum]: `{ "sections": [{ "title": "string", "order": number, "lessons": [{ "title": "string", "duration": "string" }] }] }`,
+	[DraftStep.curriculum]: `{ "sections": [{ "title": "string", "order": number, "lessons": [{ "title": "string", "durationMinutes": number }] }] }`,
 };
 
 type ExtractStepDataPromptProps = {
@@ -45,8 +45,7 @@ export const extractStepDataPrompt = ({
           - AT LEAST 1 lesson
         - Each lesson MUST have:
           - a non-empty "title" (3–120 characters),
-          - an OPTIONAL "duration" in one of the following formats only:
-            "10 min", "45 minutes", "1 h", or "2 hours".
+          - an OPTIONAL "durationMinutes" as a whole number of minutes (e.g. 15, 90).
         - Lesson titles and section titles MUST be concise and descriptive.
         - Avoid duplicate section titles and duplicate lesson titles within the same section.
 

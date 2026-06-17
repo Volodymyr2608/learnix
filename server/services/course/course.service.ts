@@ -110,7 +110,7 @@ class CourseService {
 			s.lessons.map((l, j) => ({
 				sectionId: createdSections[i]?.id ?? "",
 				title: l.title,
-				duration: l.duration ?? null,
+				durationMinutes: l.durationMinutes ?? null,
 				order: j + 1,
 			})),
 		);
@@ -328,7 +328,7 @@ class CourseService {
 						if (lessonData.id) {
 							await lessonRepository.update(lessonData.id, {
 								title: lessonData.title,
-								duration: lessonData.duration ?? null,
+								durationMinutes: lessonData.durationMinutes ?? null,
 								order: j + 1,
 							});
 							continue;
@@ -339,7 +339,7 @@ class CourseService {
 						await lessonRepository.create({
 							sectionId: updatedSec.id,
 							title: lessonData.title,
-							duration: lessonData.duration ?? null,
+							durationMinutes: lessonData.durationMinutes ?? null,
 							order: j + 1,
 						});
 					}

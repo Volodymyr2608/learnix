@@ -96,7 +96,8 @@ const SectionLessonForm = ({
 							const isTitleError =
 								lessonData && typeof lessonData.title?.message === "string";
 							const isDurationError =
-								lessonData && typeof lessonData.duration?.message === "string";
+								lessonData &&
+								typeof lessonData.durationMinutes?.message === "string";
 
 							const dbLessonId = watchedLessons?.[lessonIndex]?.id;
 
@@ -116,15 +117,17 @@ const SectionLessonForm = ({
 										/>
 										<FormField
 											{...register(
-												`sections.${sectionIndex}.lessons.${lessonIndex}.duration`,
+												`sections.${sectionIndex}.lessons.${lessonIndex}.durationMinutes`,
+												{ valueAsNumber: true },
 											)}
 											error={
 												isDurationError
-													? lessonData.duration?.message
+													? lessonData.durationMinutes?.message
 													: undefined
 											}
 											label={null}
-											placeholder="Duration (e.g., 15:30)"
+											placeholder="Minutes (e.g., 15)"
+											type="number"
 										/>
 									</div>
 									{isEdit && courseId && dbLessonId && (
@@ -181,7 +184,7 @@ const SectionLessonForm = ({
 
 						<Button
 							className="w-full bg-transparent"
-							onClick={() => addLesson({ title: "", duration: "" })}
+							onClick={() => addLesson({ title: "", durationMinutes: null })}
 							size="sm"
 							type="button"
 							variant="outline"

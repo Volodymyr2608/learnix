@@ -26,7 +26,7 @@ export const useLessonEditor = (initialLesson: LessonData) => {
 			id: initialLesson.id,
 			title: form.lessonData.title,
 			description: form.lessonData.description || null,
-			duration: form.lessonData.duration || null,
+			durationMinutes: form.lessonData.durationMinutes ?? null,
 			videoUrl: form.lessonData.videoUrl || null,
 			content: form.lessonData.textContent || null,
 			resources: resources.resources,

@@ -29,12 +29,18 @@ export const LessonInfoCard = ({ data, onUpdate }: LessonInfoCardProps) => {
 						/>
 					</div>
 					<div className="space-y-2">
-						<Label htmlFor="duration">Duration (mm:ss)</Label>
+						<Label htmlFor="duration">Duration (minutes)</Label>
 						<Input
 							id="duration"
-							onChange={(e) => onUpdate({ duration: e.target.value })}
-							placeholder="15:30"
-							value={data.duration}
+							onChange={(e) =>
+								onUpdate({
+									durationMinutes:
+										e.target.value === "" ? null : Number(e.target.value),
+								})
+							}
+							placeholder="Minutes (e.g., 15)"
+							type="number"
+							value={data.durationMinutes ?? ""}
 						/>
 					</div>
 				</div>
