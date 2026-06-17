@@ -76,6 +76,23 @@ class LessonProgressRepository extends BaseRepository<
 			priorWeekMinutes: Number(r?.prior_week ?? 0),
 		};
 	}
+
+	async getDailyCompletedMinutes(
+		studentId: string,
+		since: Date,
+	): Promise<{ day: Date; minutes: number }[]> {
+		const rows = await this.db.$queryRaw<{ day: Date; minutes: number }[]>`
+			SELECT date_trunc('day', lp."completedAt") AS day,
+			       COALESCE(SUM(l.duration_minutes), 0)::int AS minutes
+			FROM lesson_progress lp
+			JOIN lessons l ON l.id = lp."lessonId"
+			WHERE lp."studentId" = ${studentId}
+			  AND lp."isCompleted" = true
+			  AND lp."completedAt" >= ${since}
+			GROUP BY 1
+		`;
+		return rows.map((r) => ({ day: r.day, minutes: Number(r.minutes) }));
+	}
 }
 
 export const lessonProgressRepository = new LessonProgressRepository();
