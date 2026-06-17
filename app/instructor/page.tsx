@@ -1,4 +1,6 @@
+import { Plus } from "lucide-react";
 import Link from "next/link";
+import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
 import DashboardRevenueChart from "@/app/_components/Instructor/DashboardRevenueChart";
@@ -20,30 +22,25 @@ export default async function DashboardPage() {
 	]);
 
 	return (
-		<div className="space-y-6">
-			{/* Header */}
-			<div className="flex items-center justify-between">
-				<div>
-					<h1 className="font-bold text-3xl">Instructor Dashboard</h1>
-					<p className="text-muted-foreground">
-						Welcome back! Here's your teaching overview.
-					</p>
-				</div>
+		<PageShell
+			action={
 				<Button asChild>
-					<Link href={INSTRUCTOR_URLS.createCourse}>Create New Course</Link>
+					<Link href={INSTRUCTOR_URLS.createCourse}>
+						<Plus className="mr-2 h-4 w-4" />
+						Create New Course
+					</Link>
 				</Button>
-			</div>
-
-			{/* Stats Cards */}
+			}
+			description="Welcome back! Here's your teaching overview."
+			title="Instructor Dashboard"
+		>
 			<DashboardStatsCards stats={stats} />
 
-			{/* Course Performance */}
 			<div className="grid gap-6 lg:grid-cols-2">
 				<TopPerformingCourses courses={topCourses} />
 				<RecentActivity events={activity} />
 			</div>
 
-			{/* Revenue Overview */}
 			<Card className="p-6">
 				<div className="mb-4 flex items-center justify-between">
 					<h2 className="font-semibold text-lg">Revenue Overview</h2>
@@ -53,6 +50,6 @@ export default async function DashboardPage() {
 				</div>
 				<DashboardRevenueChart data={revenueSeries} />
 			</Card>
-		</div>
+		</PageShell>
 	);
 }
