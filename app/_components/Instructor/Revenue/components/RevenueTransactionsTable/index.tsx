@@ -1,5 +1,3 @@
-"use client";
-
 import { format } from "date-fns";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Card } from "@/app/_components/_shared/ui/card";
@@ -18,9 +16,7 @@ import type { RevenueTransactionsTableProps } from "./types";
 
 export default function RevenueTransactionsTable({
 	transactions,
-	isLoading,
 }: RevenueTransactionsTableProps) {
-	const hasRows = !!transactions && transactions.length > 0;
 	return (
 		<Card className="p-6">
 			<div className="mb-4">
@@ -29,11 +25,9 @@ export default function RevenueTransactionsTable({
 					Your latest course sales
 				</p>
 			</div>
-			{isLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
-			{!isLoading && !hasRows && (
+			{transactions.length === 0 ? (
 				<p className="text-muted-foreground text-sm">No sales yet.</p>
-			)}
-			{!isLoading && hasRows && (
+			) : (
 				<Table>
 					<TableHeader>
 						<TableRow>
