@@ -171,3 +171,58 @@ describe("EnrollmentRepository.findInstructorStudents", () => {
 		expect(rows).toHaveLength(0);
 	});
 });
+
+describe("EnrollmentRepository.getInstructorStudentStatusCounts", () => {
+	const cutoff = new Date("2026-06-09T00:00:00Z");
+
+	it("counts students by derived status, summing to total", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const active = await makeUser({ role: Role.STUDENT });
+		const done = await makeUser({ role: Role.STUDENT });
+		const stale = await makeUser({ role: Role.STUDENT });
+		await makeEnrollment({
+			studentId: active.id,
+			courseId: course.id,
+			progress: 30,
+			lastAccessedAt: new Date("2026-06-15T00:00:00Z"),
+		});
+		await makeEnrollment({
+			studentId: done.id,
+			courseId: course.id,
+			status: EnrollmentStatus.completed,
+			progress: 100,
+			lastAccessedAt: new Date("2026-06-15T00:00:00Z"),
+		});
+		await makeEnrollment({
+			studentId: stale.id,
+			courseId: course.id,
+			progress: 10,
+			lastAccessedAt: new Date("2026-05-01T00:00:00Z"),
+		});
+
+		const counts = await enrollmentRepository.getInstructorStudentStatusCounts(
+			instructor.id,
+			cutoff,
+		);
+
+		expect(counts).toEqual({
+			total: 3,
+			active: 1,
+			completed: 1,
+			inactive: 1,
+		});
+	});
+
+	it("returns all zeros for an instructor with no students", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const counts = await enrollmentRepository.getInstructorStudentStatusCounts(
+			instructor.id,
+			cutoff,
+		);
+		expect(counts).toEqual({ total: 0, active: 0, completed: 0, inactive: 0 });
+	});
+});
