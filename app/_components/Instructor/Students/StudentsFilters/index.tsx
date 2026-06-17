@@ -11,12 +11,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/app/_components/_shared/ui/select";
+import { SORT_OPTIONS } from "@/app/_components/Instructor/Students/StudentsFilters/constants/sortOptions";
+import { STATUS_OPTIONS } from "@/app/_components/Instructor/Students/StudentsFilters/constants/statusOptions";
 import type { GetStudentsInput } from "@/server/entities/instructor/students";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useStudentsUrl } from "../hooks/useStudentsUrl";
 import type { StudentsFiltersProps } from "./types";
-import {STATUS_OPTIONS} from "@/app/_components/Instructor/Students/StudentsFilters/constants/statusOptions";
-import {SORT_OPTIONS} from "@/app/_components/Instructor/Students/StudentsFilters/constants/sortOptions";
 
 export function StudentsFilters({ query, courses }: StudentsFiltersProps) {
 	const { update } = useStudentsUrl();
