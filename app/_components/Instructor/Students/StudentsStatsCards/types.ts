@@ -2,8 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { StudentStatusCounts } from "@/server/entities/instructor/students";
 
 export type StudentsStatsCardsProps = {
-	counts: StudentStatusCounts | undefined;
-	isLoading: boolean;
+	counts: StudentStatusCounts;
 };
 
 export type StatCardProps = {

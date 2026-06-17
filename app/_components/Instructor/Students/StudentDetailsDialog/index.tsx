@@ -1,5 +1,9 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import {
+	DialogBody,
+	ScrollableDialogContent,
+} from "@/app/_components/_shared/components/ScrollableDialog";
+import {
 	Avatar,
 	AvatarFallback,
 	AvatarImage,
@@ -7,7 +11,6 @@ import {
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import {
 	Dialog,
-	DialogContent,
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
@@ -23,7 +26,7 @@ export function StudentDetailsDialog({
 }: StudentDetailsDialogProps) {
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent className="max-w-2xl">
+			<ScrollableDialogContent className="max-w-2xl">
 				{student && (
 					<>
 						<DialogHeader>
@@ -32,7 +35,7 @@ export function StudentDetailsDialog({
 								View detailed information about this student
 							</DialogDescription>
 						</DialogHeader>
-						<div className="space-y-6 py-4">
+						<DialogBody className="space-y-6 py-4">
 							<div className="flex items-center gap-4">
 								<Avatar className="h-16 w-16">
 									<AvatarImage
@@ -126,10 +129,10 @@ export function StudentDetailsDialog({
 									))}
 								</div>
 							</div>
-						</div>
+						</DialogBody>
 					</>
 				)}
-			</DialogContent>
+			</ScrollableDialogContent>
 		</Dialog>
 	);
 }

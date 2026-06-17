@@ -1,4 +1,7 @@
+"use client";
+
 import { ArrowUpDown, BookOpen, Filter, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Card } from "@/app/_components/_shared/ui/card";
 import { Input } from "@/app/_components/_shared/ui/input";
 import {
@@ -9,19 +12,30 @@ import {
 	SelectValue,
 } from "@/app/_components/_shared/ui/select";
 import type { GetStudentsInput } from "@/server/entities/instructor/students";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { useStudentsUrl } from "../hooks/useStudentsUrl";
 import type { StudentsFiltersProps } from "./types";
+import {STATUS_OPTIONS} from "@/app/_components/Instructor/Students/StudentsFilters/constants/statusOptions";
+import {SORT_OPTIONS} from "@/app/_components/Instructor/Students/StudentsFilters/constants/sortOptions";
 
-export function StudentsFilters({
-	search,
-	onSearchChange,
-	status,
-	onStatusChange,
-	courseId,
-	onCourseChange,
-	sort,
-	onSortChange,
-	courses,
-}: StudentsFiltersProps) {
+export function StudentsFilters({ query, courses }: StudentsFiltersProps) {
+	const { update } = useStudentsUrl();
+	const [search, setSearch] = useState(query.q);
+	const debouncedSearch = useDebouncedValue(search, 300);
+
+	// Keep the input in sync when the URL changes (e.g. back/forward navigation).
+	useEffect(() => {
+		setSearch(query.q);
+	}, [query.q]);
+
+	// Push the debounced search term to the URL once typing settles.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: update is stable per render of searchParams; reacting only to the debounced value is intentional
+	useEffect(() => {
+		if (debouncedSearch !== query.q) {
+			update({ q: debouncedSearch });
+		}
+	}, [debouncedSearch]);
+
 	return (
 		<Card className="p-4">
 			<div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -29,7 +43,7 @@ export function StudentsFilters({
 					<Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						className="pl-9"
-						onChange={(e) => onSearchChange(e.target.value)}
+						onChange={(e) => setSearch(e.target.value)}
 						placeholder="Search students..."
 						value={search}
 					/>
@@ -37,23 +51,27 @@ export function StudentsFilters({
 				<div className="flex flex-wrap items-center gap-3">
 					<Select
 						onValueChange={(v) =>
-							onStatusChange(v as GetStudentsInput["status"])
+							update({ status: v as GetStudentsInput["status"] })
 						}
-						value={status}
+						value={query.status}
 					>
-						<SelectTrigger className="w-[140px]">
+						<SelectTrigger className="w-37">
 							<Filter className="mr-2 h-4 w-4" />
 							<SelectValue placeholder="Status" />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="all">All Status</SelectItem>
-							<SelectItem value="active">Active</SelectItem>
-							<SelectItem value="completed">Completed</SelectItem>
-							<SelectItem value="inactive">Inactive</SelectItem>
+							{STATUS_OPTIONS.map((option) => (
+								<SelectItem key={option.value} value={option.value}>
+									{option.label}
+								</SelectItem>
+							))}
 						</SelectContent>
 					</Select>
-					<Select onValueChange={onCourseChange} value={courseId}>
-						<SelectTrigger className="w-[220px]">
+					<Select
+						onValueChange={(courseId) => update({ courseId })}
+						value={query.courseId}
+					>
+						<SelectTrigger className="w-55">
 							<BookOpen className="mr-2 h-4 w-4" />
 							<SelectValue placeholder="Course" />
 						</SelectTrigger>
@@ -67,17 +85,21 @@ export function StudentsFilters({
 						</SelectContent>
 					</Select>
 					<Select
-						onValueChange={(v) => onSortChange(v as GetStudentsInput["sort"])}
-						value={sort}
+						onValueChange={(v) =>
+							update({ sort: v as GetStudentsInput["sort"] })
+						}
+						value={query.sort}
 					>
-						<SelectTrigger className="w-[160px]">
+						<SelectTrigger className="w-42">
 							<ArrowUpDown className="mr-2 h-4 w-4" />
 							<SelectValue placeholder="Sort by" />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="recent">Most Recent</SelectItem>
-							<SelectItem value="name">Name</SelectItem>
-							<SelectItem value="progress">Progress</SelectItem>
+							{SORT_OPTIONS.map((option) => (
+								<SelectItem key={option.value} value={option.value}>
+									{option.label}
+								</SelectItem>
+							))}
 						</SelectContent>
 					</Select>
 				</div>

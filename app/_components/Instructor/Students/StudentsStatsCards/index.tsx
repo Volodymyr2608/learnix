@@ -26,47 +26,37 @@ function StatCard({
 	);
 }
 
-export function StudentsStatsCards({
-	counts,
-	isLoading,
-}: StudentsStatsCardsProps) {
-	const c = counts ?? { total: 0, active: 0, completed: 0, inactive: 0 };
-
+export function StudentsStatsCards({ counts }: StudentsStatsCardsProps) {
 	return (
 		<div className="grid gap-4 md:grid-cols-4">
-			{isLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
-			{!isLoading && (
-				<>
-					<StatCard
-						icon={Users}
-						iconClass="text-primary"
-						iconWrapClass="bg-primary/10"
-						label="Total Students"
-						value={c.total}
-					/>
-					<StatCard
-						icon={TrendingUp}
-						iconClass="text-green-600"
-						iconWrapClass="bg-green-500/10"
-						label="Active Learners"
-						value={c.active}
-					/>
-					<StatCard
-						icon={GraduationCap}
-						iconClass="text-blue-600"
-						iconWrapClass="bg-blue-500/10"
-						label="Completed"
-						value={c.completed}
-					/>
-					<StatCard
-						icon={Clock}
-						iconClass="text-gray-600"
-						iconWrapClass="bg-gray-500/10"
-						label="Inactive"
-						value={c.inactive}
-					/>
-				</>
-			)}
+			<StatCard
+				icon={Users}
+				iconClass="text-primary"
+				iconWrapClass="bg-primary/10"
+				label="Total Students"
+				value={counts.total}
+			/>
+			<StatCard
+				icon={TrendingUp}
+				iconClass="text-green-600"
+				iconWrapClass="bg-green-500/10"
+				label="Active Learners"
+				value={counts.active}
+			/>
+			<StatCard
+				icon={GraduationCap}
+				iconClass="text-blue-600"
+				iconWrapClass="bg-blue-500/10"
+				label="Completed"
+				value={counts.completed}
+			/>
+			<StatCard
+				icon={Clock}
+				iconClass="text-gray-600"
+				iconWrapClass="bg-gray-500/10"
+				label="Inactive"
+				value={counts.inactive}
+			/>
 		</div>
 	);
 }
