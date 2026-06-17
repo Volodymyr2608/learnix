@@ -1,4 +1,8 @@
-import { type Enrollment, EnrollmentStatus, Prisma } from "@/generated/prisma";
+import {
+	type Enrollment,
+	EnrollmentStatus,
+	type Prisma,
+} from "@/generated/prisma";
 import { getMonthWindows } from "@/lib/stats/monthWindows";
 import type {
 	StudentCourseProgress,
@@ -173,22 +177,24 @@ class EnrollmentRepository extends BaseRepository<
 		const { instructorId, cutoff, q, status, courseId, sort, page, perPage } =
 			params;
 
-		const courseClause = courseId
-			? Prisma.sql`AND e."studentId" IN (SELECT "studentId" FROM enrollments WHERE "courseId" = ${courseId} AND status <> 'cancelled')`
-			: Prisma.empty;
-		const searchClause = q
-			? Prisma.sql`AND (name ILIKE ${`%${q}%`} OR email ILIKE ${`%${q}%`})`
-			: Prisma.empty;
-		const statusClause =
-			status === "all" ? Prisma.empty : Prisma.sql`AND status = ${status}`;
-		const orderBy =
-			sort === "name"
-				? Prisma.sql`ORDER BY name ASC`
-				: sort === "progress"
-					? Prisma.sql`ORDER BY progress DESC`
-					: Prisma.sql`ORDER BY recent_enrolled_at DESC`;
+		// Prisma.sql fragment composition does not flatten reliably inside
+		// $queryRaw under the Next.js bundler (nested Sql instances fail the
+		// `instanceof` check and get bound as scalar params), so we build the
+		// SQL string explicitly with positional placeholders and pass values
+		// to $queryRawUnsafe — the same pattern used in embedding.repository.
+		const queryParams: unknown[] = [];
+		const bind = (value: unknown) => {
+			queryParams.push(value);
+			return `$${queryParams.length}`;
+		};
 
-		const cte = Prisma.sql`
+		const instructorParam = bind(instructorId);
+		const cutoffParam = bind(cutoff);
+		const courseClause = courseId
+			? `AND e."studentId" IN (SELECT "studentId" FROM enrollments WHERE "courseId" = ${bind(courseId)} AND status <> 'cancelled')`
+			: "";
+
+		const cte = `
 			WITH student_rows AS (
 				SELECT
 					e."studentId" AS id,
@@ -207,7 +213,7 @@ class EnrollmentRepository extends BaseRepository<
 					) AS courses
 				FROM enrollments e
 				JOIN courses c ON c.id = e."courseId"
-				WHERE c."instructorId" = ${instructorId}
+				WHERE c."instructorId" = ${instructorParam}
 					AND c.deleted_at IS NULL
 					AND e.status <> 'cancelled'
 					${courseClause}
@@ -219,7 +225,7 @@ class EnrollmentRepository extends BaseRepository<
 					u.name, u.email, u.image,
 					CASE
 						WHEN s.all_completed THEN 'completed'
-						WHEN s.last_active_at IS NULL OR s.last_active_at < ${cutoff} THEN 'inactive'
+						WHEN s.last_active_at IS NULL OR s.last_active_at < ${cutoffParam} THEN 'inactive'
 						ELSE 'active'
 					END AS status
 				FROM student_rows s
@@ -227,21 +233,47 @@ class EnrollmentRepository extends BaseRepository<
 			)
 		`;
 
+		const filterClauses: string[] = [];
+		if (q) {
+			const likeParam = bind(`%${q}%`);
+			filterClauses.push(
+				`AND (name ILIKE ${likeParam} OR email ILIKE ${likeParam})`,
+			);
+		}
+		if (status !== "all") {
+			filterClauses.push(`AND status = ${bind(status)}`);
+		}
+		const filterSql = filterClauses.join(" ");
+
+		const orderBy =
+			sort === "name"
+				? "ORDER BY name ASC"
+				: sort === "progress"
+					? "ORDER BY progress DESC"
+					: "ORDER BY recent_enrolled_at DESC";
+
+		const countSql = `
+			${cte}
+			SELECT COUNT(*)::bigint AS count
+			FROM enriched
+			WHERE TRUE ${filterSql}
+		`;
+		const countParams = [...queryParams];
+
+		const limitParam = bind(perPage);
+		const offsetParam = bind((page - 1) * perPage);
+		const dataSql = `
+			${cte}
+			SELECT id, name, email, image, progress, last_active_at, joined_at, status, courses
+			FROM enriched
+			WHERE TRUE ${filterSql}
+			${orderBy}
+			LIMIT ${limitParam} OFFSET ${offsetParam}
+		`;
+
 		const [rows, totalRows] = await Promise.all([
-			this.db.$queryRaw<RawStudentRow[]>`
-				${cte}
-				SELECT id, name, email, image, progress, last_active_at, joined_at, status, courses
-				FROM enriched
-				WHERE TRUE ${searchClause} ${statusClause}
-				${orderBy}
-				LIMIT ${perPage} OFFSET ${(page - 1) * perPage}
-			`,
-			this.db.$queryRaw<[{ count: bigint }]>`
-				${cte}
-				SELECT COUNT(*)::bigint AS count
-				FROM enriched
-				WHERE TRUE ${searchClause} ${statusClause}
-			`,
+			this.db.$queryRawUnsafe<RawStudentRow[]>(dataSql, ...queryParams),
+			this.db.$queryRawUnsafe<[{ count: bigint }]>(countSql, ...countParams),
 		]);
 
 		return { rows, total: Number(totalRows[0]?.count ?? 0) };
