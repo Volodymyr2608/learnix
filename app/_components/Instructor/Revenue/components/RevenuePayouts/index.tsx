@@ -1,17 +1,12 @@
-"use client";
-
 import { Wallet } from "lucide-react";
 import { Card } from "@/app/_components/_shared/ui/card";
 import { PayoutsActionButton } from "@/app/_components/Account/PayoutsSection/components/PayoutsActionButton";
 import { StatusBadge } from "@/app/_components/Account/PayoutsSection/components/StatusBadge";
-import { api } from "@/trpc/client";
 import { STATUS_HINT } from "./constants/statusHint";
+import type { RevenuePayoutsProps } from "./types";
 
-export default function RevenuePayouts() {
-	const { data: connect } = api.payment.getConnectStatus.useQuery();
-	const hint = connect?.status
-		? STATUS_HINT[connect.status]
-		: STATUS_HINT.verified;
+export default function RevenuePayouts({ connect }: RevenuePayoutsProps) {
+	const hint = STATUS_HINT[connect.status];
 
 	return (
 		<Card className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -22,16 +17,12 @@ export default function RevenuePayouts() {
 				<div>
 					<div className="flex items-center gap-2">
 						<h2 className="font-semibold text-lg">Payouts</h2>
-						{connect?.status !== undefined && (
-							<StatusBadge status={connect.status} />
-						)}
+						<StatusBadge status={connect.status} />
 					</div>
 					<p className="mt-1 max-w-md text-muted-foreground text-sm">{hint}</p>
 				</div>
 			</div>
-			{connect?.status !== undefined && (
-				<PayoutsActionButton status={connect.status} />
-			)}
+			<PayoutsActionButton status={connect.status} />
 		</Card>
 	);
 }
