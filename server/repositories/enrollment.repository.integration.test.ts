@@ -226,3 +226,75 @@ describe("EnrollmentRepository.getInstructorStudentStatusCounts", () => {
 		expect(counts).toEqual({ total: 0, active: 0, completed: 0, inactive: 0 });
 	});
 });
+
+describe("EnrollmentRepository.getStudentCompletionStats", () => {
+	it("counts completed enrollments lifetime and by month", async () => {
+		const { subMonths, startOfMonth } = await import("date-fns");
+		const now = new Date();
+		const thisMonthStart = startOfMonth(now);
+		const lastMonthStart = startOfMonth(subMonths(now, 1));
+
+		const student = await makeUser({ role: Role.STUDENT });
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course1 = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const course2 = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const course3 = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const course4 = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+
+		// Completion this month
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: course1.id,
+			status: EnrollmentStatus.completed,
+			completedAt: new Date(thisMonthStart.getTime() + 1000 * 60 * 60 * 24 * 5), // 5 days into this month
+		});
+
+		// Completion last month
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: course2.id,
+			status: EnrollmentStatus.completed,
+			completedAt: new Date(
+				lastMonthStart.getTime() + 1000 * 60 * 60 * 24 * 10,
+			), // 10 days into last month
+		});
+
+		// Active enrollment (not completed) - should be excluded
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: course3.id,
+			status: EnrollmentStatus.active,
+			completedAt: null,
+		});
+
+		// Another completion this month
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: course4.id,
+			status: EnrollmentStatus.completed,
+			completedAt: new Date(
+				thisMonthStart.getTime() + 1000 * 60 * 60 * 24 * 15,
+			), // 15 days into this month
+		});
+
+		const stats = await enrollmentRepository.getStudentCompletionStats(
+			student.id,
+		);
+
+		expect(stats.total).toBe(3); // 2 this month + 1 last month
+		expect(stats.thisMonthNew).toBe(2);
+		expect(stats.lastMonthNew).toBe(1);
+	});
+});

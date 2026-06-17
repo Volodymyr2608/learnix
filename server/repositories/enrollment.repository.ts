@@ -366,6 +366,27 @@ class EnrollmentRepository extends BaseRepository<
 			inactive: Number(r?.inactive ?? 0),
 		};
 	}
+
+	async getStudentCompletionStats(studentId: string): Promise<{
+		total: number;
+		thisMonthNew: number;
+		lastMonthNew: number;
+	}> {
+		const { startThisMonth, startLastMonth, startNextMonth } =
+			getMonthWindows();
+		const [total, thisMonthNew, lastMonthNew] = await Promise.all([
+			this.count({ studentId, completedAt: { not: null } }),
+			this.count({
+				studentId,
+				completedAt: { gte: startThisMonth, lt: startNextMonth },
+			}),
+			this.count({
+				studentId,
+				completedAt: { gte: startLastMonth, lt: startThisMonth },
+			}),
+		]);
+		return { total, thisMonthNew, lastMonthNew };
+	}
 }
 
 export const enrollmentRepository = new EnrollmentRepository();
