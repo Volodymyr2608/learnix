@@ -2,10 +2,7 @@
 
 import { DialogContent } from "@/app/_components/_shared/ui/dialog";
 import { cn } from "@/lib/utils/cn";
-import type {
-	DialogBodyProps,
-	ScrollableDialogContentProps,
-} from "./types";
+import type { DialogBodyProps, ScrollableDialogContentProps } from "./types";
 
 /**
  * DialogContent capped at 85vh and laid out as a flex column so that a
