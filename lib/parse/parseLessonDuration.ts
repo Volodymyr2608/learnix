@@ -1,5 +1,7 @@
 /** Best-effort parse of legacy free-text lesson durations into minutes.
- *  Returns null when the value cannot be confidently read as a lesson length. */
+ *  Returns null when the value cannot be confidently read as a lesson length.
+ *  Retained for re-running the legacy free-text → minutes backfill against a
+ *  restored/legacy dump; not wired into runtime code since Lesson.duration was dropped. */
 export function parseLessonDuration(
 	raw: string | null | undefined,
 ): number | null {
