@@ -174,7 +174,7 @@ class EnrollmentRepository extends BaseRepository<
 			params;
 
 		const courseClause = courseId
-			? Prisma.sql`AND e."studentId" IN (SELECT "studentId" FROM enrollments WHERE "courseId" = ${courseId})`
+			? Prisma.sql`AND e."studentId" IN (SELECT "studentId" FROM enrollments WHERE "courseId" = ${courseId} AND status <> 'cancelled')`
 			: Prisma.empty;
 		const searchClause = q
 			? Prisma.sql`AND (name ILIKE ${`%${q}%`} OR email ILIKE ${`%${q}%`})`
