@@ -1,3 +1,4 @@
+import { subDays } from "date-fns";
 import { Role } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { computeDelta } from "@/lib/stats/computeDelta";
@@ -7,6 +8,11 @@ import type {
 	DashboardStats,
 	TopCourse,
 } from "@/server/entities/instructor/dashboard";
+import type {
+	GetStudentsInput,
+	PaginatedStudents,
+	StudentStatusCounts,
+} from "@/server/entities/instructor/students";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
@@ -18,6 +24,9 @@ import { signUnsubscribeToken } from "@/server/services/email/unsubscribe-token"
 import { InstructorError } from "@/server/services/instructor/instructor.errors";
 import { userService } from "@/server/services/user/user.service";
 import { logger } from "@/server/utils/logger";
+
+const INACTIVE_DAYS = 7;
+const STUDENTS_PER_PAGE = 10;
 
 class InstructorService {
 	async createInstructor(dto: InstructorSchemaInput) {
@@ -181,6 +190,56 @@ class InstructorService {
 
 		events.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
 		return events.slice(0, limit);
+	}
+
+	async getStudents(
+		instructorId: string,
+		input: GetStudentsInput,
+	): Promise<PaginatedStudents> {
+		logger.info("Getting instructor students", { instructorId, ...input });
+
+		const perPage = STUDENTS_PER_PAGE;
+		const cutoff = subDays(new Date(), INACTIVE_DAYS);
+
+		const { rows, total } = await enrollmentRepository.findInstructorStudents({
+			instructorId,
+			cutoff,
+			q: input.q,
+			status: input.status,
+			courseId: input.courseId,
+			sort: input.sort,
+			page: input.page,
+			perPage,
+		});
+
+		return {
+			data: rows.map((r) => ({
+				id: r.id,
+				name: r.name,
+				email: r.email,
+				image: r.image,
+				courses: r.courses,
+				overallProgress: r.progress,
+				lastActiveAt: r.last_active_at,
+				joinedAt: r.joined_at,
+				status: r.status,
+			})),
+			total,
+			currentPage: input.page,
+			perPage,
+			lastPage: Math.max(1, Math.ceil(total / perPage)),
+		};
+	}
+
+	async getStudentStatusCounts(
+		instructorId: string,
+	): Promise<StudentStatusCounts> {
+		logger.info("Getting instructor student status counts", { instructorId });
+		const cutoff = subDays(new Date(), INACTIVE_DAYS);
+		return enrollmentRepository.getInstructorStudentStatusCounts(
+			instructorId,
+			cutoff,
+		);
 	}
 }
 

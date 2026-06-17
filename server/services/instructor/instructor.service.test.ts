@@ -8,6 +8,8 @@ const mockPaymentRepo = {
 const mockEnrollmentRepo = {
 	getInstructorStudentStats: vi.fn(),
 	findRecentByInstructor: vi.fn(),
+	findInstructorStudents: vi.fn(),
+	getInstructorStudentStatusCounts: vi.fn(),
 };
 const mockReviewRepo = {
 	getInstructorRatingStats: vi.fn(),
@@ -249,5 +251,80 @@ describe("InstructorService.getRecentActivity", () => {
 		mockReviewRepo.findRecentByInstructor.mockResolvedValue([]);
 		const result = await instructorService.getRecentActivity("i1");
 		expect(result).toEqual([]);
+	});
+});
+
+describe("InstructorService.getStudents", () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	it("maps repo rows to StudentRow DTOs and computes pagination", async () => {
+		mockEnrollmentRepo.findInstructorStudents.mockResolvedValue({
+			rows: [
+				{
+					id: "u1",
+					name: "Ann",
+					email: "ann@example.com",
+					image: null,
+					progress: 50,
+					last_active_at: new Date("2026-06-15T00:00:00Z"),
+					joined_at: new Date("2026-06-01T00:00:00Z"),
+					status: "active",
+					courses: [
+						{ courseId: "c1", title: "C1", progress: 50, completed: false },
+					],
+				},
+			],
+			total: 23,
+		});
+
+		const result = await instructorService.getStudents(INSTRUCTOR_ID, {
+			status: "all",
+			sort: "recent",
+			page: 2,
+		});
+
+		expect(result.total).toBe(23);
+		expect(result.currentPage).toBe(2);
+		expect(result.perPage).toBe(10);
+		expect(result.lastPage).toBe(3); // ceil(23/10)
+		expect(result.data[0]).toMatchObject({
+			id: "u1",
+			overallProgress: 50,
+			lastActiveAt: new Date("2026-06-15T00:00:00Z"),
+			joinedAt: new Date("2026-06-01T00:00:00Z"),
+			status: "active",
+		});
+		// cutoff passed to repo is ~7 days before now
+		const [firstCall] = mockEnrollmentRepo.findInstructorStudents.mock.calls;
+		const cutoff = (firstCall?.[0] as { cutoff: Date }).cutoff;
+		const daysAgo = (Date.now() - cutoff.getTime()) / (1000 * 60 * 60 * 24);
+		expect(Math.round(daysAgo)).toBe(7);
+	});
+
+	it("returns lastPage of 1 when there are no students", async () => {
+		mockEnrollmentRepo.findInstructorStudents.mockResolvedValue({
+			rows: [],
+			total: 0,
+		});
+		const result = await instructorService.getStudents(INSTRUCTOR_ID, {
+			status: "all",
+			sort: "recent",
+			page: 1,
+		});
+		expect(result).toMatchObject({ total: 0, lastPage: 1, data: [] });
+	});
+});
+
+describe("InstructorService.getStudentStatusCounts", () => {
+	it("returns the counts from the repository", async () => {
+		mockEnrollmentRepo.getInstructorStudentStatusCounts.mockResolvedValue({
+			total: 5,
+			active: 3,
+			completed: 1,
+			inactive: 1,
+		});
+		const counts =
+			await instructorService.getStudentStatusCounts(INSTRUCTOR_ID);
+		expect(counts).toEqual({ total: 5, active: 3, completed: 1, inactive: 1 });
 	});
 });
