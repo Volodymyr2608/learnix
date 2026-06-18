@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import ReactPaginate from "react-paginate";
+import type { CoursePaginationProps } from "@/app/_components/Course/components/CoursePagination/types";
 import { cn } from "@/lib/utils/cn";
-import type {CoursePaginationProps} from "@/app/_components/Course/components/CoursePagination/types";
 
 export const CoursePagination = ({
 	currentPage,
