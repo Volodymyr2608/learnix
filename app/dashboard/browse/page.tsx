@@ -1,10 +1,9 @@
 import BrowseCourses from "@/app/_components/Course/components/BrowseCourses";
 import { CoursePagination } from "@/app/_components/Course/components/CoursePagination";
+import { COURSE_PAGE_SIZE } from "@/lib/constants/pagination";
 import { getPublishedCourses } from "@/lib/requests/course/getPublishedCourses";
 import getStudentEnrolledCourses from "@/lib/requests/course/getStudentEnrolledCourses";
 import { getSemanticSearchResults } from "@/lib/requests/search/getSemanticSearchResults";
-
-const PAGE_SIZE = 9;
 
 const BrowseCoursesPage = async ({
 	searchParams,
@@ -25,7 +24,7 @@ const BrowseCoursesPage = async ({
 	]);
 
 	const { courses, total } = courseResult;
-	const totalPages = q ? 1 : Math.max(1, Math.ceil(total / PAGE_SIZE));
+	const totalPages = q ? 1 : Math.max(1, Math.ceil(total / COURSE_PAGE_SIZE));
 	const safePage = Math.min(currentPage, totalPages);
 
 	const enrolledMap: Record<string, string | null> = {};

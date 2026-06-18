@@ -4,6 +4,7 @@ import {
 	EnrollmentStatus,
 	type Prisma,
 } from "@/generated/prisma";
+import { COURSE_PAGE_SIZE } from "@/lib/constants/pagination";
 import type {
 	GetOwnCoursesInput,
 	PaginatedOwnCourses,
@@ -116,7 +117,6 @@ export default class CourseRepository extends BaseRepository<
 	async searchOwnCourses(
 		params: GetOwnCoursesInput & { instructorId: string },
 	): Promise<PaginatedOwnCourses> {
-		const PAGE_SIZE = 9;
 		const {
 			instructorId,
 			q,
@@ -166,8 +166,8 @@ export default class CourseRepository extends BaseRepository<
 					thumbnailUrl: true,
 				},
 				orderBy: ORDER_BY[sort],
-				skip: (page - 1) * PAGE_SIZE,
-				take: PAGE_SIZE,
+				skip: (page - 1) * COURSE_PAGE_SIZE,
+				take: COURSE_PAGE_SIZE,
 			}),
 			this.count(where),
 		]);
@@ -176,8 +176,8 @@ export default class CourseRepository extends BaseRepository<
 			data,
 			total,
 			currentPage: page,
-			lastPage: Math.max(1, Math.ceil(total / PAGE_SIZE)),
-			perPage: PAGE_SIZE,
+			lastPage: Math.max(1, Math.ceil(total / COURSE_PAGE_SIZE)),
+			perPage: COURSE_PAGE_SIZE,
 		};
 	}
 
@@ -255,7 +255,6 @@ export default class CourseRepository extends BaseRepository<
 		category?: string;
 		page?: number;
 	}) {
-		const PAGE_SIZE = 9;
 		const { q, category, page = 1 } = params ?? {};
 
 		const where: Prisma.CourseWhereInput = {
@@ -274,8 +273,8 @@ export default class CourseRepository extends BaseRepository<
 			this.findMany({
 				where,
 				include,
-				skip: (page - 1) * PAGE_SIZE,
-				take: PAGE_SIZE,
+				skip: (page - 1) * COURSE_PAGE_SIZE,
+				take: COURSE_PAGE_SIZE,
 				orderBy: { createdAt: "desc" },
 			}),
 			this.count(where),
