@@ -15,7 +15,7 @@ export const LessonContentUpdateDto = z.object({
 	id: z.string(),
 	title: z.string().min(1, "Title is required"),
 	description: z.string().nullable().optional(),
-	duration: z.string().nullable().optional(),
+	durationMinutes: z.number().int().min(0).nullable().optional(),
 	videoUrl: z.string().nullable().optional(),
 	content: z.string().nullable().optional(),
 	resources: z

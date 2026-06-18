@@ -16,7 +16,7 @@ const lessonSchema = z
 		z.object({
 			id: z.string().optional(),
 			title: z.string().min(1, "Lesson title is required"),
-			duration: z.string().nullable().optional(),
+			durationMinutes: z.number().int().min(0).nullable().optional(),
 		}),
 	)
 	.min(1, "At least 1 lesson is required per section");
@@ -143,7 +143,7 @@ export type SectionUpdateDto = z.infer<typeof SectionUpdateDto>;
 
 const LessonCreateDto = LessonSchema.pick({
 	title: true,
-	duration: true,
+	durationMinutes: true,
 	sectionId: true,
 	order: true,
 });

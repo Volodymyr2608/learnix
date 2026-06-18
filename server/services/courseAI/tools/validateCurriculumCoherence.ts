@@ -9,7 +9,12 @@ const sectionSchema = z.object({
 	title: z.string(),
 	order: z.number().optional(),
 	lessons: z
-		.array(z.object({ title: z.string(), duration: z.string().optional() }))
+		.array(
+			z.object({
+				title: z.string(),
+				durationMinutes: z.number().int().optional(),
+			}),
+		)
 		.min(1),
 });
 

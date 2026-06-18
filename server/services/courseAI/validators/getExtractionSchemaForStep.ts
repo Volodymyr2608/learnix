@@ -32,7 +32,7 @@ export const getExtractionSchemaForStep = (step: DraftStep) => {
 						lessons: z.array(
 							z.object({
 								title: z.string(),
-								duration: z.string().optional(),
+								durationMinutes: z.number().int().optional(),
 							}),
 						),
 					}),

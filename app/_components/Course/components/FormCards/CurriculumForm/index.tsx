@@ -58,7 +58,7 @@ const CurriculumForm = ({ isEdit, courseId }: CurriculumFormProps) => {
 		addSection({
 			title: "",
 			order: current.length + 1,
-			lessons: [{ title: "", duration: "" }],
+			lessons: [{ title: "", durationMinutes: null }],
 		});
 	};
 

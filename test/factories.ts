@@ -71,3 +71,14 @@ export function makeEnrollment(
 		data: { status: EnrollmentStatus.active, ...overrides },
 	});
 }
+
+export function makeLessonProgress(
+	overrides: Partial<Prisma.LessonProgressUncheckedCreateInput> & {
+		lessonId: string;
+		studentId: string;
+	},
+) {
+	return testDb.lessonProgress.create({
+		data: { isCompleted: false, ...overrides },
+	});
+}

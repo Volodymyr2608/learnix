@@ -45,7 +45,7 @@ export const STEP_PROMPTS = {
     Requirements:
     - Create 4-6 sections that logically cover the topic from start to finish.
     - Each section must contain 3-5 lessons.
-    - Each lesson needs a 'title' and a 'duration' string (e.g., "10 min").
+    - Each lesson needs a 'title' and an optional 'durationMinutes' as a whole number of minutes (e.g., 10).
     - Ensure the curriculum flows naturally: Intro -> Core Concepts -> Advanced Practice -> Project/Summary.
   `,
 };

@@ -25,6 +25,14 @@ function DeltaBadge({ delta }: DeltaBadgeProps) {
 			</div>
 		);
 	}
+	if (delta.value === -100) {
+		return (
+			<div className="mt-2 flex items-center gap-1 text-red-600 text-sm">
+				<ArrowDownRight className="h-4 w-4" />
+				<span>None this month</span>
+			</div>
+		);
+	}
 	if (delta.direction === "flat") {
 		return (
 			<div className="mt-2 flex items-center gap-1 text-muted-foreground text-sm">

@@ -1,8 +1,6 @@
-/** Month-over-month change for a stat card. */
-export type StatDelta =
-	| { kind: "percent"; value: number; direction: "up" | "down" | "flat" }
-	| { kind: "new" } // prior period 0, current > 0
-	| { kind: "none" }; // nothing to compare (both periods 0)
+import type { StatDelta } from "@/lib/stats/statDelta";
+
+export type { StatDelta } from "@/lib/stats/statDelta";
 
 /** All data needed to render the four instructor dashboard stat cards. */
 export type DashboardStats = {

@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
@@ -7,13 +8,25 @@ import DashboardRevenueChart from "@/app/_components/Instructor/DashboardRevenue
 import DashboardStatsCards from "@/app/_components/Instructor/DashboardStatsCards";
 import RecentActivity from "@/app/_components/Instructor/RecentActivity";
 import TopPerformingCourses from "@/app/_components/Instructor/TopPerformingCourses";
+import { Role } from "@/generated/prisma";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import getDashboardStats from "@/lib/requests/instructor/getDashboardStats";
 import getRecentActivity from "@/lib/requests/instructor/getRecentActivity";
 import getRevenueTimeSeries from "@/lib/requests/instructor/getRevenueTimeSeries";
 import getTopPerformingCourses from "@/lib/requests/instructor/getTopPerformingCourses";
+import { getSession } from "@/server/better-auth/server";
 
 export default async function DashboardPage() {
+	const session = await getSession();
+
+	if (!session?.user) {
+		redirect("/sign-in");
+	}
+
+	if (session.user.role !== Role.INSTRUCTOR) {
+		redirect("/dashboard");
+	}
+
 	const [stats, revenueSeries, topCourses, activity] = await Promise.all([
 		getDashboardStats(),
 		getRevenueTimeSeries(),

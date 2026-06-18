@@ -10,7 +10,7 @@ export type LessonFormData = {
 	description: string;
 	videoUrl: string;
 	videoFile: File | null;
-	duration: string;
+	durationMinutes: number | null;
 	textContent: string;
 };
 

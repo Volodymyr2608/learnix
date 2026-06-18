@@ -8,7 +8,7 @@ export const useLessonForm = (initialLesson: LessonData) => {
 		description: initialLesson.description ?? "",
 		videoUrl: initialLesson.videoUrl ?? "",
 		videoFile: null,
-		duration: initialLesson.duration ?? "",
+		durationMinutes: initialLesson.durationMinutes ?? null,
 		textContent: initialLesson.content ?? "",
 	}));
 

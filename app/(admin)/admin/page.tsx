@@ -1,4 +1,5 @@
 import { DollarSign } from "lucide-react";
+import { redirect } from "next/navigation";
 import {
 	Card,
 	CardContent,
@@ -6,10 +7,22 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { SweepButton } from "@/app/(admin)/admin/SweepButton";
+import { Role } from "@/generated/prisma";
 import { formatPrice } from "@/lib/formatPrice";
+import { getSession } from "@/server/better-auth/server";
 import { api } from "@/trpc/server";
 
 export default async function AdminPage() {
+	const session = await getSession();
+
+	if (!session?.user) {
+		redirect("/sign-in");
+	}
+
+	if (session.user.role !== Role.ADMIN) {
+		redirect("/dashboard");
+	}
+
 	const { totalRevenueCents } = await api.payment.getPlatformRevenue();
 
 	return (

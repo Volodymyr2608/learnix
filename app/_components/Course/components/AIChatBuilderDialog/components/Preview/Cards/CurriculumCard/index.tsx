@@ -7,6 +7,7 @@ import {
 } from "@/app/_components/_shared/ui/card";
 import type { CurriculumCardProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/CurriculumCard/types";
 import NotYetGenerated from "@/app/_components/Course/components/AIChatBuilderDialog/components/Preview/Cards/NotYetGenerated";
+import { formatDuration } from "@/lib/format/formatDuration";
 import { cn } from "@/lib/utils/cn";
 
 const CurriculumCard = ({ curriculum, completed }: CurriculumCardProps) => {
@@ -42,7 +43,7 @@ const CurriculumCard = ({ curriculum, completed }: CurriculumCardProps) => {
 											</span>
 											<span className="flex shrink-0 items-start gap-1 pt-0.5 text-xs">
 												<Clock className="mt-0.5 h-3 w-3" />
-												{lesson.duration}
+												{formatDuration(lesson.durationMinutes)}
 											</span>
 										</li>
 									))}

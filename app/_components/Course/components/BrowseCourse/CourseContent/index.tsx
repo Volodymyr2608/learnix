@@ -11,6 +11,7 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import type { CourseContentProps } from "@/app/_components/Course/components/BrowseCourse/CourseContent/types";
+import { formatDuration } from "@/lib/format/formatDuration";
 
 const CourseContent = ({ curriculum }: CourseContentProps) => {
 	const [expandedSections, setExpandedSections] = useState<number[]>([0]);
@@ -68,7 +69,7 @@ const CourseContent = ({ curriculum }: CourseContentProps) => {
 												</Button>
 											)}
 											<span className="text-muted-foreground">
-												{lesson.duration}
+												{formatDuration(lesson.durationMinutes)}
 											</span>
 										</div>
 									</div>

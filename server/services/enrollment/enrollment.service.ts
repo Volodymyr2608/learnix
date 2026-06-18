@@ -259,7 +259,7 @@ class EnrollmentService {
 										select: {
 											id: true,
 											title: true,
-											duration: true,
+											durationMinutes: true,
 											progresses: {
 												where: { studentId },
 												select: { isCompleted: true },
@@ -287,7 +287,7 @@ class EnrollmentService {
 					lessons: section.lessons.map((lesson) => ({
 						id: lesson.id,
 						title: lesson.title,
-						duration: lesson.duration,
+						durationMinutes: lesson.durationMinutes,
 						isCompleted: lesson.progresses[0]?.isCompleted ?? false,
 					})),
 				})),

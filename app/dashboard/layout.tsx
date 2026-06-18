@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import DashboardLayout from "@/app/_components/Dashboard/Layout";
 import { Role } from "@/generated/prisma";
+import ADMIN_URLS from "@/lib/constants/urls/adminUrls";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { env } from "@/lib/env";
 import { getSession } from "@/server/better-auth/server";
 import { userRepository } from "@/server/repositories/user.repository";
@@ -19,8 +21,12 @@ const DashboardRootLayout = async ({
 		redirect("/sign-in");
 	}
 
-	if (session.user.role !== Role.STUDENT) {
-		redirect("/dashboard");
+	if (session.user.role === Role.INSTRUCTOR) {
+		redirect(INSTRUCTOR_URLS.dashboard);
+	}
+
+	if (session.user.role === Role.ADMIN) {
+		redirect(ADMIN_URLS.dashboard);
 	}
 
 	if (session.user.emailVerified) {

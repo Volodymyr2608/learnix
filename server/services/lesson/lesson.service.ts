@@ -79,7 +79,7 @@ class LessonService {
 				const result = await lessonRepository.update(lessonId, {
 					title: dto.title,
 					description: dto.description ?? null,
-					duration: dto.duration ?? null,
+					durationMinutes: dto.durationMinutes ?? null,
 					videoUrl: dto.videoUrl ?? null,
 					content: dto.content ?? null,
 					resources: dto.resources ?? [],
