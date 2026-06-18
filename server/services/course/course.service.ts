@@ -5,6 +5,10 @@ import type {
 	CourseFullUpdateDto,
 	CourseWithSections,
 } from "@/server/entities/course";
+import type {
+	GetOwnCoursesInput,
+	PaginatedOwnCourses,
+} from "@/server/entities/course/ownCourses";
 import type { CourseOwnerStats } from "@/server/entities/course/stats";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
@@ -80,6 +84,13 @@ class CourseService {
 				thisMonthGrossCents: revenue.thisMonthGrossCents,
 			},
 		};
+	}
+
+	async searchOwnCourses(
+		instructorId: string,
+		input: GetOwnCoursesInput,
+	): Promise<PaginatedOwnCourses> {
+		return courseRepository.searchOwnCourses({ ...input, instructorId });
 	}
 
 	private async createSections(

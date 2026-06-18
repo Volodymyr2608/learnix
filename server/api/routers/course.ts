@@ -5,6 +5,7 @@ import {
 	CourseFullCreateDto,
 	CourseFullUpdateDto,
 } from "@/server/entities/course";
+import { getOwnCoursesInput } from "@/server/entities/course/ownCourses";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseService } from "@/server/services/course/course.service";
 import { enrollmentService } from "@/server/services/enrollment/enrollment.service";
@@ -71,6 +72,16 @@ export const courseRouter = createTRPCRouter({
 			handleServiceError(error);
 		}
 	}),
+
+	searchOwnCourses: instructorProcedure
+		.input(getOwnCoursesInput)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await courseService.searchOwnCourses(ctx.session.user.id, input);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
 
 	getOwnCourse: instructorProcedure
 		.input(CourseSchema.shape.id)

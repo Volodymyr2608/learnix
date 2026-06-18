@@ -80,3 +80,21 @@ describe("CourseService publish", () => {
 		);
 	});
 });
+
+describe("CourseService.searchOwnCourses", () => {
+	it("delegates to the repository and stays scoped to the instructor", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const other = await makeUser({ role: Role.INSTRUCTOR });
+		await makeCourse({ instructorId: instructor.id, title: "Mine" });
+		await makeCourse({ instructorId: other.id, title: "Theirs" });
+
+		const res = await courseService.searchOwnCourses(instructor.id, {
+			status: "all",
+			sort: "updated",
+			page: 1,
+		});
+
+		expect(res.total).toBe(1);
+		expect(res.data[0]?.title).toBe("Mine");
+	});
+});
