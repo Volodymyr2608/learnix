@@ -29,7 +29,7 @@ the page consumes none of it. The `RecommendedRail` below is already dynamic
 
 ## Goal
 
-- A student sees their own real enrolled-course count, lessons completed, certificates
+- A student sees their own real enrolled-course count, hours learned, certificates
   earned, and completion rate on the dashboard stat cards.
 - The count-based cards show a true month-over-month change instead of a fixed string.
 - "Continue Learning" lists the student's actual in-progress courses, deep-links into the
@@ -41,18 +41,24 @@ the page consumes none of it. The `RecommendedRail` below is already dynamic
 ## Scope decisions (locked)
 
 1. **All four stat cards become real from existing tables — no schema changes.** The
-   cards are Enrolled Courses, Lessons Completed, Certificates, and Completion Rate.
-2. **"Hours Learned" is replaced by "Lessons Completed".** `Lesson.duration` is an
-   instructor-typed free-text `String?` and is not reliably parseable; lessons-completed
-   from `LessonProgress` is a clean, accurate source today. No new structured duration
-   field is introduced.
+   cards are Enrolled Courses, Hours Learned, Certificates, and Completion Rate.
+2. **"Hours Learned" stays, now backed by `Lesson.durationMinutes`.** The free-text
+   `Lesson.duration String?` was replaced by a numeric `durationMinutes Int?`
+   (`prisma/schema/lesson.prisma`), and the student-progress feature already aggregates
+   completed minutes (`lessonProgressRepository.getCompletedMinutesTotals`,
+   `StudentProgressStats.totalMinutes`). Hours Learned = sum of `durationMinutes` over the
+   student's completed lessons, formatted to hours. No new structured duration field is
+   introduced — the column already exists.
 3. **No new Certificate model.** A certificate already *is* a completed enrollment
    (the certificate PDF is rendered from `Enrollment.completedAt`); the count is therefore
    `COUNT(Enrollment WHERE completedAt IS NOT NULL)` for the student.
-4. **Compute real month-over-month deltas for the three count-based cards** — Enrolled
-   Courses (`enrolledAt`), Lessons Completed (`LessonProgress.completedAt`), and
-   Certificates (`Enrollment.completedAt`). All use calendar-month windows in server local
-   time, for one consistent comparison period.
+4. **Compute real month-over-month deltas for the three trend cards** — Enrolled
+   Courses (by `enrolledAt`), Hours Learned (sum of `durationMinutes` for lessons whose
+   `LessonProgress.completedAt` falls in the window), and Certificates
+   (`Enrollment.completedAt`). All use calendar-month windows in server local time, for one
+   consistent comparison period. (Note: the existing `getCompletedMinutesTotals` uses
+   trailing-7-day windows for the progress page; the dashboard needs a month-bucketed
+   minutes sum instead — see `spec.md`.)
 5. **Completion Rate has no delta.** We do not store historical progress snapshots, so a
    prior-period completion rate cannot be computed from current data. The card shows a
    static descriptive subline instead of a trend.
@@ -73,6 +79,9 @@ the page consumes none of it. The `RecommendedRail` below is already dynamic
   (`server/repositories/course.repository.ts`).
 - Completion Rate = completed courses ÷ total enrolled courses, expressed as a whole
   percentage. With zero enrolled courses it renders `0%`.
+- `Lesson.durationMinutes` is nullable (instructor-supplied); lessons without it count as
+  0 minutes, so Hours Learned may undercount until instructors populate durations. This is
+  accepted — it degrades gracefully rather than blocking the metric.
 - The "next incomplete lesson" for a course is the lesson with the lowest `order` (across
   sections in order) that has no completed `LessonProgress` for the student.
 - Must follow the existing three-layer pattern (router → service → repository) and the
@@ -87,8 +96,8 @@ the page consumes none of it. The `RecommendedRail` below is already dynamic
 |---|---------|---------------------------------|
 | FR1 | Enrolled Courses card | Shows the count of the student's `active` enrollments. With none, shows `0`. |
 | FR2 | Enrolled Courses delta | Shows the change in number of enrollments created (`enrolledAt`) this calendar month vs last. Positive/negative are visually distinguished (text/icon, not color alone). When last month = 0 and this month > 0, shows "New"; when both = 0, the delta is hidden. |
-| FR3 | Lessons Completed card | Shows the count of the student's `LessonProgress` rows where `isCompleted = true`. With none, shows `0`. |
-| FR4 | Lessons Completed delta | Shows the change in lessons completed (`LessonProgress.completedAt`) this calendar month vs last, with the same zero-handling rules as FR2. |
+| FR3 | Hours Learned card | Shows the sum of `Lesson.durationMinutes` over the student's completed lessons (`LessonProgress.isCompleted = true`), formatted to hours (one decimal). Lessons with a null `durationMinutes` contribute 0. With none, shows `0`. |
+| FR4 | Hours Learned delta | Shows the change in hours learned (summing `durationMinutes` for lessons whose `LessonProgress.completedAt` falls in each window) this calendar month vs last, with the same zero-handling rules as FR2. |
 | FR5 | Certificates card | Shows the count of the student's enrollments where `completedAt IS NOT NULL`. With none, shows `0`. |
 | FR6 | Certificates delta | Shows the change in certificates earned (`Enrollment.completedAt`) this calendar month vs last, with the same zero-handling rules as FR2. |
 | FR7 | Completion Rate card | Shows completed courses ÷ total enrolled courses as a whole percentage. With zero enrolled courses, shows `0%`. The subline is a static descriptor (e.g. "Across enrolled courses"); no delta is shown. |
@@ -124,8 +133,9 @@ the page consumes none of it. The `RecommendedRail` below is already dynamic
 
 ## Out of scope (deferred)
 
-- Any new `Certificate` model or structured lesson-duration field.
-- A true "Hours Learned" metric (requires structured durations).
+- Any new `Certificate` model or structured lesson-duration field (`durationMinutes`
+  already exists).
+- Backfilling `durationMinutes` for lessons that lack it (instructor-entered over time).
 - Completion Rate trend over time (requires historical progress snapshots).
 - Changes to `RecommendedRail` (already dynamic).
 - Date-range filtering or custom comparison periods.
