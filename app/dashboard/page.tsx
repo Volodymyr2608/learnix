@@ -1,4 +1,5 @@
 import { Award, BookOpen, Clock, TrendingUp } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import {
 	Card,
@@ -8,9 +9,27 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import RecommendedRail from "@/app/_components/Course/components/RecommendedRail";
+import { Role } from "@/generated/prisma";
+import ADMIN_URLS from "@/lib/constants/urls/adminUrls";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import { getSession } from "@/server/better-auth/server";
 import { getRecommendations } from "./actions/getRecommendations";
 
 export default async function DashboardPage() {
+	const session = await getSession();
+
+	if (!session?.user) {
+		redirect("/sign-in");
+	}
+
+	if (session.user.role === Role.INSTRUCTOR) {
+		redirect(INSTRUCTOR_URLS.dashboard);
+	}
+
+	if (session.user.role === Role.ADMIN) {
+		redirect(ADMIN_URLS.dashboard);
+	}
+
 	const recommendations = await getRecommendations();
 
 	return (
