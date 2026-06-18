@@ -7,7 +7,8 @@ export function buildOwnCoursesQueryParams(
 	const params: Record<string, string> = {};
 	if (query.q) params.q = query.q;
 	if (query.status !== "all") params.status = query.status;
-	if (query.category && query.category !== "all") params.category = query.category;
+	if (query.category && query.category !== "all")
+		params.category = query.category;
 	if (query.sort !== "updated") params.sort = query.sort;
 	return params;
 }

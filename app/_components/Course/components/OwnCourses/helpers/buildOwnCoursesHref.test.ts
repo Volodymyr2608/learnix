@@ -26,7 +26,12 @@ describe("buildOwnCoursesQueryParams", () => {
 				sort: "title",
 				page: 3,
 			}),
-		).toEqual({ q: "react", status: "draft", category: "design", sort: "title" });
+		).toEqual({
+			q: "react",
+			status: "draft",
+			category: "design",
+			sort: "title",
+		});
 	});
 });
 
