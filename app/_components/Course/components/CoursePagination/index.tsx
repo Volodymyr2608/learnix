@@ -3,20 +3,14 @@
 import { useRouter } from "next/navigation";
 import ReactPaginate from "react-paginate";
 import { cn } from "@/lib/utils/cn";
-
-type Props = {
-	currentPage: number;
-	totalPages: number;
-	basePath: string;
-	query?: Record<string, string>;
-};
+import type {CoursePaginationProps} from "@/app/_components/Course/components/CoursePagination/types";
 
 export const CoursePagination = ({
 	currentPage,
 	totalPages,
 	basePath,
 	query = {},
-}: Props) => {
+}: CoursePaginationProps) => {
 	const router = useRouter();
 
 	const itemClass = cn(
