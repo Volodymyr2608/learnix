@@ -40,6 +40,31 @@ class LessonRepository extends BaseRepository<
 		);
 	}
 
+	async findOrderedLessonIdsByCourseIds(
+		courseIds: string[],
+	): Promise<{ courseId: string; lessonId: string; title: string }[]> {
+		if (courseIds.length === 0) return [];
+		const sections = await this.db.section.findMany({
+			where: { courseId: { in: courseIds }, deletedAt: null },
+			orderBy: { order: "asc" },
+			select: {
+				courseId: true,
+				lessons: {
+					where: { deletedAt: null },
+					orderBy: { order: "asc" },
+					select: { id: true, title: true },
+				},
+			},
+		});
+		return sections.flatMap((s) =>
+			s.lessons.map((l) => ({
+				courseId: s.courseId,
+				lessonId: l.id,
+				title: l.title,
+			})),
+		);
+	}
+
 	async completedLessonIds(
 		courseId: string,
 		studentId: string,

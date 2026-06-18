@@ -1,3 +1,4 @@
+import { startOfMonth, subDays } from "date-fns";
 import { describe, expect, it } from "vitest";
 import { CourseStatus, EnrollmentStatus, Role } from "@/generated/prisma";
 import { makeCourse, makeEnrollment, makeUser } from "@/test/factories";
@@ -296,5 +297,112 @@ describe("EnrollmentRepository.getStudentCompletionStats", () => {
 		expect(stats.total).toBe(3); // 2 this month + 1 last month
 		expect(stats.thisMonthNew).toBe(2);
 		expect(stats.lastMonthNew).toBe(1);
+	});
+});
+
+describe("enrollmentRepository.getStudentEnrollmentStats (integration)", () => {
+	it("counts active, total, and this/last-month new enrollments by enrolledAt", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+		const now = new Date();
+		const lastMonth = subDays(startOfMonth(now), 5); // safely in the previous month
+
+		const courseA = await makeCourse({ instructorId: instructor.id });
+		const courseB = await makeCourse({ instructorId: instructor.id });
+		const courseC = await makeCourse({ instructorId: instructor.id });
+
+		// active, enrolled this month
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: courseA.id,
+			status: EnrollmentStatus.active,
+			enrolledAt: now,
+		});
+		// active, enrolled last month
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: courseB.id,
+			status: EnrollmentStatus.active,
+			enrolledAt: lastMonth,
+		});
+		// cancelled, enrolled this month (counts toward total, not active)
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: courseC.id,
+			status: EnrollmentStatus.cancelled,
+			enrolledAt: now,
+		});
+
+		const stats = await enrollmentRepository.getStudentEnrollmentStats(
+			student.id,
+		);
+		expect(stats).toEqual({
+			active: 2,
+			total: 3,
+			thisMonthNew: 2, // A + C
+			lastMonthNew: 1, // B
+		});
+	});
+});
+
+describe("enrollmentRepository.findInProgressForContinue (integration)", () => {
+	it("returns only 0<progress<100 active enrollments, newest lastAccessedAt first, capped", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+
+		const inProgressNew = await makeCourse({
+			instructorId: instructor.id,
+			title: "In Progress New",
+		});
+		const inProgressOld = await makeCourse({
+			instructorId: instructor.id,
+			title: "In Progress Old",
+		});
+		const notStarted = await makeCourse({ instructorId: instructor.id });
+		const finished = await makeCourse({ instructorId: instructor.id });
+
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: inProgressNew.id,
+			status: EnrollmentStatus.active,
+			progress: 50,
+			lastAccessedAt: new Date(2026, 5, 17),
+		});
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: inProgressOld.id,
+			status: EnrollmentStatus.active,
+			progress: 80,
+			lastAccessedAt: new Date(2026, 5, 10),
+		});
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: notStarted.id,
+			status: EnrollmentStatus.active,
+			progress: 0,
+		});
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: finished.id,
+			status: EnrollmentStatus.active,
+			progress: 100,
+		});
+
+		const rows = await enrollmentRepository.findInProgressForContinue(
+			student.id,
+			3,
+		);
+		expect(rows).toEqual([
+			{
+				courseId: inProgressNew.id,
+				courseTitle: "In Progress New",
+				progress: 50,
+			},
+			{
+				courseId: inProgressOld.id,
+				courseTitle: "In Progress Old",
+				progress: 80,
+			},
+		]);
 	});
 });

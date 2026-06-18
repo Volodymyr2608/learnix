@@ -4,9 +4,16 @@ const mockLessonProgressRepo = {
 	getCompletedMinutesTotals: vi.fn(),
 	getDailyCompletedMinutes: vi.fn(),
 	getCompletionDays: vi.fn(),
+	getStudentLessonStats: vi.fn(),
+	findCompletedByLessonIds: vi.fn(),
 };
 const mockEnrollmentRepo = {
 	getStudentCompletionStats: vi.fn(),
+	getStudentEnrollmentStats: vi.fn(),
+	findInProgressForContinue: vi.fn(),
+};
+const mockLessonRepo = {
+	findOrderedLessonIdsByCourseIds: vi.fn(),
 };
 
 vi.mock("@/server/repositories/lessonProgress.repository", () => ({
@@ -14,6 +21,9 @@ vi.mock("@/server/repositories/lessonProgress.repository", () => ({
 }));
 vi.mock("@/server/repositories/enrollment.repository", () => ({
 	enrollmentRepository: mockEnrollmentRepo,
+}));
+vi.mock("@/server/repositories/lesson.repository", () => ({
+	lessonRepository: mockLessonRepo,
 }));
 
 const { studentService } = await import("./student.service");
@@ -88,5 +98,128 @@ describe("StudentService.getProgressStats", () => {
 		expect(r.currentStreakDays).toBe(0);
 		expect(r.avgDailyMinutes).toBe(0);
 		expect(r.weeklyActivity.every((d) => d.minutes === 0)).toBe(true);
+	});
+});
+
+describe("StudentService.getDashboardStats", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("assembles the four cards with month-over-month deltas and completion rate", async () => {
+		mockEnrollmentRepo.getStudentEnrollmentStats.mockResolvedValue({
+			active: 5,
+			total: 8,
+			thisMonthNew: 2,
+			lastMonthNew: 1,
+		});
+		mockEnrollmentRepo.getStudentCompletionStats.mockResolvedValue({
+			total: 4,
+			thisMonthNew: 1,
+			lastMonthNew: 0,
+		});
+		mockLessonProgressRepo.getStudentLessonStats.mockResolvedValue({
+			lifetimeMinutes: 600,
+			thisMonthMinutes: 200,
+			lastMonthMinutes: 100,
+		});
+
+		const r = await studentService.getDashboardStats(STUDENT_ID);
+
+		expect(r.enrolledCourses).toEqual({
+			total: 5,
+			delta: { kind: "percent", value: 100, direction: "up" },
+		});
+		expect(r.hoursLearned).toEqual({
+			totalMinutes: 600,
+			delta: { kind: "percent", value: 100, direction: "up" },
+		});
+		expect(r.certificates).toEqual({ total: 4, delta: { kind: "new" } });
+		expect(r.completionRate).toEqual({ percent: 50 }); // 4 / 8
+	});
+
+	it("returns zeroed values and a 0% rate for a new student", async () => {
+		mockEnrollmentRepo.getStudentEnrollmentStats.mockResolvedValue({
+			active: 0,
+			total: 0,
+			thisMonthNew: 0,
+			lastMonthNew: 0,
+		});
+		mockEnrollmentRepo.getStudentCompletionStats.mockResolvedValue({
+			total: 0,
+			thisMonthNew: 0,
+			lastMonthNew: 0,
+		});
+		mockLessonProgressRepo.getStudentLessonStats.mockResolvedValue({
+			lifetimeMinutes: 0,
+			thisMonthMinutes: 0,
+			lastMonthMinutes: 0,
+		});
+
+		const r = await studentService.getDashboardStats(STUDENT_ID);
+		expect(r.enrolledCourses.delta).toEqual({ kind: "none" });
+		expect(r.hoursLearned).toEqual({
+			totalMinutes: 0,
+			delta: { kind: "none" },
+		});
+		expect(r.certificates).toEqual({ total: 0, delta: { kind: "none" } });
+		expect(r.completionRate).toEqual({ percent: 0 });
+	});
+});
+
+describe("StudentService.getContinueLearning", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("resolves the first incomplete lesson per in-progress course, preserving order", async () => {
+		mockEnrollmentRepo.findInProgressForContinue.mockResolvedValue([
+			{ courseId: "c1", courseTitle: "Course One", progress: 50 },
+			{ courseId: "c2", courseTitle: "Course Two", progress: 80 },
+		]);
+		mockLessonRepo.findOrderedLessonIdsByCourseIds.mockResolvedValue([
+			{ courseId: "c1", lessonId: "c1l1", title: "C1 L1" },
+			{ courseId: "c1", lessonId: "c1l2", title: "C1 L2" },
+			{ courseId: "c2", lessonId: "c2l1", title: "C2 L1" },
+		]);
+		// c1l1 is done → next for c1 is c1l2; nothing done for c2 → next is c2l1
+		mockLessonProgressRepo.findCompletedByLessonIds.mockResolvedValue([
+			{ lessonId: "c1l1" },
+		]);
+
+		const items = await studentService.getContinueLearning(STUDENT_ID);
+
+		expect(items).toEqual([
+			{
+				courseId: "c1",
+				courseTitle: "Course One",
+				progress: 50,
+				nextLessonId: "c1l2",
+				nextLessonTitle: "C1 L2",
+			},
+			{
+				courseId: "c2",
+				courseTitle: "Course Two",
+				progress: 80,
+				nextLessonId: "c2l1",
+				nextLessonTitle: "C2 L1",
+			},
+		]);
+	});
+
+	it("drops a course whose every lesson is completed, and returns [] when none in progress", async () => {
+		mockEnrollmentRepo.findInProgressForContinue.mockResolvedValueOnce([
+			{ courseId: "c1", courseTitle: "Course One", progress: 99 },
+		]);
+		mockLessonRepo.findOrderedLessonIdsByCourseIds.mockResolvedValueOnce([
+			{ courseId: "c1", lessonId: "c1l1", title: "C1 L1" },
+		]);
+		mockLessonProgressRepo.findCompletedByLessonIds.mockResolvedValueOnce([
+			{ lessonId: "c1l1" },
+		]);
+		expect(await studentService.getContinueLearning(STUDENT_ID)).toEqual([]);
+
+		mockEnrollmentRepo.findInProgressForContinue.mockResolvedValueOnce([]);
+		expect(await studentService.getContinueLearning(STUDENT_ID)).toEqual([]);
 	});
 });

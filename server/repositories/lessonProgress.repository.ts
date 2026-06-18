@@ -1,5 +1,6 @@
 import type { LessonProgress, Prisma } from "@/generated/prisma";
 import { getWeekWindows } from "@/lib/stats/getWeekWindows";
+import { getMonthWindows } from "@/lib/stats/monthWindows";
 import { BaseRepository } from "./base/base.repository";
 
 class LessonProgressRepository extends BaseRepository<
@@ -74,6 +75,36 @@ class LessonProgressRepository extends BaseRepository<
 			lifetimeMinutes: Number(r?.lifetime ?? 0),
 			thisWeekMinutes: Number(r?.this_week ?? 0),
 			priorWeekMinutes: Number(r?.prior_week ?? 0),
+		};
+	}
+
+	async getStudentLessonStats(studentId: string): Promise<{
+		lifetimeMinutes: number;
+		thisMonthMinutes: number;
+		lastMonthMinutes: number;
+	}> {
+		const { startThisMonth, startLastMonth, startNextMonth } =
+			getMonthWindows();
+		const rows = await this.db.$queryRaw<
+			[{ lifetime: number; this_month: number; last_month: number }]
+		>`
+			SELECT
+				COALESCE(SUM(l.duration_minutes), 0)::int AS lifetime,
+				COALESCE(SUM(l.duration_minutes) FILTER (
+					WHERE lp."completedAt" >= ${startThisMonth}
+						AND lp."completedAt" < ${startNextMonth}), 0)::int AS this_month,
+				COALESCE(SUM(l.duration_minutes) FILTER (
+					WHERE lp."completedAt" >= ${startLastMonth}
+						AND lp."completedAt" < ${startThisMonth}), 0)::int AS last_month
+			FROM lesson_progress lp
+			JOIN lessons l ON l.id = lp."lessonId"
+			WHERE lp."studentId" = ${studentId} AND lp."isCompleted" = true
+		`;
+		const r = rows[0];
+		return {
+			lifetimeMinutes: Number(r?.lifetime ?? 0),
+			thisMonthMinutes: Number(r?.this_month ?? 0),
+			lastMonthMinutes: Number(r?.last_month ?? 0),
 		};
 	}
 

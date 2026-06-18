@@ -10,4 +10,18 @@ export const studentRouter = createTRPCRouter({
 			handleServiceError(error);
 		}
 	}),
+	getDashboardStats: studentProcedure.query(async ({ ctx }) => {
+		try {
+			return await studentService.getDashboardStats(ctx.session.user.id);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+	getContinueLearning: studentProcedure.query(async ({ ctx }) => {
+		try {
+			return await studentService.getContinueLearning(ctx.session.user.id);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
 });

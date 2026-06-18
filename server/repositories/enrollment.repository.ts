@@ -367,6 +367,62 @@ class EnrollmentRepository extends BaseRepository<
 		};
 	}
 
+	async getStudentEnrollmentStats(studentId: string): Promise<{
+		active: number;
+		total: number;
+		thisMonthNew: number;
+		lastMonthNew: number;
+	}> {
+		const { startThisMonth, startLastMonth, startNextMonth } =
+			getMonthWindows();
+		const [active, total, thisMonthNew, lastMonthNew] = await Promise.all([
+			this.count({ studentId, status: EnrollmentStatus.active }),
+			this.count({ studentId }),
+			this.count({
+				studentId,
+				enrolledAt: { gte: startThisMonth, lt: startNextMonth },
+			}),
+			this.count({
+				studentId,
+				enrolledAt: { gte: startLastMonth, lt: startThisMonth },
+			}),
+		]);
+		return { active, total, thisMonthNew, lastMonthNew };
+	}
+
+	async findInProgressForContinue(
+		studentId: string,
+		limit: number,
+	): Promise<{ courseId: string; courseTitle: string; progress: number }[]> {
+		const rows = await this.findMany({
+			where: {
+				studentId,
+				status: EnrollmentStatus.active,
+				progress: { gt: 0, lt: 100 },
+				course: { deletedAt: null },
+			},
+			orderBy: { lastAccessedAt: { sort: "desc", nulls: "last" } },
+			take: limit,
+			select: {
+				progress: true,
+				courseId: true,
+				course: { select: { title: true } },
+			},
+		});
+		return rows.map((r) => {
+			const row = r as {
+				progress: number;
+				courseId: string;
+				course: { title: string };
+			};
+			return {
+				courseId: row.courseId,
+				courseTitle: row.course.title,
+				progress: row.progress,
+			};
+		});
+	}
+
 	async getStudentCompletionStats(studentId: string): Promise<{
 		total: number;
 		thisMonthNew: number;
