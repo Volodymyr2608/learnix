@@ -1,5 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { buildOwnCoursesHref } from "./buildOwnCoursesHref";
+import {
+	buildOwnCoursesHref,
+	buildOwnCoursesQueryParams,
+} from "./buildOwnCoursesHref";
+
+describe("buildOwnCoursesQueryParams", () => {
+	it("omits defaults and empties", () => {
+		expect(
+			buildOwnCoursesQueryParams({
+				q: "",
+				status: "all",
+				category: "all",
+				sort: "updated",
+				page: 1,
+			}),
+		).toEqual({});
+	});
+
+	it("includes only non-default params, excluding page", () => {
+		expect(
+			buildOwnCoursesQueryParams({
+				q: "react",
+				status: "draft",
+				category: "design",
+				sort: "title",
+				page: 3,
+			}),
+		).toEqual({ q: "react", status: "draft", category: "design", sort: "title" });
+	});
+});
 
 describe("buildOwnCoursesHref", () => {
 	it("omits defaults and empties", () => {

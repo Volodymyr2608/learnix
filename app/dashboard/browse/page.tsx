@@ -50,14 +50,9 @@ const BrowseCoursesPage = async ({
 
 			{!q && totalPages > 1 && (
 				<CoursePagination
-					buildHref={(p) => {
-						const params = new URLSearchParams();
-						if (currentCategory) params.set("category", currentCategory);
-						if (p > 1) params.set("page", String(p));
-						const qs = params.toString();
-						return `/dashboard/browse${qs ? `?${qs}` : ""}`;
-					}}
+					basePath="/dashboard/browse"
 					currentPage={safePage}
+					query={currentCategory ? { category: currentCategory } : {}}
 					totalPages={totalPages}
 				/>
 			)}

@@ -43,10 +43,9 @@ export const MyCourses = ({
 
 			{totalPages > 1 && (
 				<CoursePagination
-					buildHref={(p) =>
-						`/dashboard/courses?tab=${currentTab}${p > 1 ? `&page=${p}` : ""}`
-					}
+					basePath="/dashboard/courses"
 					currentPage={safePage}
+					query={{ tab: currentTab }}
 					totalPages={totalPages}
 				/>
 			)}

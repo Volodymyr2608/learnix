@@ -7,19 +7,28 @@ import { cn } from "@/lib/utils/cn";
 type Props = {
 	currentPage: number;
 	totalPages: number;
-	buildHref: (page: number) => string;
+	basePath: string;
+	query?: Record<string, string>;
 };
 
 export const CoursePagination = ({
 	currentPage,
 	totalPages,
-	buildHref,
+	basePath,
+	query = {},
 }: Props) => {
 	const router = useRouter();
 
 	const itemClass = cn(
 		"inline-flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors hover:bg-muted",
 	);
+
+	const buildHref = (page: number) => {
+		const params = new URLSearchParams(query);
+		if (page > 1) params.set("page", String(page));
+		const qs = params.toString();
+		return qs ? `${basePath}?${qs}` : basePath;
+	};
 
 	return (
 		<ReactPaginate

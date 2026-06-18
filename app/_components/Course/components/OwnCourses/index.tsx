@@ -3,7 +3,7 @@ import { searchOwnCourses } from "@/app/_components/Course/components/OwnCourses
 import { OwnCoursesEmptyState } from "@/app/_components/Course/components/OwnCourses/components/OwnCoursesEmptyState";
 import { OwnCoursesFilters } from "@/app/_components/Course/components/OwnCourses/components/OwnCoursesFilters";
 import { OwnCoursesList } from "@/app/_components/Course/components/OwnCourses/components/OwnCoursesList";
-import { buildOwnCoursesHref } from "@/app/_components/Course/components/OwnCourses/helpers/buildOwnCoursesHref";
+import { buildOwnCoursesQueryParams } from "@/app/_components/Course/components/OwnCourses/helpers/buildOwnCoursesHref";
 import { toSearchInput } from "@/app/_components/Course/components/OwnCourses/searchParams";
 import type { OwnCoursesProps } from "@/app/_components/Course/components/OwnCourses/types";
 
@@ -21,8 +21,9 @@ const OwnCourses = async ({ query }: OwnCoursesProps) => {
 
 			{lastPage > 1 && (
 				<CoursePagination
-					buildHref={(p) => buildOwnCoursesHref({ ...query, page: p })}
+					basePath="/instructor/courses"
 					currentPage={currentPage}
+					query={buildOwnCoursesQueryParams(query)}
 					totalPages={lastPage}
 				/>
 			)}
