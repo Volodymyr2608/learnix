@@ -1,4 +1,4 @@
-import { startOfDay, subDays } from "date-fns";
+import { startOfDay, startOfMonth, subDays } from "date-fns";
 import { describe, expect, it } from "vitest";
 import { CourseStatus, Role } from "@/generated/prisma";
 import {
@@ -241,3 +241,69 @@ async function seedTwoCompletionDays() {
 
 	return { studentId: student.id };
 }
+
+describe("lessonProgressRepository.getStudentLessonStats (integration)", () => {
+	it("sums durationMinutes for completed lessons, bucketed by completedAt month", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const section = await makeSection({ courseId: course.id });
+		const now = new Date();
+		const lastMonth = subDays(startOfMonth(now), 5);
+
+		const l30 = await makeLesson({
+			sectionId: section.id,
+			order: 0,
+			durationMinutes: 30,
+		});
+		const lNull = await makeLesson({
+			sectionId: section.id,
+			order: 1,
+			durationMinutes: null,
+		});
+		const l60 = await makeLesson({
+			sectionId: section.id,
+			order: 2,
+			durationMinutes: 60,
+		});
+		const l90 = await makeLesson({
+			sectionId: section.id,
+			order: 3,
+			durationMinutes: 90,
+		});
+
+		await makeLessonProgress({
+			lessonId: l30.id,
+			studentId: student.id,
+			isCompleted: true,
+			completedAt: now,
+		});
+		await makeLessonProgress({
+			lessonId: lNull.id,
+			studentId: student.id,
+			isCompleted: true,
+			completedAt: now,
+		});
+		await makeLessonProgress({
+			lessonId: l60.id,
+			studentId: student.id,
+			isCompleted: true,
+			completedAt: lastMonth,
+		});
+		await makeLessonProgress({
+			lessonId: l90.id,
+			studentId: student.id,
+			isCompleted: false,
+		}); // ignored
+
+		const stats = await lessonProgressRepository.getStudentLessonStats(
+			student.id,
+		);
+		expect(stats.lifetimeMinutes).toBe(90); // 30 + 0(null) + 60
+		expect(stats.thisMonthMinutes).toBe(30);
+		expect(stats.lastMonthMinutes).toBe(60);
+	});
+});
