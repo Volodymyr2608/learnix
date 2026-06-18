@@ -11,14 +11,14 @@ export function parseLessonDuration(
 
 	// "mm:ss" → minutes (floor)
 	const clock = s.match(/^(\d+):([0-5]?\d)$/);
-	if (clock) return Number.parseInt(clock[1]!, 10);
+	if (clock) return Number.parseInt(clock[1] ?? "0", 10);
 
 	// "1h 30m", "1h", "90m", "30 min", "1.5 hours"
 	const hoursMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)/);
 	const minsMatch = s.match(/(\d+)\s*(?:m|min|mins|minute|minutes)\b/);
 	if (hoursMatch || minsMatch) {
-		const hours = hoursMatch ? Number.parseFloat(hoursMatch[1]!) : 0;
-		const mins = minsMatch ? Number.parseInt(minsMatch[1]!, 10) : 0;
+		const hours = hoursMatch ? Number.parseFloat(hoursMatch[1] ?? "0") : 0;
+		const mins = minsMatch ? Number.parseInt(minsMatch[1] ?? "0", 10) : 0;
 		const total = Math.round(hours * 60 + mins);
 		return total > 0 ? total : null;
 	}
@@ -26,7 +26,7 @@ export function parseLessonDuration(
 	// bare number → minutes
 	const bare = s.match(/^(\d+)$/);
 	if (bare) {
-		const n = Number.parseInt(bare[1]!, 10);
+		const n = Number.parseInt(bare[1] ?? "0", 10);
 		return n > 0 ? n : null;
 	}
 
