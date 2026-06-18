@@ -1,3 +1,4 @@
+import { toSlug } from "@/app/_components/Course/components/BrowseCourses/helpers/categoryHelpers";
 import CATEGORIES from "@/app/_components/Course/constants/categories";
 import type { GetOwnCoursesInput } from "@/server/entities/course/ownCourses";
 
@@ -21,9 +22,9 @@ export const SORT_OPTIONS: {
 	{ value: "students", label: "Most students" },
 ];
 
-// Value mirrors browse: "All" → "all" sentinel, otherwise the lowercased category.
+// Value mirrors browse: "All" → "all" sentinel, otherwise the slugified category.
 export const CATEGORY_OPTIONS: { value: string; label: string }[] =
 	CATEGORIES.map((cat) => ({
-		value: cat === "All" ? "all" : cat.toLowerCase(),
+		value: cat === "All" ? "all" : toSlug(cat),
 		label: cat,
 	}));

@@ -115,6 +115,21 @@ describe("CourseRepository.searchOwnCourses", () => {
 		expect(dev.total).toBe(1);
 	});
 
+	it("filters by a multi-word category slug", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		await makeCourse({ instructorId: instructor.id, category: "data-science" });
+		await makeCourse({ instructorId: instructor.id, category: "Design" });
+
+		const dataScience = await courseRepository.searchOwnCourses({
+			instructorId: instructor.id,
+			status: "all",
+			category: "data-science",
+			sort: "updated",
+			page: 1,
+		});
+		expect(dataScience.total).toBe(1);
+	});
+
 	it("searches title, subtitle, and description", async () => {
 		const instructor = await makeUser({ role: Role.INSTRUCTOR });
 		await makeCourse({ instructorId: instructor.id, title: "Intro to Rust" });
