@@ -166,3 +166,60 @@ describe("StudentService.getDashboardStats", () => {
 		expect(r.completionRate).toEqual({ percent: 0 });
 	});
 });
+
+describe("StudentService.getContinueLearning", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("resolves the first incomplete lesson per in-progress course, preserving order", async () => {
+		mockEnrollmentRepo.findInProgressForContinue.mockResolvedValue([
+			{ courseId: "c1", courseTitle: "Course One", progress: 50 },
+			{ courseId: "c2", courseTitle: "Course Two", progress: 80 },
+		]);
+		mockLessonRepo.findOrderedLessonIdsByCourseIds.mockResolvedValue([
+			{ courseId: "c1", lessonId: "c1l1", title: "C1 L1" },
+			{ courseId: "c1", lessonId: "c1l2", title: "C1 L2" },
+			{ courseId: "c2", lessonId: "c2l1", title: "C2 L1" },
+		]);
+		// c1l1 is done → next for c1 is c1l2; nothing done for c2 → next is c2l1
+		mockLessonProgressRepo.findCompletedByLessonIds.mockResolvedValue([
+			{ lessonId: "c1l1" },
+		]);
+
+		const items = await studentService.getContinueLearning(STUDENT_ID);
+
+		expect(items).toEqual([
+			{
+				courseId: "c1",
+				courseTitle: "Course One",
+				progress: 50,
+				nextLessonId: "c1l2",
+				nextLessonTitle: "C1 L2",
+			},
+			{
+				courseId: "c2",
+				courseTitle: "Course Two",
+				progress: 80,
+				nextLessonId: "c2l1",
+				nextLessonTitle: "C2 L1",
+			},
+		]);
+	});
+
+	it("drops a course whose every lesson is completed, and returns [] when none in progress", async () => {
+		mockEnrollmentRepo.findInProgressForContinue.mockResolvedValueOnce([
+			{ courseId: "c1", courseTitle: "Course One", progress: 99 },
+		]);
+		mockLessonRepo.findOrderedLessonIdsByCourseIds.mockResolvedValueOnce([
+			{ courseId: "c1", lessonId: "c1l1", title: "C1 L1" },
+		]);
+		mockLessonProgressRepo.findCompletedByLessonIds.mockResolvedValueOnce([
+			{ lessonId: "c1l1" },
+		]);
+		expect(await studentService.getContinueLearning(STUDENT_ID)).toEqual([]);
+
+		mockEnrollmentRepo.findInProgressForContinue.mockResolvedValueOnce([]);
+		expect(await studentService.getContinueLearning(STUDENT_ID)).toEqual([]);
+	});
+});
