@@ -4,9 +4,16 @@ const mockLessonProgressRepo = {
 	getCompletedMinutesTotals: vi.fn(),
 	getDailyCompletedMinutes: vi.fn(),
 	getCompletionDays: vi.fn(),
+	getStudentLessonStats: vi.fn(),
+	findCompletedByLessonIds: vi.fn(),
 };
 const mockEnrollmentRepo = {
 	getStudentCompletionStats: vi.fn(),
+	getStudentEnrollmentStats: vi.fn(),
+	findInProgressForContinue: vi.fn(),
+};
+const mockLessonRepo = {
+	findOrderedLessonIdsByCourseIds: vi.fn(),
 };
 
 vi.mock("@/server/repositories/lessonProgress.repository", () => ({
@@ -14,6 +21,9 @@ vi.mock("@/server/repositories/lessonProgress.repository", () => ({
 }));
 vi.mock("@/server/repositories/enrollment.repository", () => ({
 	enrollmentRepository: mockEnrollmentRepo,
+}));
+vi.mock("@/server/repositories/lesson.repository", () => ({
+	lessonRepository: mockLessonRepo,
 }));
 
 const { studentService } = await import("./student.service");
@@ -88,5 +98,71 @@ describe("StudentService.getProgressStats", () => {
 		expect(r.currentStreakDays).toBe(0);
 		expect(r.avgDailyMinutes).toBe(0);
 		expect(r.weeklyActivity.every((d) => d.minutes === 0)).toBe(true);
+	});
+});
+
+describe("StudentService.getDashboardStats", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("assembles the four cards with month-over-month deltas and completion rate", async () => {
+		mockEnrollmentRepo.getStudentEnrollmentStats.mockResolvedValue({
+			active: 5,
+			total: 8,
+			thisMonthNew: 2,
+			lastMonthNew: 1,
+		});
+		mockEnrollmentRepo.getStudentCompletionStats.mockResolvedValue({
+			total: 4,
+			thisMonthNew: 1,
+			lastMonthNew: 0,
+		});
+		mockLessonProgressRepo.getStudentLessonStats.mockResolvedValue({
+			lifetimeMinutes: 600,
+			thisMonthMinutes: 200,
+			lastMonthMinutes: 100,
+		});
+
+		const r = await studentService.getDashboardStats(STUDENT_ID);
+
+		expect(r.enrolledCourses).toEqual({
+			total: 5,
+			delta: { kind: "percent", value: 100, direction: "up" },
+		});
+		expect(r.hoursLearned).toEqual({
+			totalMinutes: 600,
+			delta: { kind: "percent", value: 100, direction: "up" },
+		});
+		expect(r.certificates).toEqual({ total: 4, delta: { kind: "new" } });
+		expect(r.completionRate).toEqual({ percent: 50 }); // 4 / 8
+	});
+
+	it("returns zeroed values and a 0% rate for a new student", async () => {
+		mockEnrollmentRepo.getStudentEnrollmentStats.mockResolvedValue({
+			active: 0,
+			total: 0,
+			thisMonthNew: 0,
+			lastMonthNew: 0,
+		});
+		mockEnrollmentRepo.getStudentCompletionStats.mockResolvedValue({
+			total: 0,
+			thisMonthNew: 0,
+			lastMonthNew: 0,
+		});
+		mockLessonProgressRepo.getStudentLessonStats.mockResolvedValue({
+			lifetimeMinutes: 0,
+			thisMonthMinutes: 0,
+			lastMonthMinutes: 0,
+		});
+
+		const r = await studentService.getDashboardStats(STUDENT_ID);
+		expect(r.enrolledCourses.delta).toEqual({ kind: "none" });
+		expect(r.hoursLearned).toEqual({
+			totalMinutes: 0,
+			delta: { kind: "none" },
+		});
+		expect(r.certificates).toEqual({ total: 0, delta: { kind: "none" } });
+		expect(r.completionRate).toEqual({ percent: 0 });
 	});
 });

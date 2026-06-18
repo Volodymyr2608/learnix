@@ -1,6 +1,7 @@
 import { addDays, format, isEqual, startOfDay, subDays } from "date-fns";
 import { computeDelta } from "@/lib/stats/computeDelta";
 import { getWeekWindows } from "@/lib/stats/getWeekWindows";
+import type { StudentDashboardStats } from "@/server/entities/student/dashboard";
 import type {
 	StudentProgressStats,
 	WeeklyActivityDay,
@@ -63,6 +64,36 @@ class StudentService {
 			});
 		}
 		return days;
+	}
+
+	async getDashboardStats(studentId: string): Promise<StudentDashboardStats> {
+		logger.info("Getting student dashboard stats", { studentId });
+		const [enrollment, completion, lessons] = await Promise.all([
+			enrollmentRepository.getStudentEnrollmentStats(studentId),
+			enrollmentRepository.getStudentCompletionStats(studentId),
+			lessonProgressRepository.getStudentLessonStats(studentId),
+		]);
+
+		const percent =
+			enrollment.total === 0
+				? 0
+				: Math.round((completion.total / enrollment.total) * 100);
+
+		return {
+			enrolledCourses: {
+				total: enrollment.active,
+				delta: computeDelta(enrollment.thisMonthNew, enrollment.lastMonthNew),
+			},
+			hoursLearned: {
+				totalMinutes: lessons.lifetimeMinutes,
+				delta: computeDelta(lessons.thisMonthMinutes, lessons.lastMonthMinutes),
+			},
+			certificates: {
+				total: completion.total,
+				delta: computeDelta(completion.thisMonthNew, completion.lastMonthNew),
+			},
+			completionRate: { percent },
+		};
 	}
 
 	private computeStreak(completionDays: Date[]): number {
