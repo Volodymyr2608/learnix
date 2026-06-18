@@ -344,3 +344,65 @@ describe("enrollmentRepository.getStudentEnrollmentStats (integration)", () => {
 		});
 	});
 });
+
+describe("enrollmentRepository.findInProgressForContinue (integration)", () => {
+	it("returns only 0<progress<100 active enrollments, newest lastAccessedAt first, capped", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+
+		const inProgressNew = await makeCourse({
+			instructorId: instructor.id,
+			title: "In Progress New",
+		});
+		const inProgressOld = await makeCourse({
+			instructorId: instructor.id,
+			title: "In Progress Old",
+		});
+		const notStarted = await makeCourse({ instructorId: instructor.id });
+		const finished = await makeCourse({ instructorId: instructor.id });
+
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: inProgressNew.id,
+			status: EnrollmentStatus.active,
+			progress: 50,
+			lastAccessedAt: new Date(2026, 5, 17),
+		});
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: inProgressOld.id,
+			status: EnrollmentStatus.active,
+			progress: 80,
+			lastAccessedAt: new Date(2026, 5, 10),
+		});
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: notStarted.id,
+			status: EnrollmentStatus.active,
+			progress: 0,
+		});
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: finished.id,
+			status: EnrollmentStatus.active,
+			progress: 100,
+		});
+
+		const rows = await enrollmentRepository.findInProgressForContinue(
+			student.id,
+			3,
+		);
+		expect(rows).toEqual([
+			{
+				courseId: inProgressNew.id,
+				courseTitle: "In Progress New",
+				progress: 50,
+			},
+			{
+				courseId: inProgressOld.id,
+				courseTitle: "In Progress Old",
+				progress: 80,
+			},
+		]);
+	});
+});
