@@ -49,7 +49,7 @@ analogous feeds the courses page.
    instructor.
 2. **Sublines stay in the page's existing absolute-count style, not the dashboard's
    percentage-delta style.** The "Total Courses" card on this same page already shows an absolute
-   count ("+N this month"), so "Total Students" shows "+N students this month" and "Total Revenue"
+   count ("+N this month"), so "Total Students" shows "+N enrollments this month" and "Total Revenue"
    shows "+$N this month" (both can read "+0" with no activity) — rules out introducing the
    dashboard's `DeltaBadge` (up/down %, "New this month", color-coded arrows) onto this page.
 3. **Total Revenue here means the same lifetime gross definition used by the dashboard's Total
@@ -77,10 +77,10 @@ analogous feeds the courses page.
 | # | Surface | Behaviour (acceptance criteria) |
 |---|---------|---------------------------------|
 | FR1 | Total Students card | Shows the distinct count of students with an active enrollment in any course owned by the current instructor. |
-| FR2 | Total Students subline | Shows the number of students newly enrolled this calendar month, formatted as "+N students this month" (N may be 0). |
+| FR2 | Total Students subline | Shows the number of students newly enrolled this calendar month, formatted as "+N enrollments this month" (N may be 0). |
 | FR3 | Total Revenue card | Shows lifetime gross sales for the instructor (`SUM(amountCents)` where `instructorId` = current user, `status = succeeded`, `refundedAt = null`), formatted as USD. |
 | FR4 | Total Revenue subline | Shows this calendar month's gross sales as a dollar amount, formatted as "+$N this month" (N may be 0). |
-| FR5 | New instructor / zero state | With zero students and zero sales, the cards show "0" / "$0" and "+0 students this month" / "+$0 this month" — no crash, no fallback to the old mock numbers. |
+| FR5 | New instructor / zero state | With zero students and zero sales, the cards show "0" / "$0" and "+0 enrollments this month" / "+$0 this month" — no crash, no fallback to the old mock numbers. |
 | FR6 | Cross-page consistency | For a given instructor, the Total Students and Total Revenue figures on `/instructor/courses` equal the corresponding figures on the instructor dashboard at the same point in time. |
 
 ## Non-functional requirements

@@ -409,7 +409,7 @@ const OwnCoursesStats = async () => {
 			/>
 			<StatCard
 				label="Total Students"
-				subline={`+${students.newThisMonth} students this month`}
+				subline={`+${students.newThisMonth} enrollments this month`}
 				value={students.total}
 			/>
 			<StatCard
@@ -434,7 +434,7 @@ Expected: no errors. (No component tests exist anywhere in this codebase — `fi
 Run: `pnpm dev`, sign in as an instructor, visit `/instructor/courses`.
 Expected:
 - "Total Courses" and "Published" cards show the same numbers as before (unchanged).
-- "Total Students" shows a real count (0 if the instructor has no students) with a "+N students this month" subline.
+- "Total Students" shows a real count (0 if the instructor has no students) with a "+N enrollments this month" subline.
 - "Total Revenue" shows a real dollar amount (`$0` if no sales) with a "+$N this month" subline.
 - For an instructor known to have both students and sales, these two figures match the corresponding "Total Students" / "Total Revenue" cards on `/instructor` (the dashboard).
 

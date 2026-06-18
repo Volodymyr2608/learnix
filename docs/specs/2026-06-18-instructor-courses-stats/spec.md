@@ -87,7 +87,7 @@ the zeroed fallback object (now including zeroed students/revenue) so the page n
 - `server/services/course/course.service.ts` — add `getCoursesStats(instructorId)`: `Promise.all` over the three repository calls, shaped into `CourseOwnerStats`.
 - `server/api/routers/course.ts` — `getCoursesStats` procedure calls `courseService.getCoursesStats(ctx.session.user.id)` instead of `courseRepository.getCoursesStats(...)`.
 - `lib/requests/course/getCoursesStats.ts` — extend the catch-block fallback with zeroed `students`/`revenue`.
-- `app/_components/Course/components/OwnCoursesStats/index.tsx` — destructure `students`/`revenue`; extract `StatCard({ label, value, subline })`; render real Total Students (`students.total`, `+${students.newThisMonth} students this month`) and Total Revenue (`formatUsd(revenue.lifetimeGrossCents)`, `+${formatUsd(revenue.thisMonthGrossCents)} this month`).
+- `app/_components/Course/components/OwnCoursesStats/index.tsx` — destructure `students`/`revenue`; extract `StatCard({ label, value, subline })`; render real Total Students (`students.total`, `+${students.newThisMonth} enrollments this month`) and Total Revenue (`formatUsd(revenue.lifetimeGrossCents)`, `+${formatUsd(revenue.thisMonthGrossCents)} this month`).
 
 ## Cross-cutting concerns
 

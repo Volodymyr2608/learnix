@@ -40,7 +40,7 @@ const OwnCoursesStats = async () => {
 			/>
 			<StatCard
 				label="Total Students"
-				subline={`+${students.newThisMonth} students this month`}
+				subline={`+${students.newThisMonth} enrollments this month`}
 				value={students.total}
 			/>
 			<StatCard
