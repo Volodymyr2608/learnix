@@ -4,6 +4,10 @@ import {
 	EnrollmentStatus,
 	type Prisma,
 } from "@/generated/prisma";
+import type {
+	GetOwnCoursesInput,
+	PaginatedOwnCourses,
+} from "@/server/entities/course/ownCourses";
 import { BaseRepository } from "@/server/repositories/base/base.repository";
 import type CourseReviewRepository from "@/server/repositories/courseReview.repository";
 import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
@@ -107,6 +111,74 @@ export default class CourseRepository extends BaseRepository<
 				userId,
 			});
 		}
+	}
+
+	async searchOwnCourses(
+		params: GetOwnCoursesInput & { instructorId: string },
+	): Promise<PaginatedOwnCourses> {
+		const PAGE_SIZE = 9;
+		const {
+			instructorId,
+			q,
+			status = "all",
+			category,
+			sort = "updated",
+			page = 1,
+		} = params;
+
+		const where: Prisma.CourseWhereInput = {
+			instructorId,
+			deletedAt: null,
+			...(status !== "all" ? { status } : {}),
+			...(category
+				? { category: { equals: category, mode: "insensitive" } }
+				: {}),
+			...(q
+				? {
+						OR: [
+							{ title: { contains: q, mode: "insensitive" } },
+							{ subtitle: { contains: q, mode: "insensitive" } },
+							{ description: { contains: q, mode: "insensitive" } },
+						],
+					}
+				: {}),
+		};
+
+		const ORDER_BY: Record<
+			GetOwnCoursesInput["sort"],
+			Prisma.CourseOrderByWithRelationInput
+		> = {
+			updated: { updatedAt: "desc" },
+			newest: { createdAt: "desc" },
+			oldest: { createdAt: "asc" },
+			title: { title: "asc" },
+			students: { enrollments: { _count: "desc" } },
+		};
+
+		const [data, total] = await Promise.all([
+			this.findMany({
+				where,
+				select: {
+					id: true,
+					title: true,
+					status: true,
+					updatedAt: true,
+					thumbnailUrl: true,
+				},
+				orderBy: ORDER_BY[sort],
+				skip: (page - 1) * PAGE_SIZE,
+				take: PAGE_SIZE,
+			}),
+			this.count(where),
+		]);
+
+		return {
+			data,
+			total,
+			currentPage: page,
+			lastPage: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+			perPage: PAGE_SIZE,
+		};
 	}
 
 	async getOwnCourse(courseId: string, instructorId: string) {
