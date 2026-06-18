@@ -10,6 +10,8 @@ const getCoursesStats = async () => {
 			draft: 0,
 			published: 0,
 			lastCourses: 0,
+			students: { total: 0, newThisMonth: 0 },
+			revenue: { lifetimeGrossCents: 0, thisMonthGrossCents: 0 },
 		};
 	}
 };

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import RecommendedRail from "@/app/_components/Course/components/RecommendedRail";
 import ContinueLearning from "@/app/_components/Dashboard/ContinueLearning";
 import DashboardStatsCards from "@/app/_components/Dashboard/StatsCards";
@@ -32,17 +33,13 @@ export default async function DashboardPage() {
 	]);
 
 	return (
-		<div className="space-y-6">
-			<div>
-				<h1 className="font-bold text-3xl">Dashboard</h1>
-				<p className="text-muted-foreground">
-					Welcome back! Here's your learning progress
-				</p>
-			</div>
-
+		<PageShell
+			description="Welcome back! Here's your learning progress"
+			title="Dashboard"
+		>
 			<DashboardStatsCards stats={stats} />
 			<ContinueLearning items={continueLearning} />
 			<RecommendedRail courses={recommendations} />
-		</div>
+		</PageShell>
 	);
 }

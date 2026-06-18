@@ -3,10 +3,17 @@ import Link from "next/link";
 import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import { Button } from "@/app/_components/_shared/ui/button";
 import OwnCourses from "@/app/_components/Course/components/OwnCourses";
+import { parseOwnCoursesSearchParams } from "@/app/_components/Course/components/OwnCourses/searchParams";
 import OwnCoursesStats from "@/app/_components/Course/components/OwnCoursesStats";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
-const CoursesPage = () => {
+const CoursesPage = async ({
+	searchParams,
+}: {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) => {
+	const query = parseOwnCoursesSearchParams(await searchParams);
+
 	return (
 		<PageShell
 			action={
@@ -21,7 +28,7 @@ const CoursesPage = () => {
 			title="My Courses"
 		>
 			<OwnCoursesStats />
-			<OwnCourses />
+			<OwnCourses query={query} />
 		</PageShell>
 	);
 };

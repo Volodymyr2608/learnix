@@ -1,4 +1,5 @@
 import { CourseStatus, EnrollmentStatus, Prisma } from "@/generated/prisma";
+import { COURSE_PAGE_SIZE } from "@/lib/constants/pagination";
 import { env } from "@/lib/env";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
@@ -125,7 +126,6 @@ class EnrollmentService {
 		studentId: string,
 		params?: { tab?: "all" | "in-progress" | "completed"; page?: number },
 	) {
-		const PAGE_SIZE = 9;
 		const { tab = "all", page = 1 } = params ?? {};
 
 		const statusFilter: Prisma.EnrollmentWhereInput =
@@ -150,8 +150,8 @@ class EnrollmentService {
 				enrollmentRepository.findMany({
 					where,
 					orderBy: { enrolledAt: "desc" },
-					skip: (page - 1) * PAGE_SIZE,
-					take: PAGE_SIZE,
+					skip: (page - 1) * COURSE_PAGE_SIZE,
+					take: COURSE_PAGE_SIZE,
 					include: {
 						course: {
 							select: {

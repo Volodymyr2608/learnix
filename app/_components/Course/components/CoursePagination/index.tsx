@@ -2,24 +2,27 @@
 
 import { useRouter } from "next/navigation";
 import ReactPaginate from "react-paginate";
+import type { CoursePaginationProps } from "@/app/_components/Course/components/CoursePagination/types";
 import { cn } from "@/lib/utils/cn";
-
-type Props = {
-	currentPage: number;
-	totalPages: number;
-	buildHref: (page: number) => string;
-};
 
 export const CoursePagination = ({
 	currentPage,
 	totalPages,
-	buildHref,
-}: Props) => {
+	basePath,
+	query = {},
+}: CoursePaginationProps) => {
 	const router = useRouter();
 
 	const itemClass = cn(
 		"inline-flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors hover:bg-muted",
 	);
+
+	const buildHref = (page: number) => {
+		const params = new URLSearchParams(query);
+		if (page > 1) params.set("page", String(page));
+		const qs = params.toString();
+		return qs ? `${basePath}?${qs}` : basePath;
+	};
 
 	return (
 		<ReactPaginate

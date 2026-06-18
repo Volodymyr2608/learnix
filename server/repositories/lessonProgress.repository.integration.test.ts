@@ -107,7 +107,8 @@ describe("lessonProgressRepository.getCompletionDays (integration)", () => {
 		const { studentId } = await seedTwoCompletionDays();
 		const days = await lessonProgressRepository.getCompletionDays(studentId);
 		expect(days).toHaveLength(2);
-		expect(days[0]!.getTime()).toBeGreaterThan(days[1]!.getTime());
+		const [first = new Date(0), second = new Date(0)] = days;
+		expect(first.getTime()).toBeGreaterThan(second.getTime());
 	});
 });
 

@@ -4,51 +4,50 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import { formatUsd } from "@/lib/formatUsd";
 import getCoursesStats from "@/lib/requests/course/getCoursesStats";
+import type { StatCardProps } from "./types";
+
+function StatCard({ label, value, subline }: StatCardProps) {
+	return (
+		<Card>
+			<CardHeader className="pb-2">
+				<CardTitle className="font-medium text-sm">{label}</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<div className="font-bold text-2xl">{value}</div>
+				<p className="text-muted-foreground text-xs">{subline}</p>
+			</CardContent>
+		</Card>
+	);
+}
 
 const OwnCoursesStats = async () => {
-	const { draft, published, total, lastCourses } = await getCoursesStats();
+	const { draft, published, total, lastCourses, students, revenue } =
+		await getCoursesStats();
 
 	return (
 		<div className="grid gap-4 md:grid-cols-4">
-			<Card>
-				<CardHeader className="pb-2">
-					<CardTitle className="font-medium text-sm">Total Courses</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<div className="font-bold text-2xl">{total}</div>
-					<p className="text-muted-foreground text-xs">
-						+{lastCourses} this month
-					</p>
-				</CardContent>
-			</Card>
-			<Card>
-				<CardHeader className="pb-2">
-					<CardTitle className="font-medium text-sm">Published</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<div className="font-bold text-2xl">{published}</div>
-					<p className="text-muted-foreground text-xs">{draft} drafts</p>
-				</CardContent>
-			</Card>
-			<Card>
-				<CardHeader className="pb-2">
-					<CardTitle className="font-medium text-sm">Total Students</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<div className="font-bold text-2xl">1,234</div>
-					<p className="text-muted-foreground text-xs">+87 this month</p>
-				</CardContent>
-			</Card>
-			<Card>
-				<CardHeader className="pb-2">
-					<CardTitle className="font-medium text-sm">Total Revenue</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<div className="font-bold text-2xl">$12,450</div>
-					<p className="text-muted-foreground text-xs">+$1,230 this month</p>
-				</CardContent>
-			</Card>
+			<StatCard
+				label="Total Courses"
+				subline={`+${lastCourses} this month`}
+				value={total}
+			/>
+			<StatCard
+				label="Published"
+				subline={`${draft} drafts`}
+				value={published}
+			/>
+			<StatCard
+				label="Total Students"
+				subline={`+${students.newThisMonth} enrollments this month`}
+				value={students.total}
+			/>
+			<StatCard
+				label="Total Revenue"
+				subline={`+${formatUsd(revenue.thisMonthGrossCents)} this month`}
+				value={formatUsd(revenue.lifetimeGrossCents)}
+			/>
 		</div>
 	);
 };

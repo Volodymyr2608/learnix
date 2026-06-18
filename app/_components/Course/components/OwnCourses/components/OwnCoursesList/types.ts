@@ -1,5 +1,5 @@
 import type { OwnCourse } from "@/app/_components/Course/components/OwnCourses/actions/searchOwnCourses";
 
-export type CourseCardProps = {
-	course: OwnCourse;
+export type OwnCoursesListProps = {
+	courses: OwnCourse[];
 };

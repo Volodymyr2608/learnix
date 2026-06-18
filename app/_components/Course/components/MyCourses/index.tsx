@@ -3,8 +3,8 @@ import { Button } from "@/app/_components/_shared/ui/button";
 import { CoursePagination } from "@/app/_components/Course/components/CoursePagination";
 import { CourseTabFilter } from "@/app/_components/Course/components/MyCourses/components/CourseTabFilter";
 import { EnrolledCourseCard } from "@/app/_components/Course/components/MyCourses/components/EnrolledCourseCard";
-import { PAGE_SIZE } from "@/app/_components/Course/components/MyCourses/constants";
 import type { MyCoursesProps } from "@/app/_components/Course/components/MyCourses/types";
+import { COURSE_PAGE_SIZE } from "@/lib/constants/pagination";
 
 export const MyCourses = ({
 	courses,
@@ -12,7 +12,7 @@ export const MyCourses = ({
 	currentTab,
 	currentPage,
 }: MyCoursesProps) => {
-	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+	const totalPages = Math.max(1, Math.ceil(total / COURSE_PAGE_SIZE));
 	const safePage = Math.min(currentPage, totalPages);
 
 	return (
@@ -43,10 +43,9 @@ export const MyCourses = ({
 
 			{totalPages > 1 && (
 				<CoursePagination
-					buildHref={(p) =>
-						`/dashboard/courses?tab=${currentTab}${p > 1 ? `&page=${p}` : ""}`
-					}
+					basePath="/dashboard/courses"
 					currentPage={safePage}
+					query={{ tab: currentTab }}
 					totalPages={totalPages}
 				/>
 			)}
