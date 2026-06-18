@@ -5,8 +5,11 @@ import type {
 	CourseFullUpdateDto,
 	CourseWithSections,
 } from "@/server/entities/course";
+import type { CourseOwnerStats } from "@/server/entities/course/stats";
 import { courseRepository } from "@/server/repositories/course.repository";
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { paymentRepository } from "@/server/repositories/payment.repository";
 import { sectionRepository } from "@/server/repositories/section.repository";
 import { CourseError } from "@/server/services/course/course.errors";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
@@ -52,6 +55,31 @@ class CourseService {
 				{ dto },
 			);
 		}
+	}
+
+	async getCoursesStats(instructorId: string): Promise<CourseOwnerStats> {
+		logger.info("Getting course owner stats", { instructorId });
+
+		const [courses, students, revenue] = await Promise.all([
+			courseRepository.getCoursesStats(instructorId),
+			enrollmentRepository.getInstructorStudentStats(instructorId),
+			paymentRepository.getInstructorRevenueStats(instructorId),
+		]);
+
+		return {
+			total: courses.total,
+			draft: courses.draft,
+			published: courses.published,
+			lastCourses: courses.lastCourses,
+			students: {
+				total: students.total,
+				newThisMonth: students.thisMonthNew,
+			},
+			revenue: {
+				lifetimeGrossCents: revenue.lifetimeGrossCents,
+				thisMonthGrossCents: revenue.thisMonthGrossCents,
+			},
+		};
 	}
 
 	private async createSections(
