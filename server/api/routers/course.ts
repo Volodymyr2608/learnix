@@ -96,7 +96,7 @@ export const courseRouter = createTRPCRouter({
 
 	getCoursesStats: instructorProcedure.query(async ({ ctx }) => {
 		try {
-			return await courseRepository.getCoursesStats(ctx.session.user.id);
+			return await courseService.getCoursesStats(ctx.session.user.id);
 		} catch (error) {
 			handleServiceError(error);
 		}
