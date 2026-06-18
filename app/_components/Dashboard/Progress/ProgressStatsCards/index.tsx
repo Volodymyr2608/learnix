@@ -12,17 +12,20 @@ import type {
 	StatCardProps,
 } from "./types";
 
-function DeltaBadge({ delta }: DeltaBadgeProps) {
+function DeltaBadge({ delta, period }: DeltaBadgeProps) {
+	const periodLabel = period === "week" ? "this week" : "this month";
 	if (delta.kind === "none") return null;
 	if (delta.kind === "new")
-		return <p className="text-muted-foreground text-xs">New this week</p>;
+		return <p className="text-muted-foreground text-xs">New {periodLabel}</p>;
+	if (delta.value === -100)
+		return <p className="text-muted-foreground text-xs">None {periodLabel}</p>;
 	if (delta.direction === "flat")
 		return <p className="text-muted-foreground text-xs">No change</p>;
 	const sign = delta.direction === "up" ? "+" : "−";
 	return (
 		<p className="text-muted-foreground text-xs">
 			{sign}
-			{Math.abs(delta.value)}% this week
+			{Math.abs(delta.value)}% {periodLabel}
 		</p>
 	);
 }
@@ -52,13 +55,15 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
 			<StatCard
 				icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
 				label="Total Hours"
-				subline={<DeltaBadge delta={stats.totalHoursDelta} />}
+				subline={<DeltaBadge delta={stats.totalHoursDelta} period="week" />}
 				value={hours(stats.totalMinutes)}
 			/>
 			<StatCard
 				icon={<Award className="h-4 w-4 text-muted-foreground" />}
 				label="Courses Completed"
-				subline={<DeltaBadge delta={stats.coursesCompleted.delta} />}
+				subline={
+					<DeltaBadge delta={stats.coursesCompleted.delta} period="month" />
+				}
 				value={stats.coursesCompleted.total.toString()}
 			/>
 			<StatCard

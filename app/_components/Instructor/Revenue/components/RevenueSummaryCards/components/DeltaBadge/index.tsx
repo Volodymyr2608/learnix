@@ -12,6 +12,14 @@ export default function DeltaBadge({ delta }: DeltaBadgeProps) {
 		);
 	}
 	if (delta.kind === "percent") {
+		if (delta.value === -100) {
+			return (
+				<div className="mt-2 flex items-center gap-1 text-red-600 text-sm">
+					<ArrowDownRight className="h-4 w-4" />
+					<span>None this month</span>
+				</div>
+			);
+		}
 		if (delta.direction === "flat") {
 			return (
 				<p className="mt-2 text-muted-foreground text-sm">

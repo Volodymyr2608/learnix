@@ -11,4 +11,4 @@ export type StatCardProps = {
 	subline: ReactNode;
 };
 
-export type DeltaBadgeProps = { delta: StatDelta };
+export type DeltaBadgeProps = { delta: StatDelta; period: "week" | "month" };
