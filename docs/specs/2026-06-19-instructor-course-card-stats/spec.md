@@ -48,9 +48,11 @@ No schema changes, no migration. All data already exists:
 - `CourseReview` — `rating`, `courseId`, `deletedAt`. Aggregated via the existing
   `courseReviewRepository.getAvgRatingByCourseIds` (FR2).
 - `Payment` — `amountCents`, `status`, `refundedAt`, `courseId`. Aggregated via a new
-  `paymentRepository.getRevenueByCourseIds` (FR3), same filter shape as the existing
-  `getRevenueGroupedByCourse` but keyed by a specific id list instead of "top N by
-  revenue."
+  `paymentRepository.getRevenueByCourseIds` (FR3). It reuses the same
+  succeeded-and-non-refunded filter (`status: succeeded, refundedAt: null`) as the
+  existing `getRevenueGroupedByCourse`, but scopes by a specific `courseId` list rather
+  than by `instructorId` + time window — ownership is already guaranteed because the ids
+  come from the instructor-scoped page (see Cross-cutting concerns).
 
 ### `OwnCourseRow` (`server/entities/course/ownCourses.ts`) — extended
 
@@ -65,10 +67,21 @@ export type OwnCourseRow = {
   rating: number | null;   // avg review rating; null = no reviews yet → "—" (FR2)
   revenueCents: number;    // lifetime gross revenue; 0 if no payments yet (FR3)
 };
+
+/** What the repository can produce in one query — rating/revenue live on other
+ * tables and are merged in by the service. */
+export type OwnCourseRepoRow = Omit<OwnCourseRow, "rating" | "revenueCents">;
 ```
 
-`PaginatedOwnCourses` is unchanged (`{ data: OwnCourseRow[], total, currentPage,
-lastPage, perPage }`) — only the row shape grows.
+Because `students`, `rating`, and `revenueCents` come from three different sources (a
+relation count, a review aggregate, a payment aggregate), the row is built in two
+stages: the repository returns `OwnCourseRepoRow` (everything but rating/revenue), and
+the service completes it into the full `OwnCourseRow`. To keep both stages sharing the
+same pagination envelope, the existing `PaginatedOwnCourses` shape is generalised to a
+`Paginated<T>` wrapper: the repository returns `Paginated<OwnCourseRepoRow>` and the
+service returns `PaginatedOwnCourses` (`= Paginated<OwnCourseRow>`). The envelope fields
+(`data`, `total`, `currentPage`, `lastPage`, `perPage`) are unchanged — only the row
+type grows and the wrapper becomes generic.
 
 ## API & contracts
 
@@ -92,15 +105,14 @@ app/instructor/courses/page.tsx → OwnCoursesList → searchOwnCourses(input)
                                   │           thumbnailUrl, students }], total, ... }
                                   │      (students = _count.enrollments, active+completed)
                                   │
-                                  │ 2. if data.length === 0 → return as-is (no extra queries)
-                                  │
-                                  │ 3. const ids = data.map(c => c.id)
+                                  │ 2. const ids = data.map(c => c.id)   // [] when page is empty
                                   │    Promise.all([
                                   │      courseReviewRepository.getAvgRatingByCourseIds(ids),
                                   │      paymentRepository.getRevenueByCourseIds(ids),
                                   │    ]) → [Map<id, number|null>, Map<id, number>]
+                                  │    (each returns an empty Map for ids === [] WITHOUT a DB query)
                                   │
-                                  │ 4. merge: data.map(c => ({ ...c,
+                                  │ 3. merge: data.map(c => ({ ...c,
                                   │      rating: ratings.get(c.id) ?? null,
                                   │      revenueCents: revenue.get(c.id) ?? 0 }))
                                   ▼
@@ -118,12 +130,13 @@ on `Course` itself (`_count.enrollments`), so it comes back in the same `findMan
 already fetches the page — no extra query, unlike rating/revenue which live on
 unrelated tables and need their own aggregate query.
 
-**Empty-page short-circuit:** when `data.length === 0` (e.g. a filter matches nothing),
-the service skips the rating/revenue `Promise.all` entirely — mirrors
-`getTopPerformingCourses`'s early return when `getRevenueGroupedByCourse` returns no
-rows. Both `getAvgRatingByCourseIds` and the new `getRevenueByCourseIds` also tolerate an
-empty id array defensively (return an empty `Map` immediately), so this is a perf
-optimization, not a correctness requirement.
+**Empty-page handling:** when a filter matches nothing, `ids` is `[]`. Rather than
+guarding with an explicit `if (data.length === 0)` in the service, the no-DB-hit
+behaviour is pushed into the two helper methods: both `getAvgRatingByCourseIds` and the
+new `getRevenueByCourseIds` return an empty `Map` immediately for an empty id array,
+before issuing any query. The service therefore always calls `Promise.all` unguarded —
+simpler code, and an empty page still issues zero extra queries. (`mapping` over the
+empty `data` array then yields `[]`.)
 
 ## File list
 
@@ -162,7 +175,9 @@ unchanged).
   repo method).
 - **Performance:** exactly 2 extra bounded queries per page load (rating groupBy +
   revenue groupBy), each `take`-equivalent via `courseId in [≤ COURSE_PAGE_SIZE ids]`,
-  run concurrently via `Promise.all`, skipped entirely on an empty page (FR6).
+  run concurrently via `Promise.all`. On an empty page (`ids === []`) both helpers
+  return an empty `Map` without issuing a query, so a no-match page costs zero extra
+  queries (FR6).
 - **Reliability:** a course missing from the rating map resolves to `null` → `—`; a
   course missing from the revenue map resolves to `0` → `$0` — both defaults are
   applied at the merge step, never left `undefined` (FR4).
