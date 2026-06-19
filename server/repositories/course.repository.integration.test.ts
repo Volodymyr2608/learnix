@@ -5,7 +5,7 @@ import { makeCourse, makeEnrollment, makeUser } from "@/test/factories";
 import { courseRepository } from "./course.repository";
 
 describe("CourseRepository.getCourseCardsByIds", () => {
-	it("returns title and active-student count, scoped to the instructor", async () => {
+	it("returns title and student count (active + completed), scoped to the instructor", async () => {
 		const instructor = await makeUser({ role: Role.INSTRUCTOR });
 		const other = await makeUser({ role: Role.INSTRUCTOR });
 		const course = await makeCourse({
@@ -21,13 +21,19 @@ describe("CourseRepository.getCourseCardsByIds", () => {
 		const s1 = await makeUser({ role: Role.STUDENT });
 		const s2 = await makeUser({ role: Role.STUDENT });
 		const s3 = await makeUser({ role: Role.STUDENT });
+		const s4 = await makeUser({ role: Role.STUDENT });
 		await makeEnrollment({ studentId: s1.id, courseId: course.id });
-		await makeEnrollment({ studentId: s2.id, courseId: course.id });
+		await makeEnrollment({
+			studentId: s2.id,
+			courseId: course.id,
+			status: EnrollmentStatus.completed,
+		});
 		await makeEnrollment({
 			studentId: s3.id,
 			courseId: course.id,
 			status: EnrollmentStatus.cancelled,
 		});
+		await makeEnrollment({ studentId: s4.id, courseId: foreign.id });
 
 		const map = await courseRepository.getCourseCardsByIds(instructor.id, [
 			course.id,

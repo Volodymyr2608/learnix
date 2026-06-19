@@ -397,7 +397,13 @@ export default class CourseRepository extends BaseRepository<
 				title: true,
 				_count: {
 					select: {
-						enrollments: { where: { status: EnrollmentStatus.active } },
+						enrollments: {
+							where: {
+								status: {
+									in: [EnrollmentStatus.active, EnrollmentStatus.completed],
+								},
+							},
+						},
 					},
 				},
 			},
