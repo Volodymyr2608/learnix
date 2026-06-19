@@ -78,3 +78,44 @@ describe("CourseReviewRepository.findRecentByInstructor", () => {
 		expect(typeof rows[0]?.studentName).toBe("string");
 	});
 });
+
+describe("CourseReviewRepository.findByStudentAndCourse", () => {
+	it("returns the active review for a student/course pair", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const student = await makeUser({ role: Role.STUDENT });
+		await makeReview({ courseId: course.id, studentId: student.id, rating: 4 });
+
+		const found = await courseReviewRepository.findByStudentAndCourse(
+			student.id,
+			course.id,
+		);
+
+		expect(found?.rating).toBe(4);
+	});
+
+	it("ignores soft-deleted reviews", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const student = await makeUser({ role: Role.STUDENT });
+		await makeReview({
+			courseId: course.id,
+			studentId: student.id,
+			rating: 4,
+			deletedAt: new Date(),
+		});
+
+		const found = await courseReviewRepository.findByStudentAndCourse(
+			student.id,
+			course.id,
+		);
+
+		expect(found).toBeNull();
+	});
+});

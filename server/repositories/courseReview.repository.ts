@@ -87,6 +87,15 @@ export default class CourseReviewRepository extends BaseRepository<
 			createdAt: r.createdAt,
 		}));
 	}
+
+	findByStudentAndCourse(
+		studentId: string,
+		courseId: string,
+	): Promise<CourseReview | null> {
+		return this.findFirst({
+			where: { studentId, courseId, deletedAt: null },
+		});
+	}
 }
 
 export const courseReviewRepository = new CourseReviewRepository();
