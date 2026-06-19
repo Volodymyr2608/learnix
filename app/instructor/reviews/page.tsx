@@ -1,4 +1,5 @@
 import { PageShell } from "@/app/_components/_shared/components/PageShell";
+import { MarkReviewsViewed } from "@/app/_components/Instructor/Reviews/MarkReviewsViewed";
 import { ReviewsFilters } from "@/app/_components/Instructor/Reviews/ReviewsFilters";
 import { ReviewsResults } from "@/app/_components/Instructor/Reviews/ReviewsResults";
 import { ReviewsStats } from "@/app/_components/Instructor/Reviews/ReviewsStats";
@@ -32,6 +33,7 @@ export default async function InstructorReviewsPage({
 			description="See what students think of your courses."
 			title="Reviews"
 		>
+			<MarkReviewsViewed />
 			<ReviewsStats stats={stats} />
 			<ReviewsResults query={query} reviews={reviews} />
 		</PageShell>
