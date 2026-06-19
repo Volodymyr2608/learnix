@@ -8,6 +8,7 @@ import { lessonInsightsAIRouter } from "@/server/api/routers/lessonInsightsAI";
 import { notificationsRouter } from "@/server/api/routers/notifications";
 import { paymentRouter } from "@/server/api/routers/payment";
 import { quizRouter } from "@/server/api/routers/quiz";
+import { reviewRouter } from "@/server/api/routers/review";
 import { searchRouter } from "@/server/api/routers/search";
 import { studentRouter } from "@/server/api/routers/student";
 import { userRouter } from "@/server/api/routers/user";
@@ -29,6 +30,7 @@ export const appRouter = createTRPCRouter({
 	lessonInsightsAI: lessonInsightsAIRouter,
 	payment: paymentRouter,
 	quiz: quizRouter,
+	review: reviewRouter,
 	search: searchRouter,
 	student: studentRouter,
 	notifications: notificationsRouter,
