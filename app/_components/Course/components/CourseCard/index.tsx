@@ -15,6 +15,7 @@ import DeleteCourseButton from "@/app/_components/Course/components/DeleteCourse
 import { STATUS_COURSE } from "@/lib/constants/statusCourse";
 import { STATUS_VARIANT } from "@/lib/constants/statusVariants";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
+import { formatUsd } from "@/lib/formatUsd";
 import updatedLabel from "@/lib/utils/date/updatedLabel";
 
 const CourseCard = ({ course }: CourseCardProps) => {
@@ -44,15 +45,19 @@ const CourseCard = ({ course }: CourseCardProps) => {
 			<CardContent className="space-y-4">
 				<div className="grid grid-cols-3 gap-4 text-center">
 					<div>
-						<p className="font-bold text-2xl">{"-"}</p>
+						<p className="font-bold text-2xl">{course.students}</p>
 						<p className="text-muted-foreground text-xs">Students</p>
 					</div>
 					<div>
-						<p className="font-bold text-2xl">{"-"}</p>
+						<p className="font-bold text-2xl">
+							{course.rating === null ? "—" : course.rating.toFixed(1)}
+						</p>
 						<p className="text-muted-foreground text-xs">Rating</p>
 					</div>
 					<div>
-						<p className="font-bold text-2xl">{"-"}</p>
+						<p className="font-bold text-2xl">
+							{formatUsd(course.revenueCents)}
+						</p>
 						<p className="text-muted-foreground text-xs">Revenue</p>
 					</div>
 				</div>
