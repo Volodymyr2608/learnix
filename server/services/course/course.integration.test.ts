@@ -97,4 +97,61 @@ describe("CourseService.searchOwnCourses", () => {
 		expect(res.total).toBe(1);
 		expect(res.data[0]?.title).toBe("Mine");
 	});
+
+	it("attaches real rating and revenue per course, defaulting to null/0 when absent", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const rated = await makeCourse({
+			instructorId: instructor.id,
+			title: "Rated",
+		});
+		const unrated = await makeCourse({
+			instructorId: instructor.id,
+			title: "Unrated",
+		});
+		const reviewer1 = await makeUser({ role: Role.STUDENT });
+		const reviewer2 = await makeUser({ role: Role.STUDENT });
+		const payer = await makeUser({ role: Role.STUDENT });
+
+		await testDb.courseReview.create({
+			data: {
+				courseId: rated.id,
+				studentId: reviewer1.id,
+				rating: 5,
+				comment: "great",
+			},
+		});
+		await testDb.courseReview.create({
+			data: {
+				courseId: rated.id,
+				studentId: reviewer2.id,
+				rating: 3,
+				comment: "ok",
+			},
+		});
+		await testDb.payment.create({
+			data: {
+				studentId: payer.id,
+				instructorId: instructor.id,
+				courseId: rated.id,
+				amountCents: 4000,
+				status: "succeeded",
+			},
+		});
+
+		const res = await courseService.searchOwnCourses(instructor.id, {
+			status: "all",
+			sort: "title",
+			page: 1,
+		});
+
+		const byTitle = new Map(res.data.map((c) => [c.title, c]));
+		expect(byTitle.get("Rated")).toMatchObject({
+			rating: 4,
+			revenueCents: 4000,
+		});
+		expect(byTitle.get("Unrated")).toMatchObject({
+			rating: null,
+			revenueCents: 0,
+		});
+	});
 });

@@ -7,7 +7,8 @@ import {
 import { COURSE_PAGE_SIZE } from "@/lib/constants/pagination";
 import type {
 	GetOwnCoursesInput,
-	PaginatedOwnCourses,
+	OwnCourseRepoRow,
+	Paginated,
 } from "@/server/entities/course/ownCourses";
 import { BaseRepository } from "@/server/repositories/base/base.repository";
 import type CourseReviewRepository from "@/server/repositories/courseReview.repository";
@@ -116,7 +117,7 @@ export default class CourseRepository extends BaseRepository<
 
 	async searchOwnCourses(
 		params: GetOwnCoursesInput & { instructorId: string },
-	): Promise<PaginatedOwnCourses> {
+	): Promise<Paginated<OwnCourseRepoRow>> {
 		const {
 			instructorId,
 			q,
@@ -155,7 +156,7 @@ export default class CourseRepository extends BaseRepository<
 			students: { enrollments: { _count: "desc" } },
 		};
 
-		const [data, total] = await Promise.all([
+		const [rows, total] = await Promise.all([
 			this.findMany({
 				where,
 				select: {
@@ -164,6 +165,17 @@ export default class CourseRepository extends BaseRepository<
 					status: true,
 					updatedAt: true,
 					thumbnailUrl: true,
+					_count: {
+						select: {
+							enrollments: {
+								where: {
+									status: {
+										in: [EnrollmentStatus.active, EnrollmentStatus.completed],
+									},
+								},
+							},
+						},
+					},
 				},
 				orderBy: ORDER_BY[sort],
 				skip: (page - 1) * COURSE_PAGE_SIZE,
@@ -171,6 +183,15 @@ export default class CourseRepository extends BaseRepository<
 			}),
 			this.count(where),
 		]);
+
+		const data: OwnCourseRepoRow[] = rows.map((c) => ({
+			id: c.id,
+			title: c.title,
+			status: c.status,
+			updatedAt: c.updatedAt,
+			thumbnailUrl: c.thumbnailUrl,
+			students: c._count.enrollments,
+		}));
 
 		return {
 			data,
@@ -397,7 +418,13 @@ export default class CourseRepository extends BaseRepository<
 				title: true,
 				_count: {
 					select: {
-						enrollments: { where: { status: EnrollmentStatus.active } },
+						enrollments: {
+							where: {
+								status: {
+									in: [EnrollmentStatus.active, EnrollmentStatus.completed],
+								},
+							},
+						},
 					},
 				},
 			},

@@ -15,8 +15,8 @@ at `app/instructor/page.tsx:34-147`.
 
 Aggregation lives in two new `instructorService` methods that fan out to repositories.
 Top Performing reuses the **existing** `paymentRepository.getRevenueGroupedByCourse`
-(ranked course IDs by gross revenue), then batch-hydrates titles + active-student counts
-(course repo) and average ratings (review repo) — no N+1. Recent Activity fetches the
+(ranked course IDs by gross revenue), then batch-hydrates titles + student counts
+(active + completed enrollments, course repo) and average ratings (review repo) — no N+1. Recent Activity fetches the
 N most-recent enrollments and N most-recent reviews (with `student`/`course` relations),
 merges them into a discriminated-union event list sorted by timestamp, and slices to the
 limit in the service.
@@ -49,9 +49,10 @@ No schema changes, no migration, no backfill. All data already exists:
   `instructorId`, `courseId`, `createdAt`. Source for revenue ranking.
 - `Course` — `id`, `title`, `instructorId`, `status`, `deletedAt`; relation `_count.enrollments`.
 - `Enrollment` (`prisma/schema/enrollment.prisma`) — `studentId`, `courseId`, `status`,
-  `enrolledAt`; `@@unique([studentId, courseId])` means **one active row per student per
-  course**, so an active-enrollment count per course equals the distinct-student count
-  (FR4). Relations: `student.name`, `course.title`.
+  `enrolledAt`; `@@unique([studentId, courseId])` means **one row per student per
+  course**, so an active-or-completed enrollment count per course equals the
+  distinct-student count (FR4) — a student who finishes a course keeps counting, only
+  `cancelled` is excluded. Relations: `student.name`, `course.title`.
 - `CourseReview` (`prisma/schema/review.prisma`) — `rating` (1..5), `courseId`,
   `studentId`, `createdAt`, `deletedAt`; `@@index([courseId])`. Relations: `student.name`,
   `course.title`.
@@ -70,7 +71,7 @@ No schema changes, no migration, no backfill. All data already exists:
 export type TopCourse = {
   courseId: string;
   title: string;
-  students: number;          // active enrollments = distinct students (FR4)
+  students: number;          // active + completed enrollments = distinct students (FR4)
   rating: number | null;     // avg review rating; null = no reviews yet → "—" (FR5)
   grossCents: number;        // lifetime gross revenue, ranking key (FR2)
 };
@@ -115,7 +116,7 @@ app/instructor/page.tsx  (Server Component)
  instructorService.getTopPerformingCourses(id)    instructorService.getRecentActivity(id, 5)
    │  1. paymentRepository.getRevenueGroupedByCourse(id, EPOCH, 3)  │  Promise.all([
    │       → [{ courseId, grossCents }]  (revenue desc)             │   enrollmentRepository.findRecentByInstructor(id, 5)
-   │  2. courseRepository.getActiveStudentCountsByIds(id, ids)      │     → [{ id, studentName, courseTitle, enrolledAt }]
+   │  2. courseRepository.getCourseCardsByIds(id, ids)              │     → [{ id, studentName, courseTitle, enrolledAt }]
    │       → Map<courseId,{ title, students }>                      │   courseReviewRepository.findRecentByInstructor(id, 5)
    │  3. courseReviewRepository.getAvgRatingByCourseIds(ids)        │     → [{ id, studentName, courseTitle, rating, createdAt }]
    │       → Map<courseId, number|null>                            │  ])
@@ -159,10 +160,11 @@ across both types regardless of distribution.
 
 **Modified**
 - `server/repositories/course.repository.ts` — add
-  `getActiveStudentCountsByIds(instructorId, courseIds)`: `findMany` where
+  `getCourseCardsByIds(instructorId, courseIds)`: `findMany` where
   `id in courseIds, instructorId, deletedAt: null`, selecting `id`, `title`, and
-  `_count: { select: { enrollments: { where: { status: active } } } }`; returns a map of
-  `{ title, students }` keyed by course id.
+  `_count: { select: { enrollments: { where: { status: { in: [active, completed] } } } } }`;
+  returns a map of `{ title, students }` keyed by course id. A `cancelled` enrollment
+  never counts; a `completed` one still does.
 - `server/repositories/courseReview.repository.ts` — add
   `getAvgRatingByCourseIds(courseIds)`: `groupBy` `courseId`, `_avg.rating`, where
   `courseId in ids, deletedAt: null`; returns `Map<courseId, number | null>`.
@@ -208,7 +210,7 @@ across both types regardless of distribution.
 | Risk | Likelihood / impact | Mitigation |
 |------|---------------------|------------|
 | Prisma `groupBy` tie order non-deterministic on equal revenue | M / L | Service re-sorts with a total comparator (revenue↓, students↓, title↑) before slicing (FR4). |
-| `getRevenueGroupedByCourse` returns IDs of soft-deleted/unpublished courses (e.g. a course deleted after a sale) | L / M | `getActiveStudentCountsByIds` filters `deletedAt: null` (+ instructor ownership); courses dropped there are filtered out of the final list, so a deleted course never renders. |
+| `getRevenueGroupedByCourse` returns IDs of soft-deleted/unpublished courses (e.g. a course deleted after a sale) | L / M | `getCourseCardsByIds` filters `deletedAt: null` (+ instructor ownership); courses dropped there are filtered out of the final list, so a deleted course never renders. |
 | A review/enrollment whose course was soft-deleted appears in the activity feed | L / L | Both `findRecentByInstructor` queries filter on `course.is { deletedAt: null }`. |
 | `occurredAt` Date serialization across tRPC | L / L | superjson transformer (already configured) preserves `Date`; UI formats via `date-fns`. |
 

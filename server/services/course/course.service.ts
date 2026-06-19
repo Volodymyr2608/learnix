@@ -11,6 +11,7 @@ import type {
 } from "@/server/entities/course/ownCourses";
 import type { CourseOwnerStats } from "@/server/entities/course/stats";
 import { courseRepository } from "@/server/repositories/course.repository";
+import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
@@ -90,7 +91,25 @@ class CourseService {
 		instructorId: string,
 		input: GetOwnCoursesInput,
 	): Promise<PaginatedOwnCourses> {
-		return courseRepository.searchOwnCourses({ ...input, instructorId });
+		const page = await courseRepository.searchOwnCourses({
+			...input,
+			instructorId,
+		});
+
+		const ids = page.data.map((c) => c.id);
+		const [ratings, revenue] = await Promise.all([
+			courseReviewRepository.getAvgRatingByCourseIds(ids),
+			paymentRepository.getRevenueByCourseIds(ids),
+		]);
+
+		return {
+			...page,
+			data: page.data.map((c) => ({
+				...c,
+				rating: ratings.get(c.id) ?? null,
+				revenueCents: revenue.get(c.id) ?? 0,
+			})),
+		};
 	}
 
 	private async createSections(

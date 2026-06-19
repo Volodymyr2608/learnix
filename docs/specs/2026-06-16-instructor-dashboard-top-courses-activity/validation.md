@@ -24,7 +24,7 @@
 
 Seed via the existing test factories (`test/factories.ts`) plus inline `testDb.courseReview.create`, mirroring `payment.repository.integration.test.ts`.
 
-- **Course cards** (`courseRepository.getCourseCardsByIds`): returns `{ title, students }` keyed by course id where `students` counts only **active** enrollments (a `cancelled` enrollment is excluded); a course owned by a *different* instructor is omitted from the map; an empty id list returns an empty map.
+- **Course cards** (`courseRepository.getCourseCardsByIds`): returns `{ title, students }` keyed by course id where `students` counts **active + completed** enrollments (a `cancelled` enrollment is excluded; finishing a course does not reduce the count); a course owned by a *different* instructor is omitted from the map; an empty id list returns an empty map.
 - **Average rating** (`courseReviewRepository.getAvgRatingByCourseIds`): averages only non-deleted reviews per course (e.g. ratings `5, 3` with a soft-deleted `1` → `4`); a course with no reviews is absent from the map; an empty id list returns an empty map.
 - **Recent enrollments** (`enrollmentRepository.findRecentByInstructor`): returns active enrollments newest-first by `enrolledAt`, each flattened to `{ id, studentName, courseTitle, enrolledAt }`; enrollments on another instructor's course are excluded.
 - **Recent reviews** (`courseReviewRepository.findRecentByInstructor`): returns non-deleted reviews newest-first by `createdAt`, each flattened to `{ id, studentName, courseTitle, rating, createdAt }`, scoped to the instructor's courses.
@@ -57,7 +57,7 @@ pnpm dev                    # dev server
 # or the existing seed scripts). Have a SECOND instructor with their own data.
 ```
 
-1. **Top Performing — real ranking:** Sign in as the seeded instructor → open `/instructor`. The "Top Performing Courses" card lists that instructor's top 3 courses ordered by gross revenue (highest first). Each row shows the real title, real active-student count, the real average rating (one decimal, or `—` if a course has no reviews), and revenue formatted like `$4,560`. "View All" navigates to `/instructor/courses`.
+1. **Top Performing — real ranking:** Sign in as the seeded instructor → open `/instructor`. The "Top Performing Courses" card lists that instructor's top 3 courses ordered by gross revenue (highest first). Each row shows the real title, real student count (active + completed enrollments — a student who finished the course still counts), the real average rating (one decimal, or `—` if a course has no reviews), and revenue formatted like `$4,560`. "View All" navigates to `/instructor/courses`.
 2. **Recent Activity — real feed:** On the same dashboard, "Recent Activity" shows up to 5 entries merged from recent enrollments and reviews, newest first. Enrollment rows read "<student> enrolled in <course>" with a Users icon; review rows read "<student> left a <n>-star review on <course>" with a Star icon. Each shows a relative time ("2 hours ago"). No "question"/Q&A row appears.
 3. **Brand-new instructor — empty states:** Sign in as an instructor with no courses/sales/enrollments/reviews → `/instructor`. "Top Performing Courses" shows "No course sales yet…" and "Recent Activity" shows "No recent activity yet…". No fabricated names or numbers appear.
 4. **Ownership boundary (IDOR):** While signed in as instructor A, confirm neither card ever shows instructor B's courses, students, or reviews — the second seeded instructor's data must be entirely absent from A's dashboard.
@@ -68,7 +68,7 @@ pnpm dev                    # dev server
 - **Soft-deleted course among top earners** (spec risk): a course deleted after earning revenue is dropped by `getCourseCardsByIds` (`deletedAt: null` filter) and never renders — covered by the cards integration test (foreign/missing course omission) and the service "drops missing courses" unit test.
 - **Soft-deleted course activity** (spec risk): reviews/enrollments on a soft-deleted course are excluded by the `course.is { deletedAt: null }` filter in both `findRecentByInstructor` queries.
 - **Date serialization** (spec risk): `occurredAt` survives the tRPC boundary as a real `Date` (superjson) and formats correctly client-side — confirmed visually in manual scenario 2 (relative time renders, no "Invalid Date").
-- **Cancelled enrollments:** excluded from per-course student counts (cards integration test) and from the activity feed (recent-enrollments query filters `status: active`).
+- **Cancelled enrollments:** excluded from per-course student counts (cards integration test) and from the activity feed (recent-enrollments query filters `status: active`). **Completed enrollments:** still counted in per-course student counts — a finished course does not lose its students.
 - **Regression:** the stat cards and the revenue chart are unchanged and still render (manual scenarios 1–3 view the full page).
 
 ## Definition of done

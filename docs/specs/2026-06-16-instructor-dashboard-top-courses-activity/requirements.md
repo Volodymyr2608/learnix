@@ -47,11 +47,13 @@ the stat cards, but these two widgets never consume it.
    the existing card and scope decision #5 of `2026-06-16-instructor-dashboard-data`.
    Ranking by revenue does **not** hide the other metrics — each row still shows students
    and rating. Ties broken by student count, then by course title (deterministic order).
-3. **Show the top 3 courses.** Each row shows: course title, active-student count,
+3. **Show the top 3 courses.** Each row shows: course title, student count,
    average rating, and lifetime gross revenue (formatted as currency). This matches the
    current card's three displayed metrics.
-4. **Per-course "students" = distinct active enrollments in that course.** Consistent
-   with the distinct-student framing of the stat cards (decision #6 there).
+4. **Per-course "students" = distinct active-or-completed enrollments in that course.**
+   A student who finished the course is still counted — only a `cancelled` enrollment is
+   excluded. Consistent with the distinct-student framing of the stat cards (decision #6
+   there).
 5. **Per-course "rating" = average of that course's reviews**, or a neutral placeholder
    (`—`) when the course has no reviews yet.
 6. **Recent Activity merges two event types only: new enrollments and new reviews.**
@@ -85,7 +87,7 @@ the stat cards, but these two widgets never consume it.
 | # | Surface | Behaviour (acceptance criteria) |
 |---|---------|---------------------------------|
 | FR1 | Top Performing card | Given an instructor with ≥1 course that has revenue, the card lists their top 3 courses ordered by lifetime gross revenue (descending). |
-| FR2 | Top Performing card | Each row shows the real course title, its active-student count, its average rating (or `—` if none), and its lifetime gross revenue formatted as currency. |
+| FR2 | Top Performing card | Each row shows the real course title, its student count (active + completed enrollments), its average rating (or `—` if none), and its lifetime gross revenue formatted as currency. |
 | FR3 | Top Performing card | Only courses owned by the signed-in instructor appear; no other instructor's course is ever shown. |
 | FR4 | Top Performing card | Ties on revenue are broken by student count (desc), then course title (asc), so order is deterministic. |
 | FR5 | Top Performing card | Given an instructor with no courses (or no courses with any revenue), the card shows an empty-state message instead of rows. |

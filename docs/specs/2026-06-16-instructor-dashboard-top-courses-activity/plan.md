@@ -50,7 +50,7 @@ Add to the bottom of `server/entities/instructor/dashboard.ts`:
 export type TopCourse = {
 	courseId: string;
 	title: string;
-	students: number; // active enrollments = distinct students (FR4)
+	students: number; // active + completed enrollments = distinct students who ever enrolled (FR4)
 	rating: number | null; // avg review rating; null = no reviews yet → "—" (FR5)
 	grossCents: number; // lifetime gross revenue, ranking key (FR2)
 };
@@ -151,7 +151,7 @@ git commit -m "feat(dashboard): add relativeTimeLabel date util"
 - Modify: `server/repositories/course.repository.ts`
 - Test: `server/repositories/course.repository.integration.test.ts` (create if absent)
 
-Returns `Map<courseId, { title, students }>` where `students` is the count of **active** enrollments (= distinct students, given the `@@unique([studentId, courseId])` constraint). Filters by instructor ownership and `deletedAt: null` so soft-deleted courses drop out.
+Returns `Map<courseId, { title, students }>` where `students` is the count of **active + completed** enrollments (= every student who is or was enrolled, given the `@@unique([studentId, courseId])` constraint). A `cancelled` enrollment is excluded; finishing a course does **not** reduce the count. Filters by instructor ownership and `deletedAt: null` so soft-deleted courses drop out.
 
 - [ ] **Step 1: Write the failing integration test**
 
@@ -164,7 +164,7 @@ import { makeCourse, makeEnrollment, makeUser } from "@/test/factories";
 import { courseRepository } from "./course.repository";
 
 describe("CourseRepository.getCourseCardsByIds", () => {
-	it("returns title and active-student count, scoped to the instructor", async () => {
+	it("returns title and student count (active + completed), scoped to the instructor", async () => {
 		const instructor = await makeUser({ role: Role.INSTRUCTOR });
 		const other = await makeUser({ role: Role.INSTRUCTOR });
 		const course = await makeCourse({
@@ -181,7 +181,11 @@ describe("CourseRepository.getCourseCardsByIds", () => {
 		const s2 = await makeUser({ role: Role.STUDENT });
 		const s3 = await makeUser({ role: Role.STUDENT });
 		await makeEnrollment({ studentId: s1.id, courseId: course.id });
-		await makeEnrollment({ studentId: s2.id, courseId: course.id });
+		await makeEnrollment({
+			studentId: s2.id,
+			courseId: course.id,
+			status: EnrollmentStatus.completed,
+		});
 		await makeEnrollment({
 			studentId: s3.id,
 			courseId: course.id,
@@ -239,7 +243,13 @@ Add inside the `CourseRepository` class (e.g. after `findManyByIdsPreservingOrde
 				title: true,
 				_count: {
 					select: {
-						enrollments: { where: { status: EnrollmentStatus.active } },
+						enrollments: {
+							where: {
+								status: {
+									in: [EnrollmentStatus.active, EnrollmentStatus.completed],
+								},
+							},
+						},
 					},
 				},
 			},
