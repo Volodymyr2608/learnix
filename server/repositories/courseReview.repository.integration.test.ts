@@ -79,6 +79,180 @@ describe("CourseReviewRepository.findRecentByInstructor", () => {
 	});
 });
 
+describe("CourseReviewRepository.getInstructorReviewStats", () => {
+	it("aggregates rating, total, five-star and low-rating counts per instructor", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		const s3 = await makeUser({ role: Role.STUDENT });
+		const s4 = await makeUser({ role: Role.STUDENT });
+		await makeReview({ courseId: course.id, studentId: s1.id, rating: 5 });
+		await makeReview({ courseId: course.id, studentId: s2.id, rating: 5 });
+		await makeReview({ courseId: course.id, studentId: s3.id, rating: 2 });
+		await makeReview({ courseId: course.id, studentId: s4.id, rating: 1 });
+
+		const stats = await courseReviewRepository.getInstructorReviewStats(
+			instructor.id,
+		);
+
+		expect(stats.total).toBe(4);
+		expect(stats.average).toBeCloseTo((5 + 5 + 2 + 1) / 4);
+		expect(stats.fiveStarCount).toBe(2);
+		expect(stats.lowRatingCount).toBe(2);
+		expect(stats.perStar.get(5)).toBe(2);
+	});
+
+	it("scopes to a single course when courseId is given and excludes other instructors", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const otherInstructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const secondCourse = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const otherCourse = await makeCourse({
+			instructorId: otherInstructor.id,
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		const s3 = await makeUser({ role: Role.STUDENT });
+		await makeReview({ courseId: course.id, studentId: s1.id, rating: 4 });
+		await makeReview({
+			courseId: secondCourse.id,
+			studentId: s2.id,
+			rating: 1,
+		});
+		await makeReview({ courseId: otherCourse.id, studentId: s3.id, rating: 1 });
+
+		const scoped = await courseReviewRepository.getInstructorReviewStats(
+			instructor.id,
+			course.id,
+		);
+		expect(scoped.total).toBe(1);
+		expect(scoped.average).toBe(4);
+
+		const all = await courseReviewRepository.getInstructorReviewStats(
+			instructor.id,
+		);
+		expect(all.total).toBe(2);
+	});
+
+	it("returns a null average with zero reviews", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const stats = await courseReviewRepository.getInstructorReviewStats(
+			instructor.id,
+		);
+		expect(stats.total).toBe(0);
+		expect(stats.average).toBeNull();
+	});
+});
+
+describe("CourseReviewRepository.findInstructorReviews", () => {
+	it("returns newest-first, paginated rows with student + course fields, filtered by rating", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			title: "Filtered Course",
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT, name: "Old Reviewer" });
+		const s2 = await makeUser({ role: Role.STUDENT, name: "Mid Reviewer" });
+		const s3 = await makeUser({ role: Role.STUDENT, name: "New Reviewer" });
+		await testDb.courseReview.create({
+			data: {
+				courseId: course.id,
+				studentId: s1.id,
+				rating: 5,
+				comment: "old",
+				createdAt: new Date("2025-01-01"),
+			},
+		});
+		await testDb.courseReview.create({
+			data: {
+				courseId: course.id,
+				studentId: s2.id,
+				rating: 3,
+				comment: "mid",
+				createdAt: new Date("2025-02-01"),
+			},
+		});
+		await testDb.courseReview.create({
+			data: {
+				courseId: course.id,
+				studentId: s3.id,
+				rating: 5,
+				comment: "new",
+				createdAt: new Date("2025-03-01"),
+			},
+		});
+
+		const all = await courseReviewRepository.findInstructorReviews({
+			instructorId: instructor.id,
+			page: 1,
+			perPage: 10,
+		});
+		expect(all.total).toBe(3);
+		expect(all.rows[0]?.comment).toBe("new");
+		expect(all.rows[0]).toMatchObject({
+			courseTitle: "Filtered Course",
+			studentName: "New Reviewer",
+		});
+
+		const fiveStar = await courseReviewRepository.findInstructorReviews({
+			instructorId: instructor.id,
+			rating: 5,
+			page: 1,
+			perPage: 10,
+		});
+		expect(fiveStar.total).toBe(2);
+		expect(fiveStar.rows.every((r) => r.rating === 5)).toBe(true);
+
+		const pageTwo = await courseReviewRepository.findInstructorReviews({
+			instructorId: instructor.id,
+			page: 2,
+			perPage: 2,
+		});
+		expect(pageTwo.rows).toHaveLength(1);
+		expect(pageTwo.total).toBe(3);
+	});
+});
+
+describe("CourseReviewRepository.getInstructorReviewCourseOptions", () => {
+	it("returns one entry per owned course that has at least one review", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			title: "Reviewed",
+			status: CourseStatus.published,
+		});
+		await makeCourse({
+			instructorId: instructor.id,
+			title: "Unreviewed",
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		await makeReview({ courseId: course.id, studentId: s1.id, rating: 5 });
+		await makeReview({ courseId: course.id, studentId: s2.id, rating: 4 });
+
+		const options =
+			await courseReviewRepository.getInstructorReviewCourseOptions(
+				instructor.id,
+			);
+
+		expect(options).toHaveLength(1);
+		expect(options[0]).toMatchObject({ id: course.id, title: "Reviewed" });
+	});
+});
+
 describe("CourseReviewRepository.findByStudentAndCourse", () => {
 	it("returns the active review for a student/course pair", async () => {
 		const instructor = await makeUser({ role: Role.INSTRUCTOR });
