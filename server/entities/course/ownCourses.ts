@@ -13,18 +13,27 @@ export const getOwnCoursesInput = z.object({
 
 export type GetOwnCoursesInput = z.infer<typeof getOwnCoursesInput>;
 
+export type Paginated<T> = {
+	data: T[];
+	total: number;
+	currentPage: number;
+	lastPage: number;
+	perPage: number;
+};
+
 export type OwnCourseRow = {
 	id: string;
 	title: string;
 	status: CourseStatus;
 	updatedAt: Date;
 	thumbnailUrl: string | null;
+	students: number; // active + completed enrollments (FR1)
+	rating: number | null; // avg review rating; null = no reviews yet → "—" (FR2)
+	revenueCents: number; // lifetime gross revenue; 0 if no payments yet (FR3)
 };
 
-export type PaginatedOwnCourses = {
-	data: OwnCourseRow[];
-	total: number;
-	currentPage: number;
-	lastPage: number;
-	perPage: number;
-};
+/** What `courseRepository.searchOwnCourses` can produce in a single query — rating and
+ * revenue come from separate tables and are merged in by the service (Task 4). */
+export type OwnCourseRepoRow = Omit<OwnCourseRow, "rating" | "revenueCents">;
+
+export type PaginatedOwnCourses = Paginated<OwnCourseRow>;
