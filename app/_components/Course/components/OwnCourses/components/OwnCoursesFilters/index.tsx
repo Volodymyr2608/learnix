@@ -87,7 +87,7 @@ export function OwnCoursesFilters({ query }: OwnCoursesFiltersProps) {
 				onValueChange={(v) => update({ sort: v as GetOwnCoursesInput["sort"] })}
 				value={query.sort}
 			>
-				<SelectTrigger className="w-44">
+				<SelectTrigger className="w-50">
 					<ArrowUpDown className="mr-2 h-4 w-4" />
 					<SelectValue placeholder="Sort by" />
 				</SelectTrigger>
