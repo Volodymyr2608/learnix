@@ -97,6 +97,26 @@ class ReviewService {
 			return { id: created.id };
 		} catch (error) {
 			if (error instanceof ReviewError) throw error;
+
+			// BaseRepository.create's handleError wraps the original
+			// PrismaClientKnownRequestError (code P2002) into a generic Error with
+			// a string message and does not preserve it as `cause`, so we can't
+			// check `error.code === "P2002"` here. A race past the pre-check's
+			// findByStudentAndCourse lookup hits the
+			// @@unique([courseId, studentId]) constraint, and this string match is
+			// the only way left to detect that case after the wrapping.
+			if (
+				error instanceof Error &&
+				error.message.includes("Unique constraint")
+			) {
+				throw new ReviewError(
+					"You have already reviewed this course",
+					"CONFLICT",
+					error,
+					{ studentId, courseId: input.courseId },
+				);
+			}
+
 			logger.error("Failed to create review", { studentId, error });
 			throw new ReviewError(
 				"Failed to create review",

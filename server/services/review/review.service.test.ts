@@ -128,6 +128,22 @@ describe("reviewService.createReview", () => {
 		expect(mockReviewRepo.create).not.toHaveBeenCalled();
 	});
 
+	it("throws CONFLICT when create() hits the unique constraint after a race past the pre-check", async () => {
+		mockEnrollmentRepo.findByStudentCourse.mockResolvedValue(
+			completedEnrollment,
+		);
+		mockReviewRepo.findByStudentAndCourse.mockResolvedValue(null);
+		mockReviewRepo.create.mockRejectedValue(
+			new Error(
+				"Failed to create entity: Unique constraint failed on the fields: (`courseId`,`studentId`)",
+			),
+		);
+
+		await expect(
+			reviewService.createReview("stu_1", input),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+	});
+
 	it("creates the review and returns its id", async () => {
 		mockEnrollmentRepo.findByStudentCourse.mockResolvedValue(
 			completedEnrollment,
