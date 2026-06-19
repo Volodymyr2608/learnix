@@ -139,6 +139,22 @@ class PaymentRepository extends BaseRepository<
 			grossCents: g._sum.amountCents ?? 0,
 		}));
 	}
+
+	async getRevenueByCourseIds(
+		courseIds: string[],
+	): Promise<Map<string, number>> {
+		if (courseIds.length === 0) return new Map();
+		const grouped = await db.payment.groupBy({
+			by: ["courseId"],
+			where: {
+				courseId: { in: courseIds },
+				status: "succeeded",
+				refundedAt: null,
+			},
+			_sum: { amountCents: true },
+		});
+		return new Map(grouped.map((g) => [g.courseId, g._sum.amountCents ?? 0]));
+	}
 }
 
 export const paymentRepository = new PaymentRepository();

@@ -294,4 +294,62 @@ describe("PaymentRepository", () => {
 			{ courseId: c1.id, grossCents: 3000 },
 		]);
 	});
+
+	it("getRevenueByCourseIds sums succeeded, non-refunded payments per course", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+		const c1 = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		const c2 = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		const c3 = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+
+		await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: c1.id,
+			amountCents: 3000,
+			status: "succeeded",
+			refundedAt: null,
+		});
+		await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: c1.id,
+			amountCents: 2000,
+			status: "succeeded",
+			refundedAt: null,
+		});
+		// Refunded — should be excluded
+		await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: c2.id,
+			amountCents: 9000,
+			status: "succeeded",
+			refundedAt: new Date(),
+		});
+
+		const map = await paymentRepository.getRevenueByCourseIds([
+			c1.id,
+			c2.id,
+			c3.id,
+		]);
+
+		expect(map.get(c1.id)).toBe(5000);
+		expect(map.has(c2.id)).toBe(false); // refunded, excluded
+		expect(map.has(c3.id)).toBe(false); // no qualifying payments
+	});
+
+	it("getRevenueByCourseIds returns an empty map for no ids", async () => {
+		const map = await paymentRepository.getRevenueByCourseIds([]);
+		expect(map.size).toBe(0);
+	});
 });
