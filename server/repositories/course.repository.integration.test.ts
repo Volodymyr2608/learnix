@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CourseStatus, EnrollmentStatus, Role } from "@/generated/prisma";
+import { testDb } from "@/test/db";
 import { makeCourse, makeEnrollment, makeUser } from "@/test/factories";
 import { courseRepository } from "./course.repository";
 
@@ -189,5 +190,64 @@ describe("CourseRepository.searchOwnCourses", () => {
 			page: 1,
 		});
 		expect(res.data[0]?.title).toBe("Many");
+	});
+});
+
+describe("CourseRepository.getPublishedCourses ratings", () => {
+	it("returns the average rating for courses with reviews and null otherwise", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const rated = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const unrated = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		await testDb.courseReview.create({
+			data: { courseId: rated.id, studentId: s1.id, rating: 4, comment: "ok" },
+		});
+		await testDb.courseReview.create({
+			data: { courseId: rated.id, studentId: s2.id, rating: 2, comment: "ok" },
+		});
+
+		const { courses } = await courseRepository.getPublishedCourses({});
+		const byId = new Map(courses.map((c) => [c.id, c.rating]));
+
+		expect(byId.get(rated.id)).toBe(3);
+		expect(byId.get(unrated.id)).toBeNull();
+	});
+});
+
+describe("CourseRepository.findManyByIdsPreservingOrder ratings", () => {
+	it("returns the average rating for courses with reviews and null otherwise", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const rated = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const unrated = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		await testDb.courseReview.create({
+			data: { courseId: rated.id, studentId: s1.id, rating: 4, comment: "ok" },
+		});
+		await testDb.courseReview.create({
+			data: { courseId: rated.id, studentId: s2.id, rating: 2, comment: "ok" },
+		});
+
+		const courses = await courseRepository.findManyByIdsPreservingOrder([
+			rated.id,
+			unrated.id,
+		]);
+		const byId = new Map(courses.map((c) => [c.id, c.rating]));
+
+		expect(byId.get(rated.id)).toBe(3);
+		expect(byId.get(unrated.id)).toBeNull();
 	});
 });
