@@ -15,6 +15,9 @@ const mockReviewRepo = {
 	getInstructorRatingStats: vi.fn(),
 	getAvgRatingByCourseIds: vi.fn(),
 	findRecentByInstructor: vi.fn(),
+	getInstructorReviewStats: vi.fn(),
+	findInstructorReviews: vi.fn(),
+	getInstructorReviewCourseOptions: vi.fn(),
 };
 const mockCourseRepo = {
 	getCoursesStats: vi.fn(),
@@ -326,5 +329,134 @@ describe("InstructorService.getStudentStatusCounts", () => {
 		const counts =
 			await instructorService.getStudentStatusCounts(INSTRUCTOR_ID);
 		expect(counts).toEqual({ total: 5, active: 3, completed: 1, inactive: 1 });
+	});
+});
+
+describe("InstructorService.getReviewStats", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("shapes distribution (5..1) and rounds fiveStarPercent", async () => {
+		mockReviewRepo.getInstructorReviewStats.mockResolvedValue({
+			average: 4.25,
+			total: 4,
+			fiveStarCount: 2,
+			lowRatingCount: 1,
+			perStar: new Map([
+				[5, 2],
+				[4, 1],
+				[2, 1],
+			]),
+		});
+
+		const stats = await instructorService.getReviewStats(INSTRUCTOR_ID, {});
+
+		expect(stats.average).toBe(4.25);
+		expect(stats.total).toBe(4);
+		expect(stats.fiveStarPercent).toBe(50);
+		expect(stats.lowRatingCount).toBe(1);
+		expect(stats.distribution.map((d) => d.star)).toEqual([5, 4, 3, 2, 1]);
+		expect(stats.distribution[0]).toMatchObject({
+			star: 5,
+			count: 2,
+			percent: 50,
+		});
+		expect(stats.distribution[4]).toMatchObject({
+			star: 1,
+			count: 0,
+			percent: 0,
+		});
+	});
+
+	it("returns null average and zeroed fields with no reviews", async () => {
+		mockReviewRepo.getInstructorReviewStats.mockResolvedValue({
+			average: null,
+			total: 0,
+			fiveStarCount: 0,
+			lowRatingCount: 0,
+			perStar: new Map(),
+		});
+
+		const stats = await instructorService.getReviewStats(INSTRUCTOR_ID, {});
+
+		expect(stats.average).toBeNull();
+		expect(stats.fiveStarPercent).toBe(0);
+		expect(
+			stats.distribution.every((d) => d.count === 0 && d.percent === 0),
+		).toBe(true);
+	});
+
+	it("passes courseId through to the repository", async () => {
+		mockReviewRepo.getInstructorReviewStats.mockResolvedValue({
+			average: null,
+			total: 0,
+			fiveStarCount: 0,
+			lowRatingCount: 0,
+			perStar: new Map(),
+		});
+
+		await instructorService.getReviewStats(INSTRUCTOR_ID, {
+			courseId: "course-1",
+		});
+
+		expect(mockReviewRepo.getInstructorReviewStats).toHaveBeenCalledWith(
+			INSTRUCTOR_ID,
+			"course-1",
+		);
+	});
+});
+
+describe("InstructorService.getReviews", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("wraps repository rows in pagination metadata", async () => {
+		mockReviewRepo.findInstructorReviews.mockResolvedValue({
+			rows: [],
+			total: 23,
+		});
+
+		const result = await instructorService.getReviews(INSTRUCTOR_ID, {
+			page: 2,
+		});
+
+		expect(result).toMatchObject({
+			total: 23,
+			currentPage: 2,
+			perPage: 10,
+			lastPage: 3,
+		});
+	});
+
+	it("returns lastPage of 1 when there are no reviews", async () => {
+		mockReviewRepo.findInstructorReviews.mockResolvedValue({
+			rows: [],
+			total: 0,
+		});
+
+		const result = await instructorService.getReviews(INSTRUCTOR_ID, {
+			page: 1,
+		});
+
+		expect(result).toMatchObject({ total: 0, lastPage: 1, data: [] });
+	});
+});
+
+describe("InstructorService.getReviewCourseOptions", () => {
+	it("returns the options from the repository sorted by title", async () => {
+		mockReviewRepo.getInstructorReviewCourseOptions.mockResolvedValue([
+			{ id: "c2", title: "Zeta" },
+			{ id: "c1", title: "Alpha" },
+		]);
+
+		const options =
+			await instructorService.getReviewCourseOptions(INSTRUCTOR_ID);
+
+		expect(options).toEqual([
+			{ id: "c1", title: "Alpha" },
+			{ id: "c2", title: "Zeta" },
+		]);
 	});
 });

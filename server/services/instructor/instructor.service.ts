@@ -8,6 +8,15 @@ import type {
 	DashboardStats,
 	TopCourse,
 } from "@/server/entities/instructor/dashboard";
+import {
+	type GetReviewStatsInput,
+	type GetReviewsInput,
+	type PaginatedReviews,
+	type RatingDistributionBucket,
+	REVIEWS_PER_PAGE,
+	type ReviewCourseOption,
+	type ReviewStats,
+} from "@/server/entities/instructor/reviews";
 import type {
 	GetStudentsInput,
 	PaginatedStudents,
@@ -240,6 +249,67 @@ class InstructorService {
 			instructorId,
 			cutoff,
 		);
+	}
+
+	async getReviewCourseOptions(
+		instructorId: string,
+	): Promise<ReviewCourseOption[]> {
+		logger.info("Getting instructor review course options", { instructorId });
+		const options =
+			await courseReviewRepository.getInstructorReviewCourseOptions(
+				instructorId,
+			);
+		return options.sort((a, b) => a.title.localeCompare(b.title));
+	}
+
+	async getReviewStats(
+		instructorId: string,
+		input: GetReviewStatsInput,
+	): Promise<ReviewStats> {
+		logger.info("Getting instructor review stats", { instructorId, ...input });
+		const s = await courseReviewRepository.getInstructorReviewStats(
+			instructorId,
+			input.courseId,
+		);
+		const distribution: RatingDistributionBucket[] = [5, 4, 3, 2, 1].map(
+			(star) => {
+				const count = s.perStar.get(star) ?? 0;
+				return {
+					star,
+					count,
+					percent: s.total > 0 ? (count / s.total) * 100 : 0,
+				};
+			},
+		);
+		return {
+			average: s.average,
+			total: s.total,
+			fiveStarPercent:
+				s.total > 0 ? Math.round((s.fiveStarCount / s.total) * 100) : 0,
+			lowRatingCount: s.lowRatingCount,
+			distribution,
+		};
+	}
+
+	async getReviews(
+		instructorId: string,
+		input: GetReviewsInput,
+	): Promise<PaginatedReviews> {
+		logger.info("Getting instructor reviews", { instructorId, ...input });
+		const { rows, total } = await courseReviewRepository.findInstructorReviews({
+			instructorId,
+			courseId: input.courseId,
+			rating: input.rating,
+			page: input.page,
+			perPage: REVIEWS_PER_PAGE,
+		});
+		return {
+			data: rows,
+			total,
+			currentPage: input.page,
+			perPage: REVIEWS_PER_PAGE,
+			lastPage: Math.max(1, Math.ceil(total / REVIEWS_PER_PAGE)),
+		};
 	}
 }
 
