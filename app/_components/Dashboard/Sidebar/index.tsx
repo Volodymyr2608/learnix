@@ -4,6 +4,7 @@ import Navigation from "@/app/_components/Dashboard/Sidebar/components/Navigatio
 import { Role } from "@/generated/prisma";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
+import getNewReviewsCount from "@/lib/requests/instructor/getNewReviewsCount";
 import { capitalize } from "@/lib/utils/capitalize";
 import getInitials from "@/lib/utils/user/getInitials";
 import getUserName from "@/lib/utils/user/getUserName";
@@ -15,6 +16,7 @@ const DashboardSidebar = async () => {
 
 	const { name, role } = user;
 	const isInstructor = role === Role.INSTRUCTOR;
+	const reviewsCount = isInstructor ? await getNewReviewsCount() : 0;
 
 	return (
 		<aside className="fixed top-0 left-0 z-40 h-screen w-64 border-sidebar-border border-r bg-sidebar">
@@ -36,7 +38,7 @@ const DashboardSidebar = async () => {
 					</Link>
 				</div>
 
-				<Navigation isInstructor={isInstructor} />
+				<Navigation isInstructor={isInstructor} reviewsCount={reviewsCount} />
 
 				{/* Footer */}
 				<div className="border-sidebar-border border-t p-4">
