@@ -101,4 +101,20 @@ export const instructorRouter = createTRPCRouter({
 				handleServiceError(error);
 			}
 		}),
+
+	getNewReviewsCount: instructorProcedure.query(async ({ ctx }) => {
+		try {
+			return await instructorService.getNewReviewsCount(ctx.session.user.id);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+
+	markReviewsViewed: instructorProcedure.mutation(async ({ ctx }) => {
+		try {
+			return await instructorService.markReviewsViewed(ctx.session.user.id);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
 });
