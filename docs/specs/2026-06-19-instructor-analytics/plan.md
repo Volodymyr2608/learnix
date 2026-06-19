@@ -1148,7 +1148,6 @@ git commit -m "feat(analytics): service errors + global aggregates"
 ```ts
 // append to analytics.service.integration.test.ts
 import { makeLesson, makeSection } from "@/test/factories";
-import { TRPCError } from "@trpc/server";
 
 describe("AnalyticsService per-course", () => {
 	it("rejects a course the instructor does not own", async () => {
