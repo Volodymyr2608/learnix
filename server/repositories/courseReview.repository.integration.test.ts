@@ -293,3 +293,67 @@ describe("CourseReviewRepository.findByStudentAndCourse", () => {
 		expect(found).toBeNull();
 	});
 });
+
+describe("CourseReviewRepository.countNewByInstructor", () => {
+	it("counts only this instructor's non-deleted reviews created after `since`", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const other = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const otherCourse = await makeCourse({
+			instructorId: other.id,
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		const s3 = await makeUser({ role: Role.STUDENT });
+		const since = new Date("2025-02-15");
+		await testDb.courseReview.create({
+			data: {
+				courseId: course.id,
+				studentId: s1.id,
+				rating: 5,
+				comment: "old",
+				createdAt: new Date("2025-01-01"),
+			},
+		});
+		await testDb.courseReview.create({
+			data: {
+				courseId: course.id,
+				studentId: s2.id,
+				rating: 4,
+				comment: "new",
+				createdAt: new Date("2025-03-01"),
+			},
+		});
+		await testDb.courseReview.create({
+			data: {
+				courseId: otherCourse.id,
+				studentId: s3.id,
+				rating: 5,
+				comment: "other",
+				createdAt: new Date("2025-03-01"),
+			},
+		});
+
+		expect(
+			await courseReviewRepository.countNewByInstructor(instructor.id, since),
+		).toBe(1);
+	});
+
+	it("counts all of the instructor's reviews when `since` is null", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const s1 = await makeUser({ role: Role.STUDENT });
+		await makeReview({ courseId: course.id, studentId: s1.id, rating: 5 });
+
+		expect(
+			await courseReviewRepository.countNewByInstructor(instructor.id, null),
+		).toBe(1);
+	});
+});

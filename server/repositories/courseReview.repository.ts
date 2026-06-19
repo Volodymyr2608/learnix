@@ -186,6 +186,19 @@ export default class CourseReviewRepository extends BaseRepository<
 		};
 	}
 
+	countNewByInstructor(
+		instructorId: string,
+		since: Date | null,
+	): Promise<number> {
+		return this.model.count({
+			where: {
+				deletedAt: null,
+				course: { is: { instructorId, deletedAt: null } },
+				...(since ? { createdAt: { gt: since } } : {}),
+			},
+		});
+	}
+
 	async getInstructorReviewCourseOptions(
 		instructorId: string,
 	): Promise<{ id: string; title: string }[]> {
