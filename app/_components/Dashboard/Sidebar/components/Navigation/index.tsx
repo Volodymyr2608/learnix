@@ -56,9 +56,8 @@ const instructorItems: NavItem[] = [
 	},
 	{
 		title: "Reviews",
-		href: "/instructor/reviews",
+		href: INSTRUCTOR_URLS.reviews,
 		icon: Star,
-		badge: "5",
 	},
 	{
 		title: "Analytics",
@@ -117,7 +116,12 @@ const studentItems: NavItem[] = [
 	},
 ];
 
-const SidebarNavigation = ({ isInstructor }: NavigationProps) => {
+function formatBadge(count: number): string | undefined {
+	if (count <= 0) return undefined;
+	return count > 9 ? "9+" : String(count);
+}
+
+const SidebarNavigation = ({ isInstructor, reviewsCount }: NavigationProps) => {
 	const pathname = usePathname();
 	const navItems = isInstructor ? instructorItems : studentItems;
 
@@ -126,6 +130,8 @@ const SidebarNavigation = ({ isInstructor }: NavigationProps) => {
 			{navItems.map((item) => {
 				const Icon = item.icon;
 				const isActive = pathname === item.href;
+				const isReviews = item.href === INSTRUCTOR_URLS.reviews;
+				const badge = isReviews ? formatBadge(reviewsCount) : item.badge;
 				return (
 					<Link
 						className={cn(
@@ -139,9 +145,17 @@ const SidebarNavigation = ({ isInstructor }: NavigationProps) => {
 					>
 						<Icon className="h-5 w-5" />
 						<span className="flex-1">{item.title}</span>
-						{item.badge && (
-							<span className="flex h-5 w-5 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs">
-								{item.badge}
+						{badge && (
+							<span
+								aria-label={
+									isReviews
+										? `${reviewsCount} new reviews`
+										: `${badge} ${item.title}`
+								}
+								className="flex h-5 w-5 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs"
+								role="img"
+							>
+								{badge}
 							</span>
 						)}
 					</Link>
