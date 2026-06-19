@@ -128,8 +128,14 @@ const BrowseCourseCard = ({
 				<CardContent className="space-y-4">
 					<div className="flex items-center justify-between text-sm">
 						<div className="flex items-center gap-1">
-							<Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-							<span className="font-medium">{course.rating}</span>
+							{course.rating === null ? (
+								<span className="text-muted-foreground">No ratings yet</span>
+							) : (
+								<>
+									<Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+									<span className="font-medium">{course.rating}</span>
+								</>
+							)}
 						</div>
 						<div className="flex items-center gap-1 text-muted-foreground">
 							<Users className="h-4 w-4" />

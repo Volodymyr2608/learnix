@@ -280,19 +280,26 @@ export default class CourseRepository extends BaseRepository<
 			this.count(where),
 		]);
 
+		const ratings = await this.courseReviewRepository.getAvgRatingByCourseIds(
+			courses.map((course) => course.id),
+		);
+
 		return {
-			courses: courses.map((course) => ({
-				id: course.id,
-				title: course.title,
-				instructor: course.instructor.name,
-				rating: 4.8,
-				students: course._count.enrollments,
-				duration: course.duration,
-				priceCents: course.priceCents,
-				level: course.level,
-				thumbnail: course.thumbnailUrl,
-				category: course.category,
-			})),
+			courses: courses.map((course) => {
+				const avg = ratings.get(course.id);
+				return {
+					id: course.id,
+					title: course.title,
+					instructor: course.instructor.name,
+					rating: avg == null ? null : Number(avg.toFixed(1)),
+					students: course._count.enrollments,
+					duration: course.duration,
+					priceCents: course.priceCents,
+					level: course.level,
+					thumbnail: course.thumbnailUrl,
+					category: course.category,
+				};
+			}),
 			total,
 		};
 	}
