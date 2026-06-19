@@ -18,10 +18,15 @@ const mockReviewRepo = {
 	getInstructorReviewStats: vi.fn(),
 	findInstructorReviews: vi.fn(),
 	getInstructorReviewCourseOptions: vi.fn(),
+	countNewByInstructor: vi.fn(),
 };
 const mockCourseRepo = {
 	getCoursesStats: vi.fn(),
 	getCourseCardsByIds: vi.fn(),
+};
+const mockInstructorRepo = {
+	getReviewsLastViewedAt: vi.fn(),
+	touchReviewsViewed: vi.fn(),
 };
 
 vi.mock("@/server/repositories/payment.repository", () => ({
@@ -38,6 +43,10 @@ vi.mock("@/server/repositories/courseReview.repository", () => ({
 
 vi.mock("@/server/repositories/course.repository", () => ({
 	courseRepository: mockCourseRepo,
+}));
+
+vi.mock("@/server/repositories/instructor.repository", () => ({
+	instructorRepository: mockInstructorRepo,
 }));
 
 const { instructorService } = await import("./instructor.service");
@@ -458,5 +467,55 @@ describe("InstructorService.getReviewCourseOptions", () => {
 			{ id: "c1", title: "Alpha" },
 			{ id: "c2", title: "Zeta" },
 		]);
+	});
+});
+
+describe("InstructorService.getNewReviewsCount", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("counts reviews created after the last-viewed timestamp", async () => {
+		const since = new Date("2025-05-01");
+		mockInstructorRepo.getReviewsLastViewedAt.mockResolvedValue(since);
+		mockReviewRepo.countNewByInstructor.mockResolvedValue(3);
+
+		const count = await instructorService.getNewReviewsCount(INSTRUCTOR_ID);
+
+		expect(count).toBe(3);
+		expect(mockReviewRepo.countNewByInstructor).toHaveBeenCalledWith(
+			INSTRUCTOR_ID,
+			since,
+		);
+	});
+
+	it("passes null through when the instructor never viewed", async () => {
+		mockInstructorRepo.getReviewsLastViewedAt.mockResolvedValue(null);
+		mockReviewRepo.countNewByInstructor.mockResolvedValue(0);
+
+		const count = await instructorService.getNewReviewsCount(INSTRUCTOR_ID);
+
+		expect(count).toBe(0);
+		expect(mockReviewRepo.countNewByInstructor).toHaveBeenCalledWith(
+			INSTRUCTOR_ID,
+			null,
+		);
+	});
+});
+
+describe("InstructorService.markReviewsViewed", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("touches the timestamp and returns success", async () => {
+		mockInstructorRepo.touchReviewsViewed.mockResolvedValue(undefined);
+
+		const result = await instructorService.markReviewsViewed(INSTRUCTOR_ID);
+
+		expect(result).toEqual({ success: true });
+		expect(mockInstructorRepo.touchReviewsViewed).toHaveBeenCalledWith(
+			INSTRUCTOR_ID,
+		);
 	});
 });

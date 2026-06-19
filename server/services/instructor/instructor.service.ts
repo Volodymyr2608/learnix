@@ -311,6 +311,19 @@ class InstructorService {
 			lastPage: Math.max(1, Math.ceil(total / REVIEWS_PER_PAGE)),
 		};
 	}
+
+	async getNewReviewsCount(instructorId: string): Promise<number> {
+		logger.info("Getting instructor new reviews count", { instructorId });
+		const since =
+			await instructorRepository.getReviewsLastViewedAt(instructorId);
+		return courseReviewRepository.countNewByInstructor(instructorId, since);
+	}
+
+	async markReviewsViewed(instructorId: string): Promise<{ success: true }> {
+		logger.info("Marking instructor reviews viewed", { instructorId });
+		await instructorRepository.touchReviewsViewed(instructorId);
+		return { success: true };
+	}
 }
 
 export const instructorService = new InstructorService();
