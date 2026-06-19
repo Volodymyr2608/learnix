@@ -197,6 +197,37 @@ describe("CourseRepository.searchOwnCourses", () => {
 		});
 		expect(res.data[0]?.title).toBe("Many");
 	});
+
+	it("returns the active+completed enrollment count as `students`, excluding cancelled", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			title: "Stats Course",
+		});
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		const s3 = await makeUser({ role: Role.STUDENT });
+		await makeEnrollment({ studentId: s1.id, courseId: course.id });
+		await makeEnrollment({
+			studentId: s2.id,
+			courseId: course.id,
+			status: EnrollmentStatus.completed,
+		});
+		await makeEnrollment({
+			studentId: s3.id,
+			courseId: course.id,
+			status: EnrollmentStatus.cancelled,
+		});
+
+		const res = await courseRepository.searchOwnCourses({
+			instructorId: instructor.id,
+			status: "all",
+			sort: "updated",
+			page: 1,
+		});
+
+		expect(res.data[0]?.students).toBe(2);
+	});
 });
 
 describe("CourseRepository.getPublishedCourses ratings", () => {
