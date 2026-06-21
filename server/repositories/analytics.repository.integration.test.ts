@@ -128,3 +128,54 @@ describe("AnalyticsRepository.getEnrollmentTrend", () => {
 		expect(completed).toBe(1);
 	});
 });
+
+describe("AnalyticsRepository by-course + lesson completions", () => {
+	it("groups enrollments by course and counts completed lessons", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+			title: "Course A",
+		});
+		const section = await makeSection({ courseId: course.id });
+		const l1 = await makeLesson({
+			sectionId: section.id,
+			order: 0,
+			title: "L1",
+		});
+		const l2 = await makeLesson({
+			sectionId: section.id,
+			order: 1,
+			title: "L2",
+		});
+
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		await makeEnrollment({ studentId: s1.id, courseId: course.id });
+		await makeEnrollment({ studentId: s2.id, courseId: course.id });
+		await testDb.lessonProgress.create({
+			data: { lessonId: l1.id, studentId: s1.id, isCompleted: true },
+		});
+		await testDb.lessonProgress.create({
+			data: { lessonId: l1.id, studentId: s2.id, isCompleted: true },
+		});
+		await testDb.lessonProgress.create({
+			data: { lessonId: l2.id, studentId: s1.id, isCompleted: true },
+		});
+
+		const since = new Date("2000-01-01");
+		const byCourse = await analyticsRepository.getEnrollmentsByCourse(
+			[course.id],
+			since,
+		);
+		expect(byCourse).toEqual([
+			{ courseId: course.id, title: "Course A", enrollments: 2 },
+		]);
+
+		const completions = await analyticsRepository.getLessonCompletions(
+			course.id,
+		);
+		expect(completions.get(l1.id)).toBe(2);
+		expect(completions.get(l2.id)).toBe(1);
+	});
+});

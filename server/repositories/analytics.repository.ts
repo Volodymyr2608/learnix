@@ -87,6 +87,43 @@ class AnalyticsRepository {
 			completions: Number(r.completions),
 		}));
 	}
+
+	async getEnrollmentsByCourse(
+		courseIds: string[],
+		since: Date,
+	): Promise<{ courseId: string; title: string; enrollments: number }[]> {
+		if (courseIds.length === 0) return [];
+		const grouped = await db.enrollment.groupBy({
+			by: ["courseId"],
+			where: { courseId: { in: courseIds }, enrolledAt: { gte: since } },
+			_count: { _all: true },
+			orderBy: { _count: { courseId: "desc" } },
+		});
+		if (grouped.length === 0) return [];
+		const courses = await db.course.findMany({
+			where: { id: { in: grouped.map((g) => g.courseId) } },
+			select: { id: true, title: true },
+		});
+		const titleById = new Map(courses.map((c) => [c.id, c.title]));
+		return grouped.map((g) => ({
+			courseId: g.courseId,
+			title: titleById.get(g.courseId) ?? "Untitled course",
+			enrollments: g._count._all,
+		}));
+	}
+
+	/** lessonId → number of students who completed it (for the funnel). */
+	async getLessonCompletions(courseId: string): Promise<Map<string, number>> {
+		const grouped = await db.lessonProgress.groupBy({
+			by: ["lessonId"],
+			where: {
+				isCompleted: true,
+				lesson: { section: { courseId } },
+			},
+			_count: { _all: true },
+		});
+		return new Map(grouped.map((g) => [g.lessonId, g._count._all]));
+	}
 }
 
 export const analyticsRepository = new AnalyticsRepository();
