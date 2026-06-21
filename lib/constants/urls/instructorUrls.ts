@@ -7,6 +7,7 @@ const INSTRUCTOR_URLS = {
 	createCourse: `${MAIN_URL}/courses/new`,
 	previewCourse: (id: string) => `${MAIN_URL}/courses/${id}/preview`,
 	editCourse: (id: string) => `${MAIN_URL}/courses/${id}/edit`,
+	courseAnalytics: (id: string) => `${MAIN_URL}/courses/${id}/analytics`,
 	previewLesson: (courseId: string, lessonId: string) =>
 		`${MAIN_URL}/courses/${courseId}/lessons/${lessonId}/preview`,
 	editLesson: (courseId: string, lessonId: string) =>
