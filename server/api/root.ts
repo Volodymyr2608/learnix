@@ -1,3 +1,4 @@
+import { analyticsRouter } from "@/server/api/routers/analytics";
 import { courseAIRouter } from "@/server/api/routers/ai";
 import { courseRouter } from "@/server/api/routers/course";
 import { instructorRouter } from "@/server/api/routers/instructor";
@@ -20,6 +21,7 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
+	analytics: analyticsRouter,
 	user: userRouter,
 	course: courseRouter,
 	courseAI: courseAIRouter,
