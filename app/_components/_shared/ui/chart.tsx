@@ -79,6 +79,7 @@ function ChartTooltipContent({
 	labelFormatter,
 	formatter,
 	className,
+	hideLabel,
 }: {
 	active?: boolean;
 	payload?: Array<{
@@ -91,6 +92,7 @@ function ChartTooltipContent({
 	labelFormatter?: (label: string) => React.ReactNode;
 	formatter?: (value: number, name?: string) => React.ReactNode;
 	className?: string;
+	hideLabel?: boolean;
 }) {
 	const { config } = useChart();
 	if (!active || !payload?.length) return null;
@@ -102,7 +104,7 @@ function ChartTooltipContent({
 				className,
 			)}
 		>
-			{label && (
+			{!hideLabel && label && (
 				<div className="font-medium">
 					{labelFormatter ? labelFormatter(label) : label}
 				</div>
