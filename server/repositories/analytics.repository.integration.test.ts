@@ -1,3 +1,4 @@
+import { startOfMonth, subMonths } from "date-fns";
 import { describe, expect, it } from "vitest";
 import { CourseStatus, Role } from "@/generated/prisma";
 import { testDb } from "@/test/db";
@@ -86,5 +87,44 @@ describe("AnalyticsRepository summary aggregates", () => {
 		});
 		const stats = await analyticsRepository.getQuizStats([course.id]);
 		expect(stats).toEqual({ attempts: 2, correct: 1 });
+	});
+});
+
+describe("AnalyticsRepository.getEnrollmentTrend", () => {
+	it("buckets enrollments and completions by month within range", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.published,
+		});
+		const now = new Date();
+		const thisMonth = startOfMonth(now);
+		const lastMonth = startOfMonth(subMonths(now, 1));
+
+		const s1 = await makeUser({ role: Role.STUDENT });
+		const s2 = await makeUser({ role: Role.STUDENT });
+		await makeEnrollment({
+			studentId: s1.id,
+			courseId: course.id,
+			enrolledAt: lastMonth,
+			completedAt: lastMonth,
+		});
+		await makeEnrollment({
+			studentId: s2.id,
+			courseId: course.id,
+			enrolledAt: thisMonth,
+		});
+
+		const since = startOfMonth(subMonths(now, 2));
+		const rows = await analyticsRepository.getEnrollmentTrend(
+			[course.id],
+			since,
+			"month",
+		);
+
+		const total = rows.reduce((s, r) => s + r.enrollments, 0);
+		const completed = rows.reduce((s, r) => s + r.completions, 0);
+		expect(total).toBe(2);
+		expect(completed).toBe(1);
 	});
 });

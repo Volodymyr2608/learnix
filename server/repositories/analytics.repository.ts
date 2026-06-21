@@ -62,6 +62,31 @@ class AnalyticsRepository {
 		]);
 		return { attempts, correct };
 	}
+
+	async getEnrollmentTrend(
+		courseIds: string[],
+		since: Date,
+		bucket: "day" | "month",
+	): Promise<{ period: Date; enrollments: number; completions: number }[]> {
+		if (courseIds.length === 0) return [];
+		const rows = await db.$queryRaw<
+			{ period: Date; enrollments: bigint; completions: bigint }[]
+		>`
+			SELECT date_trunc(${bucket}, "enrolledAt") AS period,
+			       COUNT(*) AS enrollments,
+			       COUNT("completedAt") AS completions
+			FROM enrollments
+			WHERE "courseId" = ANY(${courseIds})
+			  AND "enrolledAt" >= ${since}
+			GROUP BY period
+			ORDER BY period ASC
+		`;
+		return rows.map((r) => ({
+			period: r.period,
+			enrollments: Number(r.enrollments),
+			completions: Number(r.completions),
+		}));
+	}
 }
 
 export const analyticsRepository = new AnalyticsRepository();
