@@ -5,12 +5,16 @@ import { resolveRange } from "@/lib/stats/revenueRange";
 import type {
 	AnalyticsSummary,
 	CompletionTrendPoint,
+	CourseAnalyticsSummary,
 	EnrollmentsByCourseItem,
 	EnrollmentTrendPoint,
+	LessonFunnelItem,
 } from "@/server/entities/analytics/analytics";
 import type { StatsRange } from "@/server/entities/stats/range";
 import { analyticsRepository } from "@/server/repositories/analytics.repository";
+import { courseRepository } from "@/server/repositories/course.repository";
 import { logger } from "@/server/utils/logger";
+import { CourseNotFoundError } from "./analytics.errors";
 
 class AnalyticsService {
 	private async buildSummary(courseIds: string[]): Promise<AnalyticsSummary> {
@@ -118,6 +122,48 @@ class AnalyticsService {
 			enrollments: 0,
 			completions: 0,
 		});
+	}
+
+	private async assertOwnedCourse(instructorId: string, courseId: string) {
+		const course = await courseRepository.getOwnCourse(courseId, instructorId);
+		if (!course) throw new CourseNotFoundError({ instructorId, courseId });
+		return course;
+	}
+
+	async getCourseSummary(
+		instructorId: string,
+		courseId: string,
+	): Promise<CourseAnalyticsSummary> {
+		await this.assertOwnedCourse(instructorId, courseId);
+		return this.buildSummary([courseId]);
+	}
+
+	async getCourseEnrollmentTrend(
+		instructorId: string,
+		courseId: string,
+		range: StatsRange,
+	): Promise<EnrollmentTrendPoint[]> {
+		await this.assertOwnedCourse(instructorId, courseId);
+		return this.enrollmentTrendFor([courseId], range);
+	}
+
+	async getLessonFunnel(
+		instructorId: string,
+		courseId: string,
+	): Promise<LessonFunnelItem[]> {
+		const course = await this.assertOwnedCourse(instructorId, courseId);
+		const [enrolled, completions] = await Promise.all([
+			analyticsRepository.countEnrollments([courseId]),
+			analyticsRepository.getLessonCompletions(courseId),
+		]);
+		const lessons = course.sections.flatMap((s) => s.lessons);
+		return lessons.map((lesson, index) => ({
+			lessonId: lesson.id,
+			title: lesson.title,
+			order: index,
+			enrolled,
+			completed: completions.get(lesson.id) ?? 0,
+		}));
 	}
 }
 
