@@ -11,6 +11,6 @@ describe("fillBuckets", () => {
 
 		expect(out).toHaveLength(3);
 		expect(out.map((r) => r.enrollments)).toEqual([0, 5, 0]);
-		expect(out[1].period).toBe("2026-02-01");
+		expect(out[1]?.period).toBe("2026-02-01");
 	});
 });
