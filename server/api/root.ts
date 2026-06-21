@@ -1,5 +1,5 @@
-import { analyticsRouter } from "@/server/api/routers/analytics";
 import { courseAIRouter } from "@/server/api/routers/ai";
+import { analyticsRouter } from "@/server/api/routers/analytics";
 import { courseRouter } from "@/server/api/routers/course";
 import { instructorRouter } from "@/server/api/routers/instructor";
 import { learningPathRouter } from "@/server/api/routers/learningPath";

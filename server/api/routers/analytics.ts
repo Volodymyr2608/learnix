@@ -20,7 +20,10 @@ export const analyticsRouter = createTRPCRouter({
 		.input(statsRangeInput)
 		.query(async ({ ctx, input }) => {
 			try {
-				return await analyticsService.getEnrollmentTrend(ctx.session.user.id, input.range);
+				return await analyticsService.getEnrollmentTrend(
+					ctx.session.user.id,
+					input.range,
+				);
 			} catch (error) {
 				handleServiceError(error);
 			}
@@ -30,7 +33,10 @@ export const analyticsRouter = createTRPCRouter({
 		.input(statsRangeInput)
 		.query(async ({ ctx, input }) => {
 			try {
-				return await analyticsService.getCompletionTrend(ctx.session.user.id, input.range);
+				return await analyticsService.getCompletionTrend(
+					ctx.session.user.id,
+					input.range,
+				);
 			} catch (error) {
 				handleServiceError(error);
 			}
@@ -40,7 +46,10 @@ export const analyticsRouter = createTRPCRouter({
 		.input(statsRangeInput)
 		.query(async ({ ctx, input }) => {
 			try {
-				return await analyticsService.getEnrollmentsByCourse(ctx.session.user.id, input.range);
+				return await analyticsService.getEnrollmentsByCourse(
+					ctx.session.user.id,
+					input.range,
+				);
 			} catch (error) {
 				handleServiceError(error);
 			}
@@ -50,7 +59,10 @@ export const analyticsRouter = createTRPCRouter({
 		.input(courseInput)
 		.query(async ({ ctx, input }) => {
 			try {
-				return await analyticsService.getCourseSummary(ctx.session.user.id, input.courseId);
+				return await analyticsService.getCourseSummary(
+					ctx.session.user.id,
+					input.courseId,
+				);
 			} catch (error) {
 				handleServiceError(error);
 			}
@@ -74,7 +86,10 @@ export const analyticsRouter = createTRPCRouter({
 		.input(courseInput)
 		.query(async ({ ctx, input }) => {
 			try {
-				return await analyticsService.getLessonFunnel(ctx.session.user.id, input.courseId);
+				return await analyticsService.getLessonFunnel(
+					ctx.session.user.id,
+					input.courseId,
+				);
 			} catch (error) {
 				handleServiceError(error);
 			}
