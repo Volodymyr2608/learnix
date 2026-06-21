@@ -1,7 +1,7 @@
 import { Clock, DollarSign, TrendingUp, Wallet } from "lucide-react";
+import DeltaBadge from "@/app/_components/Instructor/_shared/DeltaBadge";
+import StatCard from "@/app/_components/Instructor/_shared/StatCard";
 import { formatUsd } from "@/lib/formatUsd";
-import DeltaBadge from "./components/DeltaBadge";
-import StatCard from "./components/StatCard";
 import type { RevenueSummaryCardsProps } from "./types";
 
 export default function RevenueSummaryCards({
