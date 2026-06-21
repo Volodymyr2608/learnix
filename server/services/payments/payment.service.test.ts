@@ -500,7 +500,11 @@ describe("paymentService.getRevenueTimeSeries", () => {
 	it("gap-fills missing monthly buckets with zeros, ascending", async () => {
 		vi.setSystemTime(new Date(2026, 5, 16)); // Jun 2026; 6m → Jan..Jun
 		vi.spyOn(paymentRepository, "getRevenueByBucket").mockResolvedValue([
-			{ period: new Date(2026, 2, 1), grossCents: 15000, netCents: 12000 }, // Mar only
+			{
+				period: new Date("2026-03-01T00:00:00Z"),
+				grossCents: 15000,
+				netCents: 12000,
+			}, // Mar only; UTC-anchored to match how date_trunc() rows actually round-trip
 		]);
 
 		const series = await paymentService.getRevenueTimeSeries("inst_1", "6m");

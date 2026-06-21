@@ -1,11 +1,11 @@
 import { subDays, subMonths } from "date-fns";
-import type { RevenueRange } from "@/server/entities/payment/revenue";
+import type { StatsRange } from "@/server/entities/stats/range";
 
 export type ResolvedRange = { since: Date; bucket: "day" | "month" };
 
 /** Maps a range preset to its query window start and time-bucket unit. */
 export function resolveRange(
-	range: RevenueRange,
+	range: StatsRange,
 	now: Date = new Date(),
 ): ResolvedRange {
 	if (range === "30d") {

@@ -1,13 +1,8 @@
-import {
-	eachDayOfInterval,
-	eachMonthOfInterval,
-	formatISO,
-	subDays,
-} from "date-fns";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { computeSplit } from "@/lib/platformFee";
 import { computeDelta } from "@/lib/stats/computeDelta";
+import { fillBuckets } from "@/lib/stats/fillBuckets";
 import { resolveRange } from "@/lib/stats/revenueRange";
 import type {
 	RevenueByCourseItem,
@@ -271,25 +266,9 @@ class PaymentService {
 			bucket,
 		);
 
-		const starts =
-			bucket === "day"
-				? eachDayOfInterval({ start: since, end: subDays(now, 1) })
-				: eachMonthOfInterval({ start: since, end: now });
-
-		const keyOf = (d: Date) =>
-			bucket === "day"
-				? formatISO(d, { representation: "date" })
-				: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-
-		const byKey = new Map(rows.map((r) => [keyOf(r.period), r] as const));
-
-		return starts.map((start) => {
-			const hit = byKey.get(keyOf(start));
-			return {
-				period: formatISO(start, { representation: "date" }),
-				grossCents: hit?.grossCents ?? 0,
-				netCents: hit?.netCents ?? 0,
-			};
+		return fillBuckets(rows, since, now, bucket, {
+			grossCents: 0,
+			netCents: 0,
 		});
 	}
 

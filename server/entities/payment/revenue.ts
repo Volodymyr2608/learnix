@@ -1,10 +1,14 @@
 import { z } from "zod";
 import type { StatDelta } from "@/server/entities/instructor/dashboard";
+import {
+	type StatsRange,
+	statsRangeInput,
+	statsRangeSchema,
+} from "@/server/entities/stats/range";
 
-export const revenueRangeSchema = z.enum(["30d", "6m", "12m"]);
-export type RevenueRange = z.infer<typeof revenueRangeSchema>;
-
-export const revenueRangeInput = z.object({ range: revenueRangeSchema });
+export const revenueRangeSchema = statsRangeSchema;
+export type RevenueRange = StatsRange;
+export const revenueRangeInput = statsRangeInput;
 export const recentTransactionsInput = z.object({
 	limit: z.number().int().min(1).max(50).default(10),
 });

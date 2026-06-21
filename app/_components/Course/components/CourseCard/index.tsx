@@ -75,7 +75,7 @@ const CourseCard = ({ course }: CourseCardProps) => {
 						</Link>
 					</Button>
 					<Button asChild size="icon" variant="outline">
-						<Link href={`/instructor/courses/${course.id}/analytics`}>
+						<Link href={INSTRUCTOR_URLS.courseAnalytics(course.id)}>
 							<BarChart className="h-4 w-4" />
 						</Link>
 					</Button>
