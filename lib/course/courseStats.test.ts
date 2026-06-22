@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	computeAverageRating,
 	countLectures,
 	countResources,
 	type SectionStat,
@@ -39,5 +40,14 @@ describe("courseStats", () => {
 		expect(sumTotalDurationMinutes([])).toBe(0);
 		expect(countLectures([])).toBe(0);
 		expect(countResources([])).toBe(0);
+	});
+});
+
+describe("computeAverageRating", () => {
+	it("averages review ratings", () => {
+		expect(computeAverageRating([{ rating: 4 }, { rating: 5 }])).toBe(4.5);
+	});
+	it("returns 0 for no reviews", () => {
+		expect(computeAverageRating([])).toBe(0);
 	});
 });

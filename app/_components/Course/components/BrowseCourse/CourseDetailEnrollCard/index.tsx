@@ -19,10 +19,20 @@ import { Separator } from "@/app/_components/_shared/ui/separator";
 import type {
 	CourseDetailEnrollCardProps,
 	EnrollActionProps,
+	IncludeItemProps,
 } from "@/app/_components/Course/components/BrowseCourse/CourseDetailEnrollCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
 import { formatPrice } from "@/lib/formatPrice";
 import { api } from "@/trpc/client";
+
+function IncludeItem({ icon: Icon, label }: IncludeItemProps) {
+	return (
+		<div className="flex items-center gap-2">
+			<Icon className="h-4 w-4 text-muted-foreground" />
+			<span>{label}</span>
+		</div>
+	);
+}
 
 function EnrollAction({ course, isEnrolled, onEnrollFree }: EnrollActionProps) {
 	const checkout = api.payment.createCheckoutSession.useMutation({
@@ -67,7 +77,10 @@ function EnrollAction({ course, isEnrolled, onEnrollFree }: EnrollActionProps) {
 	);
 }
 
-const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
+const CourseDetailEnrollCard = ({
+	course,
+	previewMode,
+}: CourseDetailEnrollCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
 
 	const isEnrolled = false;
@@ -111,16 +124,19 @@ const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 								</>
 							)}
 						</div>
-						<p className="font-medium text-destructive text-sm">
-							2 days left at this price!
-						</p>
 					</div>
 
-					<EnrollAction
-						course={course}
-						isEnrolled={isEnrolled}
-						onEnrollFree={() => setEnrollDialogOpen(true)}
-					/>
+					{previewMode ? (
+						<Button className="w-full" disabled size="lg">
+							Preview Mode — Not Purchasable
+						</Button>
+					) : (
+						<EnrollAction
+							course={course}
+							isEnrolled={isEnrolled}
+							onEnrollFree={() => setEnrollDialogOpen(true)}
+						/>
+					)}
 
 					<p className="text-center text-muted-foreground text-xs">
 						30-Day Money-Back Guarantee
@@ -131,30 +147,33 @@ const CourseDetailEnrollCard = ({ course }: CourseDetailEnrollCardProps) => {
 					<div className="space-y-3 text-sm">
 						<h4 className="font-semibold">This course includes:</h4>
 						<div className="space-y-2">
-							<div className="flex items-center gap-2">
-								<PlayCircle className="h-4 w-4 text-muted-foreground" />
-								<span>{course.duration} on-demand video</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<FileText className="h-4 w-4 text-muted-foreground" />
-								<span>12 articles</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Download className="h-4 w-4 text-muted-foreground" />
-								<span>15 downloadable resources</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Clock className="h-4 w-4 text-muted-foreground" />
-								<span>Full lifetime access</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Smartphone className="h-4 w-4 text-muted-foreground" />
-								<span>Access on mobile and TV</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Award className="h-4 w-4 text-muted-foreground" />
-								<span>Certificate of completion</span>
-							</div>
+							{course.includes.videoDuration !== "—" && (
+								<IncludeItem
+									icon={PlayCircle}
+									label={`${course.includes.videoDuration} of on-demand video`}
+								/>
+							)}
+							{course.includes.lectureCount > 0 && (
+								<IncludeItem
+									icon={FileText}
+									label={`${course.includes.lectureCount} ${
+										course.includes.lectureCount === 1 ? "lecture" : "lectures"
+									}`}
+								/>
+							)}
+							{course.includes.resourceCount > 0 && (
+								<IncludeItem
+									icon={Download}
+									label={`${course.includes.resourceCount} downloadable ${
+										course.includes.resourceCount === 1
+											? "resource"
+											: "resources"
+									}`}
+								/>
+							)}
+							<IncludeItem icon={Clock} label="Full lifetime access" />
+							<IncludeItem icon={Smartphone} label="Access on mobile and TV" />
+							<IncludeItem icon={Award} label="Certificate of completion" />
 						</div>
 					</div>
 				</CardContent>

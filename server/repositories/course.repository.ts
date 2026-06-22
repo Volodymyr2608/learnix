@@ -20,6 +20,55 @@ import { quizRepository } from "@/server/repositories/quiz.repository";
 import type SectionRepository from "@/server/repositories/section.repository";
 import { sectionRepository } from "@/server/repositories/section.repository";
 
+/**
+ * Shared include for the rich course-detail page (student browse + instructor
+ * "view as student"). Both the published-course query and the
+ * owning-instructor query select the exact same shape so the service can map
+ * them through one helper.
+ */
+const COURSE_DETAIL_INCLUDE = {
+	instructor: {
+		select: {
+			name: true,
+			image: true,
+		},
+	},
+	sections: {
+		where: { deletedAt: null },
+		orderBy: { order: "asc" },
+		include: {
+			lessons: {
+				where: { deletedAt: null },
+				orderBy: { order: "asc" },
+				select: {
+					id: true,
+					title: true,
+					durationMinutes: true,
+					videoUrl: true,
+					resources: true,
+				},
+			},
+		},
+	},
+	reviews: {
+		where: { deletedAt: null },
+		orderBy: { createdAt: "desc" },
+		include: {
+			student: {
+				select: {
+					name: true,
+					image: true,
+				},
+			},
+		},
+	},
+	_count: {
+		select: {
+			enrollments: true,
+		},
+	},
+} satisfies Prisma.CourseInclude;
+
 export default class CourseRepository extends BaseRepository<
 	"course",
 	Course,
@@ -214,6 +263,7 @@ export default class CourseRepository extends BaseRepository<
 						},
 					},
 				},
+				reviews: { select: { rating: true } },
 				_count: { select: { enrollments: true } },
 			},
 		});
@@ -333,46 +383,23 @@ export default class CourseRepository extends BaseRepository<
 				status: "published",
 				deletedAt: null,
 			},
-			include: {
-				instructor: {
-					select: {
-						name: true,
-						image: true,
-					},
-				},
-				sections: {
-					where: { deletedAt: null },
-					orderBy: { order: "asc" },
-					include: {
-						lessons: {
-							where: { deletedAt: null },
-							orderBy: { order: "asc" },
-							select: {
-								id: true,
-								title: true,
-								durationMinutes: true,
-							},
-						},
-					},
-				},
-				reviews: {
-					where: { deletedAt: null },
-					orderBy: { createdAt: "desc" },
-					include: {
-						student: {
-							select: {
-								name: true,
-								image: true,
-							},
-						},
-					},
-				},
-				_count: {
-					select: {
-						enrollments: true,
-					},
-				},
+			include: COURSE_DETAIL_INCLUDE,
+		});
+	}
+
+	/**
+	 * Owning-instructor-scoped variant of {@link getPublishedCourse}: returns the
+	 * same rich detail shape for any of the instructor's own courses regardless
+	 * of publish status, so the instructor can preview a draft "as a student".
+	 */
+	async getOwnCourseDetail(courseId: string, instructorId: string) {
+		return await this.findFirst({
+			where: {
+				id: courseId,
+				instructorId,
+				deletedAt: null,
 			},
+			include: COURSE_DETAIL_INCLUDE,
 		});
 	}
 

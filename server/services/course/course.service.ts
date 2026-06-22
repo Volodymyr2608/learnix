@@ -1,3 +1,8 @@
+import {
+	countLectures,
+	countResources,
+	sumVideoDurationMinutes,
+} from "@/lib/course/courseStats";
 import { formatDuration } from "@/lib/format/formatDuration";
 import type { Section } from "@/prisma/zod";
 import type {
@@ -438,92 +443,7 @@ class CourseService {
 				});
 			}
 
-			const instructorStats = await courseRepository.getInstructorStats(
-				course.instructorId,
-			);
-
-			const instructorRating = Number(
-				(instructorStats.instructorRating ?? 0).toFixed(1),
-			);
-			const reviewCount = course.reviews.length;
-			const courseRating =
-				reviewCount > 0
-					? Number(
-							(
-								course.reviews.reduce((sum, review) => sum + review.rating, 0) /
-								reviewCount
-							).toFixed(1),
-						)
-					: Number(course.averageRating.toFixed(1));
-
-			const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => {
-				const count = course.reviews.filter(
-					(review) => review.rating === stars,
-				).length;
-				const percentage =
-					reviewCount > 0 ? Math.round((count / reviewCount) * 100) : 0;
-
-				return { stars, count, percentage };
-			});
-
-			const curriculum = course.sections.map((section) => ({
-				id: section.id,
-				section: section.title,
-				lectures: section.lessons.length,
-				duration: this.sumDurations(section.lessons),
-				lessons: section.lessons.map((lesson, index) => ({
-					id: lesson.id,
-					title: lesson.title,
-					durationMinutes: lesson.durationMinutes,
-					preview: index === 0,
-				})),
-			}));
-
-			const reviews = course.reviews.map((review) => ({
-				id: review.id,
-				name: review.student.name,
-				avatar: review.student.image,
-				date: review.createdAt.toLocaleDateString("en-US", {
-					month: "short",
-					day: "numeric",
-					year: "numeric",
-				}),
-				rating: review.rating,
-				comment: review.comment,
-			}));
-
-			return {
-				id: course.id,
-				title: course.title,
-				subtitle: course.subtitle,
-				instructor: {
-					name: course.instructor.name,
-					avatar: course.instructor.image,
-					students: instructorStats.studentsCount,
-					courses: instructorStats.coursesCount,
-					rating: instructorRating,
-				},
-				rating: courseRating,
-				reviewCount,
-				ratingDistribution,
-				students: course._count.enrollments,
-				duration: course.duration,
-				priceCents: course.priceCents,
-				originalPriceCents: course.originalPriceCents ?? null,
-				level: course.level,
-				language: course.language,
-				lastUpdated: course.updatedAt.toLocaleDateString("en-US", {
-					month: "long",
-					year: "numeric",
-				}),
-				thumbnail: course.thumbnailUrl,
-				category: course.category,
-				objectives: course.objectives,
-				requirements: course.requirements,
-				description: course.description,
-				curriculum,
-				reviews,
-			};
+			return await this.buildCourseDetail(course);
 		} catch (error: unknown) {
 			logger.error("Error getting published course:", error);
 
@@ -538,6 +458,151 @@ class CourseService {
 				{ courseId },
 			);
 		}
+	}
+
+	/**
+	 * Owning-instructor-scoped course detail in the exact same shape as
+	 * {@link getPublishedCourse}. Powers the instructor "view as student" page
+	 * (`/instructor/courses/[courseId]/view`) so a draft can be previewed with
+	 * the real student-facing components. Scoped to the owning instructor; any
+	 * other instructor's course (or a non-existent one) yields NOT_FOUND.
+	 */
+	async getOwnCourseDetail(courseId: string, instructorId: string) {
+		try {
+			const course = await courseRepository.getOwnCourseDetail(
+				courseId,
+				instructorId,
+			);
+
+			if (!course) {
+				throw new CourseError("Course not found", "NOT_FOUND", undefined, {
+					courseId,
+				});
+			}
+
+			return await this.buildCourseDetail(course);
+		} catch (error: unknown) {
+			logger.error("Error getting own course detail:", error);
+
+			if (error instanceof CourseError) {
+				throw error;
+			}
+
+			throw new CourseError(
+				"Failed to get own course detail",
+				"INTERNAL_SERVER_ERROR",
+				error,
+				{ courseId },
+			);
+		}
+	}
+
+	/**
+	 * Maps a rich course-detail row (shared `COURSE_DETAIL_INCLUDE` shape) into
+	 * the view-model consumed by the student-facing course components. Used by
+	 * both {@link getPublishedCourse} and {@link getOwnCourseDetail}.
+	 */
+	private async buildCourseDetail(
+		course: NonNullable<
+			Awaited<ReturnType<typeof courseRepository.getPublishedCourse>>
+		>,
+	) {
+		const instructorStats = await courseRepository.getInstructorStats(
+			course.instructorId,
+		);
+
+		const instructorRating = Number(
+			(instructorStats.instructorRating ?? 0).toFixed(1),
+		);
+		const reviewCount = course.reviews.length;
+		const courseRating =
+			reviewCount > 0
+				? Number(
+						(
+							course.reviews.reduce((sum, review) => sum + review.rating, 0) /
+							reviewCount
+						).toFixed(1),
+					)
+				: Number(course.averageRating.toFixed(1));
+
+		const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => {
+			const count = course.reviews.filter(
+				(review) => review.rating === stars,
+			).length;
+			const percentage =
+				reviewCount > 0 ? Math.round((count / reviewCount) * 100) : 0;
+
+			return { stars, count, percentage };
+		});
+
+		const curriculum = course.sections.map((section) => ({
+			id: section.id,
+			section: section.title,
+			lectures: section.lessons.length,
+			duration: this.sumDurations(section.lessons),
+			lessons: section.lessons.map((lesson, index) => ({
+				id: lesson.id,
+				title: lesson.title,
+				durationMinutes: lesson.durationMinutes,
+				preview: index === 0,
+			})),
+		}));
+
+		const reviews = course.reviews.map((review) => ({
+			id: review.id,
+			name: review.student.name,
+			avatar: review.student.image,
+			date: review.createdAt.toLocaleDateString("en-US", {
+				month: "short",
+				day: "numeric",
+				year: "numeric",
+			}),
+			rating: review.rating,
+			comment: review.comment,
+		}));
+
+		// Real figures for the "This course includes" list — derived from the
+		// course's own lessons, never hard-coded.
+		const includes = {
+			videoDuration: formatDuration(sumVideoDurationMinutes(course.sections)),
+			resourceCount: countResources(course.sections),
+			lectureCount: countLectures(course.sections),
+		};
+
+		return {
+			id: course.id,
+			status: course.status,
+			title: course.title,
+			subtitle: course.subtitle,
+			instructor: {
+				name: course.instructor.name,
+				avatar: course.instructor.image,
+				students: instructorStats.studentsCount,
+				courses: instructorStats.coursesCount,
+				rating: instructorRating,
+			},
+			rating: courseRating,
+			reviewCount,
+			ratingDistribution,
+			students: course._count.enrollments,
+			duration: course.duration,
+			priceCents: course.priceCents,
+			originalPriceCents: course.originalPriceCents ?? null,
+			level: course.level,
+			language: course.language,
+			lastUpdated: course.updatedAt.toLocaleDateString("en-US", {
+				month: "long",
+				year: "numeric",
+			}),
+			thumbnail: course.thumbnailUrl,
+			category: course.category,
+			objectives: course.objectives,
+			requirements: course.requirements,
+			description: course.description,
+			curriculum,
+			reviews,
+			includes,
+		};
 	}
 
 	private sumDurations(lessons: { durationMinutes: number | null }[]) {
