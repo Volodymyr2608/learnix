@@ -1,7 +1,7 @@
 export type LessonStat = {
 	durationMinutes: number | null;
 	videoUrl: string | null;
-	resources: unknown;
+	resources?: unknown;
 };
 
 export type SectionStat = { lessons: LessonStat[] };
