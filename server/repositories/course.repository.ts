@@ -214,6 +214,7 @@ export default class CourseRepository extends BaseRepository<
 						},
 					},
 				},
+				_count: { select: { enrollments: true } },
 			},
 		});
 	}

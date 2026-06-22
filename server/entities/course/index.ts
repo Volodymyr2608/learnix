@@ -185,6 +185,10 @@ export type CourseUpdateDto = z.infer<typeof CourseDto> & {
 
 export type FullCourse = CourseWithRelations;
 
+export type OwnCoursePreview = FullCourse & {
+	_count: { enrollments: number };
+};
+
 export type CourseWithSections = Merge<
 	Course,
 	{ sections: CourseWithRelations["sections"] }
