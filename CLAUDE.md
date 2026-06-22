@@ -57,7 +57,7 @@ T3 Stack app: Next.js 16 App Router + tRPC + Prisma + Better Auth.
 ### tRPC setup
 - **Server RSC** (`trpc/server.ts`): `api` exported from here for Server Components, using `createCaller`.
 - **Client** (`trpc/client.tsx`): `api` exported from here for Client Components, using `createTRPCReact`.
-- **Routers** (`server/api/routers/`): `course`, `courseAI`, `instructor`, `lesson`, `learningPath`, `lessonAssistant`, `lessonInsightsAI`, `notifications`, `quiz`, `search`, `user` — composed in `server/api/root.ts`.
+- **Routers** (`server/api/routers/`): `certificate`, `course`, `courseAI`, `instructor`, `lesson`, `learningPath`, `lessonAssistant`, `lessonInsightsAI`, `notifications`, `quiz`, `search`, `user` — composed in `server/api/root.ts`.
 - **Procedure types** (`server/api/trpc.ts`): `publicProcedure`, `protectedProcedure`, `instructorProcedure`, `studentProcedure`, `adminProcedure` — role enforcement is done at the procedure level.
 
 ### Auth
@@ -119,6 +119,11 @@ Streaming SSE endpoint at `app/api/chat/course/route.ts`. Uses a **LangGraph `St
 **No LangGraph checkpointer** — state is hydrated each request from `CourseGeneration` + `CourseGenerationMessage` tables via repositories (ADR-003). See ADR-016 (LangGraph course builder) for full design.
 
 `CourseAIService` (`server/services/courseAI/`) exposes `runChat` and `runFinalize`. Frontend: `app/_components/Course/components/AIChatBuilderDialog/` — a chat panel (with `ToolCallIndicator`, `ConfidenceBadge`) and a live preview panel (ADR-011).
+
+### Certificates & lifecycle emails
+`certificate.listEarned` (`server/api/routers/certificate.ts`, `studentProcedure`) returns the caller's completed enrollments (non-null `completedAt`) via `certificateService.listEarned` → `enrollmentRepository.findCompletedByStudent`. The "My Certificates" page (`app/dashboard/certificates/page.tsx`, RSC) renders them and mints a fresh `signCertificateToken` per row server-side, linking to the existing `GET /api/certificates/[enrollmentId]?token=…` route (unchanged: 200 PDF / 401 bad token / 409 not completed).
+
+`certificate.earned` and `progress.near_completion` emails send **in-process** via the Resend `emailService`, not through n8n: `notificationService.fireCertificateEarned` / `fireProgressNearCompletion` (`server/services/notifications/notification.service.ts`) call `notificationLogRepository.tryLog({dedupKey, automation})` first — `created === false` means already sent, so the send is skipped (at-most-once per enrollment) — then `emailService.send(...)` directly. Both are invoked fire-and-forget from `lesson.service.ts` (`.catch(logger.warn)`); send failures never block the student's progress write. The outbound n8n emitter this used to go through has been deleted; n8n's **inbound** routes (`/api/emails/send`, `/api/notifications/*`, gated by `requireBearer`/`N8N_API_TOKEN`) remain for the still-scheduled inactivity-7d email.
 
 ### File uploads
 Vercel Blob via `app/api/uploads/route.ts`. Course thumbnails (≤2MB images) and preview videos (≤100MB) are uploaded client-side before the tRPC course mutation.
@@ -201,9 +206,9 @@ All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
 | `RESEND_API_KEY` | Yes | Transactional email |
 | `EMAIL_FROM_ADDRESS` | Yes | Sender address for emails |
 | `EMAIL_REPLY_TO` | Optional | Reply-to address |
-| `N8N_API_TOKEN` | Yes | Bearer token for n8n webhook routes |
-| `N8N_WEBHOOK_BASE_URL` | Yes | n8n instance webhook base URL |
-| `N8N_WEBHOOK_SECRET` | Yes | HMAC secret for outbound n8n calls |
+| `N8N_API_TOKEN` | Yes | Bearer token for n8n's inbound webhook routes (still used by the scheduled inactivity-7d email) |
+| `N8N_WEBHOOK_BASE_URL` | Yes | n8n instance webhook base URL (unused since `certificate.earned`/`progress.near_completion` send directly via Resend; kept for the inactivity job) |
+| `N8N_WEBHOOK_SECRET` | Yes | HMAC secret for outbound n8n calls (unused for the same reason) |
 | `CERTIFICATE_SECRET` | Yes | JWT signing secret for certificate download tokens |
 | `UNSUBSCRIBE_SECRET` | Yes | JWT signing secret for email unsubscribe tokens |
 | `STRIPE_SECRET_KEY` | Yes | Stripe secret key (test: `sk_test_...`) |
