@@ -155,6 +155,27 @@ class PaymentRepository extends BaseRepository<
 		});
 		return new Map(grouped.map((g) => [g.courseId, g._sum.amountCents ?? 0]));
 	}
+
+	findPurchasesByStudent(studentId: string) {
+		return db.payment.findMany({
+			where: { studentId, status: { in: ["succeeded", "refunded"] } },
+			include: {
+				course: { select: { id: true, title: true } },
+				instructor: { select: { name: true } },
+			},
+			orderBy: { createdAt: "desc" },
+		});
+	}
+
+	findInvoiceData(paymentId: string) {
+		return db.payment.findUnique({
+			where: { id: paymentId },
+			include: {
+				course: { select: { title: true } },
+				student: { select: { name: true, email: true } },
+			},
+		});
+	}
 }
 
 export const paymentRepository = new PaymentRepository();

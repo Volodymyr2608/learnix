@@ -353,3 +353,72 @@ describe("PaymentRepository", () => {
 		expect(map.size).toBe(0);
 	});
 });
+
+describe("PaymentRepository.findPurchasesByStudent — integration", () => {
+	it("returns only succeeded+refunded for the student, newest first", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR, name: "Ada" });
+		const student = await makeUser({ role: Role.STUDENT });
+		const other = await makeUser({ role: Role.STUDENT });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			title: "Rust 101",
+		});
+
+		const base = {
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			currency: "usd",
+			amountCents: 4999,
+		};
+		await testDb.payment.create({
+			data: { ...base, status: "succeeded", createdAt: new Date("2026-01-01") },
+		});
+		await testDb.payment.create({
+			data: { ...base, status: "refunded", createdAt: new Date("2026-02-01") },
+		});
+		await testDb.payment.create({ data: { ...base, status: "pending" } });
+		await testDb.payment.create({ data: { ...base, status: "failed" } });
+		await testDb.payment.create({
+			data: { ...base, studentId: other.id, status: "succeeded" },
+		});
+
+		const rows = await paymentRepository.findPurchasesByStudent(student.id);
+
+		expect(rows).toHaveLength(2);
+		expect(rows[0]?.status).toBe("refunded"); // newest first
+		expect(rows[1]?.status).toBe("succeeded");
+		expect(rows[0]?.course.title).toBe("Rust 101");
+		expect(rows[0]?.instructor.name).toBe("Ada");
+	});
+
+	it("findInvoiceData returns course title and student identity, or null", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({
+			role: Role.STUDENT,
+			name: "Bob",
+			email: "bob@x.io",
+		});
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			title: "Go",
+		});
+		const payment = await testDb.payment.create({
+			data: {
+				studentId: student.id,
+				instructorId: instructor.id,
+				courseId: course.id,
+				currency: "usd",
+				amountCents: 2000,
+				status: "succeeded",
+			},
+		});
+
+		const found = await paymentRepository.findInvoiceData(payment.id);
+		expect(found?.course.title).toBe("Go");
+		expect(found?.student.name).toBe("Bob");
+		expect(found?.student.email).toBe("bob@x.io");
+
+		expect(await paymentRepository.findInvoiceData("nope")).toBeNull();
+	});
+});
