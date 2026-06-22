@@ -10,6 +10,6 @@ export type CertificatesListProps = {
 	items: CertificateListItem[];
 };
 
-export type CertificateRowProps = {
+export type CertificateCardProps = {
 	item: CertificateListItem;
 };
