@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	Award,
 	BarChart3,
 	BookOpen,
 	CreditCard,
@@ -97,6 +98,11 @@ const studentItems: NavItem[] = [
 		title: "Progress",
 		href: STUDENT_URLS.progress,
 		icon: BarChart3,
+	},
+	{
+		title: "Certificates",
+		href: STUDENT_URLS.certificates,
+		icon: Award,
 	},
 	{
 		title: "Messages",

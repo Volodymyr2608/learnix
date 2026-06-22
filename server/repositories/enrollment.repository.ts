@@ -77,6 +77,24 @@ class EnrollmentRepository extends BaseRepository<
 		});
 	}
 
+	findCompletedByStudent(studentId: string) {
+		return this.findMany({
+			where: { studentId, completedAt: { not: null } },
+			orderBy: { completedAt: "desc" },
+			select: {
+				id: true,
+				courseId: true,
+				completedAt: true,
+				course: {
+					select: {
+						title: true,
+						instructor: { select: { name: true } },
+					},
+				},
+			},
+		});
+	}
+
 	findActiveWithLessons() {
 		return this.findMany({
 			where: {

@@ -6,6 +6,7 @@ const STUDENT_URLS = {
 	browseCourse: `${MAIN_URL}/browse`,
 	courseDetail: (id: string) => `${MAIN_URL}/browse/${id}`,
 	progress: `${MAIN_URL}/progress`,
+	certificates: `${MAIN_URL}/certificates`,
 	messages: `${MAIN_URL}/messages`,
 	billing: `${MAIN_URL}/billing`,
 	settings: `${MAIN_URL}/settings`,
