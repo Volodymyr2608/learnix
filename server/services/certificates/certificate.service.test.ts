@@ -9,7 +9,9 @@ vi.mock("@/server/repositories/enrollment.repository", () => ({
 }));
 // renderPdf pulls in @react-pdf/renderer + the Certificate component; stub the
 // React PDF document so importing the service stays cheap and DOM-free.
-vi.mock("@/app/_components/Certificate", () => ({ CertificateDocument: () => null }));
+vi.mock("@/app/_components/Certificate", () => ({
+	CertificateDocument: () => null,
+}));
 
 const { certificateService } = await import("./certificate.service");
 
@@ -29,7 +31,9 @@ describe("CertificateService.listEarned", () => {
 
 		const result = await certificateService.listEarned("student-1");
 
-		expect(mockEnrollmentRepo.findCompletedByStudent).toHaveBeenCalledWith("student-1");
+		expect(mockEnrollmentRepo.findCompletedByStudent).toHaveBeenCalledWith(
+			"student-1",
+		);
 		expect(result).toEqual([
 			{
 				enrollmentId: "enr-1",
