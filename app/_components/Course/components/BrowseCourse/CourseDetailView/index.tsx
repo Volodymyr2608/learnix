@@ -13,9 +13,14 @@ import ObjectivesCard from "@/app/_components/Course/components/BrowseCourse/Obj
 import RequirementsCard from "@/app/_components/Course/components/BrowseCourse/RequirementsCard";
 import StudentFeedbackCard from "@/app/_components/Course/components/BrowseCourse/StudentFeedbackCard";
 import { capitalize } from "@/lib/utils/capitalize";
+import { cn } from "@/lib/utils/cn";
 import type { CourseDetailViewProps } from "./types";
 
-const CourseDetailView = ({ course, previewMode }: CourseDetailViewProps) => {
+const CourseDetailView = ({
+	course,
+	previewMode,
+	sidebarSlot,
+}: CourseDetailViewProps) => {
 	return (
 		<div className="grid gap-6 lg:grid-cols-3">
 			<div className="space-y-6 lg:col-span-2">
@@ -78,8 +83,14 @@ const CourseDetailView = ({ course, previewMode }: CourseDetailViewProps) => {
 					reviews={course.reviews}
 				/>
 			</div>
-			<div className="lg:sticky lg:top-4 lg:self-start">
+			<div
+				className={cn(
+					"space-y-6",
+					!sidebarSlot && "lg:sticky lg:top-4 lg:self-start",
+				)}
+			>
 				<CourseDetailEnrollCard course={course} previewMode={previewMode} />
+				{sidebarSlot && <div className="lg:sticky lg:top-4">{sidebarSlot}</div>}
 			</div>
 		</div>
 	);

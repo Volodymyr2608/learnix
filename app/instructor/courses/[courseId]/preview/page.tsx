@@ -31,8 +31,16 @@ export default async function InstructorCoursePreviewPage({
 	return (
 		<div className="space-y-6">
 			<PreviewHeader courseId={courseId} />
-			<PublishReadinessPanel isPublished={isPublished} readiness={readiness} />
-			<CourseDetailView course={course} previewMode />
+			<CourseDetailView
+				course={course}
+				previewMode
+				sidebarSlot={
+					<PublishReadinessPanel
+						isPublished={isPublished}
+						readiness={readiness}
+					/>
+				}
+			/>
 		</div>
 	);
 }
