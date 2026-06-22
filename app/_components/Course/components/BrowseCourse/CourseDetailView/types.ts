@@ -17,4 +17,8 @@ export type CourseDetailViewProps = {
 	 * column is not made sticky.
 	 */
 	sidebarSlot?: ReactNode;
+	/** Whether the current student already owns/enrolled in this course. */
+	isEnrolled?: boolean;
+	/** Resume deep-link target for an enrolled student, if any. */
+	nextLessonId?: string | null;
 };

@@ -183,6 +183,19 @@ export const courseRouter = createTRPCRouter({
 			}
 		}),
 
+	getEnrollmentStatus: studentProcedure
+		.input(CourseSchema.shape.id)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await enrollmentService.getEnrollmentStatus(
+					ctx.session.user.id,
+					input,
+				);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
 	getEnrolledCourse: studentProcedure
 		.input(CourseSchema.shape.id)
 		.query(async ({ ctx, input }) => {

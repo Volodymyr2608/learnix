@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/app/_components/_shared/ui/button";
 import CourseDetailView from "@/app/_components/Course/components/BrowseCourse/CourseDetailView";
 import { getPublishedCourse } from "@/lib/requests/course/getCourseDetail";
+import getEnrollmentStatus from "@/lib/requests/course/getEnrollmentStatus";
 
 const DashboardCourseDetailPage = async ({
 	params,
@@ -11,7 +12,10 @@ const DashboardCourseDetailPage = async ({
 	params: Promise<{ courseId: string }>;
 }) => {
 	const { courseId } = await params;
-	const course = await getPublishedCourse(courseId);
+	const [course, { isEnrolled, nextLessonId }] = await Promise.all([
+		getPublishedCourse(courseId),
+		getEnrollmentStatus(courseId),
+	]);
 
 	if (!course) {
 		notFound();
@@ -26,7 +30,11 @@ const DashboardCourseDetailPage = async ({
 				</Link>
 			</Button>
 
-			<CourseDetailView course={course} />
+			<CourseDetailView
+				course={course}
+				isEnrolled={isEnrolled}
+				nextLessonId={nextLessonId}
+			/>
 		</div>
 	);
 };

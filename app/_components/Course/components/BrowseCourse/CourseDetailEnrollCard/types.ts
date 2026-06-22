@@ -5,13 +5,18 @@ type Course = NonNullable<GetPublishedCourseResponse>;
 
 export type CourseDetailEnrollCardProps = {
 	course: Course;
-	/** Instructor "view as student" preview — disables purchase/enroll. */
+	/** Instructor preview — disables purchase/enroll. */
 	previewMode?: boolean;
+	/** Whether the current student already owns/enrolled in this course. */
+	isEnrolled?: boolean;
+	/** Resume deep-link target for an enrolled student, if any. */
+	nextLessonId?: string | null;
 };
 
 export type EnrollActionProps = {
 	course: Course;
 	isEnrolled: boolean;
+	nextLessonId: string | null;
 	onEnrollFree: () => void;
 };
 

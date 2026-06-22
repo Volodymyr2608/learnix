@@ -34,7 +34,12 @@ function IncludeItem({ icon: Icon, label }: IncludeItemProps) {
 	);
 }
 
-function EnrollAction({ course, isEnrolled, onEnrollFree }: EnrollActionProps) {
+function EnrollAction({
+	course,
+	isEnrolled,
+	nextLessonId,
+	onEnrollFree,
+}: EnrollActionProps) {
 	const checkout = api.payment.createCheckoutSession.useMutation({
 		onSuccess: ({ url }) => {
 			window.location.href = url;
@@ -47,7 +52,13 @@ function EnrollAction({ course, isEnrolled, onEnrollFree }: EnrollActionProps) {
 	if (isEnrolled) {
 		return (
 			<Button asChild className="w-full" size="lg">
-				<Link href={`/dashboard/courses/${course.id}/learn`}>
+				<Link
+					href={
+						nextLessonId
+							? `/dashboard/courses/${course.id}/learn/${nextLessonId}`
+							: `/dashboard/courses/${course.id}/learn`
+					}
+				>
 					<PlayCircle className="mr-2 h-5 w-5" />
 					Continue Learning
 				</Link>
@@ -80,10 +91,10 @@ function EnrollAction({ course, isEnrolled, onEnrollFree }: EnrollActionProps) {
 const CourseDetailEnrollCard = ({
 	course,
 	previewMode,
+	isEnrolled = false,
+	nextLessonId = null,
 }: CourseDetailEnrollCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
-
-	const isEnrolled = false;
 
 	return (
 		<>
@@ -134,6 +145,7 @@ const CourseDetailEnrollCard = ({
 						<EnrollAction
 							course={course}
 							isEnrolled={isEnrolled}
+							nextLessonId={nextLessonId}
 							onEnrollFree={() => setEnrollDialogOpen(true)}
 						/>
 					)}

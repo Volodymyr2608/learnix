@@ -20,6 +20,8 @@ const CourseDetailView = ({
 	course,
 	previewMode,
 	sidebarSlot,
+	isEnrolled,
+	nextLessonId,
 }: CourseDetailViewProps) => {
 	return (
 		<div className="grid gap-6 lg:grid-cols-3">
@@ -89,7 +91,12 @@ const CourseDetailView = ({
 					!sidebarSlot && "lg:sticky lg:top-4 lg:self-start",
 				)}
 			>
-				<CourseDetailEnrollCard course={course} previewMode={previewMode} />
+				<CourseDetailEnrollCard
+					course={course}
+					isEnrolled={isEnrolled}
+					nextLessonId={nextLessonId}
+					previewMode={previewMode}
+				/>
 				{sidebarSlot && <div className="lg:sticky lg:top-4">{sidebarSlot}</div>}
 			</div>
 		</div>
