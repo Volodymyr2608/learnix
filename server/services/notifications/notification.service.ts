@@ -6,7 +6,6 @@ import { notificationLogRepository } from "@/server/repositories/notificationLog
 import { emailService } from "@/server/services/email/email.service";
 import { signUnsubscribeToken } from "@/server/services/email/unsubscribe-token";
 import { signCertificateToken } from "./auth";
-import { notificationEmitter } from "./notificationEmitter";
 
 export type InactiveStudentItem = {
 	userId: string;
@@ -71,22 +70,29 @@ class NotificationService {
 		);
 		if (!enr) return;
 
+		const logged = await notificationLogRepository.tryLog({
+			dedupKey: `${studentId}:near_completion:${courseId}`,
+			userId: studentId,
+			automation: "near_completion",
+		});
+		if (!logged.created) return;
+
 		const unsubToken = await signUnsubscribeToken(studentId);
 		const nextLessonUrl = progress.nextLessonId
 			? `${env.BASE_URL}/dashboard/courses/${enr.course.id}/learn/${progress.nextLessonId}`
 			: `${env.BASE_URL}/dashboard/courses/${enr.course.id}/learn`;
 
-		void notificationEmitter.emit("progress.near_completion", {
-			user: {
-				id: studentId,
-				email: enr.student.email,
-				name: enr.student.name,
-				emailNotificationsEnabled: enr.student.emailNotificationsEnabled,
-				unsubscribeToken: unsubToken,
+		await emailService.send({
+			templateKey: "engagement.near-completion",
+			toEmail: enr.student.email,
+			userId: studentId,
+			payload: {
+				studentName: enr.student.name,
+				courseTitle: enr.course.title,
+				lessonsRemaining: progress.lessonsRemaining,
+				nextLessonUrl,
+				unsubscribeUrl: `${env.BASE_URL}/unsubscribe?token=${unsubToken}`,
 			},
-			course: { id: courseId, title: enr.course.title },
-			progress: { ...progress, nextLessonUrl },
-			unsubscribeUrl: `${env.BASE_URL}/unsubscribe?token=${unsubToken}`,
 		});
 	}
 

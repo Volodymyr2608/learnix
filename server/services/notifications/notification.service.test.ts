@@ -90,3 +90,67 @@ describe("NotificationService.fireCertificateEarned", () => {
 		expect(mockEmailService.send).not.toHaveBeenCalled();
 	});
 });
+
+describe("NotificationService.fireProgressNearCompletion", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnrollmentRepo.findByStudentCourseWithRelations.mockResolvedValue({
+			id: "enr-1",
+			studentId: "student-1",
+			courseId: "course-1",
+			student: {
+				email: "stu@example.com",
+				name: "Stu",
+				emailNotificationsEnabled: true,
+			},
+			course: { id: "course-1", title: "TS Pro" },
+		});
+	});
+
+	const PROGRESS = {
+		completedLessons: 8,
+		totalLessons: 10,
+		lessonsRemaining: 2,
+		nextLessonId: "lesson-9",
+		nextLessonTitle: "Generics",
+	};
+
+	it("dedups then sends the engagement.near-completion email", async () => {
+		mockNotificationLogRepo.tryLog.mockResolvedValue({ created: true });
+
+		await notificationService.fireProgressNearCompletion(
+			"student-1",
+			"course-1",
+			PROGRESS,
+		);
+
+		expect(mockNotificationLogRepo.tryLog).toHaveBeenCalledWith(
+			expect.objectContaining({
+				dedupKey: "student-1:near_completion:course-1",
+				userId: "student-1",
+				automation: "near_completion",
+			}),
+		);
+		const arg = mockEmailService.send.mock.calls[0]?.[0];
+		expect(arg.templateKey).toBe("engagement.near-completion");
+		expect(arg.toEmail).toBe("stu@example.com");
+		expect(arg.payload).toMatchObject({
+			studentName: "Stu",
+			courseTitle: "TS Pro",
+			lessonsRemaining: 2,
+		});
+		expect(arg.payload.nextLessonUrl).toContain("lesson-9");
+	});
+
+	it("does not send twice for the same enrollment", async () => {
+		mockNotificationLogRepo.tryLog.mockResolvedValue({ created: false });
+
+		await notificationService.fireProgressNearCompletion(
+			"student-1",
+			"course-1",
+			PROGRESS,
+		);
+
+		expect(mockEmailService.send).not.toHaveBeenCalled();
+	});
+});
