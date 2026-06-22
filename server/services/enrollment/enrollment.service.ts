@@ -302,6 +302,73 @@ class EnrollmentService {
 			);
 		}
 	}
+
+	/**
+	 * Lightweight enrollment check for a single course, used by the course
+	 * detail page to show "Continue Learning" (with a resume deep-link) instead
+	 * of a buy/enroll CTA. Returns `nextLessonId` computed the same way as the
+	 * enrolled-courses list (first incomplete lesson, else first lesson).
+	 */
+	async getEnrollmentStatus(
+		studentId: string,
+		courseId: string,
+	): Promise<{ isEnrolled: boolean; nextLessonId: string | null }> {
+		try {
+			const enrollment = await enrollmentRepository.findFirst({
+				where: {
+					studentId,
+					courseId,
+					status: {
+						in: [EnrollmentStatus.active, EnrollmentStatus.completed],
+					},
+					course: { status: CourseStatus.published, deletedAt: null },
+				},
+				select: {
+					id: true,
+					course: {
+						select: {
+							sections: {
+								where: { deletedAt: null },
+								orderBy: { order: Prisma.SortOrder.asc },
+								select: {
+									lessons: {
+										where: { deletedAt: null },
+										orderBy: { order: Prisma.SortOrder.asc },
+										select: {
+											id: true,
+											progresses: {
+												where: { studentId },
+												select: { isCompleted: true },
+												take: 1,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			});
+
+			if (!enrollment) return { isEnrolled: false, nextLessonId: null };
+
+			const allLessons = enrollment.course.sections.flatMap((s) => s.lessons);
+			const nextLessonId =
+				allLessons.find((l) => !l.progresses[0]?.isCompleted)?.id ??
+				allLessons[0]?.id ??
+				null;
+
+			return { isEnrolled: true, nextLessonId };
+		} catch (error) {
+			logger.error("Failed to fetch enrollment status:", error);
+			throw new EnrollmentError(
+				"Failed to fetch enrollment status",
+				"BAD_REQUEST",
+				error,
+				{ studentId, courseId },
+			);
+		}
+	}
 }
 
 export const enrollmentService = new EnrollmentService();

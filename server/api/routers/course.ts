@@ -105,6 +105,19 @@ export const courseRouter = createTRPCRouter({
 			}
 		}),
 
+	getOwnCourseDetail: instructorProcedure
+		.input(CourseSchema.shape.id)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await courseService.getOwnCourseDetail(
+					input,
+					ctx.session.user.id,
+				);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
 	getCoursesStats: instructorProcedure.query(async ({ ctx }) => {
 		try {
 			return await courseService.getCoursesStats(ctx.session.user.id);
@@ -162,6 +175,19 @@ export const courseRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			try {
 				return await enrollmentService.getStudentEnrolledCourses(
+					ctx.session.user.id,
+					input,
+				);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
+	getEnrollmentStatus: studentProcedure
+		.input(CourseSchema.shape.id)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await enrollmentService.getEnrollmentStatus(
 					ctx.session.user.id,
 					input,
 				);
