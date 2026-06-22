@@ -11,6 +11,12 @@ export type InvoiceProps = {
 	purchasedAt: Date;
 };
 
+export type InvoiceHeaderProps = {
+	paymentId: string;
+	purchasedAt: Date;
+	status: InvoiceStatus;
+};
+
 export type InvoiceBodyProps = {
 	studentName: string;
 	studentEmail: string;
@@ -22,5 +28,4 @@ export type InvoiceBodyProps = {
 
 export type InvoiceFooterProps = {
 	paymentId: string;
-	purchasedAt: Date;
 };
