@@ -125,6 +125,8 @@ Streaming SSE endpoint at `app/api/chat/course/route.ts`. Uses a **LangGraph `St
 
 `certificate.earned` and `progress.near_completion` emails send **in-process** via the Resend `emailService`, not through n8n: `notificationService.fireCertificateEarned` / `fireProgressNearCompletion` (`server/services/notifications/notification.service.ts`) call `notificationLogRepository.tryLog({dedupKey, automation})` first — `created === false` means already sent, so the send is skipped (at-most-once per enrollment) — then `emailService.send(...)` directly. Both are invoked fire-and-forget from `lesson.service.ts` (`.catch(logger.warn)`); send failures never block the student's progress write. The outbound n8n emitter this used to go through has been deleted; n8n's **inbound** routes (`/api/emails/send`, `/api/notifications/*`, gated by `requireBearer`/`N8N_API_TOKEN`) remain for the still-scheduled inactivity-7d email.
 
+**Student billing:** `billing.listPurchases` (`studentProcedure`) returns the caller's `succeeded`+`refunded` payments. `/dashboard/billing` (RSC) renders them and mints a `signInvoiceToken` per row, linking to `GET /api/invoices/[paymentId]?token=…` (200 PDF / 401 bad token / 404 unknown payment). Invoice PDFs render via `@react-pdf/renderer` (`app/_components/Invoice/`), mirroring the certificate flow. Tokens use `INVOICE_SECRET`, separate from `CERTIFICATE_SECRET`.
+
 ### File uploads
 Vercel Blob via `app/api/uploads/route.ts`. Course thumbnails (≤2MB images) and preview videos (≤100MB) are uploaded client-side before the tRPC course mutation.
 
@@ -210,6 +212,7 @@ All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
 | `N8N_WEBHOOK_BASE_URL` | Yes | n8n instance webhook base URL (unused since `certificate.earned`/`progress.near_completion` send directly via Resend; kept for the inactivity job) |
 | `N8N_WEBHOOK_SECRET` | Yes | HMAC secret for outbound n8n calls (unused for the same reason) |
 | `CERTIFICATE_SECRET` | Yes | JWT signing secret for certificate download tokens |
+| `INVOICE_SECRET` | Yes | JWT signing secret for billing invoice download tokens |
 | `UNSUBSCRIBE_SECRET` | Yes | JWT signing secret for email unsubscribe tokens |
 | `STRIPE_SECRET_KEY` | Yes | Stripe secret key (test: `sk_test_...`) |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret for platform events (`whsec_...`) |

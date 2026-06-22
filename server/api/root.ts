@@ -1,5 +1,6 @@
 import { courseAIRouter } from "@/server/api/routers/ai";
 import { analyticsRouter } from "@/server/api/routers/analytics";
+import { billingRouter } from "@/server/api/routers/billing";
 import { certificateRouter } from "@/server/api/routers/certificate";
 import { courseRouter } from "@/server/api/routers/course";
 import { instructorRouter } from "@/server/api/routers/instructor";
@@ -23,6 +24,7 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
  */
 export const appRouter = createTRPCRouter({
 	analytics: analyticsRouter,
+	billing: billingRouter,
 	user: userRouter,
 	certificate: certificateRouter,
 	course: courseRouter,
