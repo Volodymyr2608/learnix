@@ -10,7 +10,10 @@ const allLessons = (sections: SectionStat[]): LessonStat[] =>
 	sections.flatMap((s) => s.lessons);
 
 export function sumTotalDurationMinutes(sections: SectionStat[]): number {
-	return allLessons(sections).reduce((sum, l) => sum + (l.durationMinutes ?? 0), 0);
+	return allLessons(sections).reduce(
+		(sum, l) => sum + (l.durationMinutes ?? 0),
+		0,
+	);
 }
 
 export function sumVideoDurationMinutes(sections: SectionStat[]): number {

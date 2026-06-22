@@ -10,7 +10,11 @@ import {
 const sections: SectionStat[] = [
 	{
 		lessons: [
-			{ durationMinutes: 30, videoUrl: "https://youtu.be/a", resources: [{ url: "x" }, { url: "y" }] },
+			{
+				durationMinutes: 30,
+				videoUrl: "https://youtu.be/a",
+				resources: [{ url: "x" }, { url: "y" }],
+			},
 			{ durationMinutes: 15, videoUrl: null, resources: null },
 		],
 	},
