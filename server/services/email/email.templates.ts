@@ -9,6 +9,7 @@ import { EngagementInactivityEmail } from "@/app/_emails/EngagementInactivityEma
 import { EngagementNearCompletionEmail } from "@/app/_emails/EngagementNearCompletionEmail";
 import { EnrollmentConfirmedEmail } from "@/app/_emails/EnrollmentConfirmedEmail";
 import { InstructorWelcomeEmail } from "@/app/_emails/InstructorWelcomeEmail";
+import { MessageNewEmail } from "@/app/_emails/MessageNewEmail";
 import { UserWelcomeEmail } from "@/app/_emails/UserWelcomeEmail";
 
 type TemplateEntry<P> = {
@@ -69,6 +70,19 @@ export const emailTemplates = {
 			unsubscribeUrl: z.string().url(),
 		}),
 		subject: (p) => `You're enrolled in ${p.courseTitle}`,
+		criticality: "STANDARD",
+	},
+	"message.new": {
+		component: MessageNewEmail,
+		payload: z.object({
+			recipientName: z.string(),
+			senderName: z.string(),
+			courseTitle: z.string(),
+			messagePreview: z.string(),
+			threadUrl: z.url(),
+			unsubscribeUrl: z.url(),
+		}),
+		subject: (p) => `New message from ${p.senderName}`,
 		criticality: "STANDARD",
 	},
 	"course.certificate": {
