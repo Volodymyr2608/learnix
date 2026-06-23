@@ -1,0 +1,41 @@
+model Conversation {
+  id String @id @default(cuid())
+
+  studentId String
+  student   User   @relation("StudentConversations", fields: [studentId], references: [id], onDelete: Cascade)
+
+  instructorId String
+  instructor   User @relation("InstructorConversations", fields: [instructorId], references: [id], onDelete: Cascade)
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+
+  @@unique([studentId, instructorId, courseId])
+  @@index([studentId, lastMessageAt])
+  @@index([instructorId, lastMessageAt])
+  @@map("conversations")
+}
+
+model Message {
+  id String @id @default(cuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  body String @db.Text
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([conversationId, senderId, readAt])
+  @@map("messages")
+}
