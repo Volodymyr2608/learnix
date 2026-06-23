@@ -12,6 +12,7 @@ import {
 } from "@/app/_components/_shared/ui/card";
 import { Progress } from "@/app/_components/_shared/ui/progress";
 import type { EnrolledCourseCardProps } from "@/app/_components/Course/components/MyCourses/components/EnrolledCourseCard/types";
+import { MessageInstructorButton } from "@/app/_components/Messaging/MessageInstructorButton";
 
 export const EnrolledCourseCard = ({ course }: EnrolledCourseCardProps) => {
 	const learnHref =
@@ -69,18 +70,21 @@ export const EnrolledCourseCard = ({ course }: EnrolledCourseCardProps) => {
 					</div>
 				</div>
 
-				<Button
-					asChild
-					className="w-full"
-					variant={course.status === "Completed" ? "outline" : "default"}
-				>
-					<Link href={learnHref}>
-						<PlayCircle className="mr-2 h-4 w-4" />
-						{course.status === "Completed"
-							? "Review Course"
-							: "Continue Learning"}
-					</Link>
-				</Button>
+				<div className="flex items-center gap-2">
+					<Button
+						asChild
+						className="flex-1"
+						variant={course.status === "Completed" ? "outline" : "default"}
+					>
+						<Link href={learnHref}>
+							<PlayCircle className="mr-2 h-4 w-4" />
+							{course.status === "Completed"
+								? "Review Course"
+								: "Continue Learning"}
+						</Link>
+					</Button>
+					<MessageInstructorButton courseId={course.id} />
+				</div>
 			</CardContent>
 		</Card>
 	);
