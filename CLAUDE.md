@@ -224,31 +224,39 @@ Biome (not ESLint/Prettier). Config in `biome.jsonc`. Auto-sorts imports and Tai
 
 ## Development Workflow
 
-Spec-driven development. Each feature gets **one folder** `docs/specs/<YYYY-MM-DD>-<feature>/`
-holding **four documents**, produced **sequentially with a manual approval gate between each** —
-never generate the next document until the previous one is approved. Start each document from the
-templates in [`docs/templates/`](docs/templates/) (`cp docs/templates/{requirements,spec,plan,validation}.md` into the feature folder):
+Hybrid Intent + ADR + Harness model. Rationale and alternatives considered:
+[`docs/adr/020-hybrid-documentation-model.md`](docs/adr/020-hybrid-documentation-model.md). Full
+mechanics — tier-decision checklist, `spec.md` format, lifecycle, `_index.md` generation, worked
+examples, example prompts — live in
+[`docs/specs/documentation-process.md`](docs/specs/documentation-process.md); read that before
+asking "which tier is this" or "what do I write in the prompt," it's answered there (§3a/§3b).
 
-1. `requirements.md` — from the raw idea: problem, goal, scope decisions, functional requirements,
-   out-of-scope. The *what* and *why*. → **approve**
-2. `spec.md` — from `requirements.md`: technical design — data model, layering, component flow,
-   file list, env vars, referenced ADRs. The *how* (design). → **approve**
-3. `plan.md` — from `spec.md`: the **detailed implementation plan** (bite-sized TDD tasks with real
-   code, exact file paths, and commits), produced with the `writing-plans` skill. → **approve**
-4. `validation.md` — from all of the above: automated checks + manual test scenarios — how to verify.
+Three tiers, decided from what the change actually touches, not from how the request is phrased:
 
-The detailed plan **lives in the spec folder as `plan.md`**, not in `docs/superpowers/plans/`. When
-`writing-plans` runs, override its default save location to the spec folder.
+- **trivial/fix** — bug fix, refactor, no change to any feature's documented behavior. No spec, no
+  ADR. Go straight to `systematic-debugging` + `test-driven-development` against the harness.
+- **standard** — new feature or behavior change, built from existing patterns. One living
+  `docs/specs/features/<slug>/spec.md` (Purpose / Functional scope / Acceptance criteria / Agent
+  notes), created from [`docs/templates/feature-spec.md`](docs/templates/feature-spec.md). Run
+  `brainstorming` first to pin scope.
+- **complex** — touches money, the auth/security model, a new external service, or a data migration
+  that's risky/expensive to reverse. `docs/specs/features/<slug>/build/` (requirements → plan →
+  validation, same shape as before) during development, distilled into `spec.md` on ship, **plus an
+  ADR** in `docs/adr/NNN-<slug>.md`.
 
-If a feature warrants an architectural decision, also write an ADR in `docs/adr/NNN-<slug>.md` and
-reference it from `spec.md`.
+`docs/specs/_legacy/` holds the pre-2026-06-23 dated spec folders (history only — never read unless
+explicitly asked).
 
 ### Implementation
 
-When `docs/specs/<feature>/` already exists with an approved `plan.md`:
-1. **Skip `brainstorming`** — the spec is the design. Do not re-derive what is already written.
-2. If `plan.md` is not yet the detailed plan, invoke `writing-plans` directly (reading all spec
-   files) to produce it **in the spec folder as `plan.md`**.
-3. Execute `plan.md` with `subagent-driven-development` or `executing-plans`.
+When `docs/specs/features/<slug>/spec.md` already exists and covers the work:
+1. **Skip `brainstorming`** for standard-tier work — the spec is the design. Do not re-derive what is
+   already written.
+2. For complex tier, if `build/plan.md` isn't yet the detailed plan, invoke `writing-plans` (reading
+   `build/requirements.md` and `build/spec.md`) to produce it **in `build/plan.md`**.
+3. Execute with `subagent-driven-development` or `executing-plans`.
+4. **Gate Docs (DoD), before the PR closes:** update the feature's `spec.md` (status + any changed
+   Acceptance Criteria), run `pnpm spec:sync`, and write/update an ADR if the change crosses the
+   three-month test.
 
-Never run `brainstorming` when a spec folder already exists in `docs/specs/`.
+Never run `brainstorming` when a feature's `spec.md` already exists and covers the work at hand.

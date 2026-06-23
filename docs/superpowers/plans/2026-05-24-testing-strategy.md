@@ -8,7 +8,7 @@
 
 **Tech Stack:** Vitest, @vitest/coverage-v8, vite-tsconfig-paths, dotenv, Prisma + Postgres (pgvector), tsx, GitHub Actions, LangSmith (existing evals).
 
-Reference docs: `docs/adr/018-testing-strategy-ci.md`, `docs/specs/2026-05-24-testing-strategy/{requirements,plan,validation}.md`.
+Reference docs: `docs/adr/018-testing-strategy-ci.md`, `docs/specs/_legacy/2026-05-24-testing-strategy/{requirements,plan,validation}.md`.
 
 ---
 
