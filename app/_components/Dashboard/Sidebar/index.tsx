@@ -5,6 +5,7 @@ import { Role } from "@/generated/prisma";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import getNewReviewsCount from "@/lib/requests/instructor/getNewReviewsCount";
+import getUnreadMessagesCount from "@/lib/requests/messages/getUnreadMessagesCount";
 import { capitalize } from "@/lib/utils/capitalize";
 import getInitials from "@/lib/utils/user/getInitials";
 import getUserName from "@/lib/utils/user/getUserName";
@@ -16,7 +17,10 @@ const DashboardSidebar = async () => {
 
 	const { name, role } = user;
 	const isInstructor = role === Role.INSTRUCTOR;
-	const reviewsCount = isInstructor ? await getNewReviewsCount() : 0;
+	const [reviewsCount, unreadMessages] = await Promise.all([
+		isInstructor ? getNewReviewsCount() : Promise.resolve(0),
+		getUnreadMessagesCount(),
+	]);
 
 	return (
 		<aside className="fixed top-0 left-0 z-40 h-screen w-64 border-sidebar-border border-r bg-sidebar">
@@ -38,7 +42,11 @@ const DashboardSidebar = async () => {
 					</Link>
 				</div>
 
-				<Navigation isInstructor={isInstructor} reviewsCount={reviewsCount} />
+				<Navigation
+					isInstructor={isInstructor}
+					reviewsCount={reviewsCount}
+					unreadMessages={unreadMessages}
+				/>
 
 				{/* Footer */}
 				<div className="border-sidebar-border border-t p-4">
