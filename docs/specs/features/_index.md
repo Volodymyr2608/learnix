@@ -6,6 +6,10 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 <!-- AUTO-GENERATED:START (run `pnpm spec:sync` — do not edit) -->
 | Feature | Status | Depends on |
 |---|---|---|
+| ai-course-builder | stable | course |
+| billing | stable | payments |
+| certificates | stable | enrollment |
 | messages | stable | auth |
 | payments | stable | auth, course |
+| semantic-search-recommendations | stable | course, enrollment |
 <!-- AUTO-GENERATED:END -->

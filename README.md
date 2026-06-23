@@ -16,9 +16,10 @@ Built on the T3 Stack: **Next.js 16** · **tRPC** · **Prisma** · **Better Auth
 | Auth | Better Auth v1 (email/password + GitHub + Google OAuth) |
 | AI | LangChain + LangGraph + OpenAI `gpt-4o-mini` |
 | AI tracing | LangSmith |
+| Payments | Stripe Checkout + Stripe Connect (instructor payouts) |
 | File storage | Vercel Blob |
 | Email | Resend + React Email |
-| Automation | n8n (lifecycle webhooks) |
+| Automation | n8n (inactivity nudge webhook only) |
 | Styling | Tailwind CSS v4 + Radix UI |
 | Validation | Zod v4 (+ `zod-prisma-types` for auto-generated schemas) |
 | Linting | Biome v2 |
@@ -76,13 +77,20 @@ RESEND_API_KEY=""
 EMAIL_FROM_ADDRESS="noreply@yourdomain.com"
 EMAIL_REPLY_TO=""           # optional
 
-# n8n automation webhooks
+# n8n automation webhooks (inactivity-nudge email only)
 N8N_API_TOKEN=""
 N8N_WEBHOOK_BASE_URL="http://localhost:5678"
 N8N_WEBHOOK_SECRET=""
 
+# Stripe (checkout + Connect payouts)
+STRIPE_SECRET_KEY=""
+STRIPE_WEBHOOK_SECRET=""
+STRIPE_CONNECT_WEBHOOK_SECRET=""
+STRIPE_PLATFORM_FEE_PERCENT="20"   # optional, defaults to 20
+
 # Token signing
 CERTIFICATE_SECRET=""
+INVOICE_SECRET=""
 UNSUBSCRIBE_SECRET=""
 ```
 
@@ -148,18 +156,21 @@ app/
     ├── chat/lesson/              SSE: AI lesson assistant (student)
     ├── chat/learning-path/       SSE: AI learning path generator (student)
     ├── certificates/[id]/        PDF certificate download (JWT-gated)
+    ├── invoices/[paymentId]/     PDF billing invoice download (JWT-gated)
+    ├── stripe/webhook/           Stripe webhook (checkout, refunds, Connect account updates)
     ├── emails/send/              Send transactional email (bearer-auth)
     ├── notifications/
-    │   ├── inactive-students/    Cron webhook: inactive student alert
-    │   ├── log/                  Dedup log for n8n automations (bearer-auth)
-    │   └── send-email/           n8n → email bridge (bearer-auth)
+    │   ├── inactive-students/    Cron webhook: inactive student nudge (n8n)
+    │   └── log/                  Dedup log for n8n automations (bearer-auth)
     ├── trpc/[trpc]/              tRPC route handler
     └── uploads/                  Vercel Blob upload endpoint
 
 server/
-├── api/routers/         tRPC routers (course, courseAI, instructor, lesson,
-│                        learningPath, lessonAssistant, lessonInsightsAI,
-│                        notifications, quiz, search, user)
+├── api/routers/         tRPC routers: analytics, billing, certificate, course,
+│                        courseAI, instructor, learningPath, lesson,
+│                        lessonAssistant, lessonInsightsAI, message,
+│                        notifications, payment, quiz, review, search,
+│                        student, user
 ├── better-auth/         Auth config, server + client helpers
 ├── entities/            Zod DTOs and TypeScript types
 ├── repositories/        Prisma data-access layer (extends BaseRepository)
@@ -178,12 +189,15 @@ For architectural decisions and feature specifications see [`docs/`](docs/README
 ### For students
 - Browse and search published courses (keyword + semantic vector search)
 - Personalised course recommendations (pgvector cosine similarity on enrolment history)
+- Buy paid courses via Stripe Checkout, or enrol instantly in free ones
+- Download a billing invoice (PDF) for any purchase
 - Enrol in courses and track lesson/course progress
 - Take lesson quizzes with immediate feedback; each question can only be submitted once
 - AI lesson assistant: ask questions about lesson content mid-lesson
 - AI learning path: personalised study plan that adapts as you complete lessons and quizzes
 - Download a completion certificate as PDF once a course is finished
 - Leave ratings and reviews
+- Message instructors directly about a course
 - Manage email notification preferences
 
 ### For instructors
@@ -192,12 +206,14 @@ For architectural decisions and feature specifications see [`docs/`](docs/README
 - AI-powered course builder: generate a full course draft through a guided multi-step chat (LangGraph)
 - Add quiz questions per lesson manually or generate them with AI (3–5 multiple-choice questions from lesson content)
 - Lesson auto-summary: generate an AI summary, concept list, and glossary for any lesson
-- View student enrolment stats
+- Get paid via Stripe Connect — onboard once, then receive an automatic transfer per sale
+  (commission split applied), with a held-balance fallback before onboarding completes
+- View enrolment, revenue, and review analytics across courses
+- Message students directly about a course
 
 ### Platform automations (n8n)
-- Inactive-student nudge email sent automatically via n8n webhook
-- Certificate earned email with PDF download link
-- Near-completion encouragement email at 80 % progress
+- Inactive-student nudge email sent via a scheduled n8n webhook — the only automation still
+  routed through n8n; certificate-earned and near-completion emails send in-process via Resend.
 
 ---
 
