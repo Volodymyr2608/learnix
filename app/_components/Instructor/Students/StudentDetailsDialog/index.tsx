@@ -16,6 +16,7 @@ import {
 	DialogTitle,
 } from "@/app/_components/_shared/ui/dialog";
 import { Progress } from "@/app/_components/_shared/ui/progress";
+import { MessageStudentButton } from "@/app/_components/Messaging/MessageStudentButton";
 import { formatLastActive, getInitials, statusBadgeClass } from "../utils";
 import type { StudentDetailsDialogProps } from "./types";
 
@@ -113,7 +114,7 @@ export function StudentDetailsDialog({
 													</div>
 												</div>
 											</div>
-											<div className="mt-2">
+											<div className="mt-2 flex items-center justify-between gap-2">
 												<Badge
 													className={
 														course.completed
@@ -124,6 +125,10 @@ export function StudentDetailsDialog({
 												>
 													{course.completed ? "Completed" : "In Progress"}
 												</Badge>
+												<MessageStudentButton
+													courseId={course.courseId}
+													studentId={student.id}
+												/>
 											</div>
 										</div>
 									))}

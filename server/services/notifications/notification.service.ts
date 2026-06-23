@@ -2,6 +2,7 @@ import { format, subDays } from "date-fns";
 import { env } from "@/lib/env";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
+import { messageRepository } from "@/server/repositories/message.repository";
 import { notificationLogRepository } from "@/server/repositories/notificationLog.repository";
 import { emailService } from "@/server/services/email/email.service";
 import { signUnsubscribeToken } from "@/server/services/email/unsubscribe-token";
@@ -91,6 +92,51 @@ class NotificationService {
 				courseTitle: enr.course.title,
 				lessonsRemaining: progress.lessonsRemaining,
 				nextLessonUrl,
+				unsubscribeUrl: `${env.BASE_URL}/unsubscribe?token=${unsubToken}`,
+			},
+		});
+	}
+
+	async fireNewMessage(messageId: string): Promise<void> {
+		const msg = await messageRepository.findForNotification(messageId);
+		if (!msg) return;
+
+		const { conversation } = msg;
+		const senderIsStudent = msg.senderId === conversation.studentId;
+		const sender = senderIsStudent
+			? conversation.student
+			: conversation.instructor;
+		const recipientId = senderIsStudent
+			? conversation.instructorId
+			: conversation.studentId;
+		const recipient = senderIsStudent
+			? conversation.instructor
+			: conversation.student;
+		const threadPath = senderIsStudent
+			? "/instructor/messages"
+			: "/dashboard/messages";
+
+		// One email per recipient/conversation per 5-minute bucket.
+		const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
+		const logged = await notificationLogRepository.tryLog({
+			dedupKey: `${recipientId}:new_message:${conversation.id}:${bucket}`,
+			userId: recipientId,
+			automation: "new_message",
+		});
+		if (!logged.created) return;
+
+		const unsubToken = await signUnsubscribeToken(recipientId);
+
+		await emailService.send({
+			templateKey: "message.new",
+			toEmail: recipient.email,
+			userId: recipientId,
+			payload: {
+				recipientName: recipient.name,
+				senderName: sender.name,
+				courseTitle: conversation.course.title,
+				messagePreview: msg.body.slice(0, 140),
+				threadUrl: `${env.BASE_URL}${threadPath}?c=${conversation.id}`,
 				unsubscribeUrl: `${env.BASE_URL}/unsubscribe?token=${unsubToken}`,
 			},
 		});

@@ -69,7 +69,6 @@ const instructorItems: NavItem[] = [
 		title: "Messages",
 		href: "/instructor/messages",
 		icon: MessageSquare,
-		badge: "2",
 	},
 	{
 		title: "Settings",
@@ -108,7 +107,6 @@ const studentItems: NavItem[] = [
 		title: "Messages",
 		href: STUDENT_URLS.messages,
 		icon: MessageSquare,
-		badge: "3",
 	},
 	{
 		title: "Billing",
@@ -127,7 +125,27 @@ function formatBadge(count: number): string | undefined {
 	return count > 9 ? "9+" : String(count);
 }
 
-const SidebarNavigation = ({ isInstructor, reviewsCount }: NavigationProps) => {
+function resolveBadge(
+	item: NavItem,
+	reviewsCount: number,
+	unreadMessages: number,
+): string | undefined {
+	if (item.href === INSTRUCTOR_URLS.reviews) return formatBadge(reviewsCount);
+	if (item.title === "Messages") return formatBadge(unreadMessages);
+	return item.badge;
+}
+
+function badgeAriaLabel(item: NavItem, badge: string): string {
+	if (item.href === INSTRUCTOR_URLS.reviews) return `${badge} new reviews`;
+	if (item.title === "Messages") return `${badge} unread messages`;
+	return `${badge} ${item.title}`;
+}
+
+const SidebarNavigation = ({
+	isInstructor,
+	reviewsCount,
+	unreadMessages,
+}: NavigationProps) => {
 	const pathname = usePathname();
 	const navItems = isInstructor ? instructorItems : studentItems;
 
@@ -136,8 +154,7 @@ const SidebarNavigation = ({ isInstructor, reviewsCount }: NavigationProps) => {
 			{navItems.map((item) => {
 				const Icon = item.icon;
 				const isActive = pathname === item.href;
-				const isReviews = item.href === INSTRUCTOR_URLS.reviews;
-				const badge = isReviews ? formatBadge(reviewsCount) : item.badge;
+				const badge = resolveBadge(item, reviewsCount, unreadMessages);
 				return (
 					<Link
 						className={cn(
@@ -153,11 +170,7 @@ const SidebarNavigation = ({ isInstructor, reviewsCount }: NavigationProps) => {
 						<span className="flex-1">{item.title}</span>
 						{badge && (
 							<span
-								aria-label={
-									isReviews
-										? `${reviewsCount} new reviews`
-										: `${badge} ${item.title}`
-								}
+								aria-label={badgeAriaLabel(item, badge)}
 								className="flex h-5 w-5 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs"
 								role="img"
 							>

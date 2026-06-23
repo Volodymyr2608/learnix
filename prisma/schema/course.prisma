@@ -41,6 +41,7 @@ model Course {
   embedding          CourseEmbedding?
   conceptMasteries   ConceptMastery[]
   learningPathCaches LearningPathCache[]
+  conversations      Conversation[]
 
   @@index([deletedAt])
   @@map("courses")

@@ -32,6 +32,9 @@ model User {
   notificationLogs             NotificationLog[]
   studentPayments              Payment[]                     @relation("StudentPayments")
   instructorPayments           Payment[]                     @relation("InstructorPayments")
+  studentConversations         Conversation[]                @relation("StudentConversations")
+  instructorConversations      Conversation[]                @relation("InstructorConversations")
+  sentMessages                 Message[]                     @relation("SentMessages")
 
   @@unique([email])
   @@map("users")
