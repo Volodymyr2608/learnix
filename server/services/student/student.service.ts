@@ -1,6 +1,7 @@
 import { addDays, format, isEqual, startOfDay, subDays } from "date-fns";
 import { computeDelta } from "@/lib/stats/computeDelta";
 import { getWeekWindows } from "@/lib/stats/getWeekWindows";
+import type { AchievementView } from "@/server/entities/student/achievements";
 import type {
 	ContinueLearningItem,
 	StudentDashboardStats,
@@ -9,10 +10,16 @@ import type {
 	StudentProgressStats,
 	WeeklyActivityDay,
 } from "@/server/entities/student/progress";
+import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
+import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { logger } from "@/server/utils/logger";
+import {
+	evaluateAchievements,
+	selectVisibleAchievements,
+} from "./achievements.rules";
 
 const WEEK_DAYS = 7;
 
@@ -146,6 +153,39 @@ class StudentService {
 			});
 		}
 		return items;
+	}
+
+	async getAchievements(studentId: string): Promise<AchievementView[]> {
+		logger.info("Getting student achievements", { studentId });
+		const [
+			completion,
+			enrollment,
+			completionDays,
+			totals,
+			lessonsCompleted,
+			correctQuizAnswers,
+			reviewsWritten,
+		] = await Promise.all([
+			enrollmentRepository.getStudentCompletionStats(studentId),
+			enrollmentRepository.getStudentEnrollmentStats(studentId),
+			lessonProgressRepository.getCompletionDays(studentId),
+			lessonProgressRepository.getCompletedMinutesTotals(studentId),
+			lessonProgressRepository.countCompletedTotal(studentId),
+			quizAttemptRepository.countCorrect(studentId),
+			courseReviewRepository.count({ studentId, deletedAt: null }),
+		]);
+
+		const evaluated = evaluateAchievements({
+			coursesCompleted: completion.total,
+			enrolledCourses: enrollment.total,
+			currentStreakDays: this.computeStreak(completionDays),
+			totalStudyDays: completionDays.length,
+			lifetimeMinutes: totals.lifetimeMinutes,
+			lessonsCompleted,
+			correctQuizAnswers,
+			reviewsWritten,
+		});
+		return selectVisibleAchievements(evaluated);
 	}
 
 	private computeStreak(completionDays: Date[]): number {

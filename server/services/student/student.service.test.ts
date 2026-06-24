@@ -6,6 +6,7 @@ const mockLessonProgressRepo = {
 	getCompletionDays: vi.fn(),
 	getStudentLessonStats: vi.fn(),
 	findCompletedByLessonIds: vi.fn(),
+	countCompletedTotal: vi.fn(),
 };
 const mockEnrollmentRepo = {
 	getStudentCompletionStats: vi.fn(),
@@ -14,6 +15,12 @@ const mockEnrollmentRepo = {
 };
 const mockLessonRepo = {
 	findOrderedLessonIdsByCourseIds: vi.fn(),
+};
+const mockQuizAttemptRepo = {
+	countCorrect: vi.fn(),
+};
+const mockCourseReviewRepo = {
+	count: vi.fn(),
 };
 
 vi.mock("@/server/repositories/lessonProgress.repository", () => ({
@@ -24,6 +31,12 @@ vi.mock("@/server/repositories/enrollment.repository", () => ({
 }));
 vi.mock("@/server/repositories/lesson.repository", () => ({
 	lessonRepository: mockLessonRepo,
+}));
+vi.mock("@/server/repositories/quizAttempt.repository", () => ({
+	quizAttemptRepository: mockQuizAttemptRepo,
+}));
+vi.mock("@/server/repositories/courseReview.repository", () => ({
+	courseReviewRepository: mockCourseReviewRepo,
 }));
 
 const { studentService } = await import("./student.service");
@@ -164,6 +177,104 @@ describe("StudentService.getDashboardStats", () => {
 		});
 		expect(r.certificates).toEqual({ total: 0, delta: { kind: "none" } });
 		expect(r.completionRate).toEqual({ percent: 0 });
+	});
+});
+
+describe("StudentService.getAchievements", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("builds metrics from repositories and returns evaluated achievement views", async () => {
+		mockEnrollmentRepo.getStudentCompletionStats.mockResolvedValue({
+			total: 1,
+			thisMonthNew: 1,
+			lastMonthNew: 0,
+		});
+		mockEnrollmentRepo.getStudentEnrollmentStats.mockResolvedValue({
+			active: 3,
+			total: 3,
+			thisMonthNew: 1,
+			lastMonthNew: 0,
+		});
+		mockLessonProgressRepo.getCompletionDays.mockResolvedValue([
+			new Date(2026, 5, 17),
+			new Date(2026, 5, 16),
+		]);
+		mockLessonProgressRepo.getCompletedMinutesTotals.mockResolvedValue({
+			lifetimeMinutes: 600,
+			thisWeekMinutes: 0,
+			priorWeekMinutes: 0,
+		});
+		mockLessonProgressRepo.countCompletedTotal.mockResolvedValue(10);
+		mockQuizAttemptRepo.countCorrect.mockResolvedValue(10);
+		mockCourseReviewRepo.count.mockResolvedValue(1);
+
+		const r = await studentService.getAchievements(STUDENT_ID);
+
+		expect(mockCourseReviewRepo.count).toHaveBeenCalledWith({
+			studentId: STUDENT_ID,
+			deletedAt: null,
+		});
+		expect(r.find((a) => a.key === "first-course")).toMatchObject({
+			earned: true,
+			current: 1,
+			target: 1,
+		});
+		expect(r.find((a) => a.key === "consistent")).toMatchObject({
+			earned: false,
+			current: 2,
+			target: 7,
+		});
+		expect(r.find((a) => a.key === "ten-hours")).toMatchObject({
+			earned: true,
+			current: 600,
+			target: 600,
+		});
+		expect(r.find((a) => a.key === "first-steps")).toMatchObject({
+			earned: true,
+		});
+		expect(r.find((a) => a.key === "quiz-whiz")).toMatchObject({
+			earned: true,
+		});
+		expect(r.find((a) => a.key === "reviewer")).toMatchObject({
+			earned: true,
+		});
+		// progressive disclosure: earned tiers + the single next goal per group,
+		// further locked tiers in the same group stay hidden
+		expect(r.find((a) => a.key === "scholar")).toBeUndefined();
+		expect(r.find((a) => a.key === "graduate")).toBeUndefined();
+		expect(r.find((a) => a.key === "dedicated")).toBeUndefined();
+		expect(r.find((a) => a.key === "course-master")).toMatchObject({
+			earned: false,
+		});
+	});
+
+	it("returns exactly one badge per category for a brand-new student", async () => {
+		mockEnrollmentRepo.getStudentCompletionStats.mockResolvedValue({
+			total: 0,
+			thisMonthNew: 0,
+			lastMonthNew: 0,
+		});
+		mockEnrollmentRepo.getStudentEnrollmentStats.mockResolvedValue({
+			active: 0,
+			total: 0,
+			thisMonthNew: 0,
+			lastMonthNew: 0,
+		});
+		mockLessonProgressRepo.getCompletionDays.mockResolvedValue([]);
+		mockLessonProgressRepo.getCompletedMinutesTotals.mockResolvedValue({
+			lifetimeMinutes: 0,
+			thisWeekMinutes: 0,
+			priorWeekMinutes: 0,
+		});
+		mockLessonProgressRepo.countCompletedTotal.mockResolvedValue(0);
+		mockQuizAttemptRepo.countCorrect.mockResolvedValue(0);
+		mockCourseReviewRepo.count.mockResolvedValue(0);
+
+		const r = await studentService.getAchievements(STUDENT_ID);
+		expect(r).toHaveLength(8);
+		expect(r.every((a) => !a.earned && a.current === 0)).toBe(true);
 	});
 });
 

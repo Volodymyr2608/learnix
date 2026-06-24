@@ -18,6 +18,10 @@ class QuizAttemptRepository extends BaseRepository<
 		return this.findFirst({ where: { quizId, studentId } });
 	}
 
+	countCorrect(studentId: string): Promise<number> {
+		return this.count({ studentId, isCorrect: true });
+	}
+
 	async latestPerQuizForStudent(
 		studentId: string,
 		courseId: string,
