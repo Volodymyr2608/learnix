@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { CoursePagination } from "@/app/_components/Course/components/CoursePagination";
 import { CourseTabFilter } from "@/app/_components/Course/components/MyCourses/components/CourseTabFilter";
@@ -16,19 +17,15 @@ export const MyCourses = ({
 	const safePage = Math.min(currentPage, totalPages);
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center justify-between">
-				<div>
-					<h1 className="font-bold text-3xl tracking-tight">My Courses</h1>
-					<p className="text-muted-foreground">
-						Manage and continue your learning journey
-					</p>
-				</div>
+		<PageShell
+			action={
 				<Button asChild>
 					<Link href="/dashboard/browse">Browse More Courses</Link>
 				</Button>
-			</div>
-
+			}
+			description="Manage and continue your learning journey"
+			title="My Courses"
+		>
 			<CourseTabFilter currentTab={currentTab} />
 
 			{courses.length === 0 ? (
@@ -49,6 +46,6 @@ export const MyCourses = ({
 					totalPages={totalPages}
 				/>
 			)}
-		</div>
+		</PageShell>
 	);
 };
