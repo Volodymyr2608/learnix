@@ -17,16 +17,17 @@ import {
 import { Progress } from "@/app/_components/_shared/ui/progress";
 import type { EnrolledCourseCardProps } from "@/app/_components/Course/components/MyCourses/components/EnrolledCourseCard/types";
 import { MessageInstructorButton } from "@/app/_components/Messaging/MessageInstructorButton";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import type { EnrolledCourse } from "@/lib/requests/course/getStudentEnrolledCourses";
 
 function getLearnHref(course: EnrolledCourse) {
 	if (course.status === "Completed") {
-		return `/dashboard/courses/${course.id}/review`;
+		return `${STUDENT_URLS.courses}/${course.id}/review`;
 	}
 	if (course.nextLessonId) {
-		return `/dashboard/courses/${course.id}/learn/${course.nextLessonId}`;
+		return STUDENT_URLS.learnLesson(course.id, course.nextLessonId);
 	}
-	return `/dashboard/courses/${course.id}/learn`;
+	return STUDENT_URLS.learnCourse(course.id);
 }
 
 function getInitials(name: string) {

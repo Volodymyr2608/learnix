@@ -22,6 +22,7 @@ import type {
 } from "@/app/_components/Course/components/BrowseCourse/CourseDetailEnrollCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
 import PurchaseConfirmDialog from "@/app/_components/Course/components/PurchaseConfirmDialog";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { formatPrice } from "@/lib/formatPrice";
 
 function IncludeItem({ icon: Icon, label }: IncludeItemProps) {
@@ -46,8 +47,8 @@ function EnrollAction({
 				<Link
 					href={
 						nextLessonId
-							? `/dashboard/courses/${course.id}/learn/${nextLessonId}`
-							: `/dashboard/courses/${course.id}/learn`
+							? STUDENT_URLS.learnLesson(course.id, nextLessonId)
+							: STUDENT_URLS.learnCourse(course.id)
 					}
 				>
 					<PlayCircle className="mr-2 h-5 w-5" />

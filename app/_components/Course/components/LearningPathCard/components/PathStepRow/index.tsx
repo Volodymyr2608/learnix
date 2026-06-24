@@ -3,13 +3,14 @@
 import { BookOpen, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getTypeLabel } from "@/app/_components/Course/components/LearningPathCard/components/PathStepRow/helpers/getTypeLabel";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import type { PathStepRowProps } from "./types";
 
 export const PathStepRow = ({ step, courseId }: PathStepRowProps) => {
 	const router = useRouter();
 
 	const handleClick = () => {
-		const url = `/dashboard/courses/${courseId}/learn/${step.lessonId}${
+		const url = `${STUDENT_URLS.learnLesson(courseId, step.lessonId)}${
 			step.type === "RETRY_QUIZ" && step.quizId
 				? `?scrollTo=${step.quizId}`
 				: ""

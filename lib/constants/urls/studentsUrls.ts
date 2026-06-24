@@ -3,6 +3,9 @@ const MAIN_URL = "/dashboard";
 const STUDENT_URLS = {
 	dashboard: MAIN_URL,
 	courses: `${MAIN_URL}/courses`,
+	learnCourse: (courseId: string) => `${MAIN_URL}/courses/${courseId}/learn`,
+	learnLesson: (courseId: string, lessonId: string) =>
+		`${MAIN_URL}/courses/${courseId}/learn/${lessonId}`,
 	browseCourse: `${MAIN_URL}/browse`,
 	courseDetail: (id: string) => `${MAIN_URL}/browse/${id}`,
 	progress: `${MAIN_URL}/progress`,

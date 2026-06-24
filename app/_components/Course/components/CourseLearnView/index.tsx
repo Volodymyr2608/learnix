@@ -36,9 +36,9 @@ import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnVi
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
 import { LearningPathCard } from "@/app/_components/Course/components/LearningPathCard";
 import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
-import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { formatDuration } from "@/lib/format/formatDuration";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
@@ -81,7 +81,7 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 	);
 
 	const navigate = (id: string) =>
-		router.push(`/dashboard/courses/${courseId}/learn/${id}`);
+		router.push(STUDENT_URLS.learnLesson(courseId, id));
 
 	const markComplete = api.lesson.markComplete.useMutation({
 		onSuccess: () => {

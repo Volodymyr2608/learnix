@@ -21,6 +21,7 @@ import {
 	DialogTitle,
 } from "@/app/_components/_shared/ui/dialog";
 import type { EnrollConfirmDialogProps } from "@/app/_components/Course/components/EnrollConfirmDialog/types";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { api } from "@/trpc/client";
 
 const EnrollConfirmDialog = ({
@@ -174,7 +175,7 @@ const EnrollConfirmDialog = ({
 
 						<div className="flex w-full flex-col gap-2">
 							<Button asChild>
-								<Link href={`/dashboard/courses/${course.id}/learn`}>
+								<Link href={STUDENT_URLS.learnCourse(course.id)}>
 									Start Learning Now
 								</Link>
 							</Button>

@@ -20,6 +20,7 @@ import type {
 } from "@/app/_components/Course/components/BrowseCourses/components/BrowseCourseCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
 import PurchaseConfirmDialog from "@/app/_components/Course/components/PurchaseConfirmDialog";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { formatPrice } from "@/lib/formatPrice";
 import { capitalize } from "@/lib/utils/capitalize";
 
@@ -36,8 +37,8 @@ function CourseCardAction({
 				<Link
 					href={
 						nextLessonId
-							? `/dashboard/courses/${course.id}/learn/${nextLessonId}`
-							: `/dashboard/courses/${course.id}/learn`
+							? STUDENT_URLS.learnLesson(course.id, nextLessonId)
+							: STUDENT_URLS.learnCourse(course.id)
 					}
 				>
 					Continue
