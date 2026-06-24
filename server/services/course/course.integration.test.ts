@@ -58,6 +58,7 @@ describe("CourseService publish", () => {
 				thumbnailUrl: null,
 				previewVideoUrl: null,
 				instructorId: instructor.id,
+				skills: [],
 				sections: [
 					{
 						id: section.id,
@@ -78,6 +79,111 @@ describe("CourseService publish", () => {
 		await vi.waitFor(() =>
 			expect(embeddingsService.embedCourse).toHaveBeenCalled(),
 		);
+	});
+});
+
+describe("CourseService skills", () => {
+	it("persists tagged skills when creating a course", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const skillA = await testDb.skill.create({
+			data: { name: "React", slug: "react" },
+		});
+		const skillB = await testDb.skill.create({
+			data: { name: "TypeScript", slug: "typescript" },
+		});
+
+		const created = await courseService.createCourse({
+			title: "Test Course",
+			subtitle: null,
+			description: "Test course description",
+			category: "Technology",
+			level: "Beginner",
+			language: "English",
+			duration: "2 hours",
+			priceCents: 0,
+			originalPriceCents: null,
+			status: "draft",
+			objectives: [],
+			requirements: [],
+			thumbnailUrl: null,
+			previewVideoUrl: null,
+			instructorId: instructor.id,
+			skills: [skillA.id, skillB.id],
+			sections: [
+				{
+					title: "Section 1",
+					order: 1,
+					lessons: [{ title: "Lesson 1" }],
+				},
+			],
+		});
+
+		const count = await testDb.courseSkill.count({
+			where: { courseId: created.id },
+		});
+		expect(count).toBe(2);
+	});
+
+	it("replaces skills on update instead of appending", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const skillA = await testDb.skill.create({
+			data: { name: "React", slug: "react" },
+		});
+		const skillB = await testDb.skill.create({
+			data: { name: "TypeScript", slug: "typescript" },
+		});
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: CourseStatus.draft,
+		});
+		const section = await makeSection({ courseId: course.id, order: 1 });
+		await testDb.lesson.create({
+			data: { sectionId: section.id, title: "Lesson 1", order: 1 },
+		});
+		await testDb.courseSkill.createMany({
+			data: [
+				{ courseId: course.id, skillId: skillA.id },
+				{ courseId: course.id, skillId: skillB.id },
+			],
+		});
+
+		await courseService.updateCourse(
+			course.id,
+			{
+				id: course.id,
+				title: course.title,
+				subtitle: null,
+				description: course.description ?? "Test course description",
+				category: course.category,
+				level: course.level,
+				language: course.language,
+				duration: course.duration,
+				priceCents: course.priceCents,
+				originalPriceCents: null,
+				status: "draft",
+				objectives: [],
+				requirements: [],
+				thumbnailUrl: null,
+				previewVideoUrl: null,
+				instructorId: instructor.id,
+				skills: [skillA.id],
+				sections: [
+					{
+						id: section.id,
+						title: section.title,
+						order: 1,
+						lessons: [{ title: "Lesson 1" }],
+					},
+				],
+			},
+			instructor.id,
+		);
+
+		const remaining = await testDb.courseSkill.findMany({
+			where: { courseId: course.id },
+		});
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0]?.skillId).toBe(skillA.id);
 	});
 });
 

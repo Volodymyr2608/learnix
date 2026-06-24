@@ -105,6 +105,7 @@ export const courseSchema = z.object({
 		)
 		.min(2, "At least 2 requirements are required"),
 	sections: sectionsSchema,
+	skills: z.array(z.string()).default([]),
 });
 
 export type CourseSchemaInput = z.input<typeof courseSchema>;
@@ -126,6 +127,8 @@ export const CourseDto = CourseSchema.pick({
 	thumbnailUrl: true,
 	previewVideoUrl: true,
 	instructorId: true,
+}).extend({
+	skills: z.array(z.string()).default([]),
 });
 
 const SectionCreateDto = SectionSchema.pick({

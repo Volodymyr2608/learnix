@@ -31,7 +31,7 @@ import { logger } from "@/server/utils/logger";
 class CourseService {
 	async createCourse(dto: CourseFullCreateDto) {
 		try {
-			const { sections, ...courseData } = dto;
+			const { sections, skills, ...courseData } = dto;
 
 			const course = await courseRepository.transaction(async () => {
 				const created = await courseRepository.create(courseData);
@@ -39,6 +39,8 @@ class CourseService {
 				const createdSections = await this.createSections(created.id, sections);
 
 				await this.createLessons(sections, createdSections);
+
+				await courseRepository.setSkills(created.id, skills);
 
 				return created;
 			});
@@ -186,7 +188,7 @@ class CourseService {
 		instructorId: string,
 	) {
 		try {
-			const { sections: newSections, ...incomingCourseData } = dto;
+			const { sections: newSections, skills, ...incomingCourseData } = dto;
 			let existingStatus: string | undefined;
 
 			const result = await courseRepository.transaction(async () => {
@@ -247,6 +249,8 @@ class CourseService {
 
 				await this.syncLessons(existingSections, newSections, updatedSections);
 
+				await courseRepository.setSkills(courseId, skills);
+
 				return {
 					...course,
 					sections: updatedSections,
@@ -296,7 +300,7 @@ class CourseService {
 
 	private prepareCourseUpdate(
 		existing: CourseWithSections,
-		incoming: Omit<CourseFullUpdateDto, "sections">,
+		incoming: Omit<CourseFullUpdateDto, "sections" | "skills">,
 	) {
 		const result = { ...incoming };
 

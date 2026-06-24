@@ -265,7 +265,16 @@ export default class CourseRepository extends BaseRepository<
 				},
 				reviews: { select: { rating: true } },
 				_count: { select: { enrollments: true } },
+				courseSkills: { include: { skill: true } },
 			},
+		});
+	}
+
+	async setSkills(courseId: string, skillIds: string[]): Promise<void> {
+		await this.db.courseSkill.deleteMany({ where: { courseId } });
+		if (skillIds.length === 0) return;
+		await this.db.courseSkill.createMany({
+			data: skillIds.map((skillId) => ({ courseId, skillId })),
 		});
 	}
 
