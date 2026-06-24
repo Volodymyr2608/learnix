@@ -10,6 +10,7 @@ import type {
 	StudentProgressStats,
 	WeeklyActivityDay,
 } from "@/server/entities/student/progress";
+import type { SkillProgressView } from "@/server/entities/student/skillProgress";
 import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
@@ -20,6 +21,7 @@ import {
 	evaluateAchievements,
 	selectVisibleAchievements,
 } from "./achievements.rules";
+import { toSkillProgressViews } from "./skillProgress.rules";
 
 const WEEK_DAYS = 7;
 
@@ -186,6 +188,12 @@ class StudentService {
 			reviewsWritten,
 		});
 		return selectVisibleAchievements(evaluated);
+	}
+
+	async getSkillProgress(studentId: string): Promise<SkillProgressView[]> {
+		logger.info("Getting student skill progress", { studentId });
+		const rows = await enrollmentRepository.getSkillProgress(studentId);
+		return toSkillProgressViews(rows);
 	}
 
 	private computeStreak(completionDays: Date[]): number {
