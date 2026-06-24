@@ -6,7 +6,7 @@ import { Badge } from "@/app/_components/_shared/ui/badge";
 import {
 	Field,
 	FieldError,
-	FieldLabel,
+	FieldLegend,
 } from "@/app/_components/_shared/ui/field";
 import type { ControlledMultiSelectProps } from "./types";
 
@@ -33,7 +33,9 @@ const ControlledMultiSelect = <T extends FieldValues>({
 
 				return (
 					<Field className="gap-2" data-invalid={fieldState.invalid}>
-						<FieldLabel className="leading-none">{label}</FieldLabel>
+						<FieldLegend className="leading-none" variant="label">
+							{label}
+						</FieldLegend>
 						<div className="flex flex-wrap gap-2">
 							{items.map((item) => (
 								<Badge asChild key={item.value} variant="outline">

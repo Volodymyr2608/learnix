@@ -21,7 +21,8 @@ const BasicInformationForm = ({ isEdit = false }) => {
 		control,
 		formState: { errors },
 	} = useFormContext();
-	const { data: skills } = api.skill.list.useQuery();
+	const { data: skills, isLoading: isLoadingSkills } =
+		api.skill.list.useQuery();
 
 	return (
 		<Card>
@@ -119,7 +120,10 @@ const BasicInformationForm = ({ isEdit = false }) => {
 					/>
 				</div>
 
-				{skills && (
+				{isLoadingSkills && (
+					<p className="text-muted-foreground text-sm">Loading skills…</p>
+				)}
+				{!isLoadingSkills && skills && (
 					<ControlledMultiSelect
 						control={control}
 						items={skills.map((skill) => ({
