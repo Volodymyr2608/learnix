@@ -43,7 +43,7 @@ async function seedLesson() {
 		},
 	});
 
-	return { student, lesson };
+	return { student, lesson, course };
 }
 
 describe("LessonService progress", () => {
@@ -74,5 +74,21 @@ describe("LessonService progress", () => {
 		});
 		expect(row?.isCompleted).toBe(false);
 		expect(row?.completedAt).toBeNull();
+	});
+
+	it("stamps enrollment.lastAccessedAt when the student opens a lesson", async () => {
+		const { student, lesson, course } = await seedLesson();
+
+		const before = await testDb.enrollment.findFirst({
+			where: { studentId: student.id, courseId: course.id },
+		});
+		expect(before?.lastAccessedAt).toBeNull();
+
+		await lessonService.getStudentLesson(lesson.id, student.id);
+
+		const after = await testDb.enrollment.findFirst({
+			where: { studentId: student.id, courseId: course.id },
+		});
+		expect(after?.lastAccessedAt).not.toBeNull();
 	});
 });

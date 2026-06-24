@@ -129,12 +129,22 @@ class LessonService {
 				},
 				include: {
 					quizzes: { where: { deletedAt: null }, orderBy: { id: "asc" } },
+					section: { select: { courseId: true } },
 				},
 			});
 
 			if (!lesson) {
 				throw new LessonError("Lesson not found or access denied", "NOT_FOUND");
 			}
+
+			// Opening a lesson is the student's "last active" signal, powering the
+			// instructor Students table and its Active Learners count. Tolerate a
+			// touch failure so it never blocks loading the lesson.
+			await enrollmentRepository
+				.touchLastAccessed(studentId, lesson.section.courseId)
+				.catch((err) =>
+					logger.warn("touchLastAccessed after lesson open failed:", err),
+				);
 
 			return lesson as typeof lesson & { quizzes: Quiz[] };
 		} catch (error) {

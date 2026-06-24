@@ -57,6 +57,22 @@ class EnrollmentRepository extends BaseRepository<
 		return rows.map((r) => (r as { courseId: string }).courseId);
 	}
 
+	/**
+	 * Stamp the student's enrollment for a course as accessed now. Uses
+	 * updateMany on the unique (studentId, courseId) pair so it is a no-op
+	 * rather than throwing when the student is not enrolled.
+	 */
+	async touchLastAccessed(studentId: string, courseId: string): Promise<void> {
+		await this.db.enrollment.updateMany({
+			where: {
+				studentId,
+				courseId,
+				status: { not: EnrollmentStatus.cancelled },
+			},
+			data: { lastAccessedAt: new Date() },
+		});
+	}
+
 	findByIdWithRelations(enrollmentId: string) {
 		return this.findFirst({
 			where: { id: enrollmentId },
