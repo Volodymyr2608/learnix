@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Next.js 15 App Router, `@langchain/langgraph@^1.3.0` (already installed), `@langchain/openai`, `@langchain/core`, Zod, Prisma, tRPC, Server-Sent Events.
 
-**Spec source:** `docs/specs/2026-05-22-langgraph-course-builder/` (requirements.md, plan.md, validation.md). Do not re-derive; this plan implements that design.
+**Spec source:** `docs/specs/_legacy/2026-05-22-langgraph-course-builder/` (requirements.md, plan.md, validation.md). Do not re-derive; this plan implements that design.
 
 **Verification posture:** No Vitest in this project (per ADR-013 / CLAUDE.md — LangSmith evals only). Each task ends with `pnpm typecheck` + `pnpm check` and a commit. Smoke-runs use one-off `tsx` scripts under `evals/courseAI/_smoke/` (not committed long-term, gitignored). LangSmith evals are wired in Phase E.
 
@@ -2899,7 +2899,7 @@ pnpm eval courseAI:confidenceScore
 
 Expected: all exit 0.
 
-- [ ] **Step 3: Manual scenarios from `docs/specs/2026-05-22-langgraph-course-builder/validation.md`**
+- [ ] **Step 3: Manual scenarios from `docs/specs/_legacy/2026-05-22-langgraph-course-builder/validation.md`**
 
 Run scenarios 1–7 in `pnpm dev`. Confirm each behaves as the spec validation document describes. Pay particular attention to:
 - Scenario 2 (auto-advance with no Accept click)

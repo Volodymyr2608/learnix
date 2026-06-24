@@ -1,7 +1,9 @@
 # Spec templates
 
-Starting points for the four documents every feature spec carries. They encode the gated,
-spec-driven workflow defined in [`CLAUDE.md`](../../CLAUDE.md) → **Development Workflow**.
+Starting points for the four `build/` documents a **complex-tier** feature carries (see
+[`docs/specs/documentation-process.md`](../specs/documentation-process.md) §3 for what makes a
+feature complex-tier vs. standard vs. trivial). Standard-tier features use
+[`feature-spec.md`](./feature-spec.md) instead — a single living doc, no gated stages.
 
 ## The four documents
 
@@ -17,10 +19,10 @@ it from `spec.md`.
 
 ## How to use
 
-1. Create the feature folder: `docs/specs/<YYYY-MM-DD>-<feature>/`.
+1. Create the build folder: `docs/specs/features/<slug>/build/`.
 2. Copy the four templates into it:
    ```bash
-   cp docs/templates/{requirements,spec,plan,validation}.md docs/specs/<YYYY-MM-DD>-<feature>/
+   cp docs/templates/{requirements,spec,plan,validation}.md docs/specs/features/<slug>/build/
    ```
 3. Fill them **in order**, one at a time, **pausing for approval between each** — never start the
    next document until the previous is approved. Each builds on the one before it.
@@ -28,6 +30,9 @@ it from `spec.md`.
    `[NEEDS CLARIFICATION]` before approving a stage.
 5. Once `plan.md` is approved, execute it with `superpowers:subagent-driven-development` (or
    `executing-plans`). Don't run `brainstorming` — the spec is the design.
+6. On ship: distill `build/` down into `docs/specs/features/<slug>/spec.md` (Purpose / Functional
+   scope / Acceptance criteria / Agent notes only), freeze `build/`, run `pnpm spec:sync`, and write
+   an ADR if the decision crosses the three-month test.
 
 ## Principles
 
@@ -40,4 +45,4 @@ it from `spec.md`.
 - **One source of truth per fact.** Schemas live in `spec.md`, not duplicated in requirements;
   rationale for hard decisions lives in an ADR, not scattered.
 
-See [`docs/specs/2026-06-12-payments/`](../specs/2026-06-12-payments/) for a worked example.
+See [`docs/specs/_legacy/2026-06-12-payments/`](../specs/_legacy/2026-06-12-payments/) for a worked example.
