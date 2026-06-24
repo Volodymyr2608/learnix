@@ -4,8 +4,15 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import { formatUsd } from "@/lib/formatUsd";
+import type { StatsCourseProps } from "./types";
 
-const StatsCourse = () => {
+const StatsCourse = ({ stats }: StatsCourseProps) => {
+	const rating =
+		stats && stats.averageRating != null
+			? `${stats.averageRating.toFixed(1)} ⭐ (${stats.reviewsCount})`
+			: "No ratings yet";
+
 	return (
 		<Card>
 			<CardHeader>
@@ -14,15 +21,17 @@ const StatsCourse = () => {
 			<CardContent className="space-y-3 text-sm">
 				<div className="flex justify-between">
 					<span className="text-muted-foreground">Students</span>
-					<span className="font-semibold">456</span>
+					<span className="font-semibold">{stats?.students ?? "—"}</span>
 				</div>
 				<div className="flex justify-between">
 					<span className="text-muted-foreground">Rating</span>
-					<span className="font-semibold">4.9 ⭐</span>
+					<span className="font-semibold">{stats ? rating : "—"}</span>
 				</div>
 				<div className="flex justify-between">
 					<span className="text-muted-foreground">Revenue</span>
-					<span className="font-semibold">$4,560</span>
+					<span className="font-semibold">
+						{stats ? formatUsd(stats.revenueCents) : "—"}
+					</span>
 				</div>
 			</CardContent>
 		</Card>

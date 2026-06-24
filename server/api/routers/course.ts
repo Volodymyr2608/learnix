@@ -126,6 +126,19 @@ export const courseRouter = createTRPCRouter({
 		}
 	}),
 
+	getOwnCourseStats: instructorProcedure
+		.input(CourseSchema.shape.id)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await courseService.getOwnCourseStats(
+					input,
+					ctx.session.user.id,
+				);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
 	getPublishedCourses: protectedProcedure
 		.input(
 			z.object({

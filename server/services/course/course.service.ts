@@ -14,7 +14,10 @@ import type {
 	GetOwnCoursesInput,
 	PaginatedOwnCourses,
 } from "@/server/entities/course/ownCourses";
-import type { CourseOwnerStats } from "@/server/entities/course/stats";
+import type {
+	CourseOwnerStats,
+	OwnCourseStats,
+} from "@/server/entities/course/stats";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
@@ -91,6 +94,35 @@ class CourseService {
 				lifetimeGrossCents: revenue.lifetimeGrossCents,
 				thisMonthGrossCents: revenue.thisMonthGrossCents,
 			},
+		};
+	}
+
+	async getOwnCourseStats(
+		courseId: string,
+		instructorId: string,
+	): Promise<OwnCourseStats> {
+		const owned = await courseRepository.findFirst({
+			where: { id: courseId, instructorId, deletedAt: null },
+			select: { id: true },
+		});
+		if (!owned) {
+			throw new CourseError("Course not found", "NOT_FOUND", undefined, {
+				courseId,
+			});
+		}
+
+		const [students, ratings, reviewsCount, revenue] = await Promise.all([
+			enrollmentRepository.count({ courseId }),
+			courseReviewRepository.getAvgRatingByCourseIds([courseId]),
+			courseReviewRepository.count({ courseId, deletedAt: null }),
+			paymentRepository.getRevenueByCourseIds([courseId]),
+		]);
+
+		return {
+			students,
+			averageRating: ratings.get(courseId) ?? null,
+			reviewsCount,
+			revenueCents: revenue.get(courseId) ?? 0,
 		};
 	}
 
