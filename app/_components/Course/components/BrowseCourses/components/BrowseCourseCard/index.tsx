@@ -4,7 +4,6 @@ import { Clock, Star, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import {
@@ -20,25 +19,17 @@ import type {
 	SelectedCourse,
 } from "@/app/_components/Course/components/BrowseCourses/components/BrowseCourseCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
+import PurchaseConfirmDialog from "@/app/_components/Course/components/PurchaseConfirmDialog";
 import { formatPrice } from "@/lib/formatPrice";
 import { capitalize } from "@/lib/utils/capitalize";
-import { api } from "@/trpc/client";
 
 function CourseCardAction({
 	course,
 	isEnrolled,
 	nextLessonId,
 	onEnrollFree,
+	onBuy,
 }: CourseCardActionProps) {
-	const checkout = api.payment.createCheckoutSession.useMutation({
-		onSuccess: ({ url }) => {
-			window.location.href = url;
-		},
-		onError: (err) => {
-			toast.error(err.message || "Failed to start checkout. Please try again.");
-		},
-	});
-
 	if (isEnrolled) {
 		return (
 			<Button asChild size="sm" variant="outline">
@@ -57,14 +48,8 @@ function CourseCardAction({
 
 	if (course.priceCents > 0) {
 		return (
-			<Button
-				disabled={checkout.isPending}
-				onClick={() => checkout.mutate({ courseId: course.id })}
-				size="sm"
-			>
-				{checkout.isPending
-					? "Redirecting..."
-					: `Buy now — ${formatPrice(course.priceCents)}`}
+			<Button onClick={onBuy} size="sm">
+				Buy now
 			</Button>
 		);
 	}
@@ -82,6 +67,7 @@ const BrowseCourseCard = ({
 	nextLessonId,
 }: BrowseCourseCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+	const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
 	const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(
 		null,
 	);
@@ -100,32 +86,41 @@ const BrowseCourseCard = ({
 
 	return (
 		<>
-			<Card className="overflow-hidden transition-shadow hover:shadow-lg">
+			<Card className="group gap-4 overflow-hidden pt-0 transition-shadow duration-300 hover:shadow-lg">
 				<Link className="block" href={`/dashboard/browse/${course.id}`}>
 					<div className="relative aspect-video w-full overflow-hidden bg-muted">
 						<Image
 							alt={course.title}
-							className="h-full w-full object-cover"
+							className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
 							fill
 							src={course.thumbnail || "/placeholder.svg"}
 						/>
+						<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/10" />
+						<Badge
+							className="absolute top-3 left-3 border-0 bg-white/85 text-foreground shadow-sm backdrop-blur-sm"
+							variant="secondary"
+						>
+							{capitalize(course.category)}
+						</Badge>
+						<Badge
+							className="absolute top-3 right-3 border-white/30 bg-black/40 text-white backdrop-blur-sm"
+							variant="outline"
+						>
+							{capitalize(course.level)}
+						</Badge>
 					</div>
 				</Link>
 				<CardHeader>
-					<div className="space-y-2">
-						<div className="flex items-center gap-2">
-							<Badge variant="secondary">{capitalize(course.category)}</Badge>
-							<Badge variant="outline">{capitalize(course.level)}</Badge>
-						</div>
+					<div className="space-y-1">
 						<Link href={`/dashboard/browse/${course.id}`}>
-							<CardTitle className="line-clamp-2 text-lg transition-colors hover:text-primary">
+							<CardTitle className="line-clamp-2 text-lg transition-colors group-hover:text-primary">
 								{course.title}
 							</CardTitle>
 						</Link>
 						<CardDescription>by {course.instructor}</CardDescription>
 					</div>
 				</CardHeader>
-				<CardContent className="space-y-4">
+				<CardContent className="space-y-3">
 					<div className="flex items-center justify-between text-sm">
 						<div className="flex items-center gap-1">
 							{course.rating === null ? (
@@ -147,7 +142,7 @@ const BrowseCourseCard = ({
 						</div>
 					</div>
 
-					<div className="flex items-center justify-between">
+					<div className="flex items-center justify-between border-t pt-3">
 						<span className="font-bold text-xl">
 							{formatPrice(course.priceCents)}
 						</span>
@@ -155,6 +150,7 @@ const BrowseCourseCard = ({
 							course={course}
 							isEnrolled={isEnrolled}
 							nextLessonId={nextLessonId}
+							onBuy={() => setPurchaseDialogOpen(true)}
 							onEnrollFree={handleEnrollClick}
 						/>
 					</div>
@@ -168,6 +164,18 @@ const BrowseCourseCard = ({
 					open={enrollDialogOpen}
 				/>
 			)}
+
+			<PurchaseConfirmDialog
+				course={{
+					id: String(course.id),
+					title: course.title,
+					instructor: course.instructor,
+					thumbnail: course.thumbnail,
+					priceCents: course.priceCents,
+				}}
+				onOpenChange={setPurchaseDialogOpen}
+				open={purchaseDialogOpen}
+			/>
 		</>
 	);
 };

@@ -18,6 +18,7 @@ export type EnrollActionProps = {
 	isEnrolled: boolean;
 	nextLessonId: string | null;
 	onEnrollFree: () => void;
+	onBuy: () => void;
 };
 
 export type IncludeItemProps = {

@@ -1,4 +1,4 @@
-import { BookOpen, Clock, PlayCircle } from "lucide-react";
+import { PlayCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -45,13 +45,17 @@ export const EnrolledCourseCard = ({ course }: EnrolledCourseCardProps) => {
 
 	return (
 		<Card className="group flex flex-col gap-4 overflow-hidden pt-0 transition-shadow hover:shadow-lg">
-			<div className="relative aspect-video w-full overflow-hidden bg-muted">
+			<Link
+				className="relative block aspect-video w-full overflow-hidden bg-muted"
+				href={learnHref}
+			>
 				<Image
 					alt={course.title}
 					className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
 					fill
 					src={course.thumbnail || "/placeholder.svg"}
 				/>
+				<div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/10" />
 				<div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
 					<Badge
 						className="border-transparent bg-background/80 text-foreground capitalize shadow-sm backdrop-blur-sm"
@@ -66,8 +70,8 @@ export const EnrolledCourseCard = ({ course }: EnrolledCourseCardProps) => {
 						{course.status}
 					</Badge>
 				</div>
-			</div>
-			<CardHeader className="gap-0 pt-2">
+			</Link>
+			<CardHeader className="gap-0">
 				<CardTitle className="line-clamp-2 text-lg">
 					<Link
 						className="transition-colors hover:text-primary hover:underline"
@@ -79,24 +83,15 @@ export const EnrolledCourseCard = ({ course }: EnrolledCourseCardProps) => {
 			</CardHeader>
 			<CardContent className="flex flex-1 flex-col space-y-4">
 				<div className="space-y-1.5">
-					<div className="flex justify-between text-muted-foreground text-sm">
-						<span>
+					<div className="flex items-center justify-between text-sm">
+						<span className="text-muted-foreground">
 							{course.completedLessons}/{course.totalLessons} lessons
 						</span>
-						<span>{course.progress}%</span>
+						<span className="font-semibold text-primary">
+							{course.progress}%
+						</span>
 					</div>
 					<Progress value={course.progress} />
-				</div>
-
-				<div className="flex items-center gap-3 text-muted-foreground text-sm">
-					<div className="flex items-center gap-1">
-						<Clock className="h-4 w-4" />
-						<span>{course.duration}</span>
-					</div>
-					<div className="flex items-center gap-1">
-						<BookOpen className="h-4 w-4" />
-						<span>{course.totalLessons} lessons</span>
-					</div>
 				</div>
 
 				<Button
