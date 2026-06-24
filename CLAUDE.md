@@ -209,12 +209,20 @@ explicitly asked).
 
 ### Implementation
 
+**Always produce a detailed, written, approved plan before any implementation code** — for every
+tier above trivial/fix, not just complex. Use `writing-plans` to create a task-by-task
+`docs/specs/features/<slug>/build/plan.md` (from `docs/templates/plan.md`): exact file paths,
+concrete code/signatures, per-task tests and commit. Get explicit approval on that plan before
+executing. Never start coding from the spec alone or invent tasks as you go.
+
 When `docs/specs/features/<slug>/spec.md` already exists and covers the work:
 1. **Skip `brainstorming`** for standard-tier work — the spec is the design. Do not re-derive what is
    already written.
-2. For complex tier, if `build/plan.md` isn't yet the detailed plan, invoke `writing-plans` (reading
-   `build/requirements.md` and `build/spec.md`) to produce it **in `build/plan.md`**.
-3. Execute with `subagent-driven-development` or `executing-plans`.
+2. Produce the detailed `build/plan.md` via `writing-plans` and get it approved **before** writing
+   code (for complex tier, read `build/requirements.md` + `build/spec.md` first).
+3. Execute with `subagent-driven-development` or `executing-plans` **continuously** — run all tasks
+   end to end. Do not pause between tasks to ask "should I continue?" or to make the user check
+   status; stop only for a genuine blocker you cannot resolve yourself, or when all tasks are done.
 4. **Gate Docs (DoD), before the PR closes:** update the feature's `spec.md` (status + any changed
    Acceptance Criteria), run `pnpm spec:sync`, and write/update an ADR if the change crosses the
    three-month test.
