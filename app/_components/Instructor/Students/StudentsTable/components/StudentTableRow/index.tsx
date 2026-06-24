@@ -1,4 +1,4 @@
-import { Eye, Mail, MoreHorizontal } from "lucide-react";
+import { Eye, MoreHorizontal } from "lucide-react";
 import {
 	Avatar,
 	AvatarFallback,
@@ -21,6 +21,7 @@ import {
 	statusBadgeClass,
 } from "../../../utils";
 import { EnrolledCoursesCell } from "../EnrolledCoursesCell";
+import { SendMessageMenuItem } from "../SendMessageMenuItem";
 import type { StudentTableRowProps } from "./types";
 
 export function StudentTableRow({
@@ -78,10 +79,10 @@ export function StudentTableRow({
 							<Eye className="mr-2 h-4 w-4" />
 							View Details
 						</DropdownMenuItem>
-						<DropdownMenuItem disabled>
-							<Mail className="mr-2 h-4 w-4" />
-							Send Message
-						</DropdownMenuItem>
+						<SendMessageMenuItem
+							courses={student.courses}
+							studentId={student.id}
+						/>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</td>
