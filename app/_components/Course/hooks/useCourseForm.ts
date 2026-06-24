@@ -29,6 +29,7 @@ export const getDefaultCourseValues = (course?: CourseAdapted) => ({
 		{ value: "" },
 	],
 	requirements: course?.requirements ?? [{ value: "" }, { value: "" }],
+	skills: course?.skills ?? [],
 	sections: course?.sections ?? [
 		{ title: "", order: 1, lessons: [{ title: "", durationMinutes: null }] },
 	],

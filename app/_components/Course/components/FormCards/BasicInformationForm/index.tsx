@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormContext } from "react-hook-form";
+import ControlledMultiSelect from "@/app/_components/_shared/components/Form/ControlledMultiSelect";
 import ControlledSelect from "@/app/_components/_shared/components/Form/ControlledSelect";
 import ControlledTextarea from "@/app/_components/_shared/components/Form/ControlledTextarea";
 import FormField from "@/app/_components/_shared/components/Form/FormField";
@@ -12,6 +13,7 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { COURSE_CATEGORIES } from "@/lib/constants/courseCategories";
+import { api } from "@/trpc/client";
 
 const BasicInformationForm = ({ isEdit = false }) => {
 	const {
@@ -19,6 +21,7 @@ const BasicInformationForm = ({ isEdit = false }) => {
 		control,
 		formState: { errors },
 	} = useFormContext();
+	const { data: skills } = api.skill.list.useQuery();
 
 	return (
 		<Card>
@@ -115,6 +118,18 @@ const BasicInformationForm = ({ isEdit = false }) => {
 						type="number"
 					/>
 				</div>
+
+				{skills && (
+					<ControlledMultiSelect
+						control={control}
+						items={skills.map((skill) => ({
+							label: skill.name,
+							value: skill.id,
+						}))}
+						label="Skills"
+						name="skills"
+					/>
+				)}
 			</CardContent>
 		</Card>
 	);
