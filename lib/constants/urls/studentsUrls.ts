@@ -8,6 +8,8 @@ const STUDENT_URLS = {
 	progress: `${MAIN_URL}/progress`,
 	certificates: `${MAIN_URL}/certificates`,
 	messages: `${MAIN_URL}/messages`,
+	messageThread: (conversationId: string) =>
+		`${MAIN_URL}/messages?c=${conversationId}`,
 	billing: `${MAIN_URL}/billing`,
 	settings: `${MAIN_URL}/settings`,
 	profile: "/profile",

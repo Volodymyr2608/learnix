@@ -47,12 +47,12 @@ const instructorItems: NavItem[] = [
 	},
 	{
 		title: "Students",
-		href: "/instructor/students",
+		href: INSTRUCTOR_URLS.students,
 		icon: Users,
 	},
 	{
 		title: "Revenue",
-		href: "/instructor/revenue",
+		href: INSTRUCTOR_URLS.revenue,
 		icon: DollarSign,
 	},
 	{
@@ -62,12 +62,12 @@ const instructorItems: NavItem[] = [
 	},
 	{
 		title: "Analytics",
-		href: "/instructor/analytics",
+		href: INSTRUCTOR_URLS.analytics,
 		icon: BarChart3,
 	},
 	{
 		title: "Messages",
-		href: "/instructor/messages",
+		href: INSTRUCTOR_URLS.messages,
 		icon: MessageSquare,
 	},
 	{

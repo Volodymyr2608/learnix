@@ -6,6 +6,7 @@ import { OwnCoursesList } from "@/app/_components/Course/components/OwnCourses/c
 import { buildOwnCoursesQueryParams } from "@/app/_components/Course/components/OwnCourses/helpers/buildOwnCoursesHref";
 import { toSearchInput } from "@/app/_components/Course/components/OwnCourses/searchParams";
 import type { OwnCoursesProps } from "@/app/_components/Course/components/OwnCourses/types";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 
 const OwnCourses = async ({ query }: OwnCoursesProps) => {
 	const { data, lastPage } = await searchOwnCourses(toSearchInput(query));
@@ -21,7 +22,7 @@ const OwnCourses = async ({ query }: OwnCoursesProps) => {
 
 			{lastPage > 1 && (
 				<CoursePagination
-					basePath="/instructor/courses"
+					basePath={INSTRUCTOR_URLS.courses}
 					currentPage={currentPage}
 					query={buildOwnCoursesQueryParams(query)}
 					totalPages={lastPage}

@@ -62,7 +62,7 @@ export function Thread({ conversationId }: ThreadProps) {
 				{thread.data?.messages.map((m) => (
 					<div
 						className={cn(
-							"w-fit max-w-[75%] whitespace-pre-wrap wrap-break-word rounded-lg px-3 py-2 text-sm",
+							"wrap-break-word w-fit max-w-[75%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm",
 							m.isMine
 								? "ml-auto bg-primary text-primary-foreground"
 								: "bg-muted",

@@ -36,6 +36,7 @@ import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnVi
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
 import { LearningPathCard } from "@/app/_components/Course/components/LearningPathCard";
 import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
 import { formatDuration } from "@/lib/format/formatDuration";
@@ -112,7 +113,7 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
 					<Button asChild size="icon" variant="ghost">
-						<a href="/dashboard/courses">
+						<a href={STUDENT_URLS.courses}>
 							<ChevronLeft className="h-4 w-4" />
 						</a>
 					</Button>

@@ -8,6 +8,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/app/_components/_shared/ui/tooltip";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { api } from "@/trpc/client";
 import type { MessageInstructorButtonProps } from "./types";
 
@@ -17,7 +18,7 @@ export function MessageInstructorButton({
 	const router = useRouter();
 	const open = api.message.getOrCreateConversation.useMutation({
 		onSuccess: ({ conversationId }) =>
-			router.push(`/dashboard/messages?c=${conversationId}`),
+			router.push(STUDENT_URLS.messageThread(conversationId)),
 		onError: (error) => console.error("Failed to open conversation:", error),
 	});
 

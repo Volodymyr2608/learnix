@@ -10,6 +10,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { authClient } from "@/server/better-auth/client";
 
 type Account = { id: string; providerId: string; accountId: string };
@@ -37,7 +38,7 @@ const ConnectedAccountsSection = () => {
 	const handleLink = async (provider: "github" | "google") => {
 		await authClient.linkSocial({
 			provider,
-			callbackURL: "/dashboard/settings",
+			callbackURL: STUDENT_URLS.settings,
 		});
 	};
 

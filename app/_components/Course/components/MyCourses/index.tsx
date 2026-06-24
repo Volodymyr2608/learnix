@@ -4,8 +4,10 @@ import { Button } from "@/app/_components/_shared/ui/button";
 import { CoursePagination } from "@/app/_components/Course/components/CoursePagination";
 import { CourseTabFilter } from "@/app/_components/Course/components/MyCourses/components/CourseTabFilter";
 import { EnrolledCourseCard } from "@/app/_components/Course/components/MyCourses/components/EnrolledCourseCard";
+import { MyCoursesEmptyState } from "@/app/_components/Course/components/MyCourses/components/MyCoursesEmptyState";
 import type { MyCoursesProps } from "@/app/_components/Course/components/MyCourses/types";
 import { COURSE_PAGE_SIZE } from "@/lib/constants/pagination";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 
 export const MyCourses = ({
 	courses,
@@ -20,7 +22,7 @@ export const MyCourses = ({
 		<PageShell
 			action={
 				<Button asChild>
-					<Link href="/dashboard/browse">Browse More Courses</Link>
+					<Link href={STUDENT_URLS.browseCourse}>Browse More Courses</Link>
 				</Button>
 			}
 			description="Manage and continue your learning journey"
@@ -29,7 +31,7 @@ export const MyCourses = ({
 			<CourseTabFilter currentTab={currentTab} />
 
 			{courses.length === 0 ? (
-				<p className="text-muted-foreground text-sm">No courses found.</p>
+				<MyCoursesEmptyState currentTab={currentTab} />
 			) : (
 				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 					{courses.map((course) => (
@@ -40,7 +42,7 @@ export const MyCourses = ({
 
 			{totalPages > 1 && (
 				<CoursePagination
-					basePath="/dashboard/courses"
+					basePath={STUDENT_URLS.courses}
 					currentPage={safePage}
 					query={{ tab: currentTab }}
 					totalPages={totalPages}
