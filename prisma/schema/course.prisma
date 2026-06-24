@@ -42,6 +42,7 @@ model Course {
   conceptMasteries   ConceptMastery[]
   learningPathCaches LearningPathCache[]
   conversations      Conversation[]
+  courseSkills       CourseSkill[]
 
   @@index([deletedAt])
   @@map("courses")
@@ -99,4 +100,26 @@ model LearningPathCache {
 
   @@unique([studentId, courseId])
   @@map("learning_path_cache")
+}
+
+model Skill {
+  id    String @id @default(cuid())
+  name  String @unique
+  slug  String @unique
+
+  courseSkills CourseSkill[]
+
+  @@map("skills")
+}
+
+model CourseSkill {
+  courseId String
+  skillId  String
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, skillId])
+  @@index([skillId])
+  @@map("course_skills")
 }
