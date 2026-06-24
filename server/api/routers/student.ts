@@ -24,4 +24,11 @@ export const studentRouter = createTRPCRouter({
 			handleServiceError(error);
 		}
 	}),
+	getAchievements: studentProcedure.query(async ({ ctx }) => {
+		try {
+			return await studentService.getAchievements(ctx.session.user.id);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
 });

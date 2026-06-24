@@ -35,6 +35,10 @@ class LessonProgressRepository extends BaseRepository<
 		} as Prisma.LessonProgressWhereInput);
 	}
 
+	countCompletedTotal(studentId: string): Promise<number> {
+		return this.count({ studentId, isCompleted: true });
+	}
+
 	async findCompletedIds(
 		studentId: string,
 		courseId: string,

@@ -1,4 +1,3 @@
-import { Award } from "lucide-react";
 import {
 	Card,
 	CardContent,
@@ -7,35 +6,17 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { Progress } from "@/app/_components/_shared/ui/progress";
+import Achievements from "@/app/_components/Dashboard/Progress/Achievements";
 import ProgressStatsCards from "@/app/_components/Dashboard/Progress/ProgressStatsCards";
 import WeeklyActivity from "@/app/_components/Dashboard/Progress/WeeklyActivity";
+import getAchievements from "@/lib/requests/student/getAchievements";
 import getProgressStats from "@/lib/requests/student/getProgressStats";
 
 export default async function ProgressPage() {
-	const stats = await getProgressStats();
-
-	const achievements = [
-		{
-			title: "Fast Learner",
-			description: "Complete 5 courses in a month",
-			earned: true,
-		},
-		{
-			title: "Consistent Student",
-			description: "Study 7 days in a row",
-			earned: true,
-		},
-		{
-			title: "Course Master",
-			description: "Achieve 100% in any course",
-			earned: true,
-		},
-		{
-			title: "Knowledge Seeker",
-			description: "Enroll in 10 courses",
-			earned: false,
-		},
-	];
+	const [stats, achievements] = await Promise.all([
+		getProgressStats(),
+		getAchievements(),
+	]);
 
 	const skillProgress = [
 		{ skill: "React Development", level: 85, courses: 3 },
@@ -62,39 +43,7 @@ export default async function ProgressPage() {
 				<WeeklyActivity days={stats.weeklyActivity} />
 
 				{/* Achievements */}
-				<Card>
-					<CardHeader>
-						<CardTitle>Achievements</CardTitle>
-						<CardDescription>Your earned badges and milestones</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="space-y-4">
-							{achievements.map((achievement) => (
-								<div className="flex items-start gap-4" key={achievement.title}>
-									<div
-										className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
-											achievement.earned
-												? "bg-primary text-primary-foreground"
-												: "bg-muted text-muted-foreground"
-										}`}
-									>
-										<Award className="h-6 w-6" />
-									</div>
-									<div className="flex-1">
-										<p
-											className={`font-medium ${!achievement.earned && "text-muted-foreground"}`}
-										>
-											{achievement.title}
-										</p>
-										<p className="text-muted-foreground text-sm">
-											{achievement.description}
-										</p>
-									</div>
-								</div>
-							))}
-						</div>
-					</CardContent>
-				</Card>
+				<Achievements items={achievements} />
 			</div>
 
 			{/* Skill Progress */}

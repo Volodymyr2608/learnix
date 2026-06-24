@@ -6,6 +6,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 <!-- AUTO-GENERATED:START (run `pnpm spec:sync` — do not edit) -->
 | Feature | Status | Depends on |
 |---|---|---|
+| achievements | stable | progress |
 | ai-course-builder | stable | course |
 | billing | stable | payments |
 | certificates | stable | enrollment |
