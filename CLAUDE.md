@@ -200,9 +200,13 @@ Three tiers, decided from what the change actually touches, not from how the req
   notes), created from [`docs/templates/feature-spec.md`](docs/templates/feature-spec.md). Run
   `brainstorming` first to pin scope.
 - **complex** — touches money, the auth/security model, a new external service, or a data migration
-  that's risky/expensive to reverse. `docs/specs/features/<slug>/build/` (requirements → plan →
-  validation, same shape as before) during development, distilled into `spec.md` on ship, **plus an
-  ADR** in `docs/adr/NNN-<slug>.md`.
+  that's risky/expensive to reverse. Same `spec.md` + detailed `build/plan.md` as standard, distilled
+  into `spec.md` on ship, **plus an ADR** in `docs/adr/NNN-<slug>.md`.
+
+Only two documents are used per feature: `spec.md` (the living design) and `build/plan.md` (the
+detailed implementation plan). `requirements.md` and `validation.md` are **not** used — fold the
+problem/scope into `spec.md`'s Purpose/Functional scope and verification into the plan's per-task
+tests and `## Final verification`.
 
 `docs/specs/_legacy/` holds the pre-2026-06-23 dated spec folders (history only — never read unless
 explicitly asked).
@@ -210,16 +214,16 @@ explicitly asked).
 ### Implementation
 
 **Always produce a detailed, written, approved plan before any implementation code** — for every
-tier above trivial/fix, not just complex. Use `writing-plans` to create a task-by-task
-`docs/specs/features/<slug>/build/plan.md` (from `docs/templates/plan.md`): exact file paths,
-concrete code/signatures, per-task tests and commit. Get explicit approval on that plan before
-executing. Never start coding from the spec alone or invent tasks as you go.
+tier above trivial/fix, not just complex. Use the `writing-plans` skill to produce the **detailed
+implementation plan** (bite-sized TDD tasks with real code, exact file paths, and commits) at
+`docs/specs/features/<slug>/build/plan.md` (from `docs/templates/plan.md`). Get explicit approval on
+that plan before executing. Never start coding from the spec alone or invent tasks as you go.
 
 When `docs/specs/features/<slug>/spec.md` already exists and covers the work:
 1. **Skip `brainstorming`** for standard-tier work — the spec is the design. Do not re-derive what is
    already written.
-2. Produce the detailed `build/plan.md` via `writing-plans` and get it approved **before** writing
-   code (for complex tier, read `build/requirements.md` + `build/spec.md` first).
+2. Produce the detailed `build/plan.md` via `writing-plans` (reading `spec.md`) and get it approved
+   **before** writing code.
 3. Execute with `subagent-driven-development` or `executing-plans` **continuously** — run all tasks
    end to end. Do not pause between tasks to ask "should I continue?" or to make the user check
    status; stop only for a genuine blocker you cannot resolve yourself, or when all tasks are done.
