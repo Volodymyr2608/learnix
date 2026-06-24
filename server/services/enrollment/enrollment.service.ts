@@ -157,6 +157,7 @@ class EnrollmentService {
 							select: {
 								id: true,
 								title: true,
+								category: true,
 								thumbnailUrl: true,
 								duration: true,
 								sections: {
@@ -177,7 +178,7 @@ class EnrollmentService {
 										},
 									},
 								},
-								instructor: { select: { name: true } },
+								instructor: { select: { name: true, image: true } },
 							},
 						},
 					},
@@ -208,7 +209,9 @@ class EnrollmentService {
 				return {
 					id: enrollment.course.id,
 					title: enrollment.course.title,
+					category: enrollment.course.category,
 					instructor: enrollment.course.instructor.name,
+					instructorImage: enrollment.course.instructor.image ?? null,
 					progress: progressPercent,
 					totalLessons,
 					completedLessons,

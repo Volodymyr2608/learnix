@@ -21,7 +21,7 @@ import PreviewButton from "@/app/_components/Course/components/PreviewButton";
 import UpdateCourseActions from "@/app/_components/Course/components/UpdateCourseActions";
 import { STATUS_COURSE_LIST } from "@/lib/constants/statusCourse";
 
-const CourseBuilder = ({ course, mode }: CourseBuilderProps) => {
+const CourseBuilder = ({ course, mode, stats }: CourseBuilderProps) => {
 	const isEdit = mode === "edit";
 
 	return (
@@ -64,7 +64,7 @@ const CourseBuilder = ({ course, mode }: CourseBuilderProps) => {
 
 						{isEdit ? (
 							<>
-								<StatsCourse />
+								<StatsCourse stats={stats ?? null} />
 								<UpdateCourseActions
 									courseId={course?.id}
 									previewVideoUrl={course?.previewVideoUrl ?? null}

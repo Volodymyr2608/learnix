@@ -33,8 +33,8 @@ quiz, and review history.
   unearned badges show dimmed with a `current / target` progress bar. The list area is height-capped
   (`max-h-[22rem] overflow-y-auto`) so an active student's longer list scrolls inside the card instead
   of growing it past its sibling cards.
-- The adjacent "Skill Progress" card on the same page remains a separate, still-hardcoded widget —
-  out of scope (it needs its own skill taxonomy).
+- The adjacent "Skill Progress" card on the same page is now also real data, backed by a dedicated
+  `Skill` taxonomy — see [`../skill-progress/spec.md`](../skill-progress/spec.md).
 
 ## Acceptance criteria
 

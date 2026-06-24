@@ -8,8 +8,3 @@ export type StudentsTableProps = {
 	onPageChange: (page: number) => void;
 	onViewDetails: (student: StudentRow) => void;
 };
-
-export type StudentTableRowProps = {
-	student: StudentRow;
-	onViewDetails: (student: StudentRow) => void;
-};

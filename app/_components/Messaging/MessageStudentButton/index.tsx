@@ -2,6 +2,7 @@
 
 import { MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
+import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { api } from "@/trpc/client";
 import type { MessageStudentButtonProps } from "./types";
 
@@ -12,7 +13,7 @@ export function MessageStudentButton({
 	const router = useRouter();
 	const open = api.message.getOrCreateConversation.useMutation({
 		onSuccess: ({ conversationId }) =>
-			router.push(`/instructor/messages?c=${conversationId}`),
+			router.push(INSTRUCTOR_URLS.messageThread(conversationId)),
 		onError: (error) => console.error("Failed to open conversation:", error),
 	});
 

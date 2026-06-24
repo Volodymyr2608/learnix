@@ -1,15 +1,15 @@
 <!--
-TEMPLATE · plan.md (Stage 3 of 4 — the EXECUTION, task by task)
+TEMPLATE · build/plan.md (the EXECUTION, task by task — the second of two docs, after spec.md)
 Influences: superpowers:writing-plans (TDD, bite-sized tasks), BMAD-METHOD (dev-ready stories).
 
 How to use:
   1. Fill this ONLY after spec.md is approved. Produce it with the `writing-plans` skill and SAVE
-     IT HERE (in the spec folder) — not in docs/superpowers/plans/.
+     IT HERE (the feature's build/ folder) — not in docs/superpowers/plans/.
   2. Write for an engineer with zero context for this codebase: exact file paths, complete code in
      every code step (NO placeholders like "add error handling"), exact commands + expected output.
   3. Test-Driven: for each unit of behaviour — write the failing test, run it (see it fail),
      implement minimally, run it (see it pass), commit. Each step is one 2–5 min action.
-  4. Every FR in requirements.md must map to a task (prove it in Self-review).
+  4. Every Acceptance criterion in spec.md must map to a task (prove it in Self-review).
   5. Get explicit approval, THEN execute with subagent-driven-development / executing-plans.
 Delete this comment block and every <!-- guidance --> note before finalising.
 -->
@@ -18,8 +18,7 @@ Delete this comment block and every <!-- guidance --> note before finalising.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development`
 > (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax. See [`requirements.md`](./requirements.md) for FRs,
-> [`spec.md`](./spec.md) for design, [`validation.md`](./validation.md) for checks.
+> checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance criteria.
 
 **Goal:** <one sentence — what this builds>
 
@@ -79,11 +78,12 @@ git commit -m "<type(scope): message>"
 
 ## Self-review (run before handoff)
 
-- **Spec coverage:** map every FR (FR1…FRn) to a Task number. List any gap and add a task.
+- **Spec coverage:** map every Acceptance criterion in `spec.md` to a Task number. List any gap and
+  add a task.
 - **Placeholder scan:** no `TBD`/`TODO`/"handle edge cases"/"similar to Task N" left in code steps.
 - **Type consistency:** method/type/property names match across tasks (a rename mid-plan is a bug).
 
-## Final verification (see [`validation.md`](./validation.md) for detail)
+## Final verification
 
 - <`pnpm typecheck`, `pnpm check`, `pnpm test:unit`, `pnpm test:integration` — all green.>
 - <key end-to-end manual checks the feature must pass.>

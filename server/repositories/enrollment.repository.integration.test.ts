@@ -1,6 +1,7 @@
 import { startOfMonth, subDays } from "date-fns";
 import { describe, expect, it } from "vitest";
 import { CourseStatus, EnrollmentStatus, Role } from "@/generated/prisma";
+import { testDb } from "@/test/db";
 import { makeCourse, makeEnrollment, makeUser } from "@/test/factories";
 import { enrollmentRepository } from "./enrollment.repository";
 
@@ -404,5 +405,84 @@ describe("enrollmentRepository.findInProgressForContinue (integration)", () => {
 				progress: 80,
 			},
 		]);
+	});
+});
+
+describe("EnrollmentRepository.getSkillProgress", () => {
+	it("aggregates completed/enrolled per skill across the student's courses", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+
+		const react = await testDb.skill.create({
+			data: { name: "React", slug: "react" },
+		});
+		const python = await testDb.skill.create({
+			data: { name: "Python", slug: "python" },
+		});
+
+		const courseA = await makeCourse({ instructorId: instructor.id });
+		const courseB = await makeCourse({ instructorId: instructor.id });
+		const courseC = await makeCourse({ instructorId: instructor.id });
+
+		await testDb.courseSkill.createMany({
+			data: [
+				{ courseId: courseA.id, skillId: react.id },
+				{ courseId: courseB.id, skillId: react.id },
+				{ courseId: courseC.id, skillId: python.id },
+			],
+		});
+
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: courseA.id,
+			completedAt: new Date(),
+		});
+		await makeEnrollment({ studentId: student.id, courseId: courseB.id });
+		await makeEnrollment({
+			studentId: student.id,
+			courseId: courseC.id,
+			completedAt: new Date(),
+		});
+
+		const rows = await enrollmentRepository.getSkillProgress(student.id);
+
+		expect(rows).toEqual(
+			expect.arrayContaining([
+				{ skillId: react.id, name: "React", enrolled: 2, completed: 1 },
+				{ skillId: python.id, name: "Python", enrolled: 1, completed: 1 },
+			]),
+		);
+		expect(rows).toHaveLength(2);
+	});
+
+	it("excludes courses the student isn't enrolled in and soft-deleted courses", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser({ role: Role.STUDENT });
+		const otherStudent = await makeUser({ role: Role.STUDENT });
+
+		const skill = await testDb.skill.create({
+			data: { name: "SQL", slug: "sql" },
+		});
+
+		const notEnrolled = await makeCourse({ instructorId: instructor.id });
+		const deletedCourse = await makeCourse({
+			instructorId: instructor.id,
+			deletedAt: new Date(),
+		});
+		await testDb.courseSkill.createMany({
+			data: [
+				{ courseId: notEnrolled.id, skillId: skill.id },
+				{ courseId: deletedCourse.id, skillId: skill.id },
+			],
+		});
+		await makeEnrollment({
+			studentId: otherStudent.id,
+			courseId: notEnrolled.id,
+		});
+		await makeEnrollment({ studentId: student.id, courseId: deletedCourse.id });
+
+		const rows = await enrollmentRepository.getSkillProgress(student.id);
+
+		expect(rows).toEqual([]);
 	});
 });

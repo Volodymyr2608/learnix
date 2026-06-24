@@ -16,4 +16,5 @@ export type CourseCardActionProps = {
 	isEnrolled: boolean;
 	nextLessonId: string | null;
 	onEnrollFree: () => void;
+	onBuy: () => void;
 };

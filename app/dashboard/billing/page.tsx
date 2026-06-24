@@ -1,4 +1,5 @@
 import { Receipt } from "lucide-react";
+import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import BillingEmptyState from "@/app/_components/Billing/components/BillingEmptyState";
 import BillingHistoryList from "@/app/_components/Billing/components/BillingHistoryList";
 import type { BillingListItem } from "@/app/_components/Billing/components/BillingHistoryList/types";
@@ -20,25 +21,21 @@ export default async function BillingPage() {
 	);
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center gap-4">
-				<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm">
-					<Receipt className="h-6 w-6" />
-				</div>
-				<div className="flex-1">
-					<h1 className="font-bold text-3xl tracking-tight">Billing</h1>
-					<p className="text-muted-foreground">
-						Your course purchases and downloadable invoices.
-					</p>
-				</div>
-				{items.length > 0 && (
+		<PageShell
+			action={
+				items.length > 0 && (
 					<span className="hidden shrink-0 rounded-full bg-muted px-3 py-1 font-medium text-muted-foreground text-sm sm:inline-block">
 						{items.length} {items.length === 1 ? "purchase" : "purchases"}
 					</span>
-				)}
-			</div>
+				)
+			}
+			description="Your course purchases and downloadable invoices."
+			icon={Receipt}
+			iconClassName="bg-gradient-to-br from-indigo-500 to-violet-600"
+			title="Billing"
+		>
 			{items.length === 0 && <BillingEmptyState />}
 			{items.length > 0 && <BillingHistoryList items={items} />}
-		</div>
+		</PageShell>
 	);
 }

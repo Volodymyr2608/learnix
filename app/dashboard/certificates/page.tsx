@@ -1,4 +1,5 @@
 import { Award } from "lucide-react";
+import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import CertificatesEmptyState from "@/app/_components/Certificate/components/CertificatesEmptyState";
 import CertificatesList from "@/app/_components/Certificate/components/CertificatesList";
 import type { CertificateListItem } from "@/app/_components/Certificate/components/CertificatesList/types";
@@ -23,20 +24,14 @@ export default async function CertificatesPage() {
 	);
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center gap-4">
-				<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-sm">
-					<Award className="h-6 w-6" />
-				</div>
-				<div>
-					<h1 className="font-bold text-3xl tracking-tight">My Certificates</h1>
-					<p className="text-muted-foreground">
-						Download certificates for the courses you've completed.
-					</p>
-				</div>
-			</div>
+		<PageShell
+			description="Download certificates for the courses you've completed."
+			icon={Award}
+			iconClassName="bg-gradient-to-br from-amber-400 to-amber-600"
+			title="My Certificates"
+		>
 			{items.length === 0 && <CertificatesEmptyState />}
 			{items.length > 0 && <CertificatesList items={items} />}
-		</div>
+		</PageShell>
 	);
 }

@@ -36,7 +36,13 @@ const PricesForm = () => {
 
 				<div className="space-y-2">
 					<FormField
-						{...register("originalPriceCents", { valueAsNumber: true })}
+						{...register("originalPriceCents", {
+							setValueAs: (v) => {
+								if (v === "" || v === null || v === undefined) return undefined;
+								const n = Number(v);
+								return Number.isNaN(n) ? undefined : n;
+							},
+						})}
 						autoComplete="off"
 						error={
 							typeof errors.originalPriceCents?.message === "string"

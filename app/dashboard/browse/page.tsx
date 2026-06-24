@@ -1,3 +1,4 @@
+import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import BrowseCourses from "@/app/_components/Course/components/BrowseCourses";
 import { CoursePagination } from "@/app/_components/Course/components/CoursePagination";
 import { COURSE_PAGE_SIZE } from "@/lib/constants/pagination";
@@ -33,14 +34,10 @@ const BrowseCoursesPage = async ({
 	}
 
 	return (
-		<div className="space-y-6">
-			<div>
-				<h1 className="font-bold text-3xl tracking-tight">Browse Courses</h1>
-				<p className="text-muted-foreground">
-					Discover new skills and expand your knowledge
-				</p>
-			</div>
-
+		<PageShell
+			description="Discover new skills and expand your knowledge"
+			title="Browse Courses"
+		>
 			<BrowseCourses
 				category={category ?? "all"}
 				courses={courses}
@@ -56,7 +53,7 @@ const BrowseCoursesPage = async ({
 					totalPages={totalPages}
 				/>
 			)}
-		</div>
+		</PageShell>
 	);
 };
 

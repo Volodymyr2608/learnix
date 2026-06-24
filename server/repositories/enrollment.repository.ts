@@ -8,6 +8,7 @@ import type {
 	StudentCourseProgress,
 	StudentStatus,
 } from "@/server/entities/instructor/students";
+import type { SkillProgressRow } from "@/server/entities/student/skillProgress";
 import { BaseRepository } from "./base/base.repository";
 
 export type FindInstructorStudentsParams = {
@@ -54,6 +55,22 @@ class EnrollmentRepository extends BaseRepository<
 			select: { courseId: true },
 		});
 		return rows.map((r) => (r as { courseId: string }).courseId);
+	}
+
+	/**
+	 * Stamp the student's enrollment for a course as accessed now. Uses
+	 * updateMany on the unique (studentId, courseId) pair so it is a no-op
+	 * rather than throwing when the student is not enrolled.
+	 */
+	async touchLastAccessed(studentId: string, courseId: string): Promise<void> {
+		await this.db.enrollment.updateMany({
+			where: {
+				studentId,
+				courseId,
+				status: { not: EnrollmentStatus.cancelled },
+			},
+			data: { lastAccessedAt: new Date() },
+		});
 	}
 
 	findByIdWithRelations(enrollmentId: string) {
@@ -460,6 +477,28 @@ class EnrollmentRepository extends BaseRepository<
 			}),
 		]);
 		return { total, thisMonthNew, lastMonthNew };
+	}
+
+	async getSkillProgress(studentId: string): Promise<SkillProgressRow[]> {
+		const rows = await this.db.$queryRaw<
+			{ skillId: string; name: string; enrolled: number; completed: number }[]
+		>`
+			SELECT s.id AS "skillId", s.name AS name,
+				COUNT(*)::int AS enrolled,
+				COUNT(*) FILTER (WHERE e."completedAt" IS NOT NULL)::int AS completed
+			FROM enrollments e
+			JOIN courses c ON c.id = e."courseId" AND c.deleted_at IS NULL
+			JOIN course_skills cs ON cs."courseId" = c.id
+			JOIN skills s ON s.id = cs."skillId"
+			WHERE e."studentId" = ${studentId}
+			GROUP BY s.id, s.name
+		`;
+		return rows.map((r) => ({
+			skillId: r.skillId,
+			name: r.name,
+			enrolled: Number(r.enrolled),
+			completed: Number(r.completed),
+		}));
 	}
 }
 

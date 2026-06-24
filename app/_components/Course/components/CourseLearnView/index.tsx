@@ -38,6 +38,7 @@ import { LearningPathCard } from "@/app/_components/Course/components/LearningPa
 import { StudyGuideCard } from "@/app/_components/Course/components/Lesson/StudyGuideCard";
 import { LessonAssistant } from "@/app/_components/Course/components/LessonAssistant";
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { formatDuration } from "@/lib/format/formatDuration";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
@@ -80,7 +81,7 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 	);
 
 	const navigate = (id: string) =>
-		router.push(`/dashboard/courses/${courseId}/learn/${id}`);
+		router.push(STUDENT_URLS.learnLesson(courseId, id));
 
 	const markComplete = api.lesson.markComplete.useMutation({
 		onSuccess: () => {
@@ -112,7 +113,7 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
 					<Button asChild size="icon" variant="ghost">
-						<a href="/dashboard/courses">
+						<a href={STUDENT_URLS.courses}>
 							<ChevronLeft className="h-4 w-4" />
 						</a>
 					</Button>

@@ -6,13 +6,14 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import type { ContinueLearningProps, ContinueLearningRowProps } from "./types";
 
 function ContinueLearningRow({ item }: ContinueLearningRowProps) {
 	return (
 		<Link
 			className="block space-y-2 rounded-md p-2 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-			href={`/dashboard/courses/${item.courseId}/learn/${item.nextLessonId}`}
+			href={STUDENT_URLS.learnLesson(item.courseId, item.nextLessonId)}
 		>
 			<div className="flex items-center justify-between">
 				<div>

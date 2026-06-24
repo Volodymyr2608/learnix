@@ -13,4 +13,5 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | messages | stable | auth |
 | payments | stable | auth, course |
 | semantic-search-recommendations | stable | course, enrollment |
+| skill-progress | stable | progress |
 <!-- AUTO-GENERATED:END -->

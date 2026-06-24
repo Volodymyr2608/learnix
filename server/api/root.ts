@@ -14,6 +14,7 @@ import { paymentRouter } from "@/server/api/routers/payment";
 import { quizRouter } from "@/server/api/routers/quiz";
 import { reviewRouter } from "@/server/api/routers/review";
 import { searchRouter } from "@/server/api/routers/search";
+import { skillRouter } from "@/server/api/routers/skill";
 import { studentRouter } from "@/server/api/routers/student";
 import { userRouter } from "@/server/api/routers/user";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
@@ -40,6 +41,7 @@ export const appRouter = createTRPCRouter({
 	quiz: quizRouter,
 	review: reviewRouter,
 	search: searchRouter,
+	skill: skillRouter,
 	student: studentRouter,
 	notifications: notificationsRouter,
 });

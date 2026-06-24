@@ -14,7 +14,10 @@ import type {
 	GetOwnCoursesInput,
 	PaginatedOwnCourses,
 } from "@/server/entities/course/ownCourses";
-import type { CourseOwnerStats } from "@/server/entities/course/stats";
+import type {
+	CourseOwnerStats,
+	OwnCourseStats,
+} from "@/server/entities/course/stats";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { courseReviewRepository } from "@/server/repositories/courseReview.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
@@ -31,7 +34,7 @@ import { logger } from "@/server/utils/logger";
 class CourseService {
 	async createCourse(dto: CourseFullCreateDto) {
 		try {
-			const { sections, ...courseData } = dto;
+			const { sections, skills, ...courseData } = dto;
 
 			const course = await courseRepository.transaction(async () => {
 				const created = await courseRepository.create(courseData);
@@ -39,6 +42,8 @@ class CourseService {
 				const createdSections = await this.createSections(created.id, sections);
 
 				await this.createLessons(sections, createdSections);
+
+				await courseRepository.setSkills(created.id, skills);
 
 				return created;
 			});
@@ -89,6 +94,35 @@ class CourseService {
 				lifetimeGrossCents: revenue.lifetimeGrossCents,
 				thisMonthGrossCents: revenue.thisMonthGrossCents,
 			},
+		};
+	}
+
+	async getOwnCourseStats(
+		courseId: string,
+		instructorId: string,
+	): Promise<OwnCourseStats> {
+		const owned = await courseRepository.findFirst({
+			where: { id: courseId, instructorId, deletedAt: null },
+			select: { id: true },
+		});
+		if (!owned) {
+			throw new CourseError("Course not found", "NOT_FOUND", undefined, {
+				courseId,
+			});
+		}
+
+		const [students, ratings, reviewsCount, revenue] = await Promise.all([
+			enrollmentRepository.count({ courseId }),
+			courseReviewRepository.getAvgRatingByCourseIds([courseId]),
+			courseReviewRepository.count({ courseId, deletedAt: null }),
+			paymentRepository.getRevenueByCourseIds([courseId]),
+		]);
+
+		return {
+			students,
+			averageRating: ratings.get(courseId) ?? null,
+			reviewsCount,
+			revenueCents: revenue.get(courseId) ?? 0,
 		};
 	}
 
@@ -186,7 +220,7 @@ class CourseService {
 		instructorId: string,
 	) {
 		try {
-			const { sections: newSections, ...incomingCourseData } = dto;
+			const { sections: newSections, skills, ...incomingCourseData } = dto;
 			let existingStatus: string | undefined;
 
 			const result = await courseRepository.transaction(async () => {
@@ -247,6 +281,8 @@ class CourseService {
 
 				await this.syncLessons(existingSections, newSections, updatedSections);
 
+				await courseRepository.setSkills(courseId, skills);
+
 				return {
 					...course,
 					sections: updatedSections,
@@ -296,7 +332,7 @@ class CourseService {
 
 	private prepareCourseUpdate(
 		existing: CourseWithSections,
-		incoming: Omit<CourseFullUpdateDto, "sections">,
+		incoming: Omit<CourseFullUpdateDto, "sections" | "skills">,
 	) {
 		const result = { ...incoming };
 

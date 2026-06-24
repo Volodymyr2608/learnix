@@ -11,7 +11,6 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card, CardContent } from "@/app/_components/_shared/ui/card";
@@ -22,8 +21,9 @@ import type {
 	IncludeItemProps,
 } from "@/app/_components/Course/components/BrowseCourse/CourseDetailEnrollCard/types";
 import EnrollConfirmDialog from "@/app/_components/Course/components/EnrollConfirmDialog";
+import PurchaseConfirmDialog from "@/app/_components/Course/components/PurchaseConfirmDialog";
+import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { formatPrice } from "@/lib/formatPrice";
-import { api } from "@/trpc/client";
 
 function IncludeItem({ icon: Icon, label }: IncludeItemProps) {
 	return (
@@ -39,24 +39,16 @@ function EnrollAction({
 	isEnrolled,
 	nextLessonId,
 	onEnrollFree,
+	onBuy,
 }: EnrollActionProps) {
-	const checkout = api.payment.createCheckoutSession.useMutation({
-		onSuccess: ({ url }) => {
-			window.location.href = url;
-		},
-		onError: (err) => {
-			toast.error(err.message || "Failed to start checkout. Please try again.");
-		},
-	});
-
 	if (isEnrolled) {
 		return (
 			<Button asChild className="w-full" size="lg">
 				<Link
 					href={
 						nextLessonId
-							? `/dashboard/courses/${course.id}/learn/${nextLessonId}`
-							: `/dashboard/courses/${course.id}/learn`
+							? STUDENT_URLS.learnLesson(course.id, nextLessonId)
+							: STUDENT_URLS.learnCourse(course.id)
 					}
 				>
 					<PlayCircle className="mr-2 h-5 w-5" />
@@ -68,15 +60,8 @@ function EnrollAction({
 
 	if (course.priceCents > 0) {
 		return (
-			<Button
-				className="w-full"
-				disabled={checkout.isPending}
-				onClick={() => checkout.mutate({ courseId: course.id })}
-				size="lg"
-			>
-				{checkout.isPending
-					? "Redirecting..."
-					: `Buy now — ${formatPrice(course.priceCents)}`}
+			<Button className="w-full" onClick={onBuy} size="lg">
+				{`Buy now — ${formatPrice(course.priceCents)}`}
 			</Button>
 		);
 	}
@@ -95,6 +80,7 @@ const CourseDetailEnrollCard = ({
 	nextLessonId = null,
 }: CourseDetailEnrollCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+	const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
 
 	return (
 		<>
@@ -146,6 +132,7 @@ const CourseDetailEnrollCard = ({
 							course={course}
 							isEnrolled={isEnrolled}
 							nextLessonId={nextLessonId}
+							onBuy={() => setPurchaseDialogOpen(true)}
 							onEnrollFree={() => setEnrollDialogOpen(true)}
 						/>
 					)}
@@ -202,6 +189,18 @@ const CourseDetailEnrollCard = ({
 				}}
 				onOpenChange={setEnrollDialogOpen}
 				open={enrollDialogOpen}
+			/>
+
+			<PurchaseConfirmDialog
+				course={{
+					id: course.id,
+					title: course.title,
+					instructor: course.instructor.name,
+					thumbnail: course.thumbnail,
+					priceCents: course.priceCents,
+				}}
+				onOpenChange={setPurchaseDialogOpen}
+				open={purchaseDialogOpen}
 			/>
 		</>
 	);

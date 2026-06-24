@@ -28,6 +28,7 @@
 		"coverage": "vitest run --project unit --coverage --passWithNoTests",
 		"reindex": "tsx --env-file=.env.local scripts/reindex-embeddings.ts",
 		"seed:admin": "tsx --env-file=.env.local scripts/seed-admin.ts",
+		"seed:skills": "tsx --env-file=.env.local scripts/seed-skills.ts",
 		"spec:sync": "tsx scripts/spec-sync.ts",
 		"dev:n8n": "docker compose --env-file .env.local -f docker-compose.n8n.yml up -d",
 		"dev:n8n:down": "docker compose --env-file .env.local -f docker-compose.n8n.yml down",
