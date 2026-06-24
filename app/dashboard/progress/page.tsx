@@ -1,3 +1,4 @@
+import { PageShell } from "@/app/_components/_shared/components/PageShell";
 import {
 	Card,
 	CardContent,
@@ -27,26 +28,18 @@ export default async function ProgressPage() {
 	];
 
 	return (
-		<div className="space-y-6">
-			{/* Page Header */}
-			<div>
-				<h1 className="font-bold text-3xl tracking-tight">Learning Progress</h1>
-				<p className="text-muted-foreground">
-					Track your achievements and growth
-				</p>
-			</div>
-
-			{/* Stats Overview */}
+		<PageShell
+			description="Track your achievements and growth"
+			title="Learning Progress"
+		>
 			<ProgressStatsCards stats={stats} />
 
 			<div className="grid gap-6 lg:grid-cols-2">
 				<WeeklyActivity days={stats.weeklyActivity} />
 
-				{/* Achievements */}
 				<Achievements items={achievements} />
 			</div>
 
-			{/* Skill Progress */}
 			<Card>
 				<CardHeader>
 					<CardTitle>Skill Progress</CardTitle>
@@ -73,6 +66,6 @@ export default async function ProgressPage() {
 					</div>
 				</CardContent>
 			</Card>
-		</div>
+		</PageShell>
 	);
 }
