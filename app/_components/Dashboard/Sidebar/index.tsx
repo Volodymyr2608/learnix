@@ -1,3 +1,4 @@
+import { DesktopSidebarFrame } from "@/app/_components/Dashboard/Sidebar/components/DesktopSidebarFrame";
 import { MobileSidebarSheet } from "@/app/_components/Dashboard/Sidebar/components/MobileSidebarSheet";
 import { SidebarContent } from "@/app/_components/Dashboard/Sidebar/components/SidebarContent";
 import { Role } from "@/generated/prisma";
@@ -18,15 +19,13 @@ const DashboardSidebar = async () => {
 
 	return (
 		<>
-			<aside className="fixed top-0 left-0 z-40 hidden h-screen w-64 border-sidebar-border border-r bg-sidebar md:block">
-				<SidebarContent
-					isInstructor={isInstructor}
-					name={name}
-					reviewsCount={reviewsCount}
-					role={role}
-					unreadMessages={unreadMessages}
-				/>
-			</aside>
+			<DesktopSidebarFrame
+				isInstructor={isInstructor}
+				name={name}
+				reviewsCount={reviewsCount}
+				role={role}
+				unreadMessages={unreadMessages}
+			/>
 			<MobileSidebarSheet>
 				<SidebarContent
 					isInstructor={isInstructor}

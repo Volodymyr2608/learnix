@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type SidebarProviderProps = {
+export type DashboardShellProps = {
+	sidebar: ReactNode;
 	children: ReactNode;
-	initialCollapsed: boolean;
 };

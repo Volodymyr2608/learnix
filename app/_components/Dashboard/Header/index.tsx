@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { Input } from "@/app/_components/_shared/ui/input";
+import { DesktopSidebarToggle } from "@/app/_components/Dashboard/Header/components/DesktopSidebarToggle";
 import { MobileNavTrigger } from "@/app/_components/Dashboard/Header/components/MobileNavTrigger";
 import Notifications from "@/app/_components/Dashboard/Header/components/Notifications";
 import UserProfile from "@/app/_components/Dashboard/Header/components/UserProfile";
@@ -8,6 +9,7 @@ const DashboardHeader = () => {
 	return (
 		<header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-border border-b bg-background px-6">
 			<MobileNavTrigger />
+			<DesktopSidebarToggle />
 
 			<div className="hidden flex-1 sm:block">
 				<div className="relative max-w-md">

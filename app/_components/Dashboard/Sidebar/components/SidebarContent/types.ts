@@ -4,4 +4,5 @@ export type SidebarContentProps = {
 	isInstructor: boolean;
 	reviewsCount: number;
 	unreadMessages: number;
+	collapsed?: boolean;
 };

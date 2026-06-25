@@ -145,6 +145,7 @@ const SidebarNavigation = ({
 	isInstructor,
 	reviewsCount,
 	unreadMessages,
+	collapsed = false,
 }: NavigationProps) => {
 	const pathname = usePathname();
 	const navItems = isInstructor ? instructorItems : studentItems;
@@ -158,24 +159,30 @@ const SidebarNavigation = ({
 				return (
 					<Link
 						className={cn(
-							"flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-sm transition-colors",
+							"flex items-center rounded-lg px-3 py-2 font-medium text-sm transition-colors",
+							collapsed ? "justify-center" : "gap-3",
 							isActive
 								? "bg-sidebar-accent text-sidebar-accent-foreground"
 								: "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
 						)}
 						href={item.href}
 						key={item.href}
+						title={collapsed ? item.title : undefined}
 					>
-						<Icon className="h-5 w-5" />
-						<span className="flex-1">{item.title}</span>
-						{badge && (
-							<span
-								aria-label={badgeAriaLabel(item, badge)}
-								className="flex h-5 w-5 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs"
-								role="img"
-							>
-								{badge}
-							</span>
+						<Icon className="h-5 w-5 shrink-0" />
+						{!collapsed && (
+							<>
+								<span className="flex-1">{item.title}</span>
+								{badge && (
+									<span
+										aria-label={badgeAriaLabel(item, badge)}
+										className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs"
+										role="img"
+									>
+										{badge}
+									</span>
+								)}
+							</>
 						)}
 					</Link>
 				);

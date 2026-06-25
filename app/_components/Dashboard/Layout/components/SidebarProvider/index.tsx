@@ -2,35 +2,51 @@
 
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
-import type { MobileNavProviderProps } from "@/app/_components/Dashboard/Layout/components/MobileNavProvider/types";
+import type { SidebarProviderProps } from "@/app/_components/Dashboard/Layout/components/SidebarProvider/types";
 
-type MobileNavContextValue = {
-	open: boolean;
-	setOpen: (open: boolean) => void;
+export const SIDEBAR_COLLAPSED_COOKIE = "sidebar-collapsed";
+
+type SidebarContextValue = {
+	mobileOpen: boolean;
+	setMobileOpen: (open: boolean) => void;
+	collapsed: boolean;
+	setCollapsed: (collapsed: boolean) => void;
 };
 
-const MobileNavContext = createContext<MobileNavContextValue | null>(null);
+const SidebarContext = createContext<SidebarContextValue | null>(null);
 
-export const MobileNavProvider = ({ children }: MobileNavProviderProps) => {
-	const [open, setOpen] = useState(false);
+export const SidebarProvider = ({
+	children,
+	initialCollapsed,
+}: SidebarProviderProps) => {
+	const [mobileOpen, setMobileOpen] = useState(false);
+	const [collapsed, setCollapsedState] = useState(initialCollapsed);
 	const pathname = usePathname();
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is intentionally included to trigger effect on navigation
 	useEffect(() => {
-		setOpen(false);
+		setMobileOpen(false);
 	}, [pathname]);
 
+	const setCollapsed = (value: boolean) => {
+		setCollapsedState(value);
+		// biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API isn't supported in Safari/Firefox yet
+		document.cookie = `${SIDEBAR_COLLAPSED_COOKIE}=${value}; path=/; max-age=31536000`;
+	};
+
 	return (
-		<MobileNavContext.Provider value={{ open, setOpen }}>
+		<SidebarContext.Provider
+			value={{ collapsed, mobileOpen, setCollapsed, setMobileOpen }}
+		>
 			{children}
-		</MobileNavContext.Provider>
+		</SidebarContext.Provider>
 	);
 };
 
-export const useMobileNav = (): MobileNavContextValue => {
-	const context = useContext(MobileNavContext);
+export const useSidebar = (): SidebarContextValue => {
+	const context = useContext(SidebarContext);
 	if (!context) {
-		throw new Error("useMobileNav must be used within a MobileNavProvider");
+		throw new Error("useSidebar must be used within a SidebarProvider");
 	}
 	return context;
 };

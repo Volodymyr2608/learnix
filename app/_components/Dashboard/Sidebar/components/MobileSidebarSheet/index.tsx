@@ -5,14 +5,14 @@ import {
 	SheetContent,
 	SheetTitle,
 } from "@/app/_components/_shared/ui/sheet";
-import { useMobileNav } from "@/app/_components/Dashboard/Layout/components/MobileNavProvider";
+import { useSidebar } from "@/app/_components/Dashboard/Layout/components/SidebarProvider";
 import type { MobileSidebarSheetProps } from "@/app/_components/Dashboard/Sidebar/components/MobileSidebarSheet/types";
 
 export const MobileSidebarSheet = ({ children }: MobileSidebarSheetProps) => {
-	const { open, setOpen } = useMobileNav();
+	const { mobileOpen, setMobileOpen } = useSidebar();
 
 	return (
-		<Sheet onOpenChange={setOpen} open={open}>
+		<Sheet onOpenChange={setMobileOpen} open={mobileOpen}>
 			<SheetContent
 				className="w-64 gap-0 border-sidebar-border bg-sidebar p-0"
 				side="left"

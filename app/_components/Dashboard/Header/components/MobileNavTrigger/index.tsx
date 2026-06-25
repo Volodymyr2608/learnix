@@ -1,21 +1,21 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { Button } from "@/app/_components/_shared/ui/button";
-import { useMobileNav } from "@/app/_components/Dashboard/Layout/components/MobileNavProvider";
+import { useSidebar } from "@/app/_components/Dashboard/Layout/components/SidebarProvider";
 
 export const MobileNavTrigger = () => {
-	const { setOpen } = useMobileNav();
+	const { setMobileOpen } = useSidebar();
 
 	return (
 		<Button
 			aria-label="Open navigation menu"
 			className="md:hidden"
-			onClick={() => setOpen(true)}
+			onClick={() => setMobileOpen(true)}
 			size="icon"
 			variant="ghost"
 		>
-			<Menu className="h-5 w-5" />
+			<PanelLeft className="h-5 w-5" />
 		</Button>
 	);
 };
