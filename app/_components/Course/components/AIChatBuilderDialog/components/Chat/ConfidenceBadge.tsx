@@ -1,8 +1,12 @@
 import { Badge } from "@/app/_components/_shared/ui/badge";
 
+const confidenceTone = (value: number) => {
+	if (value >= 0.8) return "default";
+	if (value >= 0.5) return "secondary";
+	return "outline";
+};
+
 export const ConfidenceBadge = ({ value }: { value: number }) => {
 	const pct = Math.round(value * 100);
-	const tone =
-		value >= 0.8 ? "default" : value >= 0.5 ? "secondary" : "outline";
-	return <Badge variant={tone}>AI is {pct}% confident</Badge>;
+	return <Badge variant={confidenceTone(value)}>AI is {pct}% confident</Badge>;
 };

@@ -3,3 +3,8 @@ export type CheckEmailMessageProps = {
 	secondsLeft: number;
 	onResend: () => void;
 };
+
+export type ResendButtonContentProps = {
+	isPending: boolean;
+	secondsLeft: number;
+};

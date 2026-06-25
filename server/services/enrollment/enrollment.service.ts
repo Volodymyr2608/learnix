@@ -10,6 +10,16 @@ import { embeddingsService } from "@/server/services/embeddings/embeddings.servi
 import { EnrollmentError } from "@/server/services/enrollment/enrollment.errors";
 import { logger } from "@/server/utils/logger";
 
+const statusFilterForTab = (
+	tab: "all" | "in-progress" | "completed",
+): Prisma.EnrollmentWhereInput => {
+	if (tab === "completed") return { status: EnrollmentStatus.completed };
+	if (tab === "in-progress") return { status: EnrollmentStatus.active };
+	return {
+		status: { in: [EnrollmentStatus.active, EnrollmentStatus.completed] },
+	};
+};
+
 class EnrollmentService {
 	async enrollInCourse(studentId: string, courseId: string) {
 		try {
@@ -128,16 +138,7 @@ class EnrollmentService {
 	) {
 		const { tab = "all", page = 1 } = params ?? {};
 
-		const statusFilter: Prisma.EnrollmentWhereInput =
-			tab === "completed"
-				? { status: EnrollmentStatus.completed }
-				: tab === "in-progress"
-					? { status: EnrollmentStatus.active }
-					: {
-							status: {
-								in: [EnrollmentStatus.active, EnrollmentStatus.completed],
-							},
-						};
+		const statusFilter = statusFilterForTab(tab);
 
 		const where: Prisma.EnrollmentWhereInput = {
 			studentId,

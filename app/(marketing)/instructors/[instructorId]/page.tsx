@@ -17,6 +17,11 @@ import { Button } from "@/app/_components/_shared/ui/button";
 import { Card } from "@/app/_components/_shared/ui/card";
 import { formatPrice } from "@/lib/formatPrice";
 
+// Mock review-distribution percentages, keyed by star rating (default 2%).
+const RATING_BAR_PERCENT: Record<number, number> = { 5: 85, 4: 12 };
+const ratingBarPercent = (rating: number): number =>
+	RATING_BAR_PERCENT[rating] ?? 2;
+
 export default async function InstructorProfilePage({
 	params,
 }: {
@@ -354,12 +359,12 @@ export default async function InstructorProfilePage({
 											<div
 												className="h-full bg-yellow-500"
 												style={{
-													width: `${rating === 5 ? 85 : rating === 4 ? 12 : 2}%`,
+													width: `${ratingBarPercent(rating)}%`,
 												}}
 											/>
 										</div>
 										<span className="w-12 text-right text-muted-foreground text-sm">
-											{rating === 5 ? "85%" : rating === 4 ? "12%" : "2%"}
+											{ratingBarPercent(rating)}%
 										</span>
 									</div>
 								))}
