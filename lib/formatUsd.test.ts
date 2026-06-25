@@ -43,4 +43,12 @@ describe("formatUsdCompact", () => {
 	it("never returns a negative-zero string", () => {
 		expect(formatUsdCompact(-0)).toBe("$0");
 	});
+
+	it("rolls over to M instead of printing 1000k", () => {
+		expect(formatUsdCompact(99999900)).toBe("$1M"); // 999,999 dollars
+	});
+
+	it("stays in k just below the rollover boundary", () => {
+		expect(formatUsdCompact(99994900)).toBe("$999.9k"); // 999,949 dollars
+	});
 });

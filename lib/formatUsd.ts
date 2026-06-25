@@ -19,6 +19,10 @@ export function formatUsdCompact(cents: number): string {
 	const safe = dollars === 0 ? 0 : dollars; // normalise -0
 	const abs = Math.abs(safe);
 	if (abs < 1000) return `$${safe}`;
-	if (abs < 1_000_000) return `$${oneDecimal(safe / 1000)}k`;
+	if (abs < 1_000_000) {
+		const kValue = Math.round((safe / 1000) * 10) / 10;
+		if (Math.abs(kValue) >= 1000) return `$${oneDecimal(safe / 1_000_000)}M`;
+		return `$${oneDecimal(kValue)}k`;
+	}
 	return `$${oneDecimal(safe / 1_000_000)}M`;
 }
