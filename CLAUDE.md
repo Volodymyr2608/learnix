@@ -74,50 +74,10 @@ Split across `prisma/schema/` (multiple `.prisma` files). The `previewFeatures =
 
 Key models: `User` (with `Role` enum), `Course` (soft-deleted), `Section`, `Lesson`, `Enrollment`, `CourseProgress`, `InstructorProfile`, `CourseReview`, `CourseGeneration` (AI builder state), `CourseGenerationMessage`, `CourseEmbedding`, `LessonChunkEmbedding`, `UserInterestEmbedding` (pgvector — see ADR-012).
 
-### Semantic search & recommendations
-
-pgvector cosine similarity (ADR-012), `text-embedding-3-small`. Services in
-`server/services/embeddings/` (`EmbeddingsService`) and `server/services/search/` (`SearchService`,
-`RecommendationsService`); raw-SQL repo in `server/repositories/embedding.repository.ts` (the `<=>`
-cosine operator isn't expressible via Prisma's query builder). tRPC: `search.semantic`,
-`search.recommendations` (both `studentProcedure`). Backfill via `pnpm reindex`. Full behavior,
-embedding hooks, and UI integration: `docs/specs/features/semantic-search-recommendations/spec.md`.
-
-### AI course builder
-Streaming SSE endpoint at `app/api/chat/course/route.ts`, driven by a LangGraph `StateGraph`
-(`server/services/courseAI/graph/`) through a fixed step order (`DraftStep`: `basic → objectives →
-requirements → curriculum`). `CourseAIService` (`server/services/courseAI/`) exposes
-`runChat`/`runFinalize`; frontend is `app/_components/Course/components/AIChatBuilderDialog/`. Full
-graph/node design, tools, and confirmation-gating: `docs/specs/features/ai-course-builder/spec.md`;
-design rationale in ADR-016.
-
-### Certificates, lifecycle emails & billing
-Certificate download: `certificate.listEarned` → `/dashboard/certificates` (RSC) → signed-token
-download via `GET /api/certificates/[enrollmentId]?token=…`. Lifecycle emails
-(`certificate.earned`, `progress.near_completion`) send in-process via Resend, deduped through
-`notificationLogRepository.tryLog`, fire-and-forget from `lesson.service.ts`. n8n's inbound routes
-remain only for the inactivity-7d email. Student billing mirrors the same token-download shape for
-invoices (`billing.listPurchases` → `/dashboard/billing` → `GET /api/invoices/[paymentId]?token=…`,
-`INVOICE_SECRET`). Full behavior: `docs/specs/features/certificates/spec.md` and
-`docs/specs/features/billing/spec.md`.
-
-### File uploads
-Vercel Blob via `app/api/uploads/route.ts`. Course thumbnails (≤2MB images) and preview videos (≤100MB) are uploaded client-side before the tRPC course mutation.
-
-### Payments
-
-Learnix is the **merchant of record**: each sale is a separate Stripe charge on the platform account,
-followed by a `Stripe.Transfer` to the instructor's connected account (ADR-019). Router:
-`server/api/routers/payment.ts`. Webhook: `app/api/stripe/webhook/route.ts`. Admin surface:
-`app/(admin)/admin/page.tsx`.
-
-- `transferToInstructor` checks the **live** Stripe account (`accounts.retrieve().payouts_enabled`),
-  not the cached DB flag — a transfer never depends on an `account.updated` webhook having arrived.
-- There is **no `owedBalanceCents` column** — owed balance is `SUM(instructorNetCents) WHERE
-  transferStatus = 'pending'`; the pending payments are the ledger.
-
-Full checkout/webhook/sweep behavior: `docs/specs/features/payments/spec.md`; design rationale and
-alternatives considered: ADR-019.
+### Feature specs
+Every shipped feature has a living spec under `docs/specs/features/<slug>/spec.md`, cataloged in
+[`docs/specs/features/_index.md`](docs/specs/features/_index.md) — **read the relevant spec before
+changing a feature's behavior.**
 
 ### UI components
 Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Controlled form components in `app/_components/_shared/components/Form/`. Course forms use `react-hook-form` + Zod via `useCourseForm` hook. Drag-and-drop curriculum reordering uses `@dnd-kit`.
@@ -126,6 +86,10 @@ Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Con
 
 - **`types.ts` always.** Every component folder must have a colocated `types.ts`. All prop types — including internal sub-component props — live there, never inline in `index.tsx`. No `Record<string, never>` placeholder types; omit the type entirely if a component takes no props.
 
+- **One component per folder; helpers in `utils.ts`.** Decompose every non-trivial component into separate sub-components — never leave several components stacked in one `index.tsx`. Each sub-component gets its own folder under `components/` with a colocated `index.tsx` and `types.ts` (mirroring `Messaging/MessagesView/components/Inbox` and `…/Thread`). Pure, non-JSX helpers (formatters, label builders, grouping logic) move out of `index.tsx` into a colocated `utils.ts`. This applies whenever you write or plan code — when producing a `build/plan.md`, the tasks must already reflect this folder layout, not bundle everything into one file to split later.
+
+- **Arrow functions everywhere.** All components and helpers are arrow-function consts (`export const Thread = (props: ThreadProps) => { … }`, `export const dateSeparatorLabel = (date: Date): string => { … }`), including inner event handlers (`const handleSent = () => { … }`). Do not use `function` declarations for components or helpers.
+
 - **No nested ternaries in JSX.** Two or more conditions branching on the same state must be expressed as early-return functions or separate named components, not chained `? ... : ... : ...`. The one allowed ternary is a single binary branch (e.g., loading spinner vs. content).
 
   ```tsx
@@ -133,14 +97,14 @@ Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Con
   {isEnrolled ? <ContinueBtn /> : priceCents > 0 ? <BuyBtn /> : <EnrollBtn />}
 
   // ✅ extracted sub-component with early returns
-  function EnrollAction({ isEnrolled, priceCents, ... }: EnrollActionProps) {
+  const EnrollAction = ({ isEnrolled, priceCents, ... }: EnrollActionProps) => {
     if (isEnrolled) return <ContinueBtn />;
     if (priceCents > 0) return <BuyBtn />;
     return <EnrollBtn />;
-  }
+  };
   ```
 
-- **Extract sub-components for repeated layout.** Any JSX structure copy-pasted more than twice (e.g., a card wrapper, a status icon + title + description pattern) must become a named function component above the main export. Its prop type goes in `types.ts`.
+- **Extract sub-components for repeated layout.** Any JSX structure copy-pasted more than twice (e.g., a card wrapper, a status icon + title + description pattern) must become its own arrow-function sub-component in its own folder (per "One component per folder" above). Its prop type goes in that folder's `types.ts`.
 
 - **Sub-components own their own mutations.** When a button triggers a tRPC mutation, the mutation lives inside the sub-component that owns the button — not hoisted to the parent. The parent passes a plain callback (e.g., `onEnrollFree: () => void`) only when it needs to coordinate shared state (like a dialog).
 
@@ -151,33 +115,9 @@ Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Con
   ```
 
 ### Environment variables
-All vars validated at build time via `@t3-oss/env-nextjs` in `lib/env.js`.
-
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `BETTER_AUTH_URL` | Yes | Auth base URL |
-| `BETTER_AUTH_SECRET` | Prod only | Auth signing secret |
-| `BETTER_AUTH_GITHUB_CLIENT_ID/SECRET` | Yes | GitHub OAuth |
-| `BETTER_AUTH_GOOGLE_CLIENT_ID/SECRET` | Yes | Google OAuth |
-| `BASE_URL` | Yes | Public app URL |
-| `OPENAI_API_KEY` | Yes | AI features (course builder, quiz, lesson assistant, embeddings) |
-| `LANGSMITH_API_KEY` | Optional | LangSmith tracing |
-| `LANGSMITH_PROJECT` | Optional | LangSmith project name |
-| `LANGSMITH_TRACING` | Optional | Enable LangSmith tracing (`"true"`) |
-| `RESEND_API_KEY` | Yes | Transactional email |
-| `EMAIL_FROM_ADDRESS` | Yes | Sender address for emails |
-| `EMAIL_REPLY_TO` | Optional | Reply-to address |
-| `N8N_API_TOKEN` | Yes | Bearer token for n8n's inbound webhook routes (still used by the scheduled inactivity-7d email) |
-| `N8N_WEBHOOK_BASE_URL` | Yes | n8n instance webhook base URL (unused since `certificate.earned`/`progress.near_completion` send directly via Resend; kept for the inactivity job) |
-| `N8N_WEBHOOK_SECRET` | Yes | HMAC secret for outbound n8n calls (unused for the same reason) |
-| `CERTIFICATE_SECRET` | Yes | JWT signing secret for certificate download tokens |
-| `INVOICE_SECRET` | Yes | JWT signing secret for billing invoice download tokens |
-| `UNSUBSCRIBE_SECRET` | Yes | JWT signing secret for email unsubscribe tokens |
-| `STRIPE_SECRET_KEY` | Yes | Stripe secret key (test: `sk_test_...`) |
-| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret for platform events (`whsec_...`) |
-| `STRIPE_CONNECT_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret for Connect events (`account.updated`) |
-| `STRIPE_PLATFORM_FEE_PERCENT` | No (default 20) | Platform fee percentage taken from each sale |
+All vars are declared and validated at build time via `@t3-oss/env-nextjs` in `lib/env.js` — that
+file is the source of truth for what's required vs. optional. Add new vars there (and to
+`runtimeEnv`), not in a list here.
 
 ### Linting / formatting
 Biome (not ESLint/Prettier). Config in `biome.jsonc`. Auto-sorts imports and Tailwind classes (`useSortedClasses` for `clsx`/`cva`/`cn` calls).
