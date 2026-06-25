@@ -2,13 +2,14 @@
 
 import { format, parseISO } from "date-fns";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import useIsMobile from "@/app/_components/_shared/hooks/useIsMobile";
 import { Card } from "@/app/_components/_shared/ui/card";
 import {
 	ChartContainer,
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@/app/_components/_shared/ui/chart";
-import { formatUsd } from "@/lib/formatUsd";
+import { formatUsd, formatUsdCompact } from "@/lib/formatUsd";
 import type { RevenueOverTimeChartProps } from "./types";
 
 const config = {
@@ -20,6 +21,7 @@ export default function RevenueOverTimeChart({
 	data,
 	isLoading,
 }: RevenueOverTimeChartProps) {
+	const isMobile = useIsMobile();
 	const hasData = !!data && data.some((p) => p.grossCents > 0);
 	return (
 		<Card className="p-6 lg:col-span-2">
@@ -72,13 +74,17 @@ export default function RevenueOverTimeChart({
 						<XAxis
 							axisLine={false}
 							dataKey="period"
+							interval="preserveStartEnd"
+							minTickGap={24}
 							tickFormatter={(v: string) => format(parseISO(v), "MMM")}
 							tickLine={false}
 							tickMargin={8}
 						/>
 						<YAxis
 							axisLine={false}
-							tickFormatter={(v: number) => formatUsd(v)}
+							tickFormatter={(v: number) =>
+								isMobile ? formatUsdCompact(v) : formatUsd(v)
+							}
 							tickLine={false}
 							tickMargin={8}
 						/>

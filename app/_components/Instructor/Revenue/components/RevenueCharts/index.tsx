@@ -18,7 +18,7 @@ export default function RevenueCharts() {
 			<div className="flex justify-end">
 				<RangeSelect onChange={setRange} value={range} />
 			</div>
-			<div className="grid gap-6 lg:grid-cols-3">
+			<div className="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
 				<RevenueOverTimeChart data={series.data} isLoading={series.isLoading} />
 				<RevenueByCourseChart
 					data={byCourse.data}
