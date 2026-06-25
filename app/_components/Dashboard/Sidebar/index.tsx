@@ -9,8 +9,7 @@ import { getSession } from "@/server/better-auth/server";
 const DashboardSidebar = async () => {
 	const { user } = requireAuth(await getSession());
 
-	const { name } = user;
-	const role = user.role as Role;
+	const { name, role } = user;
 	const isInstructor = role === Role.INSTRUCTOR;
 	const [reviewsCount, unreadMessages] = await Promise.all([
 		isInstructor ? getNewReviewsCount() : Promise.resolve(0),
