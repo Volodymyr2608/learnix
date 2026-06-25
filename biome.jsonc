@@ -27,6 +27,10 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"style": {
+				// Enforce the "no nested ternaries" component convention (CLAUDE.md).
+				"noNestedTernary": "error"
+			},
 			"nursery": {
 				"useSortedClasses": {
 					"level": "warn",

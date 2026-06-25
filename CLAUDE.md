@@ -90,7 +90,7 @@ Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Con
 
 - **Arrow functions everywhere.** All components and helpers are arrow-function consts (`export const Thread = (props: ThreadProps) => { … }`, `export const dateSeparatorLabel = (date: Date): string => { … }`), including inner event handlers (`const handleSent = () => { … }`). Do not use `function` declarations for components or helpers.
 
-- **No nested ternaries in JSX.** Two or more conditions branching on the same state must be expressed as early-return functions or separate named components, not chained `? ... : ... : ...`. The one allowed ternary is a single binary branch (e.g., loading spinner vs. content).
+- **No nested ternaries.** Enforced by Biome (`style/noNestedTernary`, error). Two or more conditions branching on the same state must be expressed as early-return functions, a lookup map, or separate named components, not chained `? ... : ... : ...`. The one allowed ternary is a single binary branch (e.g., loading spinner vs. content).
 
   ```tsx
   // ❌ nested ternary

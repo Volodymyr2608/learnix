@@ -280,12 +280,11 @@ class EnrollmentRepository extends BaseRepository<
 		}
 		const filterSql = filterClauses.join(" ");
 
-		const orderBy =
-			sort === "name"
-				? "ORDER BY name ASC"
-				: sort === "progress"
-					? "ORDER BY progress DESC"
-					: "ORDER BY recent_enrolled_at DESC";
+		const orderByBySort: Record<string, string> = {
+			name: "ORDER BY name ASC",
+			progress: "ORDER BY progress DESC",
+		};
+		const orderBy = orderByBySort[sort] ?? "ORDER BY recent_enrolled_at DESC";
 
 		const countSql = `
 			${cte}

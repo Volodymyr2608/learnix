@@ -20,7 +20,38 @@ import {
 } from "@/app/_components/_shared/ui/card";
 import { Separator } from "@/app/_components/_shared/ui/separator";
 import { useStudyGuideToolbar } from "./hooks/useStudyGuideToolbar";
-import type { StudyGuideToolbarProps } from "./types";
+import type {
+	GenerateButtonContentProps,
+	StudyGuideToolbarProps,
+} from "./types";
+
+const GenerateButtonContent = ({
+	isGenerating,
+	hasInsights,
+}: GenerateButtonContentProps) => {
+	if (isGenerating) {
+		return (
+			<>
+				<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+				Generating…
+			</>
+		);
+	}
+	if (hasInsights) {
+		return (
+			<>
+				<RefreshCw className="mr-2 h-4 w-4" />
+				Regenerate
+			</>
+		);
+	}
+	return (
+		<>
+			<Sparkles className="mr-2 h-4 w-4" />
+			Generate study guide
+		</>
+	);
+};
 
 export const StudyGuideToolbar = ({
 	lessonId,
@@ -111,18 +142,10 @@ export const StudyGuideToolbar = ({
 					size="sm"
 					variant="outline"
 				>
-					{isGenerating ? (
-						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-					) : insights ? (
-						<RefreshCw className="mr-2 h-4 w-4" />
-					) : (
-						<Sparkles className="mr-2 h-4 w-4" />
-					)}
-					{isGenerating
-						? "Generating…"
-						: insights
-							? "Regenerate"
-							: "Generate study guide"}
+					<GenerateButtonContent
+						hasInsights={Boolean(insights)}
+						isGenerating={isGenerating}
+					/>
 				</Button>
 			</CardContent>
 		</Card>

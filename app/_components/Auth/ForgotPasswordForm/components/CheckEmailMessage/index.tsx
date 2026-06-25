@@ -4,8 +4,29 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/app/_components/_shared/ui/button";
 import AuthFormHeader from "@/app/_components/Auth/AuthFormHeader";
-import type { CheckEmailMessageProps } from "@/app/_components/Auth/ForgotPasswordForm/components/CheckEmailMessage/types";
+import type {
+	CheckEmailMessageProps,
+	ResendButtonContentProps,
+} from "@/app/_components/Auth/ForgotPasswordForm/components/CheckEmailMessage/types";
 import { formatCountdown } from "@/lib/utils/formatCountdown";
+
+const ResendButtonContent = ({
+	isPending,
+	secondsLeft,
+}: ResendButtonContentProps) => {
+	if (isPending) {
+		return (
+			<>
+				<Loader2 className="animate-spin" />
+				Sending...
+			</>
+		);
+	}
+	if (secondsLeft > 0) {
+		return `Resend in ${formatCountdown(secondsLeft)}`;
+	}
+	return "Resend reset link";
+};
 
 const CheckEmailMessage = ({
 	isPending,
@@ -24,16 +45,7 @@ const CheckEmailMessage = ({
 			onClick={onResend}
 			variant="outline"
 		>
-			{isPending ? (
-				<>
-					<Loader2 className="animate-spin" />
-					Sending...
-				</>
-			) : secondsLeft > 0 ? (
-				`Resend in ${formatCountdown(secondsLeft)}`
-			) : (
-				"Resend reset link"
-			)}
+			<ResendButtonContent isPending={isPending} secondsLeft={secondsLeft} />
 		</Button>
 
 		<p className="text-center text-muted-foreground text-sm">
