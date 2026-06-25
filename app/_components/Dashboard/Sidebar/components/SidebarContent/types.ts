@@ -1,4 +1,6 @@
-export type NavigationProps = {
+export type SidebarContentProps = {
+	name: string;
+	role: string;
 	isInstructor: boolean;
 	reviewsCount: number;
 	unreadMessages: number;
