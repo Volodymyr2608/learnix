@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import useIsMobile from "@/app/_components/_shared/hooks/useIsMobile";
 import { Card } from "@/app/_components/_shared/ui/card";
 import {
 	ChartContainer,
@@ -9,6 +10,7 @@ import {
 } from "@/app/_components/_shared/ui/chart";
 import { formatUsd } from "@/lib/formatUsd";
 import type { RevenueByCourseChartProps } from "./types";
+import { truncateLabel } from "./utils";
 
 const config = { grossCents: { label: "Revenue", color: "var(--chart-1)" } };
 
@@ -16,6 +18,7 @@ export default function RevenueByCourseChart({
 	data,
 	isLoading,
 }: RevenueByCourseChartProps) {
+	const isMobile = useIsMobile();
 	const hasData = !!data && data.length > 0;
 	return (
 		<Card className="p-6">
@@ -45,6 +48,10 @@ export default function RevenueByCourseChart({
 						<YAxis
 							axisLine={false}
 							dataKey="title"
+							interval={isMobile ? 0 : undefined}
+							tickFormatter={(v: string) =>
+								isMobile ? truncateLabel(v, 14) : v
+							}
 							tickLine={false}
 							tickMargin={8}
 							type="category"
