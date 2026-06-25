@@ -47,6 +47,8 @@ export default function DashboardRevenueChart({
 				<XAxis
 					axisLine={false}
 					dataKey="period"
+					interval="preserveStartEnd"
+					minTickGap={24}
 					tickFormatter={(v: string) => format(parseISO(v), "MMM")}
 					tickLine={false}
 					tickMargin={8}
