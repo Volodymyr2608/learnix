@@ -32,7 +32,7 @@ will extend this spec when built.
   query resolves, so there is no visible flash. The hook is the single source for "is this a small
   screen" and is reusable by later instructor-mobile stages.
 - A `formatUsdCompact(cents)` helper in `lib/formatUsd.ts` producing short money labels (`$0`,
-  `$950`, `$1.2k`, `$95k`, `$1.1M`). Used **only** for chart y-axis ticks on mobile. Tooltips and
+  `$950`, `$1.2k`, `$95.2k`, `$1.1M`). Used **only** for chart y-axis ticks on mobile. Tooltips and
   all other UI keep full-precision `formatUsd`.
 - Time-series charts thin their x-axis ticks via **pure Recharts props**
   (`interval="preserveStartEnd"` + `minTickGap={24}`) so colliding month labels drop out based on

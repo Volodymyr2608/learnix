@@ -13,6 +13,7 @@ const oneDecimal = (n: number): string => {
 /**
  * Compact whole-dollar USD for chart axis ticks, e.g. 9515000 -> "$95.2k",
  * 110000000 -> "$1.1M". Shows "$0" for zero. Tooltips keep full `formatUsd`.
+ * Assumes non-negative cents; revenue/payout data is never negative in this codebase.
  */
 export function formatUsdCompact(cents: number): string {
 	const dollars = Math.round(cents / 100);
