@@ -1,6 +1,6 @@
 ---
 feature: instructor-mobile
-status: planned
+status: stable
 models: []
 depends-on: [mobile-responsive]
 ---

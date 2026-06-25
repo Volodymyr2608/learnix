@@ -10,7 +10,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | ai-course-builder | stable | course |
 | billing | stable | payments |
 | certificates | stable | enrollment |
-| instructor-mobile | planned | mobile-responsive |
+| instructor-mobile | stable | mobile-responsive |
 | messages | stable | auth |
 | mobile-responsive | planned | — |
 | payments | stable | auth, course |
