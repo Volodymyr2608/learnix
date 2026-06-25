@@ -3,12 +3,13 @@
 
 import { format, parseISO } from "date-fns";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import useIsMobile from "@/app/_components/_shared/hooks/useIsMobile";
 import {
 	ChartContainer,
 	ChartTooltip,
 	ChartTooltipContent,
 } from "@/app/_components/_shared/ui/chart";
-import { formatUsd } from "@/lib/formatUsd";
+import { formatUsd, formatUsdCompact } from "@/lib/formatUsd";
 import type { DashboardRevenueChartProps } from "./types";
 
 const config = { grossCents: { label: "Revenue", color: "var(--chart-1)" } };
@@ -16,6 +17,7 @@ const config = { grossCents: { label: "Revenue", color: "var(--chart-1)" } };
 export default function DashboardRevenueChart({
 	data,
 }: DashboardRevenueChartProps) {
+	const isMobile = useIsMobile();
 	const hasData = data.some((p) => p.grossCents > 0);
 
 	if (!hasData) {
@@ -55,7 +57,9 @@ export default function DashboardRevenueChart({
 				/>
 				<YAxis
 					axisLine={false}
-					tickFormatter={(v: number) => formatUsd(v)}
+					tickFormatter={(v: number) =>
+						isMobile ? formatUsdCompact(v) : formatUsd(v)
+					}
 					tickLine={false}
 					tickMargin={8}
 				/>
