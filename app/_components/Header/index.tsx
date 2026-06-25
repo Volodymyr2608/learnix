@@ -1,8 +1,9 @@
 import Link from "next/link";
 import Logo from "@/app/_components/_shared/components/Logo";
 import { Button } from "@/app/_components/_shared/ui/button";
+import { MobileNav } from "@/app/_components/Header/components/MobileNav";
 
-export function Header() {
+export const Header = () => {
 	return (
 		<header className="border-border border-b bg-background">
 			<div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -50,8 +51,9 @@ export function Header() {
 					<Button asChild>
 						<Link href="/sign-up">Get Started</Link>
 					</Button>
+					<MobileNav />
 				</div>
 			</div>
 		</header>
 	);
-}
+};
