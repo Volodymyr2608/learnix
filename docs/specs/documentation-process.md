@@ -152,6 +152,30 @@ Even though this looks small, I want a proper spec for this one — it's going t
 by three other features later.
 ```
 
+### 3c. Driving the tiers via the command chain
+
+Standard and complex work runs through a gated slash-command chain (ADR-021,
+`.claude/commands/`). The chain is what makes spec-first *structural* instead of a discipline — and
+it's the answer to "why did specs keep getting written after the code": they no longer can.
+
+```
+/spec <intent>   → infer tier (§3a); brainstorm; scaffold spec.md (status: planned); STOP for approval
+/plan            → require an approved spec; writing-plans → build/plan.md;            STOP for approval
+/implement       → REFUSE without an approved build/plan.md; execute continuously (TDD, subagents)
+/qa              → requesting-code-review + Gate Docs (§7): status→stable, spec:sync, ADR if 3-month; PR
+```
+
+**The hard, no-backfill gate:** `/implement` refuses to run without an approved `build/plan.md`, which
+itself requires an approved `spec.md`. Code only ever flows out of `/implement`, so a spec or plan
+written *after* the code is structurally impossible — not merely discouraged.
+
+**Trivial/fix skips the chain.** `/spec` detects trivial tier via §3a, writes no spec, and routes
+straight to `systematic-debugging` + TDD. Overriding the inferred tier ("quick fix, skip the spec")
+stays possible — the point is to make skipping a conscious choice, not a silent default.
+
+The standing constraints every plan must honor live in **[`docs/constitution.md`](../constitution.md)**
+(pointer-only; links to CLAUDE.md conventions and ADR-011/016/017/018/020).
+
 ---
 
 ## 4. `spec.md` format

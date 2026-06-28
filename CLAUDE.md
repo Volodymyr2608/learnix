@@ -153,6 +153,13 @@ explicitly asked).
 
 ### Implementation
 
+**Entry path — the spec-gated command chain (ADR-021).** Standard/complex work runs
+`/spec → /plan → /implement → /qa` (`.claude/commands/`). The gate is structural: `/implement`
+refuses to run without an approved `build/plan.md`, which requires an approved `spec.md` — so specs
+and plans are never backfilled after the code. Trivial/fix work skips the chain (`/spec` detects it
+and routes to `systematic-debugging` + TDD). Standing non-negotiables live in
+[`docs/constitution.md`](docs/constitution.md). Mechanics: [`documentation-process.md`](docs/specs/documentation-process.md) §3c.
+
 **Always produce a detailed, written, approved plan before any implementation code** — for every
 tier above trivial/fix, not just complex. Use the `writing-plans` skill to produce the **detailed
 implementation plan** (bite-sized TDD tasks with real code, exact file paths, and commits) at
