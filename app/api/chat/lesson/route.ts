@@ -2,6 +2,7 @@ import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
+import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
 import {
 	checkAiRateLimit,
@@ -54,6 +55,52 @@ export async function POST(req: Request) {
 		section: { courseId: string; course: { title: string } };
 	};
 
+	const courseTitle = lessonWithSection.section.course.title;
+
+	const guard = await guardUserInput(message, {
+		feature: "lessonAI",
+		userId: session.user.id,
+		domain: {
+			description: `the course "${courseTitle}" and its lesson "${lesson.title}"`,
+			subject: `the "${courseTitle}" course`,
+		},
+	});
+
+	const oneShot = (event: Record<string, unknown>) =>
+		new Response(
+			new TextEncoder().encode(
+				`data: ${JSON.stringify(event)}\n\n` +
+					`data: ${JSON.stringify({ type: "done" })}\n\n`,
+			),
+			{
+				headers: {
+					"Content-Type": "text/event-stream; charset=utf-8",
+					"Cache-Control": "no-cache, no-transform",
+					Connection: "keep-alive",
+					"X-Accel-Buffering": "no",
+				},
+			},
+		);
+
+	if (guard.outcome === "blocked") {
+		// Persist NOTHING. A stored injection payload is replayed as trusted
+		// HumanMessage history on the next turn, where no L3 wrapping applies —
+		// which would silently defeat this block.
+		return oneShot({ type: "guard_blocked", message: guard.message });
+	}
+
+	if (guard.outcome === "off_topic") {
+		await lessonAssistantRepository.saveMessage(lessonId, session.user.id, {
+			role: "user",
+			content: message,
+		});
+		await lessonAssistantRepository.saveMessage(lessonId, session.user.id, {
+			role: "assistant",
+			content: guard.message ?? "",
+		});
+		return oneShot({ type: "off_topic", message: guard.message });
+	}
+
 	await lessonAssistantRepository.saveMessage(lessonId, session.user.id, {
 		role: "user",
 		content: message,
@@ -82,7 +129,7 @@ export async function POST(req: Request) {
 				for await (const event of lessonAIService.streamResponse({
 					lessonId,
 					lessonTitle: lesson.title,
-					courseTitle: lessonWithSection.section.course.title,
+					courseTitle,
 					courseId: lessonWithSection.section.courseId,
 					studentId: session.user.id,
 					userMessage: message,

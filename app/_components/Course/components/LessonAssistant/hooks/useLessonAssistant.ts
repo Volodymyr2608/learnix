@@ -105,6 +105,15 @@ export function useLessonAssistant(lessonId: string) {
 						});
 					}
 
+					if (parsed.type === "guard_blocked" && parsed.message) {
+						const message = parsed.message;
+						setLiveMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (!last || last.role !== "assistant") return prev;
+							return [...prev.slice(0, -1), { ...last, content: message }];
+						});
+					}
+
 					if (parsed.type === "done") {
 						void utils.lessonAssistant.getHistory.invalidate({ lessonId });
 						setLiveMessages([]);

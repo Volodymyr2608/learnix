@@ -2,9 +2,7 @@ import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { traced } from "@/server/services/_shared/tracing";
-import { buildTopicGuardChain } from "./chains/topicGuard.chain";
 import { createLessonAgent } from "./lessonAI.agent";
-import { LessonAIError, OffTopicError } from "./lessonAI.errors";
 
 export class LessonAIService {
 	async *streamResponse(params: {
@@ -26,28 +24,6 @@ export class LessonAIService {
 			signal,
 		} = params;
 
-		// Layer 1: topic guardrail
-		try {
-			const guard = buildTopicGuardChain(lessonTitle, courseTitle);
-			await guard.invoke({ userMessage });
-		} catch (err) {
-			if (err instanceof OffTopicError) {
-				yield { type: "off_topic" as const, message: err.message };
-				await lessonAssistantRepository.saveMessage(lessonId, studentId, {
-					role: "assistant",
-					content: err.message,
-				});
-				return;
-			}
-			throw new LessonAIError(
-				"Guardrail chain failed",
-				"INTERNAL_SERVER_ERROR",
-				err,
-			);
-		}
-
-		if (signal?.aborted) return;
-
 		// Load conversation history and lesson concept list in parallel
 		const [history, lessonInsights] = await Promise.all([
 			lessonAssistantRepository.getMessages(lessonId, studentId),
@@ -64,7 +40,7 @@ export class LessonAIService {
 				: new AIMessage(msg.content),
 		);
 
-		// Layer 2: ReAct agent
+		// Layer 1: ReAct agent
 		const agent = createLessonAgent({
 			lessonId,
 			lessonTitle,
@@ -120,7 +96,7 @@ export class LessonAIService {
 			return;
 		}
 
-		// Layer 3: persist assistant reply
+		// Layer 2: persist assistant reply
 		if (fullReply) {
 			await lessonAssistantRepository.saveMessage(lessonId, studentId, {
 				role: "assistant",
