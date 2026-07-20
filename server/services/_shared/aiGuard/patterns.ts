@@ -25,9 +25,14 @@ export const INJECTION_PATTERNS: InjectionPattern[] = [
 	{
 		id: "override-ignore-prior",
 		category: "instruction_override",
+		// Weight deliberately kept BELOW BLOCK_THRESHOLD: a single match fires on
+		// a quoted/attributed mention too ("the phrase 'ignore previous
+		// instructions'" in educational prose), which must escalate to L2, not
+		// block outright. Only markup-fake-tokens, markup-injected-tags, and
+		// jailbreak-dan are unambiguous enough to block alone.
 		regex:
 			/\b(ignore|disregard|forget)\b[^.\n]{0,40}\b(previous|prior|above|earlier)\b[^.\n]{0,20}\b(instructions?|prompts?|rules?)\b/i,
-		weight: 40,
+		weight: 30,
 	},
 	{
 		id: "override-new-instructions",
