@@ -92,6 +92,13 @@ Each criterion is phrased to become an eval or unit case directly.
   is a relevance judgment, not a detected attack — there is no rule or pattern to leak by naming the
   course, and routing it through `NEUTRAL_REFUSAL_MESSAGE` would regress AC-4 into a generic message
   and break `useLessonAssistant.ts`, which expects the course-naming copy.
+- **This distinction is `lessonAI`-only; `courseAI` does not separate `off_topic` from `blocked`.**
+  `app/api/chat/course/route.ts` branches on `guard.outcome !== "allow"`, not on the specific outcome,
+  so an off-topic instructor message and a genuinely blocked one both emit the same `guard_blocked` SSE
+  event and persist no `CourseGenerationMessage` row — `courseAI` has no `off_topic` event at all. The
+  message *text* still differs (`NEUTRAL_REFUSAL_MESSAGE` vs. domain-naming `offTopicMessage()`); only
+  the event type and persistence collapse. This is the actual, reviewed Task 12 implementation, not a
+  gap to close — see ADR-022's "Persist-nothing-on-block" section for the full rationale.
 - **L3 is the only defense for `quizAI` / `lessonInsightsAI` / `learningPathAI`.** Those services read
   database content, not live user input, so an LLM guard per call would be cost without benefit. If a
   future change routes free user text into them, they need L1+L2 too.

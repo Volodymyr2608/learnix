@@ -85,9 +85,13 @@ the two chat surfaces this feature guards are SSE Route Handlers that never ente
 stack. A guard that threw would need every caller to wrap it in a try/catch and hand-translate the
 exception into an SSE event anyway — the same work a plain return value does with less ceremony and no
 risk of an uncaught rejection tearing down a stream mid-response. Each caller adapts the `GuardResult`
-to its own transport: the two routes emit a `guard_blocked` / `off_topic` SSE event; any future tRPC
-caller of `guardUserInput` is free to translate a non-`allow` outcome into a thrown `DomainError`
-itself, at the boundary where that pattern actually applies.
+to its own transport, and the two routes do not adapt it the same way (see "Persist-nothing-on-block
+vs. persist-both-on-off-topic" below for the full divergence): `lessonAI`'s route branches on
+`guard.outcome` and emits a distinct `guard_blocked` event for `blocked` and a distinct `off_topic`
+event for `off_topic`; `courseAI`'s route checks only `guard.outcome !== "allow"` and emits
+`guard_blocked` for both — it has no `off_topic` SSE event at all. Any future tRPC caller of
+`guardUserInput` is free to translate a non-`allow` outcome into a thrown `DomainError` itself, at the
+boundary where that pattern actually applies.
 
 `guardUserInput()` runs at the **route handler**, before either downstream service method:
 `app/api/chat/course/route.ts` calls it before the LangGraph course-builder graph is entered, and
@@ -96,24 +100,40 @@ guarantee the same property — a blocked turn does no work and leaves no trace 
 call up out of `courseAIService.runChat` / `LessonAIService.streamResponse` and onto the route itself
 in both cases, not just the course builder as originally scoped.
 
-### Persist-nothing-on-block vs. persist-both-on-off-topic
+### Persist-nothing-on-block vs. persist-both-on-off-topic — lessonAI only; courseAI does not distinguish the two
 
-A **blocked** turn (L1 `block`, or the rarer terminal states) writes no row at all: no
-`CourseGenerationMessage`, no lesson-assistant message. This is deliberate, not an oversight of
-"we didn't get around to logging it": if a blocked injection payload were persisted as a normal user
-message, it would be read back as trusted conversation history on the *next* turn — L3 wrapping does
-not apply to prior chat history, only to database content pulled in fresh — which would silently
-replay the attack past the very check that just rejected it. Not persisting is what makes the block
-actually stick across turns, not just for the one request that tripped it.
+A **blocked** turn (L1 `block`) writes no row at all, on either route: no `CourseGenerationMessage`,
+no lesson-assistant message. This is deliberate, not an oversight of "we didn't get around to logging
+it": if a blocked injection payload were persisted as a normal user message, it would be read back as
+trusted conversation history on the *next* turn — L3 wrapping does not apply to prior chat history,
+only to database content pulled in fresh — which would silently replay the attack past the very check
+that just rejected it. Not persisting is what makes the block actually stick across turns, not just
+for the one request that tripped it.
 
-An **off-topic** turn (L2 verdict) persists both the user and assistant rows, unchanged from
-`lessonAI`'s pre-existing behavior. Off-topic is a relevance judgment, not a detected attack — the
-user asked a legitimate but out-of-scope question ("what's a good pasta recipe?"), and replaying that
-as history on the next turn carries no injection risk. Collapsing this into the same "persist nothing"
-rule as `block` would also regress the off-topic response itself: it names the course
+An **off-topic** turn (L2 verdict) persists both the user and assistant rows **in `lessonAI` only**,
+unchanged from `lessonAI`'s pre-existing behavior. Off-topic is a relevance judgment, not a detected
+attack — the user asked a legitimate but out-of-scope question ("what's a good pasta recipe?"), and
+replaying that as history on the next turn carries no injection risk. Collapsing this into the same
+"persist nothing" rule as `block` would also regress the off-topic response itself: it names the course
 ("This assistant only covers **{course}**...") rather than using the neutral, rule-free refusal text
 that `block` uses, and the frontend (`useLessonAssistant.ts`) expects that message to appear as a
 normal, retained turn in the conversation.
+
+**`courseAI` collapses `off_topic` into the same handling as `blocked`.**
+`app/api/chat/course/route.ts` checks `guard.outcome !== "allow"` as a single branch — it never
+inspects whether the outcome was `blocked` or `off_topic`. Both take the exact same path: the route
+returns before `getOrCreateCourseGeneration` and before the stream (and its `finally` block that
+persists the user message) is ever constructed, so no `CourseGenerationMessage` row is written for
+either outcome, and the SSE event emitted is `guard_blocked` in both cases — `courseAI` has no
+`off_topic` event type at all. The one thing that does still vary by outcome is the *text* of
+`guard.message` carried inside that `guard_blocked` event: a `blocked` verdict carries
+`NEUTRAL_REFUSAL_MESSAGE`, while an `off_topic` verdict still carries the domain-naming
+`offTopicMessage()` text ("I can only help with questions related to building your course."). So an
+off-topic instructor message reads differently in the UI from a genuinely blocked one, even though the
+event type and persistence behavior are identical. This is `courseAI`'s actual, reviewed behavior
+(Task 12) — not a bug, and not a gap against `lessonAI`'s Task 13 design. The two routes were built to
+different levels of granularity; a previous version of this ADR implied they were symmetric, which they
+are not.
 
 ### Neutral refusal text on block, never on off-topic
 
@@ -122,6 +142,10 @@ pattern — `NEUTRAL_REFUSAL_MESSAGE` is a single exported constant, never strin
 there is no path by which a rejection response can leak which detector or pattern fired. This is what
 keeps an attacker from using the refusal text itself as an oracle to iterate toward a bypass. Off-topic
 refusals are exempt from this constraint (see above) because they carry no rule information to leak.
+This holds regardless of which SSE event type carries the message: `courseAI`'s `guard_blocked` event
+carries `NEUTRAL_REFUSAL_MESSAGE` for an actual block and the domain-naming `offTopicMessage()` text
+for an off-topic verdict — the event name collapsing (previous section) does not collapse the message
+text.
 
 ### The entry-point contract test as the enforcement mechanism
 
