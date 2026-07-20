@@ -2,6 +2,7 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent } from "langchain";
 import { env } from "@/lib/env";
+import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { QuizOutputSchema } from "./schemas/quizOutput.schema";
 import { getExistingQuizzesTool } from "./tools/getExistingQuizzes.tool";
 import { getLessonContentTool } from "./tools/getLessonContent.tool";
@@ -20,7 +21,9 @@ const initialTemplate = ChatPromptTemplate.fromMessages([
 		4. Each question must have exactly 4 answer options.
 		5. The "correct" field must be verbatim identical to one of the 4 options — no paraphrasing.
 		6. Calibrate difficulty to {level} level (Beginner = basic recall, Intermediate = application, Advanced = analysis/synthesis).
-		7. Output must conform to the required schema — no markdown, no extra keys.`,
+		7. Output must conform to the required schema — no markdown, no extra keys.
+
+		${UNTRUSTED_DATA_CLAUSE}`,
 	],
 ]);
 
@@ -38,7 +41,9 @@ const regenerateTemplate = ChatPromptTemplate.fromMessages([
 		4. Each question must have exactly 4 answer options.
 		5. The "correct" field must be verbatim identical to one of the 4 options — no paraphrasing.
 		6. Calibrate difficulty to {level} level (Beginner = basic recall, Intermediate = application, Advanced = analysis/synthesis).
-		7. Output must conform to the required schema — no markdown, no extra keys.`,
+		7. Output must conform to the required schema — no markdown, no extra keys.
+
+		${UNTRUSTED_DATA_CLAUSE}`,
 	],
 ]);
 
