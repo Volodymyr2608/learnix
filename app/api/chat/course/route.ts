@@ -1,5 +1,6 @@
 import type { DraftStep } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
+import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 import {
 	checkAiRateLimit,
@@ -38,6 +39,38 @@ export async function POST(req: Request) {
 
 	if (userMessage && !validateMessageLength(userMessage)) {
 		return new Response("Message too long", { status: 413 });
+	}
+
+	if (mode === "chat" && userMessage) {
+		const guard = await guardUserInput(userMessage, {
+			feature: "courseAI",
+			userId: session.user.id,
+			domain: {
+				description:
+					"designing an online course: its title, description, learning objectives, requirements, and curriculum",
+				subject: "building your course",
+			},
+		});
+
+		if (guard.outcome !== "allow") {
+			// Returned before getOrCreateCourseGeneration and before the stream is
+			// constructed, so the finally-block that persists the user message is
+			// never reached — no CourseGenerationMessage row is written.
+			const encoder = new TextEncoder();
+			const sse = [
+				`data: ${JSON.stringify({ type: "guard_blocked", message: guard.message })}\n\n`,
+				`data: ${JSON.stringify({ type: "done" })}\n\n`,
+			].join("");
+
+			return new Response(encoder.encode(sse), {
+				headers: {
+					"Content-Type": "text/event-stream; charset=utf-8",
+					"Cache-Control": "no-cache, no-transform",
+					Connection: "keep-alive",
+					"X-Accel-Buffering": "no",
+				},
+			});
+		}
 	}
 
 	const abortSignal = req.signal;
