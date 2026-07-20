@@ -1,3 +1,4 @@
+import { runAdversarialEval } from "./aiGuard/adversarial.eval";
 import { runAssessCompletionEval } from "./courseAI/assessCompletion.eval";
 import { runClassifyIntentEval } from "./courseAI/classifyIntent.eval";
 import { runConfidenceScoreEval } from "./courseAI/confidenceScore.eval";
@@ -8,6 +9,7 @@ import { runLessonInsightsEval } from "./lessonInsightsAI/lessonInsights.eval";
 import { runQuizGenerationEval } from "./quizAI/quizGeneration.eval";
 
 const EVALS: Record<string, () => Promise<boolean>> = {
+	"aiGuard:adversarial": runAdversarialEval,
 	"courseAI:classifyIntent": runClassifyIntentEval,
 	"courseAI:assessCompletion": runAssessCompletionEval,
 	"courseAI:extractStepData": runExtractStepDataEval,
