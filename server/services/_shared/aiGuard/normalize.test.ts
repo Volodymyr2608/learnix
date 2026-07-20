@@ -29,11 +29,11 @@ describe("normalizeForMatching", () => {
 	});
 
 	it("ignores base64-looking text that decodes to binary junk", () => {
-		const { decodedSegments } = normalizeForMatching(
-			`aGVsbG8gd29ybGQ${"​".repeat(0)}`,
-		);
-		// valid base64 that decodes to printable text is kept; junk is not
-		expect(decodedSegments.every((s) => /^[\x20-\x7E\s]*$/.test(s))).toBe(true);
+		// 16 raw bytes 0x00-0x0F, base64-encoded — well past the 16-char
+		// candidate minimum, and decodes to mostly non-printable bytes.
+		const junkBase64 = "AAECAwQFBgcICQoLDA0ODw==";
+		const { decodedSegments } = normalizeForMatching(`Run this: ${junkBase64}`);
+		expect(decodedSegments).toEqual([]);
 	});
 
 	it("returns the input unchanged when there is nothing to normalize", () => {
