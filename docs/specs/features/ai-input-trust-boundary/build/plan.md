@@ -1370,7 +1370,7 @@ git commit -m "feat(quizAI): treat lesson content as untrusted data in quiz gene
 All three chains consume the same `{content}` variable, so one wrap at the service call site covers
 all three; each chain's own system template still needs the clause.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // server/services/lessonInsightsAI/lessonInsightsAI.wrap.test.ts
@@ -1420,12 +1420,12 @@ describe("lessonInsightsAIService.generateForLesson", () => {
 > If `generateForLesson`'s parameter shape differs from the above, adjust the call to match the real
 > signature in `lessonInsightsAI.service.ts` — the assertion on `mockInvoke` is what matters.
 
-- [ ] **Step 2: Run it, expect FAIL**
+- [x] **Step 2: Run it, expect FAIL**
 
 Run: `pnpm vitest run server/services/lessonInsightsAI/lessonInsightsAI.wrap.test.ts`
 Expected: FAIL — `content` does not contain the wrapper.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `lessonInsightsAI.service.ts` (line 38):
 
@@ -1448,12 +1448,12 @@ import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/message
 ["system", `<existing system text>\n\n${UNTRUSTED_DATA_CLAUSE}`],
 ```
 
-- [ ] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
+- [x] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
 
 Run: `pnpm vitest run server/services/lessonInsightsAI/`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/services/lessonInsightsAI/
@@ -1476,7 +1476,7 @@ git commit -m "feat(lessonInsightsAI): treat lesson content as untrusted data ac
 The live surface is `buildPromptMessages`, which interpolates `JSON.stringify(enrichedCandidates)` —
 built from `lessonInsights.summary`/`concepts`, i.e. instructor-authored content.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `server/services/learningPathAI/learningPathAI.integration.test.ts`:
 
@@ -1500,12 +1500,12 @@ Append to `server/services/learningPathAI/learningPathAI.integration.test.ts`:
 
 > Match `studentId`/`courseId` and the service call to the seeding already present in this file.
 
-- [ ] **Step 2: Run it, expect FAIL**
+- [x] **Step 2: Run it, expect FAIL**
 
 Run: `pnpm vitest run server/services/learningPathAI/learningPathAI.integration.test.ts`
 Expected: FAIL — messages do not contain `<untrusted_data`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `mergeAndExplain.node.ts`, import both helpers and change `buildPromptMessages`:
 
@@ -1540,12 +1540,12 @@ Prior reflection feedback: ${state.reflectionFeedback ?? "none"}${
 In `getLessonSummary.tool.ts` (dead code, wrapped for hygiene so it is safe if ever wired up), wrap
 both `JSON.stringify(...)` returns with `wrapUntrustedContent(..., "lesson_summary")`.
 
-- [ ] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
+- [x] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
 
 Run: `pnpm vitest run server/services/learningPathAI/`
 Expected: PASS (requires the `learnix_test` DB — `docker-compose up -d`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/services/learningPathAI/
@@ -1568,7 +1568,7 @@ git commit -m "feat(learningPathAI): wrap enriched candidates as untrusted data 
 
 Covers spec AC-1 (blocked pre-model-call, no `CourseGenerationMessage` row) and the HTTP half of AC-8.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // app/api/chat/course/route.integration.test.ts
@@ -1649,12 +1649,12 @@ describe("POST /api/chat/course — guard", () => {
 });
 ```
 
-- [ ] **Step 2: Run it, expect FAIL**
+- [x] **Step 2: Run it, expect FAIL**
 
 Run: `pnpm vitest run app/api/chat/course/route.integration.test.ts`
 Expected: FAIL — body contains no `guard_blocked` (the guard does not exist yet).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `app/api/chat/course/route.ts`, add the import:
 
@@ -1713,12 +1713,12 @@ In `isStreamEvent.ts`, add to the union and the switch:
 In `useChatStreaming.ts`, handle the new event next to the existing `"error"` branch, surfacing
 `parsed.message` via the same toast mechanism and ending the stream.
 
-- [ ] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
+- [x] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
 
 Run: `pnpm vitest run app/api/chat/course/route.integration.test.ts`
 Expected: PASS, 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/chat/course/route.ts app/_components/Course/components/AIChatBuilderDialog/ app/api/chat/course/route.integration.test.ts
@@ -1747,7 +1747,7 @@ git commit -m "feat(courseAI): guard chat input at the route before any model ca
 
 Covers spec AC-4 and AC-5, plus spec delta 4 (blocked lessonAI turns persist nothing).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // app/api/chat/lesson/route.integration.test.ts
@@ -1827,12 +1827,12 @@ describe("POST /api/chat/lesson — guard", () => {
 > Confirm the Prisma model name for lesson-assistant messages (`testDb.lessonAssistantMessage`)
 > against `prisma/schema/` before running; adjust if it differs.
 
-- [ ] **Step 2: Run it, expect FAIL**
+- [x] **Step 2: Run it, expect FAIL**
 
 Run: `pnpm vitest run app/api/chat/lesson/route.integration.test.ts`
 Expected: FAIL — blocked turn still persists the user row (`expected 0, received 1`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `app/api/chat/lesson/route.ts`, add the import and insert the guard **before** the
 `lessonAssistantRepository.saveMessage` user-row write at line 57:
@@ -1897,12 +1897,12 @@ In `lessonAI.errors.ts`, remove the `OffTopicError` class (lines 5-10). Keep `Le
 
 Add `guard_blocked` handling to `useLessonAssistant.ts` alongside the existing `off_topic` branch.
 
-- [ ] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
+- [x] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
 
 Run: `pnpm vitest run app/api/chat/lesson/route.integration.test.ts && pnpm typecheck`
 Expected: PASS, 4 tests; typecheck clean (proves no dangling `OffTopicError` / `topicGuard` imports).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/api/chat/lesson/route.ts server/services/lessonAI/ app/api/chat/lesson/route.integration.test.ts app/_components/
@@ -1926,7 +1926,7 @@ git commit -m "feat(lessonAI): move guard to the route, retire topicGuard chain 
 Covers spec AC-3 (the FP rate — only measurable against the real classifier) and the behavioral half
 of AC-2. Offline and manual per ADR-018; never in PR CI.
 
-- [ ] **Step 1: Build the dataset**
+- [x] **Step 1: Build the dataset**
 
 Four classes, ~10 rows each. Row shape:
 
@@ -1941,7 +1941,7 @@ Four classes, ~10 rows each. Row shape:
 that a naive keyword matcher would fail: course descriptions about jailbreaking, lesson objectives
 naming injection techniques, and quoted example attacks in an educational frame.
 
-- [ ] **Step 2: Write the eval runner**
+- [x] **Step 2: Write the eval runner**
 
 ```ts
 // evals/aiGuard/adversarial.eval.ts
@@ -2010,13 +2010,13 @@ Register it in `evals/runEvals.ts`:
 	"aiGuard:adversarial": runAdversarialEval,
 ```
 
-- [ ] **Step 3: Run it**
+- [x] **Step 3: Run it**
 
 Run: `pnpm eval aiGuard:adversarial`
 Expected: both gates pass. If the FP gate fails, tighten `patterns.ts` or the L2 prompt — **do not**
 raise `BLOCK_THRESHOLD`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add evals/aiGuard/ evals/datasets/aiGuard/ evals/runEvals.ts
@@ -2038,7 +2038,7 @@ git commit -m "test(aiGuard): add adversarial eval with false-positive gate"
 Covers spec AC-10. Written **last**, once every real call site exists, so it is green on introduction.
 Uses a hand-rolled `node:fs` walk — no glob dependency exists in `package.json`.
 
-- [ ] **Step 1: Write the test**
+- [x] **Step 1: Write the test**
 
 ```ts
 // server/services/_shared/aiGuard/entryPoints.contract.test.ts
@@ -2084,12 +2084,12 @@ describe("aiGuard entry-point coverage (AC-10)", () => {
 });
 ```
 
-- [ ] **Step 2: Run it, expect FAIL**
+- [x] **Step 2: Run it, expect FAIL**
 
 Run: `pnpm vitest run server/services/_shared/aiGuard/entryPoints.contract.test.ts`
 Expected: FAIL — `Failed to resolve import "./entryPoints"`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 // server/services/_shared/aiGuard/entryPoints.ts
@@ -2142,12 +2142,12 @@ export const EXEMPT_MODEL_CALLERS: string[] = [
 > expected outcome, not a substitute for the actual scan. Any file the scan reports that is not in
 > either list is a real unguarded surface: guard it rather than exempting it.
 
-- [ ] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
+- [x] **Step 4: Run it, expect PASS** — then `pnpm typecheck` + `pnpm check` clean.
 
 Run: `pnpm vitest run server/services/_shared/aiGuard/entryPoints.contract.test.ts`
 Expected: PASS, 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/services/_shared/aiGuard/entryPoints.ts server/services/_shared/aiGuard/entryPoints.contract.test.ts
@@ -2165,7 +2165,7 @@ git commit -m "test(aiGuard): fail CI when a new AI surface is added unguarded"
 
 Complex tier ⇒ ADR required (constitution, `documentation-process.md` §7).
 
-- [ ] **Step 1: Correct `spec.md`**
+- [x] **Step 1: Correct `spec.md`**
 
 Apply the six spec deltas from the top of this plan:
 1. Functional scope: replace `learningPathAI/tools/getLessonSummary.tool.ts` with
@@ -2178,7 +2178,7 @@ Apply the six spec deltas from the top of this plan:
 
 Flip frontmatter `status: planned → stable`.
 
-- [ ] **Step 2: Write ADR-022**
+- [x] **Step 2: Write ADR-022**
 
 `docs/adr/022-ai-input-trust-boundary.md`, following the shape of `docs/adr/019-payments.md`. Cover:
 layered defense rationale (why L1 before L2, why L3 stands alone); throw-free core with per-transport
@@ -2186,12 +2186,12 @@ adapters (SSE routes are not tRPC, so ADR-010 does not reach them); persist-noth
 persist-on-off-topic; rejected alternatives (per-flow LLM guard — cost/latency for no coverage L3
 does not already give; external moderation API — not this platform's threat model).
 
-- [ ] **Step 3: Regenerate the index**
+- [x] **Step 3: Regenerate the index**
 
 Run: `pnpm spec:sync`
 Expected: `_index.md` gains an `ai-input-trust-boundary | stable | ai-course-builder, auth` row.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/

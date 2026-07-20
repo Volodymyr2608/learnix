@@ -60,7 +60,7 @@ time by a different (possibly adversarial) actor. Running L1/L2 on that content 
 (it isn't a chat message, it's a lesson body) and would add a model call with no live user to justify
 the latency against. L3 solves a different problem — not "is this text malicious" but "even if this
 text contains instructions, make sure the model cannot execute them" — by construction, at zero
-runtime cost. Concretely, L3 is applied at eight call sites: `courseAI/prompts/systemPrompt.ts` (the
+runtime cost. Concretely, L3 is applied at seven call sites: `courseAI/prompts/systemPrompt.ts` (the
 main system prompt's `currentCourseData`), `courseAI/graph/nodes/chatResponse.ts` (a second inline
 system prompt on the auto-transition branch), `courseAI/tools/validateCurriculumCoherence.ts` (the
 curriculum-coherence judge tool call), `quizAI/tools/getLessonContent.tool.ts`,
