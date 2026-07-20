@@ -26,7 +26,7 @@ export const buildSystemPrompt = ({
       OFFICIAL COURSE DATA (Already approved):
       ${wrapUntrustedContent(JSON.stringify(currentCourseData, null, 2), "course_data")}
 
-      ${UNTRUSTED_DATA_CLAUSE.replace(/<untrusted_data>/g, "&lt;untrusted_data&gt;").replace(/<\/untrusted_data>/g, "&lt;/untrusted_data&gt;")}
+      ${UNTRUSTED_DATA_CLAUSE}
 
       YOUR TASK FOR THE "${step.toUpperCase()}" STEP:
       ${stepInstruction}
