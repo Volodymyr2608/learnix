@@ -2,29 +2,36 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 
 export const buildGetLessonSummaryTool = () =>
 	tool(
 		async ({ lessonId }: { lessonId: string }) => {
 			const insights = await lessonInsightsRepository.findByLessonId(lessonId);
 			if (insights) {
-				return JSON.stringify({
-					summary: insights.summary,
-					concepts: insights.concepts,
-					glossary: insights.glossary,
-				});
+				return wrapUntrustedContent(
+					JSON.stringify({
+						summary: insights.summary,
+						concepts: insights.concepts,
+						glossary: insights.glossary,
+					}),
+					"lesson_summary",
+				);
 			}
 			const lesson = await lessonRepository.findFirst({
 				where: { id: lessonId, deletedAt: null },
 				select: { description: true },
 			});
-			return JSON.stringify({
-				summary:
-					(lesson as { description: string | null } | null)?.description ??
-					null,
-				concepts: [],
-				glossary: [],
-			});
+			return wrapUntrustedContent(
+				JSON.stringify({
+					summary:
+						(lesson as { description: string | null } | null)?.description ??
+						null,
+					concepts: [],
+					glossary: [],
+				}),
+				"lesson_summary",
+			);
 		},
 		{
 			name: "get_lesson_summary",
