@@ -2,6 +2,8 @@ import { tool } from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { CourseAIToolError } from "@/server/services/courseAI/courseAI.errors";
 import { logger } from "@/server/utils/logger";
 
@@ -41,13 +43,10 @@ export const validateCurriculumCoherenceTool = tool(
 			const prompt =
 				`You are an instructional-design reviewer. Judge whether the curriculum below covers all stated objectives and is appropriate for the level.
 
-LEVEL: ${level}
+COURSE DATA (JSON: level, objectives, curriculum sections):
+${wrapUntrustedContent(JSON.stringify({ level, objectives, sections }, null, 2), "course_data")}
 
-OBJECTIVES:
-${objectives.map((o, i) => `${i + 1}. ${o}`).join("\n")}
-
-CURRICULUM (JSON):
-${JSON.stringify(sections, null, 2)}
+${UNTRUSTED_DATA_CLAUSE}
 
 Rules:
 - "passes" is true ONLY if every objective is plausibly covered by at least one lesson AND the sequencing is appropriate for the level.
