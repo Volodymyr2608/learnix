@@ -12,8 +12,10 @@ const REQUIRED_LABELS = ["Purpose:", "Reads:", "Writes:", "Fails:"];
 
 const read = (path: string): string => readFileSync(path, "utf-8");
 
+// `\s*` after the paren matters: Biome wraps a long .addNode( call across lines,
+// and a node the scan cannot see is a node the contract cannot protect.
 const registeredNodes = (source: string): string[] =>
-	[...source.matchAll(/\.addNode\("([^"]+)"/g)].map((m) => m[1] as string);
+	[...source.matchAll(/\.addNode\(\s*"([^"]+)"/g)].map((m) => m[1] as string);
 
 const namedPredicates = (source: string): string[] => [
 	...new Set(
@@ -24,7 +26,7 @@ const namedPredicates = (source: string): string[] => [
 ];
 
 const symbolForNode = (source: string, node: string): string | undefined =>
-	new RegExp(`\\.addNode\\("${node}",\\s*(\\w+)`).exec(source)?.[1];
+	new RegExp(`\\.addNode\\(\\s*"${node}",\\s*(\\w+)`).exec(source)?.[1];
 
 /** The module a symbol is imported from, or undefined when it is declared locally. */
 const importSpecFor = (source: string, symbol: string): string | undefined => {
@@ -43,9 +45,16 @@ const candidateFiles = (file: string): string[] => {
 		.map((entry) => `${dir}/${entry}`);
 };
 
+/**
+ * `(?:(?!\*\/)[\s\S])*` forbids an intervening `*​/`, so the block must be the one
+ * immediately above the export. A lazy `[\s\S]*?` would happily start at an
+ * earlier sibling's comment and let a label-less block borrow its labels — which
+ * is exactly how the two exports in decideStrategy.node.ts could slip through.
+ * `export` is optional: a module-private route predicate is still documentable.
+ */
 const jsDocFor = (file: string, symbol: string): string | undefined => {
 	const match = new RegExp(
-		`/\\*\\*([\\s\\S]*?)\\*/\\s*export\\s+(?:const|async function|function)\\s+${symbol}\\b`,
+		`/\\*\\*((?:(?!\\*/)[\\s\\S])*)\\*/\\s*(?:export\\s+)?(?:const|async function|function)\\s+${symbol}\\b`,
 	).exec(read(file));
 	return match?.[1];
 };
@@ -63,7 +72,12 @@ describe("AI graph contract (ai-flow-contracts)", () => {
 			...namedPredicates(pathSource),
 		];
 
-		const missing = names.filter((name) => !doc.includes(name));
+		// Anchored to the first cell of a table row, not a bare substring: a name
+		// mentioned only inside the mermaid block — or one that is a prefix of
+		// another node's name — must not count as documented.
+		const missing = names.filter(
+			(name) => !new RegExp(`^\\|\\s*\`${name}\``, "m").test(doc),
+		);
 
 		expect(missing).toEqual([]);
 	});

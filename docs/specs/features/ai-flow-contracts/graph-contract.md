@@ -12,7 +12,7 @@ fall behind the code. See [`spec.md`](spec.md) for scope and
 | `classify_intent` | classifies the turn as continue / revise / clarify | `history`, `userMessage`, `currentStep` | `intent`, `reviseTarget` | `routeByIntent` | gpt-4o-mini, structured | swallowed locally → falls back to `continue` |
 | `revise_prior_field` | re-extracts and persists a completed step | `reviseTarget`, `content`, `history`, `userMessage`, `generationId` | `content`, `assistantText` | `chat_response` | gpt-4o-mini, structured | propagates (model + DB update) |
 | `tool_router` | decides whether a tool call is needed | `currentStep`, `content`, `history`, `userMessage`, `messages` | `toolCalls`, `pendingToolCalls`, `messages` | `routeAfterToolRouter` | gpt-4o-mini, tool-bound | propagates |
-| `tool_node` | LangGraph prebuilt `ToolNode`; runs the four course tools | `messages` (last AIMessage), `config.configurable.instructorId` | `messages` (tool results) | `tool_router` | only inside `validateCurriculumCoherence` | tools catch internally and return `{ error }` as output; a hung call has no timeout |
+| `tool_node` | LangGraph prebuilt `ToolNode`; runs the four course tools | `messages` (last AIMessage), `config.configurable.instructorId` | `messages` (tool results) | `tool_router` | two of four: `validateCurriculumCoherence` (gpt-4o-mini) and `searchSimilarCourses` (embeddings) | tools catch internally and return `{ error }` as output; a hung call has no timeout |
 | `chat_response` | streams the reply across four prompt branches | `userMessage`, `currentStep`, `content`, `intent`, `history` | `assistantText` | `assess_completion` | gpt-4o-mini, streaming | propagates; a mid-stream drop loses the partial reply |
 | `assess_completion` | decides ready / not ready / ask | `userMessage`, `intent`, `history` (step-filtered), `currentStep`, `assistantText` | `assessReady`, `assessClarify` | `routeAfterAssess` | gpt-4o-mini, structured | swallowed locally → falls back to `assessReady: false` |
 | `extract_step_data` | extracts step data on a relaxed schema | `currentStep`, `history` (step-filtered), `assistantText`, `userMessage`, `content` | `draftStepData` | `validate` | gpt-4o-mini, structured | propagates (rate limit, parse failure) |
@@ -65,16 +65,18 @@ flowchart TD
 
 | Scenario | System behavior | What the instructor sees | Persisted |
 |---|---|---|---|
-| Confidence `< 0.8` | `routeAfterConfidence` returns `hold`; the graph ends without `persist_and_emit` | the reply, a confidence badge, and an explicit Accept button | nothing until Accept |
-| Validation failure | `validate` writes `validationErrors`; `routeAfterValidate` sends `fail` to `clarify` | a clarifying question naming what is missing — not an error | nothing |
-| Tool call never returns | no timeout exists anywhere on this path; the SSE stream stays open until the client aborts | an indefinite in-progress indicator | nothing — the abort path skips the assistant save |
+| Confidence `< 0.8` | `routeAfterConfidence` returns `hold`; the graph ends without `persist_and_emit` | the reply, a confidence badge, and an explicit Accept button | both chat messages; no step data until Accept |
+| Validation failure | `validate` writes `validationErrors`; `routeAfterValidate` sends `fail` to `clarify` | a clarifying question naming what is missing — not an error | both chat messages; no step data |
+| Tool call never returns | no timeout exists anywhere on this path; the SSE stream stays open until the client aborts | an indefinite in-progress indicator | the user message — the route's `finally` saves it unconditionally, including on abort; no assistant row |
 | Invalid structured output | `withStructuredOutput` throws `OUTPUT_PARSING_FAILURE`; `withNodeErrors` classifies it `FatalNodeError` | "Failed to generate AI response" | the user message only, saved in the route's `finally` |
 | Guard block | the route returns before the graph is entered — see [`../ai-input-trust-boundary/spec.md`](../ai-input-trust-boundary/spec.md) | a neutral refusal | nothing |
 
 A retryable failure (provider timeout, rate limit, 5xx) is the sixth case and behaves as the fourth
 except that the instructor is told to try again and `retryable: true` rides on the `error` event. A
 client abort is not a failure at all: `withNodeErrors` rethrows it untouched and logs nothing, so it
-never enters the failure signal.
+never enters the failure signal. Aborts arrive in two shapes and both are recognised — a real
+`AbortError` from the streaming nodes, and `@langchain/core`'s `ModelAbortError` from every
+`.invoke()` node, since `streamEvents` puts those on the streaming-handler path too.
 
 ## learningPathAI
 

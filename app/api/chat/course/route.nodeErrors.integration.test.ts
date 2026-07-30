@@ -111,6 +111,9 @@ describe("POST /api/chat/course — node failures", () => {
 
 		const body = await readSse(await post());
 
+		// Assert the frame exists first — the absence checks below would pass
+		// vacuously on an empty body.
+		expect(body).toContain('"type":"error"');
 		expect(body).not.toContain("chat_response");
 		expect(body).not.toContain("upstream boom");
 		expect(body).not.toContain("courseAI.graph");

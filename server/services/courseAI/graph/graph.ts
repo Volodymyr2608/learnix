@@ -32,7 +32,7 @@ const allTools = [
  * Writes: nothing — predicates never write state.
  * Fails: cannot fail; any mode other than "finalize" falls through to "chat".
  */
-export const routeByMode = (s: CourseBuilderStateT) =>
+const routeByMode = (s: CourseBuilderStateT) =>
 	s.mode === "finalize" ? "finalize" : "chat";
 
 /**
@@ -41,7 +41,7 @@ export const routeByMode = (s: CourseBuilderStateT) =>
  * Writes: nothing.
  * Fails: cannot fail; a null intent falls through to "continue".
  */
-export const routeByIntent = (s: CourseBuilderStateT) => {
+const routeByIntent = (s: CourseBuilderStateT) => {
 	if (s.intent === "revise") return "revise";
 	if (s.intent === "clarify") return "clarify";
 	return "continue";
@@ -54,7 +54,7 @@ export const routeByIntent = (s: CourseBuilderStateT) => {
  * Writes: nothing.
  * Fails: cannot fail.
  */
-export const routeAfterToolRouter = (s: CourseBuilderStateT) =>
+const routeAfterToolRouter = (s: CourseBuilderStateT) =>
 	s.pendingToolCalls.length > 0 ? "use_tool" : "answer";
 
 /**
@@ -63,7 +63,7 @@ export const routeAfterToolRouter = (s: CourseBuilderStateT) =>
  * Writes: nothing.
  * Fails: cannot fail.
  */
-export const routeAfterAssess = (s: CourseBuilderStateT) => {
+const routeAfterAssess = (s: CourseBuilderStateT) => {
 	if (s.assessReady) return "ready";
 	if (s.assessClarify) return "ask";
 	return "not_ready";
@@ -76,7 +76,7 @@ export const routeAfterAssess = (s: CourseBuilderStateT) => {
  * Fails: cannot fail. "fail" targets clarify, not END — the instructor is asked for the missing
  * detail and nothing is persisted.
  */
-export const routeAfterValidate = (s: CourseBuilderStateT) =>
+const routeAfterValidate = (s: CourseBuilderStateT) =>
 	s.validationErrors === null ? "pass" : "fail";
 
 /**
@@ -85,7 +85,7 @@ export const routeAfterValidate = (s: CourseBuilderStateT) =>
  * Writes: nothing.
  * Fails: cannot fail.
  */
-export const routeAfterConfidence = (s: CourseBuilderStateT) =>
+const routeAfterConfidence = (s: CourseBuilderStateT) =>
 	s.mode === "finalize" || s.shouldAutoAdvance ? "persist" : "hold";
 
 // --- builder ---

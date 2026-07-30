@@ -51,6 +51,21 @@ describe("withNodeErrors", () => {
 		expect(mockLogger.error).not.toHaveBeenCalled();
 	});
 
+	it("rethrows a LangChain ModelAbortError untouched and does not log it", async () => {
+		// streamEvents routes every .invoke() node through the streaming handler, so
+		// this — not a DOMException — is the shape a mid-turn abort actually takes.
+		mockLogger.error.mockClear();
+		const abort = Object.assign(new Error("Model invocation was aborted."), {
+			name: "ModelAbortError",
+		});
+		const node = withNodeErrors("extract_step_data", async () => {
+			throw abort;
+		});
+
+		await expect(node(state)).rejects.toBe(abort);
+		expect(mockLogger.error).not.toHaveBeenCalled();
+	});
+
 	it("logs the node name and the error kind structurally", async () => {
 		mockLogger.error.mockClear();
 		const node = withNodeErrors("extract_step_data", async () => {

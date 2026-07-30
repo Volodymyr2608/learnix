@@ -8,10 +8,16 @@ describe("isStreamEvent — error variant", () => {
 		).toBe(true);
 	});
 
-	it("rejects an error event without the retryable flag", () => {
-		// The flag is required so a stale server can never render as a
-		// permanent failure the client would silently mislabel.
-		expect(isStreamEvent({ type: "error", message: "boom" })).toBe(false);
+	it("still accepts an error event without the flag, rather than dropping it", () => {
+		// A rejected event is skipped by useChatStreaming, so requiring the flag
+		// would turn a stale-server error into complete silence.
+		expect(isStreamEvent({ type: "error", message: "boom" })).toBe(true);
+	});
+
+	it("rejects an error event whose flag is not a boolean", () => {
+		expect(
+			isStreamEvent({ type: "error", message: "boom", retryable: "yes" }),
+		).toBe(false);
 	});
 
 	it("still accepts the events it accepted before", () => {

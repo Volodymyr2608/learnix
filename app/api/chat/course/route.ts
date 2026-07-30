@@ -227,7 +227,10 @@ export async function POST(req: Request) {
 							step: courseGeneration.step,
 						})
 						.catch((err) =>
-							console.error("[Course AI] Failed to save user message", err),
+							logger.error(
+								{ feature: "courseAI", err },
+								"[courseAI] failed to save the user message",
+							),
 						);
 				}
 				abortSignal.removeEventListener("abort", onAbort);
