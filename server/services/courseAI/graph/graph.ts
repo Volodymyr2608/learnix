@@ -26,29 +26,66 @@ const allTools = [
 
 // --- route predicates ---
 
-const routeByMode = (s: CourseBuilderStateT) =>
+/**
+ * Purpose: entry fork — a finalize request skips the conversation and extracts directly.
+ * Reads: mode.
+ * Writes: nothing — predicates never write state.
+ * Fails: cannot fail; any mode other than "finalize" falls through to "chat".
+ */
+export const routeByMode = (s: CourseBuilderStateT) =>
 	s.mode === "finalize" ? "finalize" : "chat";
 
-const routeByIntent = (s: CourseBuilderStateT) => {
+/**
+ * Purpose: routes a classified turn to revision, clarification, or the tool loop.
+ * Reads: intent.
+ * Writes: nothing.
+ * Fails: cannot fail; a null intent falls through to "continue".
+ */
+export const routeByIntent = (s: CourseBuilderStateT) => {
 	if (s.intent === "revise") return "revise";
 	if (s.intent === "clarify") return "clarify";
 	return "continue";
 };
 
-// Use pendingToolCalls (not toolCalls) — toolCalls accumulates, pendingToolCalls is reset each pass
-const routeAfterToolRouter = (s: CourseBuilderStateT) =>
+/**
+ * Purpose: decides whether another tool call is pending or the model can answer.
+ * Reads: pendingToolCalls — deliberately not toolCalls, which accumulates across passes and would
+ * loop forever.
+ * Writes: nothing.
+ * Fails: cannot fail.
+ */
+export const routeAfterToolRouter = (s: CourseBuilderStateT) =>
 	s.pendingToolCalls.length > 0 ? "use_tool" : "answer";
 
-const routeAfterAssess = (s: CourseBuilderStateT) => {
+/**
+ * Purpose: routes on step readiness — extract, ask a clarifying question, or end the turn.
+ * Reads: assessReady, assessClarify.
+ * Writes: nothing.
+ * Fails: cannot fail.
+ */
+export const routeAfterAssess = (s: CourseBuilderStateT) => {
 	if (s.assessReady) return "ready";
 	if (s.assessClarify) return "ask";
 	return "not_ready";
 };
 
-const routeAfterValidate = (s: CourseBuilderStateT) =>
+/**
+ * Purpose: routes on validation outcome.
+ * Reads: validationErrors.
+ * Writes: nothing.
+ * Fails: cannot fail. "fail" targets clarify, not END — the instructor is asked for the missing
+ * detail and nothing is persisted.
+ */
+export const routeAfterValidate = (s: CourseBuilderStateT) =>
 	s.validationErrors === null ? "pass" : "fail";
 
-const routeAfterConfidence = (s: CourseBuilderStateT) =>
+/**
+ * Purpose: decides whether the step commits now or waits for the instructor's Accept.
+ * Reads: mode, shouldAutoAdvance.
+ * Writes: nothing.
+ * Fails: cannot fail.
+ */
+export const routeAfterConfidence = (s: CourseBuilderStateT) =>
 	s.mode === "finalize" || s.shouldAutoAdvance ? "persist" : "hold";
 
 // --- builder ---

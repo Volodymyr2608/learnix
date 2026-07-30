@@ -3,6 +3,14 @@ import { env } from "@/lib/env";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
+/**
+ * Purpose: streams one clarifying question — either the ambiguous-intent question from
+ * assess_completion or a follow-up on a validation failure.
+ * Reads: validationErrors, assessClarify, currentStep, draftStepData, last 4 history entries,
+ * userMessage.
+ * Writes: assistantText.
+ * Fails: propagates — model.stream is unguarded.
+ */
 export const clarify = withNodeErrors(
 	"clarify",
 	async (state: CourseBuilderStateT, config) => {

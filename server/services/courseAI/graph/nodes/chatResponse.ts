@@ -6,6 +6,13 @@ import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors"
 import { STEP_PROMPTS } from "@/server/services/courseAI/prompts/stepPrompts";
 import { buildSystemPrompt } from "@/server/services/courseAI/prompts/systemPrompt";
 
+/**
+ * Purpose: streams the assistant reply, choosing between the auto-transition, revise-confirm,
+ * clarify and normal prompt branches.
+ * Reads: userMessage, currentStep, content, intent, history.
+ * Writes: assistantText (append reducer).
+ * Fails: propagates — model.stream is unguarded; a mid-stream drop loses the partial reply.
+ */
 export const chatResponse = withNodeErrors(
 	"chat_response",
 	async (state, config) => {

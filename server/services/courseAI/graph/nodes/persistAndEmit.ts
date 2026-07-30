@@ -5,6 +5,12 @@ import { courseGenerationMessageRepository } from "@/server/repositories/courseG
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
+/**
+ * Purpose: commits draftStepData and the step-transition message in a single transaction.
+ * Reads: draftStepData, generationId, currentStep.
+ * Writes: nothing to state — the effect is the database write.
+ * Fails: propagates — a database error aborts the transaction, so no partial step is persisted.
+ */
 export const persistAndEmit = withNodeErrors(
 	"persist_and_emit",
 	async (state: CourseBuilderStateT) => {

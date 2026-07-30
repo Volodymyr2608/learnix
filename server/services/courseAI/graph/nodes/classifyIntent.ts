@@ -12,6 +12,13 @@ const outSchema = z.object({
 	reason: z.string(),
 });
 
+/**
+ * Purpose: classifies the current turn as continue / revise / clarify and names the step to revise.
+ * Reads: history, userMessage, currentStep.
+ * Writes: intent, reviseTarget.
+ * Fails: never propagates — a model error is caught locally and falls back to intent "continue",
+ * so a provider outage silently degrades routing instead of surfacing.
+ */
 export const classifyIntent = withNodeErrors(
 	"classify_intent",
 	async (state, config) => {
