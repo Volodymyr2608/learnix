@@ -65,6 +65,14 @@ describe("detectInjection — obfuscation parity (AC-6)", () => {
 		);
 	});
 
+	it("reaches the same verdict for an uppercase-homoglyph payload", () => {
+		// Cyrillic О (U+041E) substituted for Latin O throughout.
+		const obfuscated = plain.toUpperCase().replace(/O/g, "О");
+		expect(detectInjection(obfuscated).verdict).toBe(
+			detectInjection(plain).verdict,
+		);
+	});
+
 	it("reaches the same verdict for a zero-width-obfuscated payload", () => {
 		const obfuscated = plain.replace(/ /g, " ​");
 		expect(detectInjection(obfuscated).verdict).toBe(
