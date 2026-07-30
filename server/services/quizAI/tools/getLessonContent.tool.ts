@@ -1,6 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 
 export const getLessonContentTool = tool(
 	async ({ lessonId }: { lessonId: string }) => {
@@ -13,7 +14,10 @@ export const getLessonContentTool = tool(
 			return "No text content found for this lesson.";
 		}
 
-		return `Title: ${lesson.title}\n\n${lesson.content}`;
+		return wrapUntrustedContent(
+			`Title: ${lesson.title}\n\n${lesson.content}`,
+			"lesson_content",
+		);
 	},
 	{
 		name: "get_lesson_content",

@@ -26,28 +26,65 @@ const allTools = [
 
 // --- route predicates ---
 
+/**
+ * Purpose: entry fork — a finalize request skips the conversation and extracts directly.
+ * Reads: mode.
+ * Writes: nothing — predicates never write state.
+ * Fails: cannot fail; any mode other than "finalize" falls through to "chat".
+ */
 const routeByMode = (s: CourseBuilderStateT) =>
 	s.mode === "finalize" ? "finalize" : "chat";
 
+/**
+ * Purpose: routes a classified turn to revision, clarification, or the tool loop.
+ * Reads: intent.
+ * Writes: nothing.
+ * Fails: cannot fail; a null intent falls through to "continue".
+ */
 const routeByIntent = (s: CourseBuilderStateT) => {
 	if (s.intent === "revise") return "revise";
 	if (s.intent === "clarify") return "clarify";
 	return "continue";
 };
 
-// Use pendingToolCalls (not toolCalls) — toolCalls accumulates, pendingToolCalls is reset each pass
+/**
+ * Purpose: decides whether another tool call is pending or the model can answer.
+ * Reads: pendingToolCalls — deliberately not toolCalls, which accumulates across passes and would
+ * loop forever.
+ * Writes: nothing.
+ * Fails: cannot fail.
+ */
 const routeAfterToolRouter = (s: CourseBuilderStateT) =>
 	s.pendingToolCalls.length > 0 ? "use_tool" : "answer";
 
+/**
+ * Purpose: routes on step readiness — extract, ask a clarifying question, or end the turn.
+ * Reads: assessReady, assessClarify.
+ * Writes: nothing.
+ * Fails: cannot fail.
+ */
 const routeAfterAssess = (s: CourseBuilderStateT) => {
 	if (s.assessReady) return "ready";
 	if (s.assessClarify) return "ask";
 	return "not_ready";
 };
 
+/**
+ * Purpose: routes on validation outcome.
+ * Reads: validationErrors.
+ * Writes: nothing.
+ * Fails: cannot fail. "fail" targets clarify, not END — the instructor is asked for the missing
+ * detail and nothing is persisted.
+ */
 const routeAfterValidate = (s: CourseBuilderStateT) =>
 	s.validationErrors === null ? "pass" : "fail";
 
+/**
+ * Purpose: decides whether the step commits now or waits for the instructor's Accept.
+ * Reads: mode, shouldAutoAdvance.
+ * Writes: nothing.
+ * Fails: cannot fail.
+ */
 const routeAfterConfidence = (s: CourseBuilderStateT) =>
 	s.mode === "finalize" || s.shouldAutoAdvance ? "persist" : "hold";
 

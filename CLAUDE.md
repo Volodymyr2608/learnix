@@ -148,10 +148,18 @@ detailed implementation plan). `requirements.md` and `validation.md` are **not**
 problem/scope into `spec.md`'s Purpose/Functional scope and verification into the plan's per-task
 tests and `## Final verification`.
 
-`docs/specs/_legacy/` holds the pre-2026-06-23 dated spec folders (history only — never read unless
-explicitly asked).
+Features shipped before 2026-06-23 predate this model and have no living spec — their code and tests
+are the record. The retired dated spec folders were deleted on 2026-07-30; if you need one, it is in
+git history, not in the tree.
 
 ### Implementation
+
+**Entry path — the spec-gated command chain (ADR-021).** Standard/complex work runs
+`/spec → /plan → /implement → /qa` (`.claude/commands/`). The gate is structural: `/implement`
+refuses to run without an approved `build/plan.md`, which requires an approved `spec.md` — so specs
+and plans are never backfilled after the code. Trivial/fix work skips the chain (`/spec` detects it
+and routes to `systematic-debugging` + TDD). Standing non-negotiables live in
+[`docs/constitution.md`](docs/constitution.md). Mechanics: [`documentation-process.md`](docs/specs/documentation-process.md) §3c.
 
 **Always produce a detailed, written, approved plan before any implementation code** — for every
 tier above trivial/fix, not just complex. Use the `writing-plans` skill to produce the **detailed

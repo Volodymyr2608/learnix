@@ -1,9 +1,18 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
+import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import { STEP_PROMPTS } from "@/server/services/courseAI/prompts/stepPrompts";
 import { buildSystemPrompt } from "@/server/services/courseAI/prompts/systemPrompt";
 
+/**
+ * Purpose: streams the assistant reply, choosing between the auto-transition, revise-confirm,
+ * clarify and normal prompt branches.
+ * Reads: userMessage, currentStep, content, intent, history.
+ * Writes: assistantText (append reducer).
+ * Fails: propagates — model.stream is unguarded; a mid-stream drop loses the partial reply.
+ */
 export const chatResponse = withNodeErrors(
 	"chat_response",
 	async (state, config) => {
@@ -30,7 +39,9 @@ export const chatResponse = withNodeErrors(
 The previous step was just automatically completed. Now start the "${state.currentStep}" step.
 
 Course data collected so far:
-${JSON.stringify(state.content, null, 2)}
+${wrapUntrustedContent(JSON.stringify(state.content, null, 2), "course_data")}
+
+${UNTRUSTED_DATA_CLAUSE}
 
 YOUR TASK FOR THE "${state.currentStep.toUpperCase()}" STEP:
 ${STEP_PROMPTS[state.currentStep]}

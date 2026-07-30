@@ -13,7 +13,8 @@ export type StreamEvent =
 			confidence: number;
 	  }
 	| { type: "content_revised" }
-	| { type: "error"; message: string }
+	| { type: "error"; message: string; retryable?: boolean }
+	| { type: "guard_blocked"; message: string }
 	| { type: "done" };
 
 export const isStreamEvent = (data: unknown): data is StreamEvent => {
@@ -42,6 +43,15 @@ export const isStreamEvent = (data: unknown): data is StreamEvent => {
 		case "content_revised":
 			return true;
 		case "error":
+			// `retryable` is optional on purpose: rejecting the event when it is
+			// missing would drop the frame entirely (useChatStreaming skips whatever
+			// fails this guard), leaving the instructor with no toast at all — worse
+			// than the generic one. Only the server reads the flag today.
+			return (
+				typeof event.message === "string" &&
+				(event.retryable === undefined || typeof event.retryable === "boolean")
+			);
+		case "guard_blocked":
 			return typeof event.message === "string";
 		case "done":
 			return true;

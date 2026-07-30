@@ -4,6 +4,8 @@ import { env } from "@/lib/env";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
+import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { LearningPathInvalidError } from "../learningPathAI.errors";
 import type { PathState } from "../learningPathAI.state";
 import type { LearningPath, PathStep } from "../schemas/learningPath.schema";
@@ -161,9 +163,14 @@ Rules:
 - REVIEW_LESSON steps must use a lessonId IN completedLessonIds.
 - RETRY_QUIZ steps must include a quizId from failedQuizzes.
 - Each reason must be at least 20 characters and reference the student's actual data.
-- summary must be at least 20 characters describing the overall recommendation.`;
+- summary must be at least 20 characters describing the overall recommendation.
 
-	const humanContent = `Candidate steps: ${JSON.stringify(enrichedCandidates)}
+${UNTRUSTED_DATA_CLAUSE}`;
+
+	const humanContent = `Candidate steps: ${wrapUntrustedContent(
+		JSON.stringify(enrichedCandidates),
+		"path_candidates",
+	)}
 Weak concepts: ${JSON.stringify(state.weakConcepts)}
 Completed lesson IDs: ${JSON.stringify(state.completedLessonIds)}
 Failed quiz IDs: ${JSON.stringify(state.failedQuizzes)}
@@ -177,6 +184,15 @@ Prior reflection feedback: ${state.reflectionFeedback ?? "none"}${
 	];
 }
 
+/**
+ * Purpose: turns candidate steps into the final path plus a summary — deterministically when
+ * skipLLM is set, otherwise via a structured model call re-validated up to 3 times.
+ * Reads: skipLLM, candidateSteps, weakConcepts, lessonOrder, completedLessonIds, failedQuizzes,
+ * reflectionFeedback, studentId (for enrichment lookups).
+ * Writes: finalSteps, generatedWeakConcepts, summary.
+ * Fails: throws LearningPathInvalidError after 3 failed semantic validations; database lookups
+ * during enrichment propagate unguarded.
+ */
 export async function mergeAndExplain(
 	state: PathState,
 ): Promise<Partial<PathState>> {

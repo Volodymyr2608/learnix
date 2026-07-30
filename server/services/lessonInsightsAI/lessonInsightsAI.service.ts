@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Prisma } from "@/generated/prisma";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { traced } from "@/server/services/_shared/tracing";
 import { insightsChain } from "./chains/parallel.chain";
 import {
@@ -35,7 +36,9 @@ class LessonInsightsAIService {
 				const existing = await lessonInsightsRepository.findByLessonId(lId);
 				if (existing?.contentHash === contentHash) return existing;
 
-				const result = await insightsChain.invoke({ content: lesson.content });
+				const result = await insightsChain.invoke({
+					content: wrapUntrustedContent(lesson.content, "lesson_content"),
+				});
 
 				return lessonInsightsRepository.upsertByLessonId(lId, {
 					summary: result.summary.summary,

@@ -63,6 +63,10 @@ export const useChatStreaming = (cb: Callbacks) => {
 					if (parsed.type === "error") {
 						toast.error(parsed.message);
 					}
+					if (parsed.type === "guard_blocked") {
+						toast.error(parsed.message);
+						return;
+					}
 				}
 			}
 		} catch (e) {

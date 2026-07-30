@@ -11,6 +11,13 @@ const outSchema = z.object({
 	rationale: z.string(),
 });
 
+/**
+ * Purpose: scores step completeness 0..1 and sets shouldAutoAdvance against the 0.8 threshold.
+ * Reads: draftStepData, history filtered to currentStep (ADR-016 — unfiltered history suppresses
+ * the score below the threshold), userMessage, assistantText, currentStep, validationErrors.
+ * Writes: confidence, shouldAutoAdvance.
+ * Fails: propagates — unlike classify_intent and assess_completion, this node has no local fallback.
+ */
 export const confidenceScore = withNodeErrors(
 	"confidence_score",
 	async (state: CourseBuilderStateT, config) => {

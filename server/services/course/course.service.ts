@@ -28,7 +28,7 @@ import { CourseError } from "@/server/services/course/course.errors";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { LessonError } from "@/server/services/lesson/lesson.errors";
 import { SectionError } from "@/server/services/section/section.errors";
-import { vercelService } from "@/server/services/versel/vercel.service";
+import { vercelService } from "@/server/services/vercel/vercel.service";
 import { logger } from "@/server/utils/logger";
 
 class CourseService {

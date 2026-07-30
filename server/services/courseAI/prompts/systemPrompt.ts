@@ -1,4 +1,6 @@
 import type { DraftStep } from "@/generated/prisma";
+import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { STEP_PROMPTS } from "./stepPrompts";
 
 type BuildSystemPrompt = {
@@ -22,7 +24,9 @@ export const buildSystemPrompt = ({
       Your ONLY focus now is to complete the ${step} step.
       
       OFFICIAL COURSE DATA (Already approved):
-      ${JSON.stringify(currentCourseData, null, 2)}
+      ${wrapUntrustedContent(JSON.stringify(currentCourseData, null, 2), "course_data")}
+
+      ${UNTRUSTED_DATA_CLAUSE}
 
       YOUR TASK FOR THE "${step.toUpperCase()}" STEP:
       ${stepInstruction}

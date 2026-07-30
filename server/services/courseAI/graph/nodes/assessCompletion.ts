@@ -9,6 +9,13 @@ const outSchema = z.object({
 	question: z.string().optional(),
 });
 
+/**
+ * Purpose: decides whether the current step is ready, not ready, or needs a clarifying question.
+ * Reads: userMessage, intent, history filtered to currentStep, currentStep, assistantText.
+ * Writes: assessReady, assessClarify.
+ * Fails: never propagates — a model error is caught locally and falls back to assessReady false,
+ * which reads to the instructor as "the step isn't complete yet".
+ */
 export const assessCompletion = withNodeErrors(
 	"assess_completion",
 	async (state, config) => {

@@ -5,8 +5,8 @@
 ```
 docs/
 ├── adr/        Architecture Decision Records — why we chose what we chose
-├── specs/      Living feature specs (features/), constitution docs, and _legacy/ history
-└── templates/  feature-spec.md (standard tier) + the 4-file build/ templates (complex tier)
+├── specs/      Living feature specs (features/) + mission, tech-stack, roadmap, process
+└── templates/  feature-spec.md (spec.md) + plan.md (build/plan.md)
 ```
 
 See [`docs/specs/documentation-process.md`](specs/documentation-process.md) for the full process —
@@ -56,16 +56,18 @@ Generated index, not hand-maintained: [`docs/specs/features/_index.md`](specs/fe
 
 ### History
 
-The pre-2026-06-23 dated spec folders (`requirements`/`spec`/`plan`/`validation` per feature) moved
-to [`docs/specs/_legacy/`](specs/_legacy/) verbatim. They're kept for history and are **not** read by
-an agent unless explicitly asked — `features/_index.md` is the live source of navigation.
+Features shipped before 2026-06-23 predate this model and have no living spec — their code and tests
+are the record. The retired dated spec folders (`requirements`/`spec`/`plan`/`validation` per
+feature) were removed from the tree on 2026-07-30 and remain in git history.
+`features/_index.md` is the live source of navigation.
 
 ## Spec templates
 
 - **Standard-tier** features: one living doc from [`docs/templates/feature-spec.md`](templates/feature-spec.md)
   → `docs/specs/features/<slug>/spec.md`.
-- **Complex-tier** features (money, auth/security, new external service, risky migration): the
-  4-file `build/` workflow — see [`docs/templates/README.md`](templates/README.md).
+- **Complex-tier** features (money, auth/security, new external service, risky migration): the same
+  `spec.md` plus a detailed [`build/plan.md`](templates/plan.md) **and** an ADR — see
+  [`docs/templates/README.md`](templates/README.md).
 
 [`docs/specs/documentation-process.md`](specs/documentation-process.md) defines how to decide the
 tier and has worked examples for both; [`CLAUDE.md`](../CLAUDE.md) → Development Workflow has the

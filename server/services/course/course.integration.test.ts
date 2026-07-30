@@ -16,7 +16,7 @@ vi.mock("@/server/services/embeddings/embeddings.service", () => ({
 	},
 }));
 
-vi.mock("@/server/services/versel/vercel.service", () => ({
+vi.mock("@/server/services/vercel/vercel.service", () => ({
 	vercelService: {
 		deleteFileFromVercelStorage: vi.fn().mockResolvedValue({ success: true }),
 		uploadFileToVercelStorage: vi.fn().mockResolvedValue({ url: null }),

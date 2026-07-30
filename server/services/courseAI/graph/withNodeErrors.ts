@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
 import { logger } from "@/server/utils/logger";
+import { classifyNodeError, isNodeAbort } from "./nodeErrors";
 import type { CourseBuilderStateT } from "./state";
 
 type NodeFn = (
@@ -13,8 +13,21 @@ export const withNodeErrors = (name: string, fn: NodeFn): NodeFn => {
 		try {
 			return await fn(state, config);
 		} catch (err) {
-			logger.error(err);
-			throw new CourseAIError(`[courseAI.graph] node "${name}" failed`);
+			// An aborted request is not a failure: rethrow it untouched so it never
+			// enters the failure signal (workstream D counts what is logged here).
+			if (isNodeAbort(err)) throw err;
+
+			const classified = classifyNodeError(err, name);
+			logger.error(
+				{
+					feature: "courseAI",
+					node: name,
+					kind: classified.retryable ? "retryable" : "fatal",
+					err,
+				},
+				"[courseAI.graph] node failed",
+			);
+			throw classified;
 		}
 	};
 };

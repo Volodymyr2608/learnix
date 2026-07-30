@@ -28,6 +28,12 @@ export const toolsForState = (state: CourseBuilderStateT) => {
 	return base;
 };
 
+/**
+ * Purpose: asks a tool-bound model whether a tool call is needed before answering.
+ * Reads: currentStep, content, history, userMessage, messages.
+ * Writes: toolCalls (accumulating reducer), pendingToolCalls (overwritten every pass), messages.
+ * Fails: propagates — model.invoke is unguarded.
+ */
 export const toolRouter = withNodeErrors(
 	"tool_router",
 	async (state, config) => {

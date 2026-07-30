@@ -1,10 +1,13 @@
 import type { DraftStep } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
+import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
+import { RetryableNodeError } from "@/server/services/courseAI/courseAI.errors";
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 import {
 	checkAiRateLimit,
 	validateMessageLength,
 } from "@/server/utils/aiRateLimiter";
+import { logger } from "@/server/utils/logger";
 
 export const runtime = "nodejs";
 
@@ -38,6 +41,38 @@ export async function POST(req: Request) {
 
 	if (userMessage && !validateMessageLength(userMessage)) {
 		return new Response("Message too long", { status: 413 });
+	}
+
+	if (mode === "chat" && userMessage) {
+		const guard = await guardUserInput(userMessage, {
+			feature: "courseAI",
+			userId: session.user.id,
+			domain: {
+				description:
+					"designing an online course: its title, description, learning objectives, requirements, and curriculum",
+				subject: "building your course",
+			},
+		});
+
+		if (guard.outcome !== "allow") {
+			// Returned before getOrCreateCourseGeneration and before the stream is
+			// constructed, so the finally-block that persists the user message is
+			// never reached — no CourseGenerationMessage row is written.
+			const encoder = new TextEncoder();
+			const sse = [
+				`data: ${JSON.stringify({ type: "guard_blocked", message: guard.message })}\n\n`,
+				`data: ${JSON.stringify({ type: "done" })}\n\n`,
+			].join("");
+
+			return new Response(encoder.encode(sse), {
+				headers: {
+					"Content-Type": "text/event-stream; charset=utf-8",
+					"Cache-Control": "no-cache, no-transform",
+					Connection: "keep-alive",
+					"X-Accel-Buffering": "no",
+				},
+			});
+		}
 	}
 
 	const abortSignal = req.signal;
@@ -163,8 +198,22 @@ export async function POST(req: Request) {
 				if (!aborted) send({ type: "done" });
 			} catch (e) {
 				if (!abortSignal.aborted) {
-					console.error("[Course AI stream error]", e);
-					send({ type: "error", message: "Failed to generate AI response" });
+					// Anything not thrown through withNodeErrors — notably a tool-argument
+					// rejection from the unwrapped tool_node — is unclassified and so reads
+					// as non-retryable. That is deliberate: an unknown shape is more likely
+					// a bug than a transient fault.
+					const retryable = e instanceof RetryableNodeError;
+					logger.error(
+						{ feature: "courseAI", retryable, err: e },
+						"[courseAI] stream failed",
+					);
+					send({
+						type: "error",
+						retryable,
+						message: retryable
+							? "The AI service is briefly unavailable — please try again."
+							: "Failed to generate AI response",
+					});
 				}
 			} finally {
 				// Save user message after the graph so state.history never contains
@@ -178,7 +227,10 @@ export async function POST(req: Request) {
 							step: courseGeneration.step,
 						})
 						.catch((err) =>
-							console.error("[Course AI] Failed to save user message", err),
+							logger.error(
+								{ feature: "courseAI", err },
+								"[courseAI] failed to save the user message",
+							),
 						);
 				}
 				abortSignal.removeEventListener("abort", onAbort);

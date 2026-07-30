@@ -6,6 +6,12 @@ import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors"
 import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 
+/**
+ * Purpose: re-extracts a previously completed step from the revision request and persists the merge.
+ * Reads: reviseTarget, content, history filtered to reviseTarget, userMessage, generationId.
+ * Writes: content, assistantText.
+ * Fails: propagates — both the model call and courseGenerationRepository.update are unguarded.
+ */
 export const revisePriorField = withNodeErrors(
 	"revise_prior_field",
 	async (state, config) => {

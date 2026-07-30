@@ -5,6 +5,13 @@ import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors"
 import { extractStepDataPrompt } from "@/server/services/courseAI/prompts/extractStepDataPrompt";
 import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 
+/**
+ * Purpose: extracts structured step data with a relaxed schema — min/max live in validate.ts so
+ * schema constraints do not leak into the model's output.
+ * Reads: currentStep, history filtered to currentStep, assistantText, userMessage, content.
+ * Writes: draftStepData.
+ * Fails: propagates — a rate limit or a structured-output parse failure reaches withNodeErrors.
+ */
 export const extractStepData = withNodeErrors(
 	"extract_step_data",
 	async (state: CourseBuilderStateT, config) => {
