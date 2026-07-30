@@ -119,7 +119,7 @@ Each criterion is phrased to become an eval or unit case directly.
   the output-side counterpart to this input-side boundary; neither replaces the other.
 - Rejected: per-flow LLM guards (a model call on every AI path — cost and latency against no
   additional coverage that L3 doesn't already give) and an external moderation API (toxic-content
-  screening is not this platform's threat model). See `docs/specs/ai-hardening-plan.md` §3.1, §8.
+  screening is not this platform's threat model). See `docs/specs/ai-hardening-plan.md` §5.
 
 ## Out of scope
 

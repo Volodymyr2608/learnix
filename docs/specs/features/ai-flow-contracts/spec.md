@@ -18,7 +18,7 @@ the route turns that into a single generic toast, so a provider timeout, a malfo
 and a programming bug are indistinguishable — in the logs, to support, and to the instructor, who is
 never told whether retrying is worth it. That indistinguishability is also what makes a failure-rate
 metric impossible, which is why this work blocks the observability workstream
-(`ai-hardening-plan.md` §7).
+(`ai-hardening-plan.md` §4).
 
 This feature makes both graphs self-describing and their failures distinguishable.
 
@@ -102,7 +102,7 @@ This feature makes both graphs self-describing and their failures distinguishabl
   failing.
 - **No tool call has a timeout today.** A tool that never returns holds the SSE stream until the
   client aborts. The matrix documents that as the actual behavior; adding a timeout belongs to
-  workstream D (`ai-hardening-plan.md` §8 defers retry/timeout work until metrics exist), not here.
+  workstream D (`ai-hardening-plan.md` §5 defers retry/timeout work until metrics exist), not here.
 - **`decideStrategy.node.ts` exports two symbols** — the `decideStrategy` predicate and
   `setSkipLLMIfEmpty` (registered as the node `setSkipLLM`). JSDoc lookup must key on
   (file, exported symbol), not on file, or one of the two silently goes undocumented while CI passes.
@@ -128,7 +128,7 @@ This feature makes both graphs self-describing and their failures distinguishabl
 
 ## Out of scope
 
-- Retry logic in nodes, and tool-call timeouts — `ai-hardening-plan.md` §8 defers both until
+- Retry logic in nodes, and tool-call timeouts — `ai-hardening-plan.md` §5 defers both until
   workstream D shows what actually flaps.
 - AI metrics, latency budgets, cost and failure-rate tracking — workstream D.
 - `lessonAI`, `quizAI`, `lessonInsightsAI` — chains, not graphs, with no node contract to document.

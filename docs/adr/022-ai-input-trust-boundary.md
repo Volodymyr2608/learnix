@@ -204,7 +204,7 @@ check") is exactly the failure mode that let those two sites go unwrapped for as
   it targets a different threat model. Learnix's exposure here is prompt injection (getting the model
   to ignore its instructions or leak them), not toxic/harmful content generation; a moderation API adds
   a vendor dependency and a new failure/latency surface for a class of problem the layered L1/L2/L3
-  design already solves without it. See `docs/specs/ai-hardening-plan.md` §3.1, §8.
+  design already solves without it. See `docs/specs/ai-hardening-plan.md` §5.
 - **One combined LLM call doing detection + relevance + everything else** — rejected per the L1/L2
   independence rationale above: an attacker who defeats the one model defeats the entire boundary in a
   single move.

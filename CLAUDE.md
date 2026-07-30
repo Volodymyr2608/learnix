@@ -148,8 +148,9 @@ detailed implementation plan). `requirements.md` and `validation.md` are **not**
 problem/scope into `spec.md`'s Purpose/Functional scope and verification into the plan's per-task
 tests and `## Final verification`.
 
-`docs/specs/_legacy/` holds the pre-2026-06-23 dated spec folders (history only — never read unless
-explicitly asked).
+Features shipped before 2026-06-23 predate this model and have no living spec — their code and tests
+are the record. The retired dated spec folders were deleted on 2026-07-30; if you need one, it is in
+git history, not in the tree.
 
 ### Implementation
 

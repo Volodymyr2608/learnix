@@ -37,5 +37,5 @@ If a feature warrants an architectural decision (the three-month test in `docume
 - **One source of truth per fact.** Schemas and behavior live in `spec.md`; rationale for hard
   decisions lives in an ADR, not scattered.
 
-See [`docs/specs/_legacy/2026-06-12-payments/`](../specs/_legacy/2026-06-12-payments/) for a worked
-example of the (now-retired) 4-document flow, kept for history only.
+See [`docs/specs/features/ai-input-trust-boundary/`](../specs/features/ai-input-trust-boundary/) for a
+worked example of the current two-document flow: a living `spec.md` alongside its `build/plan.md`.

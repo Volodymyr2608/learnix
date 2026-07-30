@@ -6,8 +6,9 @@ give AI features a solid foundation to build on. The **Delivered** section track
 
 Legend: ✅ done · 🔄 in progress · ⬜ planned
 
-> **Specs:** current per-feature specs live in [`features/_index.md`](features/_index.md); pre-2026-06-23
-> dated specs are archived under [`_legacy/`](_legacy/) (history only).
+> **Specs:** current per-feature specs live in [`features/_index.md`](features/_index.md). Features
+> shipped before 2026-06-23 have no living spec — the code and its tests are their record; the
+> retired dated spec folders remain in git history.
 
 ---
 
@@ -20,14 +21,14 @@ Legend: ✅ done · 🔄 in progress · ⬜ planned
 - Instructor profile creation (onboarding flow)
 - Email verification + password reset (Better Auth, server-side)
 - Account hub at `/dashboard/settings` (Profile, Password, Email, Notifications, Connected Accounts,
-  Sessions, Danger Zone); change-email, delete-user, account linking — `_legacy/2026-06-11-auth-completion/`
+  Sessions, Danger Zone); change-email, delete-user, account linking
 
 ## Phase 2 — Course authoring ✅
 
 - Course CRUD (title, description, thumbnail, preview video, pricing)
 - Section/lesson management; drag-and-drop curriculum reordering; publish / unpublish
 - Vercel Blob uploads (images ≤ 2 MB, video ≤ 100 MB)
-- Instructor course preview — `_legacy/2026-06-21-instructor-course-preview/`
+- Instructor course preview
 
 ## Phase 3 — AI course builder ✅
 
@@ -42,7 +43,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ planned
 - Enrolled-courses dashboard with live progress; "Continue Learning" → next incomplete lesson
 - Lesson view: video player, rich content, resources; mark complete/incomplete; section/lesson tree
 - Per-skill progress (`skill` router + UI) — [`features/skill-progress/spec.md`](features/skill-progress/spec.md)
-- Student progress page & dashboard stats (real data) — `_legacy/2026-06-17-student-progress-page/`
+- Student progress page & dashboard stats (real data)
 
 ## Phase 5 — Enrollment ✅ · Payments ✅ · Billing ✅
 
@@ -64,35 +65,33 @@ Legend: ✅ done · 🔄 in progress · ⬜ planned
   [`features/semantic-search-recommendations/spec.md`](features/semantic-search-recommendations/spec.md)
 - **Reviews & ratings** — eligibility-gated student submit (`review.create`), aggregated
   `averageRating`/`reviewsCount`, course-card/detail display, instructor reviews dashboard + new-review
-  badge — `_legacy/2026-06-19-student-course-review/`
+  badge
 
 ## Phase 8 — AI learning assistant ✅
 
 - Per-lesson AI tutor for enrolled students (`app/api/chat/lesson/route.ts`, SSE)
 - ReAct agent with tools (retrieve lesson context, search across course, progress, mark concept) +
-  off-topic guardrail; history persisted — `_legacy/2026-05-05-ai-lesson-assistant/`
+  off-topic guardrail; history persisted
 
 ## Phase 9 — AI quiz generation ✅
 
 - **Generate with AI** in the lesson quiz tab; `QuizAIService` agent with read-only tools; 3–5
-  structured questions via `withStructuredOutput`, semantic validation + retries; review-before-save —
-  `_legacy/2026-05-06-ai-quiz-generator/`
+  structured questions via `withStructuredOutput`, semantic validation + retries; review-before-save
 
 ## Phase 10 — Personalized learning path ✅
 
 - AI analyses progress + quiz scores, identifies weak concepts (`ConceptMastery`); `learningPath`
-  graph generates a cached, stale-checked study plan — `_legacy/2026-05-12-personalized-learning-path/`
+  graph generates a cached, stale-checked study plan
 
 ## Phase A — Lesson auto-summary & insights ✅
 
 - AI per-lesson summary, key concepts, glossary (`lessonInsightsAI`, `LessonInsights`); content-hash
-  change detection — `_legacy/2026-05-08-lesson-auto-summary/`
+  change detection
 
 ## Phase B — Lifecycle email & automations ✅
 
 - Transactional email via **Resend + React Email** (ADR-015); **n8n** automations (certificate earned,
-  near-completion, inactivity) with dedup (ADR-014); per-user opt-out honored —
-  `_legacy/2026-05-12-resend-react-email/`, `_legacy/2026-05-12-n8n-lifecycle-automations/`
+  near-completion, inactivity) with dedup (ADR-014); per-user opt-out honored
 
 ## Phase C — Certificates of completion ✅
 
@@ -103,10 +102,8 @@ Legend: ✅ done · 🔄 in progress · ⬜ planned
 ## Phase E — Instructor analytics & dashboards ✅
 
 - Real (non-mock) instructor dashboard + student-management data: enrollment/completion trends, lesson
-  dropout funnel, per-course stats, revenue summary / by-course / time-series — `analytics` router,
-  `_legacy/2026-06-16-instructor-revenue/`, `_legacy/2026-06-19-instructor-analytics/`,
-  `_legacy/2026-06-16-instructor-students-data/`
-- Instructor course search/filters + card stats — `_legacy/2026-06-18-instructor-courses-search-filters/`
+  dropout funnel, per-course stats, revenue summary / by-course / time-series — `analytics` router
+- Instructor course search/filters + card stats
 
 ## Phase F — Messaging ✅
 
@@ -134,7 +131,17 @@ Legend: ✅ done · 🔄 in progress · ⬜ planned
   content; replaces `lessonAI`'s standalone topic guard. Entry-point contract test fails CI on a new
   unguarded AI surface (ADR-022) —
   [`features/ai-input-trust-boundary/spec.md`](features/ai-input-trust-boundary/spec.md)
-- Remaining hardening workstreams (AI-flow documentation, observability, process polish) are tracked in
+## Phase J — AI flow contracts ✅
+
+- Node-by-node contract for both LangGraph flows (11 `courseAI` nodes + 6 route predicates, 7
+  `learningPathAI` nodes + `decideStrategy`): purpose/reads/writes/fails JSDoc at each node, a
+  contract document with a flow diagram and a five-scenario failure matrix, and a contract test that
+  fails CI when a node is added without documentation —
+  [`features/ai-flow-contracts/spec.md`](features/ai-flow-contracts/spec.md)
+- `courseAI` node failures are typed `RetryableNodeError` / `FatalNodeError` by error shape, logged
+  with the node name and kind, and surfaced to the instructor as retryable or not — the precondition
+  for failure-rate metrics
+- Remaining hardening workstreams (observability, spec-process polish) are tracked in
   [`ai-hardening-plan.md`](ai-hardening-plan.md)
 
 ---
@@ -151,8 +158,7 @@ S / M / L. Items marked 🤖 are AI features that reuse existing AI infrastructu
 Consolidates the stubbed "instructor insights agent" with at-risk detection. Flag disengaging students
 (no login > 7d, low quiz completion, < 50% progress), surface the cohort's hardest concepts and
 lessons that need revision, with LLM natural-language summaries + a re-engagement nudge. Reuses
-`analytics` service, `ConceptMastery`, `QuizAttempt`, `notifications` (n8n). Legacy stub:
-`_legacy/2026-05-08-instructor-insights-agent/`.
+`analytics` service, `ConceptMastery`, `QuizAttempt`, `notifications` (n8n).
 
 ### P1.2 — Admin user & role management — *Med-High · M*
 The `app/(admin)/admin` page covers platform revenue + payout sweep only; user/role management UI is
@@ -194,7 +200,7 @@ on them). All reuse existing embeddings / insight-chain / `quizAI` infrastructur
   `ConceptMastery` (no LLM) — *Med · S*
 - **Learning-streak notifications** — contextual nudge when a student is on a streak; reuses badge +
   notification infra — *Med · S*
-- **Lesson rich-text WYSIWYG editor** — *Med · M* — legacy spec: `_legacy/2026-05-09-lesson-rich-text-editor/` ⬜
+- **Lesson rich-text WYSIWYG editor** — *Med · M* ⬜
 - **AI course health audit** 🤖 — periodic LLM report on course completeness, stale resources, weak
   lessons (reuses `lessonInsightsAI` pattern) — *Med · M*
 - **Course versioning / change history** — *Low · L*

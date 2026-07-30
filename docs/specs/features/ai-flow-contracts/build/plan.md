@@ -19,7 +19,7 @@ is protected from rot by a source-parsing contract test, mirroring `entryPoints.
 
 ## Global Constraints
 
-- No retry logic and no tool timeouts — `ai-hardening-plan.md` §8 defers both to workstream D.
+- No retry logic and no tool timeouts — `ai-hardening-plan.md` §5 defers both to workstream D.
 - Typed node errors are `courseAI`-only; `learningPathAI` keeps throwing its domain errors directly.
 - No provider message, node internal, or stack trace may reach the client.
 - Happy-path behavior must not change: routing, the 0.8 auto-advance threshold, `node_start` emission,
