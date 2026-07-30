@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/server/better-auth/server";
-import VercelService from "@/server/services/versel/vercel.service";
+import VercelService from "@/server/services/vercel/vercel.service";
 
 const ALLOWED_MIME_TYPES = new Set([
 	"image/jpeg",
