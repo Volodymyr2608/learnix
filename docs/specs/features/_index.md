@@ -8,7 +8,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 |---|---|---|
 | achievements | stable | progress |
 | ai-course-builder | stable | course |
-| ai-flow-contracts | in-progress | ai-course-builder, ai-input-trust-boundary |
+| ai-flow-contracts | stable | ai-course-builder, ai-input-trust-boundary |
 | ai-input-trust-boundary | stable | ai-course-builder, auth |
 | billing | stable | payments |
 | certificates | stable | enrollment |

@@ -1,6 +1,6 @@
 ---
 feature: ai-flow-contracts
-status: in-progress
+status: stable
 models: []
 depends-on: [ai-course-builder, ai-input-trust-boundary]
 ---
@@ -48,7 +48,8 @@ This feature makes both graphs self-describing and their failures distinguishabl
   message to the client.
 - `app/api/chat/course/route.ts` maps the kind onto the SSE `error` event: `retryable: true` with
   try-again copy, `retryable: false` with the existing generic copy. `StreamEvent` and `isStreamEvent`
-  carry the new field.
+  carry the field as *optional* — the client drops any event failing the guard, so requiring it would
+  turn a stale server's error into silence rather than a generic toast.
 - A contract test (`graph-contract.test.ts`, unit) enforces the document against the code: every node
   registered in `graph.ts` has a row, every route predicate has a row, and every node module has a
   JSDoc block with all four labels. A node added without documentation fails CI.
@@ -66,8 +67,12 @@ This feature makes both graphs self-describing and their failures distinguishabl
   no `CourseGenerationMessage` row.
 - A provider timeout, a rate-limit response, or a network fault raised inside a wrapped node that
   propagates surfaces as `RetryableNodeError`; a structured-output parse failure or a `TypeError`
-  surfaces as `FatalNodeError`. A client abort is never classified as either — it is rethrown
-  unwrapped and unlogged, so aborts do not pollute the failure signal.
+  surfaces as `FatalNodeError`. Classification reads the error's shape — `name`, `constructor.name`,
+  `lc_error_code`, `status` — because the openai SDK assigns none of its classes a `name` and
+  LangChain rewrites the rest before a node sees them.
+- A client abort is never classified as either — it is rethrown unwrapped and unlogged, so aborts do
+  not pollute the failure signal. Both shapes count: a real `AbortError` from the streaming nodes and
+  `@langchain/core`'s `ModelAbortError`, which every `.invoke()` node produces under `streamEvents`.
 - `classify_intent` and `assess_completion` swallow their own model errors and fall back to a default
   verdict, so no error escapes them to classify. The contract table and failure matrix record that
   silent fallback as their documented failure mode; this feature does not change it.
@@ -101,6 +106,11 @@ This feature makes both graphs self-describing and their failures distinguishabl
 - **`decideStrategy.node.ts` exports two symbols** — the `decideStrategy` predicate and
   `setSkipLLMIfEmpty` (registered as the node `setSkipLLM`). JSDoc lookup must key on
   (file, exported symbol), not on file, or one of the two silently goes undocumented while CI passes.
+- **Do not "simplify" the classifier back to `err.name` or `instanceof`.** The openai SDK never sets
+  `this.name`, so a network fault reads as `name: "Error"` with `status: undefined`, and `openai` is
+  not a direct dependency, so its classes cannot be imported for `instanceof` at all. A fixture that
+  fabricates a `name` will make a broken classifier look correct — that is exactly how the first
+  implementation shipped a bug past its own green test.
 - **The four `courseAI` tools never throw** — each catches internally and returns a JSON
   `{ error: "..." }` string. So `tool_node` failures arrive as tool *output*, not exceptions; the only
   realistic exception on that path is LangGraph rejecting the model's tool arguments, which reaches the
