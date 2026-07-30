@@ -6,6 +6,13 @@ import { quizAttemptRepository } from "@/server/repositories/quizAttempt.reposit
 import { CourseUnavailableError } from "../learningPathAI.errors";
 import type { PathState } from "../learningPathAI.state";
 
+/**
+ * Purpose: loads the student's enrollment, lesson order, quiz attempts and mastery for the course.
+ * Reads: studentId, courseId.
+ * Writes: completedLessonIds, lessonOrder, quizAttempts, mastery.
+ * Fails: throws CourseUnavailableError ("BAD_REQUEST") when the student is not enrolled or the
+ * course is deleted or unpublished — the graph stops here and tRPC maps it to a 400.
+ */
 export async function loadStudentSignal(
 	state: PathState,
 ): Promise<Partial<PathState>> {

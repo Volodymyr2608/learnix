@@ -10,6 +10,14 @@ const CriticSchema = z.object({
 	feedback: z.string(),
 });
 
+/**
+ * Purpose: critiques the proposed path and, on rejection, loops back to mergeAndExplain with
+ * feedback — capped at 2 attempts.
+ * Reads: reflectionAttempt, finalSteps, weakConcepts, completedLessonIds.
+ * Writes: reflectionFeedback, reflectionAttempt.
+ * Fails: propagates a model error unguarded — learningPathAI has no withNodeErrors equivalent, so
+ * it surfaces through handleServiceError as a 500.
+ */
 export async function reflectAndCheck(
 	state: PathState,
 ): Promise<Partial<PathState>> {

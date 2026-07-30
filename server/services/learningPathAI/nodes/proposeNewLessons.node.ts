@@ -1,5 +1,11 @@
 import type { DraftStep, PathState } from "../learningPathAI.state";
 
+/**
+ * Purpose: appends up to 3 next-in-sequence NEW_LESSON candidates the student has not completed.
+ * Reads: completedLessonIds, candidateSteps, lessonOrder.
+ * Writes: candidateSteps (appended, not replaced).
+ * Fails: cannot fail.
+ */
 export function proposeNewLessons(state: PathState): Partial<PathState> {
 	const completedSet = new Set(state.completedLessonIds);
 	const existingCandidateSet = new Set(

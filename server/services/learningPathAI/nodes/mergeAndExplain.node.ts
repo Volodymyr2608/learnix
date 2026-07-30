@@ -184,6 +184,15 @@ Prior reflection feedback: ${state.reflectionFeedback ?? "none"}${
 	];
 }
 
+/**
+ * Purpose: turns candidate steps into the final path plus a summary — deterministically when
+ * skipLLM is set, otherwise via a structured model call re-validated up to 3 times.
+ * Reads: skipLLM, candidateSteps, weakConcepts, lessonOrder, completedLessonIds, failedQuizzes,
+ * reflectionFeedback, studentId (for enrichment lookups).
+ * Writes: finalSteps, generatedWeakConcepts, summary.
+ * Fails: throws LearningPathInvalidError after 3 failed semantic validations; database lookups
+ * during enrichment propagate unguarded.
+ */
 export async function mergeAndExplain(
 	state: PathState,
 ): Promise<Partial<PathState>> {

@@ -1,5 +1,11 @@
 import type { DraftStep, PathState } from "../learningPathAI.state";
 
+/**
+ * Purpose: proposes up to 3 REVIEW_LESSON and 2 RETRY_QUIZ candidate steps from the weak signal.
+ * Reads: weakConcepts (first 3), failedQuizzes (first 2).
+ * Writes: candidateSteps.
+ * Fails: cannot fail.
+ */
 export function proposeReviews(state: PathState): Partial<PathState> {
 	const seenLessonIds = new Set<string>();
 

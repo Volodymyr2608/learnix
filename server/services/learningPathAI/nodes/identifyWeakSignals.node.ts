@@ -4,6 +4,12 @@ import type {
 	WeakConceptRow,
 } from "../learningPathAI.state";
 
+/**
+ * Purpose: derives the weak concepts (mastery below 3) and the deduplicated failed quizzes.
+ * Reads: completedLessonIds, mastery, lessonOrder, quizAttempts.
+ * Writes: weakConcepts, failedQuizzes.
+ * Fails: cannot fail — pure computation over already-loaded signal.
+ */
 export function identifyWeakSignals(state: PathState): Partial<PathState> {
 	const completedSet = new Set(state.completedLessonIds);
 	const weakConcepts: WeakConceptRow[] = state.mastery
