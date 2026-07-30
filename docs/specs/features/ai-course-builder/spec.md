@@ -40,6 +40,9 @@ order and drafts each step for review gets a publishable course outline faster t
 
 ## Agent notes
 
+- The node-by-node state contract, the flow diagram and the failure matrix live in
+  [`../ai-flow-contracts/graph-contract.md`](../ai-flow-contracts/graph-contract.md); a contract test
+  fails CI if a node is added without a row there.
 - Run modes: `chat` (entry at `classify_intent`) and `finalize` (entry at `extract_step_data`,
   used to force-extract on demand).
 - Instructor ID is sourced from `RunnableConfig.configurable`, never from LLM input — don't let a tool
