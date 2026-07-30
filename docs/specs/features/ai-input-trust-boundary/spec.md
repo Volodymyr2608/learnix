@@ -52,7 +52,10 @@ is treated as data, never as instructions.
 - A blocked request yields a neutral refusal — it names no matched rule and no triggering layer.
 - Every block is logged structurally (service, layer, verdict, matched rule ids) **without** the
   payload text.
-- `suspect` never blocks on its own; it escalates to L2 and raises a counter.
+- `suspect` never blocks on its own; it escalates to L2 and is logged structurally on the same
+  fields, so the escalation rate stays observable for threshold tuning. A numeric *counter* (as
+  opposed to a log line) needs the metrics wrapper that does not exist yet — deferred to
+  `ai-hardening-plan.md` workstream D, not implemented here.
 
 ## Acceptance criteria
 

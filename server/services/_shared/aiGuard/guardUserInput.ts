@@ -49,6 +49,23 @@ export const guardUserInput = async (
 		};
 	}
 
+	if (l1.verdict === "suspect") {
+		// Escalates rather than blocks (see patterns.ts), but must stay visible:
+		// this is the signal for tuning BLOCK_THRESHOLD and the pattern weights,
+		// and a rising rate is the early sign of someone probing for a bypass.
+		logger.warn(
+			{
+				feature: context.feature,
+				userId: context.userId,
+				layer: "L1",
+				outcome: "suspect",
+				score: l1.score,
+				matchedRuleIds: l1.matchedRuleIds,
+			},
+			"[aiGuard] suspect input escalated to L2",
+		);
+	}
+
 	try {
 		const relevance = await checkTopicRelevance(text, context.domain);
 		if (!relevance.onTopic) {
