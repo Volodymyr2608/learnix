@@ -112,6 +112,11 @@ export function useLessonAssistant(lessonId: string) {
 							if (!last || last.role !== "assistant") return prev;
 							return [...prev.slice(0, -1), { ...last, content: message }];
 						});
+						// Return before the `done` handler below: a blocked turn persists
+						// nothing server-side (by design — see ADR-022), so clearing
+						// liveMessages and refetching history would erase both the refusal
+						// and the student's own message. Mirrors useChatStreaming.
+						return;
 					}
 
 					if (parsed.type === "done") {
