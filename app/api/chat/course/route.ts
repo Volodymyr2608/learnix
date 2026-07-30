@@ -1,11 +1,13 @@
 import type { DraftStep } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
+import { RetryableNodeError } from "@/server/services/courseAI/courseAI.errors";
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 import {
 	checkAiRateLimit,
 	validateMessageLength,
 } from "@/server/utils/aiRateLimiter";
+import { logger } from "@/server/utils/logger";
 
 export const runtime = "nodejs";
 
@@ -196,8 +198,22 @@ export async function POST(req: Request) {
 				if (!aborted) send({ type: "done" });
 			} catch (e) {
 				if (!abortSignal.aborted) {
-					console.error("[Course AI stream error]", e);
-					send({ type: "error", message: "Failed to generate AI response" });
+					// Anything not thrown through withNodeErrors — notably a tool-argument
+					// rejection from the unwrapped tool_node — is unclassified and so reads
+					// as non-retryable. That is deliberate: an unknown shape is more likely
+					// a bug than a transient fault.
+					const retryable = e instanceof RetryableNodeError;
+					logger.error(
+						{ feature: "courseAI", retryable, err: e },
+						"[courseAI] stream failed",
+					);
+					send({
+						type: "error",
+						retryable,
+						message: retryable
+							? "The AI service is briefly unavailable — please try again."
+							: "Failed to generate AI response",
+					});
 				}
 			} finally {
 				// Save user message after the graph so state.history never contains
