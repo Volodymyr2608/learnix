@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
-import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
@@ -44,24 +43,36 @@ export async function POST(req: Request) {
 				sections: { some: { lessons: { some: { id: lessonId } } } },
 			},
 		},
+		select: {
+			courseId: true,
+			course: {
+				select: {
+					title: true,
+					sections: {
+						select: {
+							lessons: {
+								where: { id: lessonId, deletedAt: null },
+								select: { id: true, title: true },
+							},
+						},
+					},
+				},
+			},
+		},
 	});
 	if (!enrollment) {
 		return new Response("Not enrolled", { status: 403 });
 	}
 
-	const lesson = await lessonRepository.findFirst({
-		where: { id: lessonId, deletedAt: null },
-		include: { section: { include: { course: true } } },
-	});
+	// Read out of the row that proved access rather than fetched again by the
+	// request's own id: the query that authorizes and the query that acts are the
+	// same one, so they cannot resolve to different courses.
+	const lesson = enrollment.course.sections.flatMap((s) => s.lessons)[0];
 	if (!lesson) {
 		return new Response("Lesson not found", { status: 404 });
 	}
 
-	const lessonWithSection = lesson as typeof lesson & {
-		section: { courseId: string; course: { title: string } };
-	};
-
-	const courseTitle = lessonWithSection.section.course.title;
+	const courseTitle = enrollment.course.title;
 
 	const guard = await guardUserInput(message, {
 		feature: "lessonAI",
@@ -136,7 +147,7 @@ export async function POST(req: Request) {
 					lessonId,
 					lessonTitle: lesson.title,
 					courseTitle,
-					courseId: lessonWithSection.section.courseId,
+					courseId: enrollment.courseId,
 					studentId: session.user.id,
 					userMessage: message,
 					signal: abortSignal,
