@@ -148,6 +148,21 @@ describe("POST /api/chat/lesson — access control on lessonId", () => {
 		expect(capturedCalls).toEqual([]);
 	});
 
+	// The learning-path route already excluded cancelled enrollments via
+	// findByStudentCourse; this one did not, so a refunded student kept full
+	// tutor access to the course at the platform's model-cost.
+	it("rejects a student whose enrollment was cancelled", async () => {
+		await testDb.enrollment.updateMany({
+			where: { studentId, courseId: ownCourseId },
+			data: { status: "cancelled" },
+		});
+
+		const res = await post(ownLessonId);
+
+		expect(res.status).toBe(403);
+		expect(capturedCalls).toEqual([]);
+	});
+
 	// The branch whose mechanism changed: a soft-deleted lesson used to be a
 	// `findFirst` returning null, and is now an empty array out of the nested
 	// select. Both must still be 404 rather than 403 or 200.

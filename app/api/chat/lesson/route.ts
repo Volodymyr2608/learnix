@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EnrollmentStatus } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
@@ -39,6 +40,9 @@ export async function POST(req: Request) {
 	const enrollment = await enrollmentRepository.findFirst({
 		where: {
 			studentId: session.user.id,
+			// Access must reflect *current* entitlement: an unenrolled or refunded
+			// student keeping tutor access is a paywall bypass at our model-cost.
+			status: { not: EnrollmentStatus.cancelled },
 			course: {
 				sections: { some: { lessons: { some: { id: lessonId } } } },
 			},
