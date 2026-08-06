@@ -37,10 +37,7 @@ export const searchSimilarCoursesTool = tool(
 			// Titles and subtitles written by *other* instructors — the widest
 			// untrusted surface in courseAI, since the author of this text is not
 			// even the person running the generation.
-			return wrapUntrustedContent(
-				JSON.stringify({ results }),
-				"course_data",
-			);
+			return wrapUntrustedContent(JSON.stringify({ results }), "course_data");
 		} catch (err) {
 			logger.error(
 				new CourseAIToolError(`search_similar_courses: ${String(err)}`),

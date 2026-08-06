@@ -125,17 +125,19 @@ untrusted-content channels into the model context (Д1/Д3, tracked against
 - `z.cuid()` is a format check, not an id validator — `"ccccccccc"` passes. That is sufficient here:
   the property being bought is "this is a string, not a Prisma filter object", not "this id exists".
 
-**Known gaps, deliberately not closed here** (both confirmed by the `/qa` security audit):
+**Gaps found by the `/qa` security audit, both since closed** (kept here because the reasoning is
+the durable part):
 
-- **Cancelled enrollments still grant lesson-AI access.** The lesson route's enrollment check filters
-  no `status`, while `enrollmentRepository.findByStudentCourse` (used by learning-path) excludes
-  `cancelled`. A student who unenrolled or was refunded keeps full tutor access to that course's
-  content, at the platform's OpenAI cost. Severity Medium — a paywall bypass, not a cross-tenant
-  leak, since the content is from a course they did once pay for. Closing it is a user-visible
-  behavior change and needs its own spec line.
-- **`learningPathAI/tools/getLessonSummary.tool.ts` takes `lessonId` as an LLM-settable argument
-  with no ownership scoping at all** — unlike every other tool on this surface, which binds ids by
-  closure. It is dead code today (no call sites, and the learning-path graph has no tool-calling
-  node), so it is not reachable; wiring it up without adding a course scope would be an immediate
-  cross-course content leak. Its sibling `getQuizAttemptHistory.tool.ts` has the milder version of
-  the same shape (`studentId` is closure-bound, `lessonId` is not).
+- **Cancelled enrollments granted lesson-AI access.** The lesson route's enrollment check filtered no
+  `status`, while `enrollmentRepository.findByStudentCourse` (used by learning-path) excluded
+  `cancelled`, so a refunded or unenrolled student kept full tutor access at the platform's model
+  cost — a paywall bypass rather than a cross-tenant leak, since the content came from a course they
+  did once pay for. Closed by adding `status: { not: cancelled }`; `completed` still grants access,
+  and both branches are tested. Authorization must reflect *current* entitlement, not the fact that
+  a row exists.
+- **`learningPathAI/tools/getLessonSummary.tool.ts` took `lessonId` as an LLM-settable argument with
+  no ownership scoping at all**, and its sibling `getQuizAttemptHistory.tool.ts` had the milder
+  version of the same shape. Both were dead code, so neither was reachable — and both were deleted
+  rather than left in the tree, since dead code that becomes an IDOR the moment someone wires it to
+  an agent is worse than no code. The invariant they violated is now enforced for every tool by
+  `server/services/toolArguments.contract.test.ts` (see `ai-input-trust-boundary`).

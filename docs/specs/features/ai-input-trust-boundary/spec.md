@@ -1,6 +1,6 @@
 ---
 feature: ai-input-trust-boundary
-status: in-progress
+status: stable
 models: []
 depends-on: [ai-course-builder, auth]
 ---
@@ -42,7 +42,13 @@ is treated as data, never as instructions.
   (a second, inline system prompt used on the auto-transition branch that bypasses
   `buildSystemPrompt` entirely and must be wrapped separately),
   `courseAI/tools/validateCurriculumCoherence.ts` (the curriculum-coherence "judge" tool call, wraps
-  `{sections, objectives, level}` as `course_data`), `quizAI/tools/getLessonContent.tool.ts`, the
+  `{sections, objectives, level}` as `course_data`), `courseAI/tools/searchSimilarCourses.ts` (course
+  copy written by **other** instructors — the widest untrusted surface in `courseAI`, since its author
+  is not even the person running the generation) and `courseAI/tools/fetchInstructorPriorCourses.ts`,
+  `lessonAI/tools/getStudentProgress.tool.ts` (completed-lesson titles),
+  `quizAI/tools/getExistingQuizzes.tool.ts` and `quizAI/quizAI.agent.ts` (`Course.level` is
+  `z.string()`, not an enum, so it is free text landing in a system prompt),
+  `quizAI/tools/getLessonContent.tool.ts`, the
   three `lessonInsightsAI` chains, `learningPathAI/nodes/mergeAndExplain.node.ts` (wraps
   `enrichedCandidates` as `path_candidates` — this is the live learningPathAI injection surface), and
   `learningPathAI/nodes/reflectAndCheck.node.ts` (wraps
@@ -171,6 +177,14 @@ Each criterion is phrased to become an eval or unit case directly.
   L2, and L2 is an LLM call; running it over every historical message costs a model call per message
   per turn. L1 is useless here by construction — it already saw this exact text on turn 1 and let it
   through, which is *why* the message reached L2 at all.
+- **A wrapped string must never be the replacement argument of `String.replace`.** This is the one
+  invariant that is invisible at the call site, and review caught it live: `wrapUntrustedContent`
+  escaped a lesson title correctly, then `.replace("{untrustedContext}", ctx)` undid the work, because
+  `$&`, `` $` `` and `$'` are substitution patterns *in the replacement*. `$'` expands to the text
+  after the match — which included `UNTRUSTED_DATA_CLAUSE`'s own literal `</untrusted_data>` — closing
+  the region early and putting the rest of the title in system-prompt position. Use a function
+  replacer (`.replace(token, () => value)`), which disables `$` handling entirely, or build the prompt
+  by concatenation. Escaping is only as good as every string operation that comes after it.
 - **The history fix is not retroactive.** Off-topic rows written before this ships cannot be
   identified after the fact — the guard outcome was never stored — so they default to
   context-eligible. The boundary holds from deployment forward, and old conversations keep whatever
