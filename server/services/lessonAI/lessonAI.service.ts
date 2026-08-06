@@ -26,7 +26,7 @@ export class LessonAIService {
 
 		// Load conversation history and lesson concept list in parallel
 		const [history, lessonInsights] = await Promise.all([
-			lessonAssistantRepository.getMessages(lessonId, studentId),
+			lessonAssistantRepository.getContextMessages(lessonId, studentId),
 			lessonInsightsRepository.findByLessonId(lessonId),
 		]);
 		const lessonConcepts =

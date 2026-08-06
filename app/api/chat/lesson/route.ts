@@ -108,13 +108,18 @@ export async function POST(req: Request) {
 	}
 
 	if (guard.outcome === "off_topic") {
+		// Both rows persist so the refusal survives a reload — but neither returns
+		// to the model. A rejected turn replayed as trusted HumanMessage history
+		// would turn L2's refusal into a delivery mechanism instead of a boundary.
 		await lessonAssistantRepository.saveMessage(lessonId, session.user.id, {
 			role: "user",
 			content: message,
+			contextEligible: false,
 		});
 		await lessonAssistantRepository.saveMessage(lessonId, session.user.id, {
 			role: "assistant",
 			content: guard.message ?? "",
+			contextEligible: false,
 		});
 		return oneShot({ type: "off_topic", message: guard.message });
 	}
