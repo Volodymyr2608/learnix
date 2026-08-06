@@ -49,6 +49,7 @@ export async function POST(req: Request) {
 				select: {
 					title: true,
 					sections: {
+						where: { lessons: { some: { id: lessonId } } },
 						select: {
 							lessons: {
 								where: { id: lessonId, deletedAt: null },

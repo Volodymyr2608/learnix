@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { testDb } from "@/test/db";
 import {
 	makeCourse,
 	makeEnrollment,
@@ -133,29 +134,41 @@ describe("POST /api/chat/lesson — access control on lessonId", () => {
 		]);
 	});
 
-	// The attack: the student knows their own lesson id (it is in their URL) and
-	// asks for "any lesson that is not this one". The enrollment check on line 34
-	// still matches course A — it only asks whether *some* lesson in an enrolled
-	// course satisfies the filter. The fetch on line 46 is unconstrained by
-	// enrollment and can land on course B.
+	// The attack, as it worked before the fix: the student knows their own lesson
+	// id (it is in their URL) and asks for "any lesson that is not this one". The
+	// enrollment check still matched course A — it only asked whether *some*
+	// lesson in an enrolled course satisfied the filter — while the separate
+	// lesson fetch was unconstrained by enrollment and could land on course B.
+	// 400, not merely "not 200": the pre-fix behavior was a 500 thrown out of
+	// saveMessage, which this must not be allowed to regress into.
 	it("rejects a Prisma filter object in place of a lesson id", async () => {
 		const res = await post({ not: ownLessonId });
 
-		expect(res.status).not.toBe(200);
+		expect(res.status).toBe(400);
 		expect(capturedCalls).toEqual([]);
 	});
 
-	// The invariant that replaces the original probe. That probe asserted against
-	// the repositories directly, reproducing the two divergent queries, so no
-	// route-level fix could turn it green — it proved the divergence existed and
-	// its job ended there. What holds now is that the course which authorized the
-	// request is the course the tutor is scoped to, because one query answers both.
-	it("scopes the tutor to the course that authorized the request", async () => {
+	// The branch whose mechanism changed: a soft-deleted lesson used to be a
+	// `findFirst` returning null, and is now an empty array out of the nested
+	// select. Both must still be 404 rather than 403 or 200.
+	it("returns 404 for a soft-deleted lesson in an enrolled course", async () => {
+		await testDb.lesson.update({
+			where: { id: ownLessonId },
+			data: { deletedAt: new Date() },
+		});
+
 		const res = await post(ownLessonId);
 
-		expect(res.status).toBe(200);
-		expect(capturedCalls).toEqual([
-			{ lessonId: ownLessonId, courseId: ownCourseId },
-		]);
+		expect(res.status).toBe(404);
+		expect(capturedCalls).toEqual([]);
 	});
+
+	// No test for "the tutor is scoped to the authorizing course" lives here on
+	// purpose. Once a valid id must be a string, the access check and the fetch
+	// cannot resolve to different courses — a lesson belongs to exactly one
+	// section, which belongs to exactly one course — so no black-box input can
+	// tell a bound route from an unbound one. The control test above observes the
+	// property; what *enforces* it is that route.ts has a single query and no
+	// lessonRepository import. A test asserting it would pass against the
+	// vulnerable code and read as coverage it does not provide.
 });
