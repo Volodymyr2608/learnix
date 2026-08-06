@@ -19,6 +19,9 @@ model LessonAssistantMessage {
   role           String
   content        String   @db.Text
   toolCalls      Json?
+  /// False for turns the guard rejected: they stay in the thread for the UI but
+  /// are never replayed to the model as prior context.
+  contextEligible Boolean @default(true)
   createdAt      DateTime @default(now())
 
   conversation LessonAssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
