@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
@@ -11,6 +12,11 @@ import {
 
 export const runtime = "nodejs";
 
+const LessonChatBodySchema = z.object({
+	lessonId: z.cuid(),
+	message: z.string().min(1),
+});
+
 export async function POST(req: Request) {
 	const session = await getSession();
 	if (!session?.user) {
@@ -21,11 +27,11 @@ export async function POST(req: Request) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
-	const { lessonId, message } = await req.json();
-
-	if (!lessonId || !message) {
+	const parsed = LessonChatBodySchema.safeParse(await req.json());
+	if (!parsed.success) {
 		return new Response("lessonId and message are required", { status: 400 });
 	}
+	const { lessonId, message } = parsed.data;
 
 	if (!validateMessageLength(message)) {
 		return new Response("Message too long", { status: 413 });

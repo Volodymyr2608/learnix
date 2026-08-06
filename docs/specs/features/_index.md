@@ -7,6 +7,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | Feature | Status | Depends on |
 |---|---|---|
 | achievements | stable | progress |
+| ai-chat-route-authorization | in-progress | ai-input-trust-boundary, auth |
 | ai-course-builder | stable | course |
 | ai-flow-contracts | stable | ai-course-builder, ai-input-trust-boundary |
 | ai-input-trust-boundary | stable | ai-course-builder, auth |
