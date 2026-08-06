@@ -12,7 +12,9 @@ const walk = (dir: string): string[] =>
 	readdirSync(dir).flatMap((entry) => {
 		const full = join(dir, entry);
 		if (statSync(full).isDirectory()) return walk(full);
-		return full.endsWith(".tool.ts") && !full.endsWith(".test.ts") ? [full] : [];
+		return full.endsWith(".tool.ts") && !full.endsWith(".test.ts")
+			? [full]
+			: [];
 	});
 
 /**

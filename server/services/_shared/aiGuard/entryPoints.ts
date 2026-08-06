@@ -12,6 +12,14 @@ export const GUARDED_ENTRY_POINTS: string[] = [
 	"server/services/courseAI/tools/validateCurriculumCoherence.ts",
 	"server/services/learningPathAI/nodes/mergeAndExplain.node.ts",
 	"server/services/learningPathAI/nodes/reflectAndCheck.node.ts",
+	// lessonAI: the agent wraps the instructor-authored titles and concept names
+	// it embeds in its own system prompt; the two RAG tools wrap what they return.
+	"server/services/lessonAI/lessonAI.agent.ts",
+	"server/services/lessonAI/tools/retrieveLessonContext.tool.ts",
+	"server/services/lessonAI/tools/searchAcrossCourse.tool.ts",
+	// quizAI: both tools wrap the lesson content and existing questions they read.
+	"server/services/quizAI/tools/getLessonContent.tool.ts",
+	"server/services/quizAI/tools/getExistingQuizzes.tool.ts",
 ];
 
 /**
@@ -34,8 +42,7 @@ export const EXEMPT_MODEL_CALLERS: string[] = [
 	"server/services/lessonInsightsAI/chains/summary.chain.ts",
 	"server/services/lessonInsightsAI/chains/concepts.chain.ts",
 	"server/services/lessonInsightsAI/chains/glossary.chain.ts",
-	// receives lesson content wrapped by quizAI/tools/getLessonContent.tool.ts
+	// receives lesson content and existing questions wrapped by both of its
+	// tools; takes no untrusted text into its own prompt.
 	"server/services/quizAI/quizAI.agent.ts",
-	// receives the user message guarded at app/api/chat/lesson/route.ts
-	"server/services/lessonAI/lessonAI.agent.ts",
 ];

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { testDb } from "@/test/db";
-import { makeCourse, makeLesson, makeSection, makeUser } from "@/test/factories";
+import {
+	makeCourse,
+	makeLesson,
+	makeSection,
+	makeUser,
+} from "@/test/factories";
 import { embeddingRepository } from "./embedding.repository";
 
 const VECTOR = new Array(1536).fill(0.1) as number[];

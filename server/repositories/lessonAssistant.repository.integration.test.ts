@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { makeCourse, makeLesson, makeSection, makeUser } from "@/test/factories";
+import {
+	makeCourse,
+	makeLesson,
+	makeSection,
+	makeUser,
+} from "@/test/factories";
 import { lessonAssistantRepository } from "./lessonAssistant.repository";
 
 describe("lessonAssistantRepository context reads", () => {
