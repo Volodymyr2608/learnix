@@ -1,6 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { embeddingRepository } from "@/server/repositories/embedding.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 
 export const buildSearchAcrossCourseTool = (courseId: string) =>
@@ -14,9 +15,14 @@ export const buildSearchAcrossCourseTool = (courseId: string) =>
 			);
 			if (chunks.length === 0)
 				return "No relevant content found across this course.";
-			return chunks
-				.map((c) => `[Lesson: ${c.lessonTitle}] ${c.content}`)
-				.join("\n\n---\n\n");
+			// The lesson titles in the prefix are instructor-authored too, so the
+			// whole assembled blob goes inside one wrapper — not just the bodies.
+			return wrapUntrustedContent(
+				chunks
+					.map((c) => `[Lesson: ${c.lessonTitle}] ${c.content}`)
+					.join("\n\n---\n\n"),
+				"lesson_content",
+			);
 		},
 		{
 			name: "search_across_course",
