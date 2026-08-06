@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { DraftStep } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
@@ -13,6 +14,12 @@ export const runtime = "nodejs";
 
 type Mode = "chat" | "finalize";
 
+const CourseChatBodySchema = z.object({
+	courseGenerationId: z.cuid().optional(),
+	userMessage: z.string().min(1).optional(),
+	mode: z.enum(["chat", "finalize"]).optional(),
+});
+
 export async function POST(req: Request) {
 	const session = await getSession();
 	if (!session?.user) {
@@ -27,11 +34,11 @@ export async function POST(req: Request) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
-	const body = (await req.json()) as {
-		courseGenerationId?: string;
-		userMessage?: string;
-		mode?: Mode;
-	};
+	const parsedBody = CourseChatBodySchema.safeParse(await req.json());
+	if (!parsedBody.success) {
+		return new Response("Invalid request body", { status: 400 });
+	}
+	const body = parsedBody.data;
 	const { userMessage } = body;
 	const mode: Mode = body.mode === "finalize" ? "finalize" : "chat";
 
