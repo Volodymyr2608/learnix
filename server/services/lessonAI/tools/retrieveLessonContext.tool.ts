@@ -1,6 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { embeddingRepository } from "@/server/repositories/embedding.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 
 export const buildRetrieveLessonContextTool = (lessonId: string) =>
@@ -14,7 +15,12 @@ export const buildRetrieveLessonContextTool = (lessonId: string) =>
 			);
 			if (chunks.length === 0)
 				return "No relevant content found for this lesson.";
-			return chunks.map((c) => c.content).join("\n\n---\n\n");
+			// The sentinel above stays unwrapped on purpose: Learnix authored it,
+			// and wrapping it would tell the model to distrust our own message.
+			return wrapUntrustedContent(
+				chunks.map((c) => c.content).join("\n\n---\n\n"),
+				"lesson_content",
+			);
 		},
 		{
 			name: "retrieve_lesson_context",
