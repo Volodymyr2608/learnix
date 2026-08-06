@@ -17,9 +17,17 @@ export const GUARDED_ENTRY_POINTS: string[] = [
 	"server/services/lessonAI/lessonAI.agent.ts",
 	"server/services/lessonAI/tools/retrieveLessonContext.tool.ts",
 	"server/services/lessonAI/tools/searchAcrossCourse.tool.ts",
-	// quizAI: both tools wrap the lesson content and existing questions they read.
+	// get_student_progress returns completed-lesson titles — instructor free text.
+	"server/services/lessonAI/tools/getStudentProgress.tool.ts",
+	// quizAI: both tools wrap what they read, and the agent wraps `level`, which
+	// is z.string() rather than an enum and so is instructor free text too.
+	"server/services/quizAI/quizAI.agent.ts",
 	"server/services/quizAI/tools/getLessonContent.tool.ts",
 	"server/services/quizAI/tools/getExistingQuizzes.tool.ts",
+	// courseAI tools returning course copy — searchSimilarCourses reads *other*
+	// instructors' titles and subtitles, the widest untrusted surface here.
+	"server/services/courseAI/tools/searchSimilarCourses.ts",
+	"server/services/courseAI/tools/fetchInstructorPriorCourses.ts",
 ];
 
 /**
@@ -42,7 +50,4 @@ export const EXEMPT_MODEL_CALLERS: string[] = [
 	"server/services/lessonInsightsAI/chains/summary.chain.ts",
 	"server/services/lessonInsightsAI/chains/concepts.chain.ts",
 	"server/services/lessonInsightsAI/chains/glossary.chain.ts",
-	// receives lesson content and existing questions wrapped by both of its
-	// tools; takes no untrusted text into its own prompt.
-	"server/services/quizAI/quizAI.agent.ts",
 ];

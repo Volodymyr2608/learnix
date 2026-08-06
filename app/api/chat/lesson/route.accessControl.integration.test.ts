@@ -148,6 +148,19 @@ describe("POST /api/chat/lesson — access control on lessonId", () => {
 		expect(capturedCalls).toEqual([]);
 	});
 
+	// The status filter must exclude cancelled without excluding completed —
+	// finishing a course does not end access to its tutor.
+	it("still allows a student whose enrollment is completed", async () => {
+		await testDb.enrollment.updateMany({
+			where: { studentId, courseId: ownCourseId },
+			data: { status: "completed" },
+		});
+
+		const res = await post(ownLessonId);
+
+		expect(res.status).toBe(200);
+	});
+
 	// The learning-path route already excluded cancelled enrollments via
 	// findByStudentCourse; this one did not, so a refunded student kept full
 	// tutor access to the course at the platform's model-cost.

@@ -2,6 +2,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { embeddingRepository } from "@/server/repositories/embedding.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { CourseAIToolError } from "@/server/services/courseAI/courseAI.errors";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { logger } from "@/server/utils/logger";
@@ -33,7 +34,13 @@ export const searchSimilarCoursesTool = tool(
 				})
 				.filter(Boolean);
 
-			return JSON.stringify({ results });
+			// Titles and subtitles written by *other* instructors — the widest
+			// untrusted surface in courseAI, since the author of this text is not
+			// even the person running the generation.
+			return wrapUntrustedContent(
+				JSON.stringify({ results }),
+				"course_data",
+			);
 		} catch (err) {
 			logger.error(
 				new CourseAIToolError(`search_similar_courses: ${String(err)}`),

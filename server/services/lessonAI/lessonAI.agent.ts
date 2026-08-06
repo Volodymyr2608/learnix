@@ -71,9 +71,14 @@ export function createLessonAgent(params: {
 			buildGetStudentProgressTool(params.studentId, params.courseId),
 			buildMarkConceptUnderstoodTool(params.studentId, params.courseId),
 		],
+		// Function replacers, not plain strings: String.replace treats $&, $` and
+		// $' as substitution patterns *in the replacement*, so a title containing
+		// $' would expand to the text after the match — which includes the
+		// clause's own literal </untrusted_data> — and escape the wrapper into
+		// system-prompt position. A function replacer disables that entirely.
 		systemPrompt: SYSTEM_PROMPT.replace(
 			"{conceptConstraint}",
-			conceptConstraint,
-		).replace("{untrustedContext}", untrustedContext),
+			() => conceptConstraint,
+		).replace("{untrustedContext}", () => untrustedContext),
 	});
 }

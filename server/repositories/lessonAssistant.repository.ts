@@ -45,7 +45,10 @@ class LessonAssistantRepository {
 		// return the OLDEST N, which is the opposite of a recency window.
 		const rows = await db.lessonAssistantMessage.findMany({
 			where: { conversationId: convo.id, contextEligible: true },
-			orderBy: { createdAt: "desc" },
+			// createdAt is timestamp(3), so two rows written in the same millisecond
+			// tie; without the id tiebreaker a user/assistant pair could invert or
+			// a boundary row could flip in and out of the window.
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 			take: limit,
 		});
 		return rows.reverse();
