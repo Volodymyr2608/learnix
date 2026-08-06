@@ -12,7 +12,9 @@ vi.mock("@/server/services/embeddings/embeddings.service", () => ({
 	embeddingsService: { embedQuery: mockEmbedQuery },
 }));
 
-const { buildSearchAcrossCourseTool } = await import("./searchAcrossCourse.tool");
+const { buildSearchAcrossCourseTool } = await import(
+	"./searchAcrossCourse.tool"
+);
 
 describe("search_across_course", () => {
 	beforeEach(() => {
@@ -54,6 +56,8 @@ describe("search_across_course", () => {
 	it("does not wrap the empty-result sentinel", async () => {
 		mockSearchCourseChunks.mockResolvedValue([]);
 
-		expect(await invoke()).toBe("No relevant content found across this course.");
+		expect(await invoke()).toBe(
+			"No relevant content found across this course.",
+		);
 	});
 });
