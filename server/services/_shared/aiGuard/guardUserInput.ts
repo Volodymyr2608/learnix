@@ -1,6 +1,7 @@
 import { logger } from "@/server/utils/logger";
 import { detectInjection } from "./detectInjection";
 import { NEUTRAL_REFUSAL_MESSAGE, offTopicMessage } from "./messages";
+import { logSecurityEvent } from "./securityLog";
 import { checkTopicRelevance } from "./topicRelevance";
 import type { GuardContext, GuardResult } from "./types";
 
@@ -29,17 +30,14 @@ export const guardUserInput = async (
 	const l1 = detectInjection(text);
 
 	if (l1.verdict === "block") {
-		logger.warn(
-			{
-				feature: context.feature,
-				userId: context.userId,
-				layer: "L1",
-				outcome: "blocked",
-				score: l1.score,
-				matchedRuleIds: l1.matchedRuleIds,
-			},
-			"[aiGuard] blocked input",
-		);
+		logSecurityEvent({
+			feature: context.feature,
+			userId: context.userId,
+			layer: "L1",
+			outcome: "guard_blocked",
+			ruleIds: l1.matchedRuleIds,
+			score: l1.score,
+		});
 		return {
 			outcome: "blocked",
 			layer: "L1",
@@ -53,33 +51,27 @@ export const guardUserInput = async (
 		// Escalates rather than blocks (see patterns.ts), but must stay visible:
 		// this is the signal for tuning BLOCK_THRESHOLD and the pattern weights,
 		// and a rising rate is the early sign of someone probing for a bypass.
-		logger.warn(
-			{
-				feature: context.feature,
-				userId: context.userId,
-				layer: "L1",
-				outcome: "suspect",
-				score: l1.score,
-				matchedRuleIds: l1.matchedRuleIds,
-			},
-			"[aiGuard] suspect input escalated to L2",
-		);
+		logSecurityEvent({
+			feature: context.feature,
+			userId: context.userId,
+			layer: "L1",
+			outcome: "guard_suspect",
+			ruleIds: l1.matchedRuleIds,
+			score: l1.score,
+		});
 	}
 
 	try {
 		const relevance = await checkTopicRelevance(text, context.domain);
 		if (!relevance.onTopic) {
-			logger.warn(
-				{
-					feature: context.feature,
-					userId: context.userId,
-					layer: "L2",
-					outcome: "off_topic",
-					score: l1.score,
-					matchedRuleIds: l1.matchedRuleIds,
-				},
-				"[aiGuard] off-topic input",
-			);
+			logSecurityEvent({
+				feature: context.feature,
+				userId: context.userId,
+				layer: "L2",
+				outcome: "guard_off_topic",
+				ruleIds: l1.matchedRuleIds,
+				score: l1.score,
+			});
 			return {
 				outcome: "off_topic",
 				layer: "L2",
@@ -91,7 +83,15 @@ export const guardUserInput = async (
 	} catch (err) {
 		// Fail open: L1 already ran deterministically. Blocking every user during
 		// an OpenAI outage is a worse failure than letting an off-topic question
-		// through for the duration of it.
+		// through. Acceptable ONLY because L1 sits underneath — see threat-model §7.
+		logSecurityEvent({
+			feature: context.feature,
+			userId: context.userId,
+			layer: "L2",
+			outcome: "fallback_triggered",
+			ruleIds: ["l2_unavailable"],
+			score: l1.score,
+		});
 		logger.error(err, "[aiGuard] L2 unavailable — failing open");
 		return ALLOWED;
 	}
