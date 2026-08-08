@@ -69,7 +69,11 @@ export function createLessonAgent(params: {
 			buildRetrieveLessonContextTool(params.lessonId),
 			buildSearchAcrossCourseTool(params.courseId),
 			buildGetStudentProgressTool(params.studentId, params.courseId),
-			buildMarkConceptUnderstoodTool(params.studentId, params.courseId),
+			buildMarkConceptUnderstoodTool(
+				params.studentId,
+				params.courseId,
+				concepts,
+			),
 		],
 		// Function replacers, not plain strings: String.replace treats $&, $` and
 		// $' as substitution patterns *in the replacement*, so a title containing

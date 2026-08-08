@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { ALLOWED_TOOL_NAMES } from "./toolPolicy";
 
 const { mockCreateAgent } = vi.hoisted(() => ({ mockCreateAgent: vi.fn() }));
 
@@ -87,5 +88,14 @@ describe("lessonAI system prompt", () => {
 
 	it("omits the concept constraint when there are no concepts", () => {
 		expect(build()).not.toContain("use ONLY the concept names listed");
+	});
+
+	it("binds exactly the four allowlisted tools", () => {
+		build(); // existing helper: resets the mock and calls createLessonAgent
+
+		const tools = mockCreateAgent.mock.calls[0]?.[0].tools as {
+			name: string;
+		}[];
+		expect(tools.map((tool) => tool.name)).toEqual([...ALLOWED_TOOL_NAMES]);
 	});
 });
