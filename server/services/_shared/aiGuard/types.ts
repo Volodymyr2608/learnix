@@ -35,3 +35,23 @@ export type UntrustedSource =
 	| "course_data"
 	| "lesson_summary"
 	| "path_candidates";
+
+/** Telemetry vocabulary. Separate from GuardOutcome, which drives control flow. */
+export type SecurityLayer = "L1" | "L2" | "tool_policy" | "output_validation";
+
+export type SecurityOutcome =
+	| "guard_blocked"
+	| "guard_off_topic"
+	| "guard_suspect"
+	| "unsafe_tool_call"
+	| "output_validation_failed"
+	| "fallback_triggered";
+
+export type SecurityEvent = {
+	feature: GuardContext["feature"];
+	userId: string;
+	layer: SecurityLayer;
+	outcome: SecurityOutcome;
+	ruleIds: string[];
+	score: number;
+};
