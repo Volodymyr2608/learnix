@@ -128,10 +128,19 @@ class QuizService {
 					});
 
 			// Confirmation by action: conversation can reach level 2, only finishing
-			// every quiz on the lesson reaches 3. Awaited, not fire-and-forget —
-			// unlike markStale below, this is a correctness-critical write.
+			// every quiz on the lesson reaches 3. Awaited so the write is ordered
+			// before the response, but its failure must not fail the submission:
+			// the attempt row above is already committed, so throwing here would
+			// tell the student "failed to submit" for an answer that was recorded,
+			// and their retry would hit AlreadyAttemptedError. Mastery is monotonic
+			// and idempotent, so a missed promotion is recoverable; a bogus 500 on
+			// a correct answer is not.
 			if (isCorrect) {
-				await this.promoteConceptsIfLessonComplete(quiz.lessonId, studentId);
+				try {
+					await this.promoteConceptsIfLessonComplete(quiz.lessonId, studentId);
+				} catch (err) {
+					logger.error("Concept promotion after quiz submit failed:", err);
+				}
 			}
 
 			void lessonRepository
@@ -176,7 +185,7 @@ class QuizService {
 		const quizzes = await quizRepository.findByLesson(lessonId);
 		if (quizzes.length === 0) return;
 
-		const correctCount = await quizAttemptRepository.countCorrectAmong(
+		const correctCount = await quizAttemptRepository.countDistinctCorrectAmong(
 			quizzes.map((quiz) => quiz.id),
 			studentId,
 		);
@@ -190,7 +199,14 @@ class QuizService {
 		if (!courseId) return;
 
 		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
-		const concepts = (insights?.concepts as { name: string }[] | null) ?? [];
+		// LLM-generated JSON with no schema behind it. An entry missing `name`
+		// would reach the NOT NULL `concept` column as undefined.
+		const concepts = (
+			(insights?.concepts as { name?: unknown }[] | null) ?? []
+		).filter(
+			(concept): concept is { name: string } =>
+				typeof concept?.name === "string" && concept.name.length > 0,
+		);
 
 		await Promise.all(
 			concepts.map((concept) =>

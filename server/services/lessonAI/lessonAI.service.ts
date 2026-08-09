@@ -51,10 +51,16 @@ export class LessonAIService {
 			lessonAssistantRepository.getContextMessages(lessonId, studentId),
 			lessonInsightsRepository.findByLessonId(lessonId),
 		]);
-		const lessonConcepts =
-			(lessonInsights?.concepts as { name: string }[] | null)?.map(
-				(c) => c.name,
-			) ?? [];
+		// LLM-generated JSON with no schema behind it, and this becomes the
+		// toolPolicy allowlist — a non-string entry would throw inside the policy's
+		// trim(), turning a denial into an unhandled error.
+		const lessonConcepts = (
+			(lessonInsights?.concepts as { name?: unknown }[] | null) ?? []
+		)
+			.map((concept) => concept?.name)
+			.filter(
+				(name): name is string => typeof name === "string" && name.length > 0,
+			);
 
 		const langchainHistory = history.map((msg) =>
 			msg.role === "user"

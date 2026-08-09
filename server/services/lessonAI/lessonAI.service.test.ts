@@ -6,11 +6,24 @@ const {
 	mockGetContextMessages,
 	mockFindByLessonId,
 	mockStreamEvents,
+	mockValidateReply,
+	mockLogSecurityEvent,
 } = vi.hoisted(() => ({
 	mockSaveMessage: vi.fn().mockResolvedValue({}),
 	mockGetContextMessages: vi.fn().mockResolvedValue([]),
 	mockFindByLessonId: vi.fn().mockResolvedValue(null),
 	mockStreamEvents: vi.fn(),
+	mockValidateReply: vi.fn(),
+	mockLogSecurityEvent: vi.fn(),
+}));
+
+vi.mock("./validateReply", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("./validateReply")>();
+	mockValidateReply.mockImplementation(actual.validateReply);
+	return { validateReply: mockValidateReply };
+});
+vi.mock("@/server/services/_shared/aiGuard/securityLog", () => ({
+	logSecurityEvent: mockLogSecurityEvent,
 }));
 
 vi.mock("@/server/repositories/lessonAssistant.repository", () => ({
@@ -71,6 +84,29 @@ const collect = async (events: unknown[]) => {
 describe("streamResponse output boundary", () => {
 	beforeEach(() => {
 		mockSaveMessage.mockClear();
+		mockLogSecurityEvent.mockClear();
+	});
+
+	// Fail-closed: the spec says "the validator throwing counts as a rejection".
+	// Without this test, someone adding a try/catch inside validateReply turns
+	// the boundary fail-open with every other test still green.
+	it("treats a throwing validator as a rejection", async () => {
+		mockValidateReply.mockImplementationOnce(() => {
+			throw new Error("boom");
+		});
+
+		const events = await collect([tokenEvent("A base case stops recursion.")]);
+
+		const retract = events.find((e) => e.type === "retract");
+		expect(retract?.message).toBe(NEUTRAL_REFUSAL_MESSAGE);
+		expect(mockSaveMessage).not.toHaveBeenCalled();
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				layer: "output_validation",
+				outcome: "output_validation_failed",
+				ruleIds: ["validator_error"],
+			}),
+		);
 	});
 
 	it("persists a clean reply exactly once and never retracts", async () => {

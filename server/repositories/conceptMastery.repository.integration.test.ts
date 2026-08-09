@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { testDb, truncateAll } from "@/test/db";
-import { makeCourse, makeUser } from "@/test/factories";
+import { makeConceptMastery, makeCourse, makeUser } from "@/test/factories";
 
 describe("conceptMasteryRepository.upsertMastery", () => {
 	let studentId: string;
@@ -55,12 +55,14 @@ describe("conceptMasteryRepository.upsertMastery", () => {
 	});
 
 	it("never lowers an existing level", async () => {
-		await conceptMasteryRepository.upsertMastery(
+		// Seeded directly rather than written through the method under test, so a
+		// bug that swallowed BOTH writes could not make this pass.
+		await makeConceptMastery({
 			studentId,
 			courseId,
-			"Recursion",
-			3,
-		);
+			concept: "Recursion",
+			level: 3,
+		});
 		await conceptMasteryRepository.upsertMastery(
 			studentId,
 			courseId,

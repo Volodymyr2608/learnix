@@ -80,7 +80,7 @@ describe("tutor guardrails, end to end", () => {
 		await testDb.$disconnect();
 	});
 
-	it("writes no mastery row when the model obeys an injected SYSTEM NOTE", async () => {
+	it("refuses an off-allowlist level-3 write against a real course", async () => {
 		const { buildMarkConceptUnderstoodTool } = await import(
 			"@/server/services/lessonAI/tools/markConceptUnderstood.tool"
 		);
