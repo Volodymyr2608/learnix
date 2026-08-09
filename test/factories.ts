@@ -82,3 +82,15 @@ export function makeLessonProgress(
 		data: { isCompleted: false, ...overrides },
 	});
 }
+
+export function makeConceptMastery(
+	overrides: Partial<Prisma.ConceptMasteryUncheckedCreateInput> & {
+		studentId: string;
+		courseId: string;
+		concept: string;
+	},
+) {
+	return testDb.conceptMastery.create({
+		data: { level: 0, ...overrides },
+	});
+}
