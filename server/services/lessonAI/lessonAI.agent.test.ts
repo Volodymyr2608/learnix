@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { SYSTEM_PROMPT_LEAK_MARKERS } from "./promptLeakMarkers";
 import { ALLOWED_TOOL_NAMES } from "./toolPolicy";
 
 const { mockCreateAgent } = vi.hoisted(() => ({ mockCreateAgent: vi.fn() }));
@@ -18,9 +19,7 @@ vi.mock("@langchain/openai", () => ({
 	},
 }));
 
-const { createLessonAgent, SYSTEM_PROMPT_LEAK_MARKERS } = await import(
-	"./lessonAI.agent"
-);
+const { createLessonAgent } = await import("./lessonAI.agent");
 
 const build = (over: Partial<Parameters<typeof createLessonAgent>[0]> = {}) => {
 	mockCreateAgent.mockReset().mockReturnValue({});

