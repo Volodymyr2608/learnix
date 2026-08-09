@@ -46,6 +46,14 @@ const foldHomoglyphs = (text: string): string =>
 const foldForMatching = (text: string): string =>
 	foldHomoglyphs(text.normalize("NFKC").replace(ZERO_WIDTH, ""));
 
+/**
+ * Only base64 is decoded, single-pass. ROT13, hex, URL-encoding, leetspeak and
+ * nested/double encodings are deliberately NOT decoded here: L1 is a
+ * deterministic pre-filter, and an encoded payload it misses still faces L2 and
+ * L3, while the model rarely obeys an instruction it had to decode itself. Each
+ * added decoder needs its own printable/false-positive guard and measured
+ * dataset rows to be an honest claim of coverage. See security.md S13 §29.
+ */
 const decodeBase64Segments = (text: string): string[] => {
 	const segments: string[] = [];
 	for (const match of text.matchAll(BASE64_CANDIDATE)) {

@@ -1,6 +1,7 @@
+import { z } from "zod";
+import { EnrollmentStatus } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
-import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
@@ -10,6 +11,11 @@ import {
 } from "@/server/utils/aiRateLimiter";
 
 export const runtime = "nodejs";
+
+const LessonChatBodySchema = z.object({
+	lessonId: z.cuid(),
+	message: z.string().min(1),
+});
 
 export async function POST(req: Request) {
 	const session = await getSession();
@@ -21,11 +27,11 @@ export async function POST(req: Request) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
-	const { lessonId, message } = await req.json();
-
-	if (!lessonId || !message) {
+	const parsed = LessonChatBodySchema.safeParse(await req.json());
+	if (!parsed.success) {
 		return new Response("lessonId and message are required", { status: 400 });
 	}
+	const { lessonId, message } = parsed.data;
 
 	if (!validateMessageLength(message)) {
 		return new Response("Message too long", { status: 413 });
@@ -34,8 +40,28 @@ export async function POST(req: Request) {
 	const enrollment = await enrollmentRepository.findFirst({
 		where: {
 			studentId: session.user.id,
+			// Access must reflect *current* entitlement: an unenrolled or refunded
+			// student keeping tutor access is a paywall bypass at our model-cost.
+			status: { not: EnrollmentStatus.cancelled },
 			course: {
 				sections: { some: { lessons: { some: { id: lessonId } } } },
+			},
+		},
+		select: {
+			courseId: true,
+			course: {
+				select: {
+					title: true,
+					sections: {
+						where: { lessons: { some: { id: lessonId } } },
+						select: {
+							lessons: {
+								where: { id: lessonId, deletedAt: null },
+								select: { id: true, title: true },
+							},
+						},
+					},
+				},
 			},
 		},
 	});
@@ -43,19 +69,15 @@ export async function POST(req: Request) {
 		return new Response("Not enrolled", { status: 403 });
 	}
 
-	const lesson = await lessonRepository.findFirst({
-		where: { id: lessonId, deletedAt: null },
-		include: { section: { include: { course: true } } },
-	});
+	// Read out of the row that proved access rather than fetched again by the
+	// request's own id: the query that authorizes and the query that acts are the
+	// same one, so they cannot resolve to different courses.
+	const lesson = enrollment.course.sections.flatMap((s) => s.lessons)[0];
 	if (!lesson) {
 		return new Response("Lesson not found", { status: 404 });
 	}
 
-	const lessonWithSection = lesson as typeof lesson & {
-		section: { courseId: string; course: { title: string } };
-	};
-
-	const courseTitle = lessonWithSection.section.course.title;
+	const courseTitle = enrollment.course.title;
 
 	const guard = await guardUserInput(message, {
 		feature: "lessonAI",
@@ -90,13 +112,18 @@ export async function POST(req: Request) {
 	}
 
 	if (guard.outcome === "off_topic") {
+		// Both rows persist so the refusal survives a reload — but neither returns
+		// to the model. A rejected turn replayed as trusted HumanMessage history
+		// would turn L2's refusal into a delivery mechanism instead of a boundary.
 		await lessonAssistantRepository.saveMessage(lessonId, session.user.id, {
 			role: "user",
 			content: message,
+			contextEligible: false,
 		});
 		await lessonAssistantRepository.saveMessage(lessonId, session.user.id, {
 			role: "assistant",
 			content: guard.message ?? "",
+			contextEligible: false,
 		});
 		return oneShot({ type: "off_topic", message: guard.message });
 	}
@@ -130,7 +157,7 @@ export async function POST(req: Request) {
 					lessonId,
 					lessonTitle: lesson.title,
 					courseTitle,
-					courseId: lessonWithSection.section.courseId,
+					courseId: enrollment.courseId,
 					studentId: session.user.id,
 					userMessage: message,
 					signal: abortSignal,

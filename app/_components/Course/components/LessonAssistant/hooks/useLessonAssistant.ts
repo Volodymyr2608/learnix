@@ -119,6 +119,19 @@ export function useLessonAssistant(lessonId: string) {
 						return;
 					}
 
+					if (parsed.type === "retract" && parsed.message) {
+						const message = parsed.message;
+						setLiveMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (!last || last.role !== "assistant") return prev;
+							return [...prev.slice(0, -1), { ...last, content: message }];
+						});
+						// The reply failed output validation server-side. Tokens already
+						// arrived, so replace them; nothing was persisted, so do NOT let
+						// the `done` handler refetch history over the top of this message.
+						return;
+					}
+
 					if (parsed.type === "done") {
 						void utils.lessonAssistant.getHistory.invalidate({ lessonId });
 						setLiveMessages([]);

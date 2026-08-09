@@ -22,6 +22,26 @@ class QuizAttemptRepository extends BaseRepository<
 		return this.count({ studentId, isCorrect: true });
 	}
 
+	/**
+	 * Counts DISTINCT quizzes answered correctly, not attempt rows. `QuizAttempt`
+	 * has no unique constraint on (quizId, studentId) and `submit()` does
+	 * read-then-write, so two concurrent submissions of the same quiz — a
+	 * double-click — leave two correct rows. Counting rows would then read as
+	 * "every quiz on the lesson is done" with a quiz still unanswered, and the
+	 * level-3 promotion it gates is irreversible once written.
+	 */
+	async countDistinctCorrectAmong(
+		quizIds: string[],
+		studentId: string,
+	): Promise<number> {
+		const rows = await this.findMany({
+			where: { quizId: { in: quizIds }, studentId, isCorrect: true },
+			distinct: ["quizId"],
+			select: { quizId: true },
+		});
+		return rows.length;
+	}
+
 	async latestPerQuizForStudent(
 		studentId: string,
 		courseId: string,

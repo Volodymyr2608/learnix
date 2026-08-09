@@ -209,6 +209,39 @@ check") is exactly the failure mode that let those two sites go unwrapped for as
   independence rationale above: an attacker who defeats the one model defeats the entire boundary in a
   single move.
 
+## Amendment — 2026-08: coverage completed, and two invariants the original decision left implicit
+
+The decision above did not change; its **coverage** turned out to be incomplete, and closing that gap
+surfaced two rules worth stating outright.
+
+**L3 now applies to every channel, not every service.** The original wrap-site list was drawn up per
+service, and `lessonAI` was exempted on the grounds that its user message is guarded at the route.
+That claim was true and stopped being *complete* when the tutor gained RAG tools: untrusted text
+reaches that agent through five channels — the student's message, the conversation history, tool
+results, the lesson/course titles interpolated into its system prompt, and L2's own scope description,
+which is built from those same titles. A guard on one of five is not a boundary. The same audit found
+`quizAI`, `courseAI`'s search tools, and `get_student_progress` returning database text unwrapped.
+
+**Rule 1 — a wrapped string must never be the replacement argument of `String.replace`.** `$&`,
+`` $` `` and `$'` are substitution patterns *in the replacement*, so `$'` in a lesson title expanded
+to the text after the match — which contained `UNTRUSTED_DATA_CLAUSE`'s own literal
+`</untrusted_data>` — closing the region early and landing attacker text in system-prompt position.
+`wrapUntrustedContent` had escaped it correctly; a later string operation undid the escaping. Use a
+function replacer, or concatenate. **Escaping is only as strong as every string operation after it**,
+and that ordering constraint is invisible at the call site.
+
+**Rule 2 — no tool takes a row identifier as a model argument.** Not "validate the id the model
+supplies" — *do not give the model the ability to name one*. Ids are closure-bound at agent
+construction, which makes "read someone else's row" unspeakable rather than merely blocked. `quizAI`
+violated this live: the service proved the instructor owned lesson X, then handed the agent tools
+that would read any lesson id the model named, with the injection vector being the lesson content
+those tools return.
+
+Both rules are enforced by contract tests (`entryPoints.contract.test.ts`,
+`toolArguments.contract.test.ts`). Both tests verify *registration*, not *completeness* — the same
+limitation that let the original exemption rot. Runtime enumeration of each agent's bound tools and
+assembled prompt is the stronger version if this ever needs to be airtight.
+
 See also: [`docs/specs/features/ai-input-trust-boundary/spec.md`](../specs/features/ai-input-trust-boundary/spec.md)
 for the full functional scope and acceptance criteria, and
 [`docs/specs/ai-hardening-plan.md`](../specs/ai-hardening-plan.md) for the broader hardening

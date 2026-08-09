@@ -7,6 +7,7 @@ import { Bot, Send, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { useLessonAssistant } from "./hooks/useLessonAssistant";
+import { inAppUrlTransform } from "./utils";
 
 export function LessonAssistant({ lessonId }: { lessonId: string }) {
 	const { messages, isLoading, sendMessage, clearHistory, isClearingHistory } =
@@ -70,7 +71,9 @@ export function LessonAssistant({ lessonId }: { lessonId: string }) {
 								>
 									{msg.role === "assistant" ? (
 										<div className="prose prose-sm dark:prose-invert max-w-none">
-											<Markdown>{msg.content}</Markdown>
+											<Markdown urlTransform={inAppUrlTransform}>
+												{msg.content}
+											</Markdown>
 											{msg.isStreaming && (
 												<span className="ml-1 inline-block h-4 w-1 animate-pulse bg-current" />
 											)}

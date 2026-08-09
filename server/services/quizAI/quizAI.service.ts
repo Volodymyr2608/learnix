@@ -62,15 +62,18 @@ class QuizAIService {
 				}
 
 				const level = lesson.section?.course?.level ?? "Intermediate";
-				const agent = await createQuizAgent(n, level, regen);
+				const agent = await createQuizAgent(n, level, regen, lId);
 
 				let hint = "";
 
 				for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 					try {
+						// The lesson id is deliberately absent: the tools are already
+						// bound to it, and naming it here would hand the model an
+						// identifier it has no legitimate use for.
 						const userMessage = hint
-							? `Generate ${n} questions for lesson ${lId}. Important correction from previous attempt: ${hint}`
-							: `Generate ${n} questions for lesson ${lId}.`;
+							? `Generate ${n} questions for this lesson. Important correction from previous attempt: ${hint}`
+							: `Generate ${n} questions for this lesson.`;
 
 						const result = await agent.invoke({
 							messages: [{ role: "user", content: userMessage }],

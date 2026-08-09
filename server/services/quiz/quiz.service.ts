@@ -1,7 +1,9 @@
 import type { Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
+import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { logger } from "@/server/utils/logger";
@@ -125,6 +127,22 @@ class QuizService {
 						isCorrect,
 					});
 
+			// Confirmation by action: conversation can reach level 2, only finishing
+			// every quiz on the lesson reaches 3. Awaited so the write is ordered
+			// before the response, but its failure must not fail the submission:
+			// the attempt row above is already committed, so throwing here would
+			// tell the student "failed to submit" for an answer that was recorded,
+			// and their retry would hit AlreadyAttemptedError. Mastery is monotonic
+			// and idempotent, so a missed promotion is recoverable; a bogus 500 on
+			// a correct answer is not.
+			if (isCorrect) {
+				try {
+					await this.promoteConceptsIfLessonComplete(quiz.lessonId, studentId);
+				} catch (err) {
+					logger.error("Concept promotion after quiz submit failed:", err);
+				}
+			}
+
 			void lessonRepository
 				.findFirst({
 					where: { id: quiz.lessonId, deletedAt: null },
@@ -158,6 +176,48 @@ class QuizService {
 				{ quizId },
 			);
 		}
+	}
+
+	private async promoteConceptsIfLessonComplete(
+		lessonId: string,
+		studentId: string,
+	): Promise<void> {
+		const quizzes = await quizRepository.findByLesson(lessonId);
+		if (quizzes.length === 0) return;
+
+		const correctCount = await quizAttemptRepository.countDistinctCorrectAmong(
+			quizzes.map((quiz) => quiz.id),
+			studentId,
+		);
+		if (correctCount < quizzes.length) return;
+
+		const lesson = await lessonRepository.findFirst({
+			where: { id: lessonId, deletedAt: null },
+			select: { section: { select: { courseId: true } } },
+		});
+		const courseId = lesson?.section?.courseId;
+		if (!courseId) return;
+
+		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
+		// LLM-generated JSON with no schema behind it. An entry missing `name`
+		// would reach the NOT NULL `concept` column as undefined.
+		const concepts = (
+			(insights?.concepts as { name?: unknown }[] | null) ?? []
+		).filter(
+			(concept): concept is { name: string } =>
+				typeof concept?.name === "string" && concept.name.length > 0,
+		);
+
+		await Promise.all(
+			concepts.map((concept) =>
+				conceptMasteryRepository.upsertMastery(
+					studentId,
+					courseId,
+					concept.name,
+					3,
+				),
+			),
+		);
 	}
 
 	async upsertMany(

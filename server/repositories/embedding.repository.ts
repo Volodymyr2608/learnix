@@ -138,7 +138,9 @@ class EmbeddingRepository {
 		return db.$queryRaw<Array<{ content: string; distance: number }>>`
 			SELECT lce.content, lce.embedding <=> ${literal}::vector AS distance
 			FROM lesson_chunk_embeddings lce
+			JOIN lessons l ON l.id = lce."lessonId"
 			WHERE lce."lessonId" = ${lessonId}
+				AND l.deleted_at IS NULL
 			ORDER BY distance ASC
 			LIMIT ${k}
 		`;

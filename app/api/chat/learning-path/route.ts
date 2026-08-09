@@ -1,9 +1,14 @@
+import { z } from "zod";
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { learningPathAIService } from "@/server/services/learningPathAI/learningPathAI.service";
 import { checkAiRateLimit } from "@/server/utils/aiRateLimiter";
 
 export const runtime = "nodejs";
+
+const LearningPathChatBodySchema = z.object({
+	courseId: z.cuid(),
+});
 
 export async function POST(req: Request) {
 	const session = await getSession();
@@ -15,10 +20,11 @@ export async function POST(req: Request) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
-	const { courseId } = await req.json();
-	if (!courseId) {
+	const parsed = LearningPathChatBodySchema.safeParse(await req.json());
+	if (!parsed.success) {
 		return new Response("courseId is required", { status: 400 });
 	}
+	const { courseId } = parsed.data;
 
 	const enrollment = await enrollmentRepository.findByStudentCourse(
 		session.user.id,
@@ -46,9 +52,12 @@ export async function POST(req: Request) {
 			abortSignal.addEventListener("abort", onAbort);
 
 			try {
+				// The enrollment's own courseId, not the request's: downstream reads
+				// like listOrderedWithConcepts scope on courseId alone, so the value
+				// they receive has to be the one that proved access.
 				for await (const event of learningPathAIService.streamRegenerate(
 					session.user.id,
-					courseId,
+					enrollment.courseId,
 				)) {
 					if (abortSignal.aborted) {
 						break;

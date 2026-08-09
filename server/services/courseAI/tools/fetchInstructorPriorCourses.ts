@@ -2,6 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { courseRepository } from "@/server/repositories/course.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { CourseAIToolError } from "@/server/services/courseAI/courseAI.errors";
 import { logger } from "@/server/utils/logger";
 
@@ -33,7 +34,12 @@ export const fetchInstructorPriorCoursesTool = tool(
 					language: true,
 				},
 			});
-			return JSON.stringify({ results: courses });
+			// The instructor's own prior course copy — still text the platform did
+			// not author, and self-injection is a real path here (see quizAI).
+			return wrapUntrustedContent(
+				JSON.stringify({ results: courses }),
+				"course_data",
+			);
 		} catch (err) {
 			logger.error(
 				new CourseAIToolError(`fetch_instructor_prior_courses: ${String(err)}`),
