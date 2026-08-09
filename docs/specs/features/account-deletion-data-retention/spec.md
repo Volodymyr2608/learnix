@@ -1,6 +1,6 @@
 ---
 feature: account-deletion-data-retention
-status: planned
+status: in-progress
 models: [User, Course, Payment, CourseGeneration, Post]
 depends-on: [payments, certificates, messages]
 ---
