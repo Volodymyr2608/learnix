@@ -158,6 +158,13 @@ confirmation by action, not by text. The count is over *distinct* quizzes, becau
 no unique constraint on `(quizId, studentId)` and duplicate rows would otherwise read as a finished
 lesson.
 
+**Requirement.** The system prompt must not *offer* the model a mastery level above
+`CONVERSATION_MAX_LEVEL`. Instructing the model to pick level 3 — as an earlier prompt did — makes it
+attempt a write the policy rejects, manufacturing an `unsafe_tool_call` (a zero-baseline signal, S11)
+on legitimate deep explanations and contradicting the tool's own description. Pinned by
+`lessonAI.agent.test.ts` ("never instructs the model to choose a level above the conversation
+ceiling").
+
 ## S8. Input and output validation rules
 
 **Input.** Every `app/api/chat/**` route validates its body with a Zod schema and binds the
@@ -226,8 +233,8 @@ enforced by the type — `SecurityEvent` has no field to pass them into — not 
 can be forgotten. `securityLog.ts` enumerates the six fields explicitly rather than spreading the
 event object, so an extra field on a caller's object cannot leak through.
 
-Six outcomes are defined: `guard_blocked`, `guard_off_topic`, `guard_suspect`, `unsafe_tool_call`,
-`output_validation_failed`, `fallback_triggered`.
+Seven outcomes are defined: `guard_blocked`, `guard_off_topic`, `guard_suspect`, `unsafe_tool_call`,
+`output_validation_failed`, `mastery_write_retained`, `fallback_triggered`.
 
 **Requirement.** The fail-open path emits a structured `fallback_triggered` event, not only an
 unstructured error — an outage that no detection rule can match is indistinguishable from an outage
@@ -238,14 +245,16 @@ disclosure in S13; it must remain queryable.
 
 ### Thresholds — what each outcome means when it moves
 
-An event is only useful against an expected baseline. Three of the six have a baseline of **zero**,
+An event is only useful against an expected baseline. Four of the seven have a baseline of **zero** or
+near it (`unsafe_tool_call`, `fallback_triggered`, `mastery_write_retained`, `output_validation_failed`),
 which makes them the valuable ones: no statistics are needed to know something is wrong.
 
 | Outcome | Baseline | What to threshold on | What it means |
 |---|---|---|---|
-| `unsafe_tool_call` | **zero** | any occurrence | The model tried to write outside the allowlist or above the ceiling. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. |
+| `unsafe_tool_call` | **zero** | any occurrence | The model tried to write outside the allowlist or above the ceiling. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. The system prompt no longer *offers* a level above the ceiling (it once did — a level-3 selection from ordinary deep explanations manufactured this event on legitimate use; fixed and pinned by `lessonAI.agent.test.ts`), so a ceiling denial now genuinely indicates coercion rather than prompt drift. |
 | `fallback_triggered` | **zero** outside provider incidents | any sustained run | L2 is down and L1 is carrying the boundary alone (S10). Correlate with provider status; if it is not an outage, someone is making L2 fail. |
 | `output_validation_failed` | **near zero** | any occurrence, and the `ruleIds` distribution | Which rule fired names the channel: `system_prompt_echo` is a leak attempt, `off_origin_link` is exfiltration, `verbatim_chunk_echo` is content scraping. |
+| `mastery_write_retained` | **zero** | any occurrence | A turn wrote an educational record *and* had its reply retracted by output validation (S13 §24). The write stands (it passed its own authorization and monotonic upsert cannot be cleanly rolled back), but a turn adversarial enough to be retracted that still touched `ConceptMastery` deserves a human look. `ruleIds` carries which output rule fired. |
 | `guard_blocked` | low, non-zero | rate **per user**, not globally | Global volume tracks how many strangers try things once. One account blocked repeatedly is a person working the problem. |
 | `guard_suspect` | low–moderate | **ratio to `guard_blocked`** | The most informative signal in the taxonomy. Suspect rising while blocked stays flat means payloads are being tuned to sit just under the block score — a person iterating, not a person guessing. |
 | `guard_off_topic` | **high** — it is a product signal | repetition **per user** | Normally noise. But most attacks are stopped here rather than by L1 (S13 §18), so a single account generating off-topic refusals repeatedly deserves the same attention as repeated blocks. |
@@ -432,3 +441,70 @@ L2 is a model call, so these move between runs. Treat them as an order of magnit
 
 22. **The cost of the defence.** L2 is a separate model call on every turn; neither latency nor spend
     has been quantified.
+
+**Named in the independent review, 2026-08-09** — see
+[`../../../tech-review-prep/area-1-independent-review.md`](../../../tech-review-prep/area-1-independent-review.md).
+Finding F1 (the prompt instructing a level above the ceiling) was **fixed**, not accepted — recorded
+in S7 and the S11 threshold table above. The rest are named here as accepted or open.
+
+23. **L1 patterns are English-only, and this is a reviewed, accepted limitation** (F2). Every rule in
+    `patterns.ts` is an English verb+object; homoglyph folding only catches English disguised as
+    Cyrillic, not a native-language injection ("Не зважай на попередні інструкції"). Non-English
+    injection scores 0 at L1, so for those languages the deterministic layer S5 calls the foundation is
+    *absent* — the defence falls to L2 (a fail-open model call) and L3 (measured weak, §3). The 92.6%
+    enforcement recall in the table above is therefore an **English** number, not a general one.
+
+    The gap is **already instrumented, not hidden**: `redteam.jsonl` carries `rt-lang-uk` (technique
+    `multilingual_uk`, a Ukrainian prompt-leak injection) and the legitimate corpus carries Ukrainian
+    rows (`legit-37/39/40`); `redteam.eval.ts` measures `rt-lang-uk` as an uncovered technique and
+    reports it rather than gating on it. So the number that would move if L1 gained Ukrainian coverage
+    already exists.
+
+    **Decision (2026-08-09, after scoping the fix):** keep L1 English-only; do **not** add localised
+    pattern sets now. Rationale: the app has no formal i18n and no declared non-English user base to
+    derive scope from (`app/layout.tsx` is `lang="en"`, no i18n framework); L2 + L3 remain the
+    catch-all for every language; and the exposure is a *fail-open widening for non-English input*, not
+    a new class of attack. A hand-authored multilingual pattern set with wrong weights would risk the
+    ≤5% false-positive target on legitimate Ukrainian requests — a product regression traded for a
+    partial recall gain. **Revisit when** the platform declares supported languages / adds i18n, or
+    when telemetry (once S13 §13 is closed) shows real non-English injection volume. Building it is
+    standard-tier work (localised patterns + per-language recall/FP measurement) with its own spec.
+24. **The mastery write survives reply retraction — now correlated, not silent** (F3). When
+    `validateReply` rejects the assembled reply — a strong adversarial signal — the reply is retracted
+    but a `mark_concept_understood` side effect from the *same turn* stands, because it passed its own
+    authorization and a monotonic upsert cannot be cleanly rolled back. Impact is bounded (allowlisted
+    concept, level ≤ 2) and equal to what social manipulation already achieves through the front door
+    (§5), so deferring the write was judged disproportionate. What the turn now does emit is a
+    `mastery_write_retained` security event (S11) whenever a *committed* write coincides with a
+    retraction — detected by the write tool's output being something other than the neutral refusal,
+    so a call `toolPolicy` denied is never counted as a write. The coupling is now visible rather than
+    silent; the write itself is still not rolled back. `lessonAI.service.test.ts` pins both the fire
+    and the two non-fire cases (denied write; clean reply).
+25. **RAG scope is the whole course, regardless of student progress** (F5). `search_across_course`
+    returns chunks from every lesson, not only those the student has reached. Sound today because
+    enrollment grants full course access — but it rests on that assumption. If sequential/drip
+    unlocking is ever added, the tutor bypasses it; and worked solutions an instructor places in a
+    later lesson body are reachable early (a facet of §9).
+26. **Same-origin output URLs are unconditionally permitted** (F6). `inAppUrlTransform` allows any
+    relative or same-origin destination. A markdown image to a same-origin endpoint that logs query
+    parameters would be a residual zero-click exfiltration channel. No such endpoint is known; the
+    allow-same-origin rule is a standing assumption worth restating, and image `src` could be narrowed
+    to a known asset prefix.
+27. **System-prompt-leak detection is a fixed-phrase substring match** (F7). `SYSTEM_PROMPT_LEAK_MARKERS`
+    is four English phrases; a paraphrased or translated recital of the instructions passes it — the
+    same weakness §8 names for verbatim chunks, applied to the prompt. It is a pre-filter that fires
+    the security event, not a barrier; the real control is putting nothing secret in the prompt, which
+    holds.
+28. **Compound worst case: L2 outage during a non-English injection** (F8). Neither the L2 fail-open
+    (S10) nor the English-only L1 (§23) is critical alone, but their intersection is: during an OpenAI
+    outage L2 fails open, and if that same turn is a non-English injection, no deterministic layer sees
+    it — only L3 wrapping (5/12). In that narrow window the input boundary is effectively absent for a
+    non-English payload. Naming the intersection is stronger than naming either risk alone.
+29. **L1 decodes only base64, single-pass, and this is deliberate** (F4). `normalize.ts` locates and
+    decodes base64 segments (with a printable-ratio guard) before matching, but does *not* decode
+    ROT13, hex, URL-encoding, leetspeak, or nested/double encodings. L1 is a deterministic pre-filter,
+    not the whole boundary: an encoded payload that L1 misses still faces L2 and L3, and the model
+    itself rarely obeys an instruction it had to decode (the indirect measurement in §3 is the closest
+    evidence). Adding decoders is cheap but not free — each needs a false-positive guard and honest
+    dataset rows, or it is a claim of coverage without measurement. Deliberately not added; recorded in
+    `normalize.ts` so the exclusion is a conscious boundary, not an oversight.

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SYSTEM_PROMPT_LEAK_MARKERS } from "./promptLeakMarkers";
-import { ALLOWED_TOOL_NAMES } from "./toolPolicy";
+import { ALLOWED_TOOL_NAMES, CONVERSATION_MAX_LEVEL } from "./toolPolicy";
 
 const { mockCreateAgent } = vi.hoisted(() => ({ mockCreateAgent: vi.fn() }));
 
@@ -89,6 +89,20 @@ describe("lessonAI system prompt", () => {
 
 	it("omits the concept constraint when there are no concepts", () => {
 		expect(build()).not.toContain("use ONLY the concept names listed");
+	});
+
+	// The level-selection guidance must not offer a level the policy rejects as
+	// unsafe. toolPolicy caps conversation at CONVERSATION_MAX_LEVEL and logs
+	// `unsafe_tool_call` — a zero-baseline security signal — on any higher level.
+	// A prompt that instructs "N if ..." for N above the ceiling turns ordinary
+	// deep explanations into spurious security incidents and contradicts the
+	// tool's own description. See area-1-independent-review F1.
+	it("never instructs the model to choose a level above the conversation ceiling", () => {
+		const prompt = build({ lessonConcepts: ["Base case"] });
+
+		for (let level = CONVERSATION_MAX_LEVEL + 1; level <= 3; level++) {
+			expect(prompt).not.toMatch(new RegExp(`\\b${level} if `, "i"));
+		}
 	});
 
 	// A marker that no longer appears in the prompt silently stops protecting

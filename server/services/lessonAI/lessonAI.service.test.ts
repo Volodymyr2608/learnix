@@ -158,4 +158,61 @@ describe("streamResponse output boundary", () => {
 
 		expect(events.some((e) => e.type === "retract")).toBe(true);
 	});
+
+	// F3: retracting the reply leaves the same turn's mastery write in place
+	// (it passed its own authorization and is not coupled to the reply text).
+	// The retract is the strongest signal a turn was adversarial, so the retained
+	// write is flagged for review — without lying about writes that never landed.
+	const recorded = 'Recorded: "Recursion" at level 2 (applied).';
+
+	const markConceptEnd = (output: string) => ({
+		event: "on_tool_end",
+		name: "mark_concept_understood",
+		data: { output },
+	});
+
+	it("flags a committed mastery write retained on a retracted turn", async () => {
+		const events = await collect([
+			markConceptEnd(recorded),
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(events.some((e) => e.type === "retract")).toBe(true);
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				feature: "lessonAI",
+				layer: "output_validation",
+				outcome: "mastery_write_retained",
+			}),
+		);
+	});
+
+	// Discriminating: a mark_concept call that toolPolicy DENIED returns the
+	// neutral refusal and writes nothing, so no write was retained — the flag
+	// must not fire, or the signal claims a write that never happened.
+	it("does not flag when the mastery tool was denied on a retracted turn", async () => {
+		await collect([
+			markConceptEnd(NEUTRAL_REFUSAL_MESSAGE),
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "mastery_write_retained" }),
+		);
+	});
+
+	// Discriminating: a committed write on a CLEAN turn is the normal path —
+	// nothing is retracted and nothing is flagged.
+	it("does not flag a committed mastery write when the reply is clean", async () => {
+		const events = await collect([
+			markConceptEnd(recorded),
+			tokenEvent("A base case stops the recursion."),
+		]);
+
+		expect(events.some((e) => e.type === "retract")).toBe(false);
+		expect(mockSaveMessage).toHaveBeenCalledTimes(1);
+		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "mastery_write_retained" }),
+		);
+	});
 });

@@ -91,6 +91,11 @@ export class LessonAIService {
 		let fullReply = "";
 		const toolCallsSummary: Array<{ tool: string; input: unknown }> = [];
 		const retrievedContent: string[] = [];
+		// Tracks whether a mark_concept_understood call actually committed this
+		// turn (vs. being denied by toolPolicy, which returns the neutral refusal
+		// and writes nothing). Used only to correlate a retained write with a
+		// retracted reply — never to claim a write that never landed.
+		let masteryCommitted = false;
 
 		try {
 			const stream = await tracedStream();
@@ -122,6 +127,15 @@ export class LessonAIService {
 				if (event.event === "on_tool_end") {
 					const text = toolOutputText(event.data?.output);
 					if (text) retrievedContent.push(text);
+					// A commit is any output from the write tool other than the
+					// neutral refusal toolPolicy returns on denial.
+					if (
+						event.name === "mark_concept_understood" &&
+						text !== "" &&
+						text !== NEUTRAL_REFUSAL_MESSAGE
+					) {
+						masteryCommitted = true;
+					}
 				}
 			}
 		} catch (_error) {
@@ -156,7 +170,20 @@ export class LessonAIService {
 			// Retract rather than persist: the tokens already left, but nothing
 			// enters the thread or the model's future context. The mastery write
 			// from this turn (if any) stands — it passed its own authorization
-			// and is not coupled to the reply text.
+			// and is not coupled to the reply text. When one did commit, correlate
+			// the retained side effect with the retraction so a human can review a
+			// turn that was adversarial enough to be retracted yet still wrote to
+			// an educational record (S13 §24).
+			if (masteryCommitted) {
+				logSecurityEvent({
+					feature: "lessonAI",
+					userId: studentId,
+					layer: "output_validation",
+					outcome: "mastery_write_retained",
+					ruleIds: [validation.ruleId],
+					score: 0,
+				});
+			}
 			yield { type: "retract" as const, message: NEUTRAL_REFUSAL_MESSAGE };
 			return;
 		}

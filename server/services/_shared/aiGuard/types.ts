@@ -45,6 +45,11 @@ export type SecurityOutcome =
 	| "guard_suspect"
 	| "unsafe_tool_call"
 	| "output_validation_failed"
+	// A mastery write committed on a turn whose reply was then retracted by
+	// output validation. The write is not rolled back (it passed its own
+	// authorization); this correlates the retained side effect with the
+	// adversarial signal for review. See security.md S7/S13 §24.
+	| "mastery_write_retained"
 	| "fallback_triggered";
 
 export type SecurityEvent = {
