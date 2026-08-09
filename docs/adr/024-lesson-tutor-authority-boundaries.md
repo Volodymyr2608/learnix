@@ -54,11 +54,16 @@ are bound to studentId at the route level, per ADR-023).
 Streaming makes the canonical "validate before display" unreachable — tokens are en route to the
 browser before the full reply is assembled. Three designs were considered:
 
-| Design | TTFT | Tokens leaked (worst case) | Complexity | Chosen |
+| Design | TTFT | Reply text reaching the browser before a verdict | Complexity | Chosen |
 |---|---|---|---|---|
-| **Full buffering** | ~800ms delay | 0 | Trivial | ❌ |
-| **Sliding-window validation** | Live | 100–200 | Medium | ❌ |
-| **Validated before persistence, retracted before completion** | Live | 1–20 | Low | ✅ |
+| **Full buffering** | Delayed by the whole generation | None | Trivial | ❌ |
+| **Sliding-window validation** | Live | Up to one window, per window | Medium | ❌ |
+| **Validated before persistence, retracted before completion** | Live | The entire reply | Low | ✅ |
+
+The chosen design leaks *more* text to the browser than either alternative, not less. It was chosen
+anyway, for the reason set out under "What is actually disclosed" below — the disclosure is to the
+one person who is already the attacker, while the properties worth protecting (persistence and
+re-entry into model context) are fully preserved.
 
 The chosen design:
 
@@ -71,30 +76,35 @@ The chosen design:
    - **Nothing is written to `LessonAssistantMessage`** (persistence is atomic to the decision).
    - An `output_validation_failed` event is logged.
 
-**Why not full buffering.** Accumulating the full response before sending any token defeats the
-primary value of streaming — perceived responsiveness. A ~800ms delay before the first token appears
-is a regressed experience that would drive users to ask simpler questions to get faster answers, which
-works against the tutor's pedagogical goal.
+**Why not full buffering.** Accumulating the whole response before sending any token defeats the
+primary value of streaming — perceived responsiveness. Time-to-first-token would become
+time-to-last-token, so the delay scales with reply length rather than being a fixed cost. This is the
+one option that leaks nothing, and it was still rejected: the tutor is a conversational surface whose
+usefulness depends on feeling responsive.
 
-**Why not sliding-window validation.** A window can catch patterns only after they are complete, so
-a 20-token "dump" of a chunk starts streaming before validation catches it. The window approach also
-adds complexity: deciding window size, handling boundaries, managing state across send cycles. The
-retraction approach is simpler because the decision is binary (accept the whole thing, or reject it)
-and happens at a natural boundary (stream end).
+**Why not sliding-window validation.** It leaks strictly less than what we chose, so it was rejected
+on cost rather than on safety: a window catches a pattern only once the pattern is complete, so it
+still leaks partially, while adding real complexity — window size, patterns straddling boundaries,
+and validator state carried across send cycles. It buys a partial reduction in a disclosure that,
+per below, is not the property we are defending.
 
-**What tokens are leaked.** The worst-case leak is 1–20 tokens already streamed before the tutor
-stops generating (often a natural cutoff when the model says "done"). A retrieval attack could
-potentially craft a query to extract an off-origin URL once the prefix has streamed. This is accepted
-because:
+**What is actually disclosed.** The entire reply reaches the browser before any verdict exists. That
+is the honest statement, and it is the cost of the design. It is accepted because the boundary is not
+trying to keep the reply from the student who asked for it:
 
-1. The attack requires the model to generate an URL in the first place (the model has no incentive to
-   leak a data source it was not given).
-2. The tokens already in the browser are already sent over TLS, so the attacker must have already
-   compromised the connection or the browser itself.
-3. The streaming experience is the primary UX lever for this feature, and eliminating it would make
-   the tutor so slow that students would use a simpler tool instead.
+1. **The recipient is the attacker.** In the case this defends against — a student steering the tutor
+   into reciting its system prompt or emitting an exfiltration URL — the person who sees the streamed
+   tokens is the person who engineered them. Withholding that text from them protects nothing.
+2. **What retraction actually protects is durable.** Nothing is written to `LessonAssistantMessage`,
+   so the text never becomes part of the thread, never returns as model context on a later turn (the
+   `contextEligible` mechanism from ADR-022), and never reaches a *different* reader — an instructor
+   reviewing a transcript, or a support agent.
+3. **The off-origin case is closed elsewhere.** A leaked URL matters because it loads without a click,
+   and that is stopped at the renderer (decision 3), not by withholding tokens.
 
-The spec's `threat-model.md` R2 carries the three-way comparison in full.
+What this design does **not** defend: a reply that leaks something the student should not see but did
+not deliberately elicit — a system-prompt fragment surfacing by accident. Those tokens are disclosed.
+Closing that would require full buffering, and that trade was declined above.
 
 ### 3. Off-origin URL enforcement is two-layer: server pre-filter, then client renderer
 
@@ -138,8 +148,9 @@ ${subject}` `` would undo the escaping.
   or jailbreak that subverts the system prompt cannot fake a level-3 record.
 - Quiz completion as the path to level 3 aligns with pedagogical intent: understanding is demonstrated
   by passing a check, not by claiming it.
-- The streaming-validation design preserves the perceived responsiveness that makes the tutor usable
-  while keeping unvalidated tokens to 1–20 (worst-case, and only to the browser, not to permanent storage).
+- The streaming-validation design preserves the perceived responsiveness that makes the tutor usable,
+  while guaranteeing that a rejected reply never becomes durable: it is not persisted, so it cannot
+  re-enter model context on a later turn and cannot be read by anyone but the student who elicited it.
 - Off-origin URL enforcement is two-layer so a future markdown extension or regex oversight does not
   become a zero-day.
 
@@ -151,9 +162,10 @@ ${subject}` `` would undo the escaping.
 - The conversation ceiling is unenforced at the prompt level (a prompt edit alone does not prevent
   level-3 writes). This is intentional — the point is that prompt-level enforcement does not work
   against the threat model. Any developer reading `spec.md` "Agent notes" will see this recorded.
-- Streaming validation leaks 1–20 tokens to the browser in the worst case, before retraction. Accepted
-  given the UX cost of full buffering. Monitoring via `output_validation_failed` events helps detect if
-  attacks exploit this window frequently.
+- Streaming validation discloses the **whole reply** to the requesting browser before any verdict
+  exists — more than either rejected alternative. Accepted because the recipient is the party who
+  elicited it and the durable properties are preserved; see decision 2. `output_validation_failed`
+  events make the frequency visible, which is the compensating control.
 - Cross-lesson concept-name collision: `ConceptMastery` rows are unique on `(studentId, courseId, concept)`,
   but `lessonConcepts` are extracted per-lesson. A student who masters "Recursion" in lesson 1 reads
   as already proficient in lesson 3, even if they have not seen lesson 3's approach yet. This follows
@@ -167,13 +179,15 @@ Rejected because the tutor would still be writing educational records on nothing
 quiz path adds a signal that the student can actually do the thing, not just talk about it.
 
 **Full buffering for validation.** Accumulate the entire reply before sending any token, then validate
-once and stream. Rejected: ~800ms TTFT delay kills the primary UX value of streaming. Students would
-switch to simpler queries to get faster responses.
+once and stream. This is the only option that discloses nothing, and it was still rejected: it turns
+time-to-first-token into time-to-last-token, so the wait grows with reply length and the tutor stops
+feeling conversational.
 
 **Sliding-window validation.** Validate streaming chunks in a rolling window as they arrive, reject if
-any chunk fails. Rejected: a 20-token "dump" of sensitive content would still hit the browser before
-validation catches it, the implementation is more complex, and it still doesn't guarantee no leakage
-(the attacker just has to time their question to finish within a window).
+any chunk fails. Rejected on cost, not on safety — it leaks less than the chosen design, but only
+partially (a pattern is caught once complete, so its prefix has already streamed), while adding window
+sizing, boundary-straddling patterns, and validator state across send cycles. The reduction it buys is
+in a disclosure that decision 2 argues is not the property being defended.
 
 **URL enforcement at the client only.** Drop the server-side regex, rely solely on `inAppUrlTransform`
 at render time. Rejected: the server layer makes the contract explicit and emits security events for
