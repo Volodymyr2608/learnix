@@ -1,7 +1,13 @@
 # Threat model — AI lesson tutor
 
 - **Flow**: `POST /api/chat/lesson` → `LessonAIService.streamResponse` → OpenAI (`gpt-4o-mini`)
-- **Status**: current as of 2026-08-08, verified against the code on `feat/ai-security`
+- **Status**: **baseline model** — verified against the code on `feat/ai-security` as of
+  2026-08-08, *before* the `ai-tutor-guardrails` mechanisms landed. The gaps it names as open —
+  R1 and R2 in §9, the two ❗ rows in §7, and "nothing today" for manipulation in §1 — were closed
+  on 2026-08-09 by M1 (`toolPolicy`, authorization before the side effect) and M2 (`validateReply`
+  plus the renderer's `inAppUrlTransform`). Current requirements live in
+  [`security.md`](./security.md); the model is kept at its baseline because it is the record of
+  *why* those mechanisms exist.
 - **Decisions this model rests on**: [ADR-022](../../../adr/022-ai-input-trust-boundary.md)
   (three-layer input trust boundary), [ADR-023](../../../adr/023-chat-route-authorization-binding.md)
   (authorization binding on chat routes), [ADR-017](../../../adr/017-owasp-security-rules.md)
@@ -263,6 +269,12 @@ OpenAI outage is a worse failure than letting an off-topic question through — 
 *precisely because* a deterministic L1 sits underneath. If L2 were the only layer, failing open
 would not be defensible. Output validation is the last line with nothing underneath it, so the
 opposite default applies.
+
+One caveat sharpens this (`security.md` S13 §23, §28): L1's patterns are English-only, so for a
+**non-English payload during an L2 outage** the deterministic layer underneath does not apply and
+the input boundary rests on the L3 wrapping alone (measured weak — 5/12). The intersection of two
+individually accepted risks is the real worst case of this fail-open decision, and it is accepted
+with that stated.
 
 **Refusal text is deliberately uniform.** A refusal that varies by which layer fired is an oracle:
 an attacker maps the blocklist by binary search in a dozen requests. Predictable means *identical
