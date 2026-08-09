@@ -5,7 +5,7 @@ import { accuracyGate, precisionGate } from "../_shared/score";
 
 type Row = {
 	id: string;
-	class: "injection" | "off_topic" | "legitimate_ai_topic" | "second_order";
+	class: "injection" | "off_topic" | "legitimate_ai_topic";
 	input: { text?: string; feature?: "courseAI" | "lessonAI" };
 	expected: { outcome?: string };
 };
@@ -30,16 +30,15 @@ const DOMAINS = {
  * and legitimate-AI-topic rows. Never run in PR CI; run manually before
  * changing `patterns.ts` or the L2 prompt (ADR-018).
  *
- * `second_order` rows are excluded from scoring here: they exist in the
- * dataset for a different, not-yet-built consumer (an L3-wrapping eval).
+ * Indirect injection is measured separately by `aiGuard:indirect` — the guard
+ * never sees that payload, so scoring it here would be meaningless.
  */
 export const runAdversarialEval = async (): Promise<boolean> => {
 	const path = join(process.cwd(), "evals/datasets/aiGuard/adversarial.jsonl");
 	const rows: Row[] = readFileSync(path, "utf-8")
 		.split("\n")
 		.filter(Boolean)
-		.map((line) => JSON.parse(line) as Row)
-		.filter((row) => row.class !== "second_order");
+		.map((line) => JSON.parse(line) as Row);
 
 	const results = await Promise.all(
 		rows.map(async (row) => {
