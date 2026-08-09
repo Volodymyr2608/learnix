@@ -1,7 +1,9 @@
 import type { Prisma } from "@/generated/prisma";
 import { EnrollmentStatus } from "@/generated/prisma";
+import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { logger } from "@/server/utils/logger";
@@ -125,6 +127,13 @@ class QuizService {
 						isCorrect,
 					});
 
+			// Confirmation by action: conversation can reach level 2, only finishing
+			// every quiz on the lesson reaches 3. Awaited, not fire-and-forget —
+			// unlike markStale below, this is a correctness-critical write.
+			if (isCorrect) {
+				await this.promoteConceptsIfLessonComplete(quiz.lessonId, studentId);
+			}
+
 			void lessonRepository
 				.findFirst({
 					where: { id: quiz.lessonId, deletedAt: null },
@@ -158,6 +167,41 @@ class QuizService {
 				{ quizId },
 			);
 		}
+	}
+
+	private async promoteConceptsIfLessonComplete(
+		lessonId: string,
+		studentId: string,
+	): Promise<void> {
+		const quizzes = await quizRepository.findByLesson(lessonId);
+		if (quizzes.length === 0) return;
+
+		const correctCount = await quizAttemptRepository.countCorrectAmong(
+			quizzes.map((quiz) => quiz.id),
+			studentId,
+		);
+		if (correctCount < quizzes.length) return;
+
+		const lesson = await lessonRepository.findFirst({
+			where: { id: lessonId, deletedAt: null },
+			select: { section: { select: { courseId: true } } },
+		});
+		const courseId = lesson?.section?.courseId;
+		if (!courseId) return;
+
+		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
+		const concepts = (insights?.concepts as { name: string }[] | null) ?? [];
+
+		await Promise.all(
+			concepts.map((concept) =>
+				conceptMasteryRepository.upsertMastery(
+					studentId,
+					courseId,
+					concept.name,
+					3,
+				),
+			),
+		);
 	}
 
 	async upsertMany(

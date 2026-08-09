@@ -22,6 +22,10 @@ class QuizAttemptRepository extends BaseRepository<
 		return this.count({ studentId, isCorrect: true });
 	}
 
+	countCorrectAmong(quizIds: string[], studentId: string): Promise<number> {
+		return this.count({ quizId: { in: quizIds }, studentId, isCorrect: true });
+	}
+
 	async latestPerQuizForStudent(
 		studentId: string,
 		courseId: string,

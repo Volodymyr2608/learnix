@@ -83,6 +83,49 @@ export function makeLessonProgress(
 	});
 }
 
+export function makeQuiz(
+	overrides: Partial<Prisma.QuizUncheckedCreateInput> & { lessonId: string },
+) {
+	return testDb.quiz.create({
+		data: {
+			question: "What is a base case?",
+			options: ["A", "B"],
+			correct: "A",
+			...overrides,
+		},
+	});
+}
+
+export function makeQuizAttempt(
+	overrides: Partial<Prisma.QuizAttemptUncheckedCreateInput> & {
+		quizId: string;
+		studentId: string;
+	},
+) {
+	return testDb.quizAttempt.create({
+		data: { selectedAnswer: "A", isCorrect: true, ...overrides },
+	});
+}
+
+export function makeLessonInsights(
+	overrides: Partial<Prisma.LessonInsightsUncheckedCreateInput> & {
+		lessonId: string;
+	},
+) {
+	return testDb.lessonInsights.create({
+		data: {
+			summary: "Test summary",
+			concepts: [
+				{ name: "Recursion", explanation: "A function calling itself" },
+			],
+			glossary: [],
+			model: "test-model",
+			contentHash: "test-hash",
+			...overrides,
+		},
+	});
+}
+
 export function makeConceptMastery(
 	overrides: Partial<Prisma.ConceptMasteryUncheckedCreateInput> & {
 		studentId: string;
