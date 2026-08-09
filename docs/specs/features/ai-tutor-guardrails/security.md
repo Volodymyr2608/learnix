@@ -442,10 +442,10 @@ L2 is a model call, so these move between runs. Treat them as an order of magnit
 22. **The cost of the defence.** L2 is a separate model call on every turn; neither latency nor spend
     has been quantified.
 
-**Named in the independent review, 2026-08-09** — see
-[`../../../tech-review-prep/area-1-independent-review.md`](../../../tech-review-prep/area-1-independent-review.md).
-Finding F1 (the prompt instructing a level above the ceiling) was **fixed**, not accepted — recorded
-in S7 and the S11 threshold table above. The rest are named here as accepted or open.
+**Named in an independent adversarial review, 2026-08-09** (a separate code-reading pass in an
+AI-security reviewer role, outside the feature team). Finding F1 (the prompt instructing a level
+above the ceiling) was **fixed**, not accepted — recorded in S7 and the S11 threshold table above.
+The rest are named here as accepted or open.
 
 23. **L1 patterns are English-only, and this is a reviewed, accepted limitation** (F2). Every rule in
     `patterns.ts` is an English verb+object; homoglyph folding only catches English disguised as
