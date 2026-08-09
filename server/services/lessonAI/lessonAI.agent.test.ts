@@ -18,7 +18,9 @@ vi.mock("@langchain/openai", () => ({
 	},
 }));
 
-const { createLessonAgent } = await import("./lessonAI.agent");
+const { createLessonAgent, SYSTEM_PROMPT_LEAK_MARKERS } = await import(
+	"./lessonAI.agent"
+);
 
 const build = (over: Partial<Parameters<typeof createLessonAgent>[0]> = {}) => {
 	mockCreateAgent.mockReset().mockReturnValue({});
@@ -88,6 +90,16 @@ describe("lessonAI system prompt", () => {
 
 	it("omits the concept constraint when there are no concepts", () => {
 		expect(build()).not.toContain("use ONLY the concept names listed");
+	});
+
+	// A marker that no longer appears in the prompt silently stops protecting
+	// anything — validateReply would keep checking for a phrase that cannot occur.
+	it("keeps every leak marker a real substring of the system prompt", () => {
+		const prompt = build();
+
+		for (const marker of SYSTEM_PROMPT_LEAK_MARKERS) {
+			expect(prompt).toContain(marker);
+		}
 	});
 
 	it("binds exactly the four allowlisted tools", () => {
