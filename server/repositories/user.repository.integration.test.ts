@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Role } from "@/generated/prisma";
 import { testDb } from "@/test/db";
 import {
+	makeConceptMastery,
 	makeConversation,
 	makeCourse,
 	makeCourseReview,
@@ -282,5 +283,224 @@ describe("userRepository.anonymiseAccount", () => {
 		// The payout account survives, so money already owed can still be transferred.
 		expect(profile.stripeAccountId).toBe("acct_test_123");
 		expect(profile.stripePayoutsEnabled).toBe(true);
+	});
+});
+
+describe("anonymisation leaves other people's data intact", () => {
+	it("keeps the course, its curriculum and the student's progress when the instructor leaves", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser();
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		const section = await makeSection({ courseId: course.id });
+		const lesson = await makeLesson({ sectionId: section.id });
+		const enrollment = await makeEnrollment({
+			studentId: student.id,
+			courseId: course.id,
+		});
+		await testDb.courseProgress.create({
+			data: { studentId: student.id, courseId: course.id, totalLessons: 1 },
+		});
+		await makeConceptMastery({
+			studentId: student.id,
+			courseId: course.id,
+			concept: "Recursion",
+		});
+
+		await userRepository.anonymiseAccount(instructor.id);
+
+		expect(
+			await testDb.course.findUnique({ where: { id: course.id } }),
+		).not.toBeNull();
+		expect(
+			await testDb.section.findUnique({ where: { id: section.id } }),
+		).not.toBeNull();
+		expect(
+			await testDb.lesson.findUnique({ where: { id: lesson.id } }),
+		).not.toBeNull();
+		expect(
+			await testDb.enrollment.findUnique({ where: { id: enrollment.id } }),
+		).not.toBeNull();
+		expect(
+			await testDb.courseProgress.count({ where: { studentId: student.id } }),
+		).toBe(1);
+		expect(
+			await testDb.conceptMastery.count({ where: { studentId: student.id } }),
+		).toBe(1);
+	});
+
+	it("leaves the course still published and readable", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+
+		await userRepository.anonymiseAccount(instructor.id);
+
+		const after = await testDb.course.findUniqueOrThrow({
+			where: { id: course.id },
+			include: { instructor: true },
+		});
+		expect(after.status).toBe("published");
+		expect(after.deletedAt).toBeNull();
+		expect(after.instructor.name).toBe("Deleted user");
+	});
+
+	it("preserves every payment field, including money in flight", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser();
+		const course = await makeCourse({ instructorId: instructor.id });
+		const payment = await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			transferStatus: "pending",
+			stripePaymentIntentId: "pi_test_123",
+			stripeTransferId: null,
+		});
+
+		await userRepository.anonymiseAccount(student.id);
+
+		const after = await testDb.payment.findUniqueOrThrow({
+			where: { id: payment.id },
+		});
+		expect(after.amountCents).toBe(payment.amountCents);
+		expect(after.transferStatus).toBe("pending");
+		expect(after.stripePaymentIntentId).toBe("pi_test_123");
+		expect(after.stripeTransferId).toBeNull();
+	});
+
+	it("leaves a pending transfer visible to the sweep", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser();
+		const course = await makeCourse({ instructorId: instructor.id });
+		await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			transferStatus: "pending",
+		});
+
+		await userRepository.anonymiseAccount(student.id);
+
+		// The exact query the sweep runs — server/api/routers/payment.ts:135-138.
+		const pending = await testDb.payment.findMany({
+			where: { transferStatus: "pending" },
+			select: { instructorId: true },
+		});
+		expect(pending.map((p) => p.instructorId)).toContain(instructor.id);
+	});
+
+	it("leaves both sides of a conversation readable by the remaining party", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser();
+		const course = await makeCourse({ instructorId: instructor.id });
+		const conversation = await makeConversation({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+		});
+		await makeMessage({
+			conversationId: conversation.id,
+			senderId: student.id,
+		});
+		await makeMessage({
+			conversationId: conversation.id,
+			senderId: instructor.id,
+			body: "Happy to help.",
+		});
+
+		await userRepository.anonymiseAccount(student.id);
+
+		const thread = await testDb.conversation.findUniqueOrThrow({
+			where: { id: conversation.id },
+			include: { messages: true },
+		});
+		expect(thread.messages).toHaveLength(2);
+		expect(thread.messages.map((m) => m.body)).toContain("Happy to help.");
+	});
+
+	it("does not move the course rating when a reviewer leaves", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const a = await makeUser();
+		const b = await makeUser();
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		await makeCourseReview({ courseId: course.id, studentId: a.id, rating: 5 });
+		await makeCourseReview({ courseId: course.id, studentId: b.id, rating: 3 });
+
+		const before = await testDb.courseReview.aggregate({
+			where: { courseId: course.id },
+			_avg: { rating: true },
+			_count: true,
+		});
+
+		await userRepository.anonymiseAccount(a.id);
+
+		const after = await testDb.courseReview.aggregate({
+			where: { courseId: course.id },
+			_avg: { rating: true },
+			_count: true,
+		});
+		expect(after._avg.rating).toBe(before._avg.rating);
+		expect(after._count).toBe(before._count);
+	});
+
+	it("keeps a completed enrollment renderable as a certificate", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser();
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		const enrollment = await makeEnrollment({
+			studentId: student.id,
+			courseId: course.id,
+			status: "completed",
+			completedAt: new Date(),
+		});
+
+		await userRepository.anonymiseAccount(instructor.id);
+
+		// certificate.service.ts:12-13 derives the PDF from exactly this shape.
+		const found = await testDb.enrollment.findUniqueOrThrow({
+			where: { id: enrollment.id },
+			include: { course: true, student: true },
+		});
+		expect(found.status).toBe("completed");
+		expect(found.course.title).toBe(course.title);
+		// The instructor left, not the student: the certificate still names its holder.
+		expect(found.student.name).toBe(student.name);
+	});
+
+	it("still renders a certificate for a student who deleted their own account", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser();
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		const enrollment = await makeEnrollment({
+			studentId: student.id,
+			courseId: course.id,
+			status: "completed",
+			completedAt: new Date(),
+		});
+
+		await userRepository.anonymiseAccount(student.id);
+
+		const found = await testDb.enrollment.findUniqueOrThrow({
+			where: { id: enrollment.id },
+			include: { course: true, student: true },
+		});
+		expect(found.status).toBe("completed");
+		expect(found.completedAt).not.toBeNull();
+		expect(found.course.title).toBe(course.title);
+		expect(found.student.name).toBe("Deleted user");
 	});
 });
