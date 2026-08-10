@@ -6,7 +6,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 <!-- AUTO-GENERATED:START (run `pnpm spec:sync` — do not edit) -->
 | Feature | Status | Depends on |
 |---|---|---|
-| account-deletion-data-retention | in-progress | payments, certificates, messages |
+| account-deletion-data-retention | stable | payments, certificates, messages |
 | achievements | stable | progress |
 | ai-chat-route-authorization | stable | ai-input-trust-boundary, auth |
 | ai-course-builder | stable | course |
