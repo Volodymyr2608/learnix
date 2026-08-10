@@ -6,10 +6,13 @@ import {
 	makeCourse,
 	makeCourseReview,
 	makeEnrollment,
+	makeLesson,
 	makeMessage,
 	makePayment,
+	makeSection,
 	makeUser,
 } from "@/test/factories";
+import { userRepository } from "./user.repository";
 
 describe("CourseGeneration.instructorId foreign key", () => {
 	it("rejects a generation whose instructor does not exist", async () => {
@@ -85,5 +88,162 @@ describe("User relations that must never cascade", () => {
 		await expect(
 			testDb.user.delete({ where: { id: instructor.id } }),
 		).rejects.toThrow();
+	});
+});
+
+describe("userRepository.anonymiseAccount", () => {
+	it("overwrites the identifying fields and keeps the row", async () => {
+		const user = await makeUser({
+			name: "Ada Lovelace",
+			image: "https://example.com/ada.png",
+			emailVerified: true,
+		});
+
+		await userRepository.anonymiseAccount(user.id);
+
+		const after = await testDb.user.findUniqueOrThrow({
+			where: { id: user.id },
+		});
+		expect(after.name).toBe("Deleted user");
+		expect(after.email).toBe(`deleted-${user.id}@system.invalid`);
+		expect(after.image).toBeNull();
+		expect(after.emailVerified).toBe(false);
+		expect(after.emailNotificationsEnabled).toBe(false);
+	});
+
+	it("destroys credentials and private authored content", async () => {
+		const user = await makeUser({ role: Role.INSTRUCTOR });
+		const course = await makeCourse({ instructorId: user.id });
+		const section = await makeSection({ courseId: course.id });
+		const lesson = await makeLesson({ sectionId: section.id });
+
+		await testDb.session.create({
+			data: {
+				userId: user.id,
+				token: "sess-token",
+				expiresAt: new Date(Date.now() + 60_000),
+			},
+		});
+		await testDb.account.create({
+			data: { userId: user.id, accountId: user.id, providerId: "credential" },
+		});
+		const conversation = await testDb.lessonAssistantConversation.create({
+			data: { lessonId: lesson.id, studentId: user.id },
+		});
+		await testDb.lessonAssistantMessage.create({
+			data: {
+				conversationId: conversation.id,
+				role: "user",
+				content: "secret",
+			},
+		});
+		const generation = await testDb.courseGeneration.create({
+			data: { instructorId: user.id, content: {} },
+		});
+		await testDb.courseGenerationMessage.create({
+			data: { generationId: generation.id, role: "user", content: "secret" },
+		});
+		await testDb.notificationLog.create({
+			data: {
+				userId: user.id,
+				automation: "inactivity",
+				dedupKey: `dedup-${user.id}`,
+				payload: {},
+			},
+		});
+		await testDb.learningPathCache.create({
+			data: {
+				studentId: user.id,
+				courseId: course.id,
+				steps: [],
+				summary: "s",
+				weakConcepts: [],
+				model: "test",
+			},
+		});
+		await testDb.$executeRaw`
+			INSERT INTO user_interest_embeddings ("userId", embedding, "updatedAt")
+			VALUES (${user.id}, ${`[${Array(1536).fill(0).join(",")}]`}::vector, NOW())
+		`;
+
+		await userRepository.anonymiseAccount(user.id);
+
+		expect(await testDb.session.count({ where: { userId: user.id } })).toBe(0);
+		expect(await testDb.account.count({ where: { userId: user.id } })).toBe(0);
+		expect(
+			await testDb.lessonAssistantConversation.count({
+				where: { studentId: user.id },
+			}),
+		).toBe(0);
+		expect(await testDb.lessonAssistantMessage.count()).toBe(0);
+		expect(
+			await testDb.courseGeneration.count({ where: { instructorId: user.id } }),
+		).toBe(0);
+		expect(await testDb.courseGenerationMessage.count()).toBe(0);
+		expect(
+			await testDb.notificationLog.count({ where: { userId: user.id } }),
+		).toBe(0);
+		expect(
+			await testDb.learningPathCache.count({ where: { studentId: user.id } }),
+		).toBe(0);
+
+		const embeddings = await testDb.$queryRaw<{ count: bigint }[]>`
+			SELECT count(*) FROM user_interest_embeddings WHERE "userId" = ${user.id}
+		`;
+		expect(Number(embeddings[0]?.count)).toBe(0);
+	});
+
+	it("rolls the whole operation back when any statement fails", async () => {
+		const user = await makeUser({ name: "Ada Lovelace" });
+		await testDb.session.create({
+			data: {
+				userId: user.id,
+				token: "sess-token",
+				expiresAt: new Date(Date.now() + 60_000),
+			},
+		});
+
+		// Occupy the anonymised address so the final UPDATE violates users.email's
+		// unique constraint — a real failure, after the deletes have already run.
+		await makeUser({ email: `deleted-${user.id}@system.invalid` });
+
+		await expect(userRepository.anonymiseAccount(user.id)).rejects.toThrow();
+
+		const after = await testDb.user.findUniqueOrThrow({
+			where: { id: user.id },
+		});
+		expect(after.name).toBe("Ada Lovelace");
+		expect(await testDb.session.count({ where: { userId: user.id } })).toBe(1);
+	});
+
+	it("lets two accounts sharing a course, review and thread both be anonymised", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const a = await makeUser();
+		const b = await makeUser();
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+
+		for (const student of [a, b]) {
+			await makeCourseReview({ courseId: course.id, studentId: student.id });
+			await testDb.courseProgress.create({
+				data: { studentId: student.id, courseId: course.id, totalLessons: 3 },
+			});
+			await makeConversation({
+				studentId: student.id,
+				instructorId: instructor.id,
+				courseId: course.id,
+			});
+		}
+
+		await userRepository.anonymiseAccount(a.id);
+		await userRepository.anonymiseAccount(b.id);
+
+		const emails = await testDb.user.findMany({
+			where: { id: { in: [a.id, b.id] } },
+			select: { email: true },
+		});
+		expect(new Set(emails.map((e) => e.email)).size).toBe(2);
 	});
 });
