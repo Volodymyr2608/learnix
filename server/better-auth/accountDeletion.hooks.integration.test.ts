@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { auth } from "@/server/better-auth";
 import { testDb } from "@/test/db";
 import { makeCourse, makeUser } from "@/test/factories";
 import {
@@ -10,6 +11,22 @@ describe("preventUserRowDeletion", () => {
 	it("returns exactly false so Better Auth skips adapter.delete()", async () => {
 		// with-hooks.mjs:104 compares with ===, so a falsy value is not enough.
 		await expect(preventUserRowDeletion()).resolves.toBe(false);
+	});
+});
+
+describe("Better Auth wiring", () => {
+	// Without these, deleting either config line leaves every other test in this
+	// file passing while account deletion silently reverts to destroying the row.
+	it("runs the anonymisation from deleteUser.beforeDelete", () => {
+		expect(auth.options.user?.deleteUser?.beforeDelete).toBe(
+			anonymiseOnAccountDeletion,
+		);
+	});
+
+	it("vetoes the user row delete from databaseHooks", () => {
+		expect(auth.options.databaseHooks?.user?.delete?.before).toBe(
+			preventUserRowDeletion,
+		);
 	});
 });
 
@@ -30,18 +47,20 @@ describe("anonymiseOnAccountDeletion", () => {
 			where: { id: user.id },
 		});
 		expect(after.name).toBe("Deleted user");
-		expect(after.email).toBe(`deleted-${user.id}@system.invalid`);
+		expect(after.email).toMatch(/@system\.invalid$/);
 		expect(await testDb.session.count({ where: { userId: user.id } })).toBe(0);
 	});
 
 	it("throws — aborting the deletion request — when anonymisation fails", async () => {
-		const user = await makeUser({ name: "Ada Lovelace" });
-		await makeUser({ email: `deleted-${user.id}@system.invalid` });
+		const survivor = await makeUser({ name: "Ada Lovelace" });
 
-		await expect(anonymiseOnAccountDeletion({ id: user.id })).rejects.toThrow();
+		// No such row, so the transaction's final UPDATE raises after the deletes.
+		await expect(
+			anonymiseOnAccountDeletion({ id: "no-such-user" }),
+		).rejects.toThrow();
 
 		const after = await testDb.user.findUniqueOrThrow({
-			where: { id: user.id },
+			where: { id: survivor.id },
 		});
 		expect(after.name).toBe("Ada Lovelace");
 	});

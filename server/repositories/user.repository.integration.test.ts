@@ -14,7 +14,7 @@ import {
 	makeSection,
 	makeUser,
 } from "@/test/factories";
-import { userRepository } from "./user.repository";
+import { NOT_ANONYMISED, userRepository } from "./user.repository";
 
 describe("CourseGeneration.instructorId foreign key", () => {
 	it("rejects a generation whose instructor does not exist", async () => {
@@ -107,7 +107,12 @@ describe("userRepository.anonymiseAccount", () => {
 			where: { id: user.id },
 		});
 		expect(after.name).toBe("Deleted user");
-		expect(after.email).toBe(`deleted-${user.id}@system.invalid`);
+		// Random, not derived from the user id — a derived address would be a
+		// pre-image an attacker could squat to block deletion permanently.
+		expect(after.email).toMatch(
+			/^deleted-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@system\.invalid$/,
+		);
+		expect(after.email).not.toContain(user.id);
 		expect(after.image).toBeNull();
 		expect(after.emailVerified).toBe(false);
 		expect(after.emailNotificationsEnabled).toBe(false);
@@ -207,15 +212,37 @@ describe("userRepository.anonymiseAccount", () => {
 
 		// Occupy the anonymised address so the final UPDATE violates users.email's
 		// unique constraint — a real failure, after the deletes have already run.
-		await makeUser({ email: `deleted-${user.id}@system.invalid` });
+		const taken = "deleted-collision@system.invalid";
+		await makeUser({ email: taken });
 
-		await expect(userRepository.anonymiseAccount(user.id)).rejects.toThrow();
+		await expect(
+			userRepository.anonymiseAccount(user.id, taken),
+		).rejects.toThrow();
 
 		const after = await testDb.user.findUniqueOrThrow({
 			where: { id: user.id },
 		});
 		expect(after.name).toBe("Ada Lovelace");
 		expect(await testDb.session.count({ where: { userId: user.id } })).toBe(1);
+	});
+
+	it("cannot be blocked by someone squatting a predictable placeholder address", async () => {
+		const user = await makeUser({ name: "Ada Lovelace" });
+
+		// A counterparty can read this user's raw id from Message.senderId, so the
+		// old derived address was guessable. Registering it must not be able to
+		// deny the victim their deletion.
+		await makeUser({ email: `deleted-${user.id}@system.invalid` });
+
+		await expect(
+			userRepository.anonymiseAccount(user.id),
+		).resolves.toBeUndefined();
+
+		const after = await testDb.user.findUniqueOrThrow({
+			where: { id: user.id },
+		});
+		expect(after.name).toBe("Deleted user");
+		expect(after.email).not.toBe(`deleted-${user.id}@system.invalid`);
 	});
 
 	it("lets two accounts sharing a course, review and thread both be anonymised", async () => {
@@ -502,5 +529,34 @@ describe("anonymisation leaves other people's data intact", () => {
 		expect(found.completedAt).not.toBeNull();
 		expect(found.course.title).toBe(course.title);
 		expect(found.student.name).toBe("Deleted user");
+	});
+});
+
+describe("NOT_ANONYMISED", () => {
+	it("excludes anonymised accounts from the reindex population", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const staying = await makeUser();
+		const leaving = await makeUser();
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+		});
+		await makeEnrollment({ studentId: staying.id, courseId: course.id });
+		await makeEnrollment({ studentId: leaving.id, courseId: course.id });
+
+		await userRepository.anonymiseAccount(leaving.id);
+
+		// The exact query scripts/reindex-embeddings.ts runs. Without the filter the
+		// anonymised account still matches — it keeps its enrollment — and the next
+		// reindex would rebuild the interest embedding the deletion destroyed.
+		const ids = (
+			await testDb.user.findMany({
+				where: { enrollments: { some: {} }, ...NOT_ANONYMISED },
+				select: { id: true },
+			})
+		).map((u) => u.id);
+
+		expect(ids).toContain(staying.id);
+		expect(ids).not.toContain(leaving.id);
 	});
 });

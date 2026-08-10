@@ -38,7 +38,8 @@ const DangerZoneSection = () => {
 				<CardTitle className="text-destructive">Danger zone</CardTitle>
 				<CardDescription>
 					Permanently delete your account. This action cannot be undone. Courses
-					you published stay available to the students enrolled in them.
+					you published stay online and on sale, so enrolled students keep their
+					access.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
@@ -52,8 +53,10 @@ const DangerZoneSection = () => {
 							<DialogTitle>Delete your account</DialogTitle>
 							<DialogDescription>
 								This permanently removes your name, email address, sign-in
-								credentials and private conversations. Courses you published and
-								your students' progress in them are kept. Enter your password to
+								credentials, and your AI tutor and course-builder chat history.
+								Courses you published, your students' progress in them, and
+								messages you exchanged with other people are kept — the other
+								party keeps their own correspondence. Enter your password to
 								confirm.
 							</DialogDescription>
 						</DialogHeader>

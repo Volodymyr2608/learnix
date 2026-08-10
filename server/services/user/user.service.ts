@@ -33,7 +33,13 @@ class UserService {
 			return await userRepository.anonymiseAccount(userId);
 		} catch (error) {
 			logger.error("Failed to anonymise account:", error);
-			throw new UserError("Failed to delete account");
+			// The cause is passed through: P2028 (transaction timeout) and P2002
+			// (anonymised-email collision) need different operator responses.
+			throw new UserError(
+				"Failed to delete account",
+				"INTERNAL_SERVER_ERROR",
+				error,
+			);
 		}
 	}
 }
