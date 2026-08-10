@@ -16,7 +16,7 @@ model CourseReview {
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   studentId String
-  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Restrict)
 
   rating  Int // 1..5
   comment String      @db.Text

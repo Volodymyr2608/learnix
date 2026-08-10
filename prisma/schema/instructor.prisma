@@ -1,7 +1,7 @@
 model InstructorProfile {
   id                 String   @id @default(cuid())
   userId             String   @unique
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   phone              String?
   areaOfExpertise    String   @map("area_of_expertise")
   teachingExperience String   @map("teaching_experience")

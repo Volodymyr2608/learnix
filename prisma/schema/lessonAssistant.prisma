@@ -37,7 +37,7 @@ model ConceptMastery {
   level     Int
   updatedAt DateTime @updatedAt
 
-  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student User   @relation(fields: [studentId], references: [id], onDelete: Restrict)
   course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, courseId, concept])

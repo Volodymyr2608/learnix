@@ -8,7 +8,7 @@ model Enrollment {
   id String @id @default(cuid())
 
   studentId String
-  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Restrict)
 
   courseId String
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
