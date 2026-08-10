@@ -20,6 +20,7 @@ enum ChatRole {
 model CourseGeneration {
   id           String @id @default(cuid())
   instructorId String @map("instructor_id")
+  instructor   User   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
   step    DraftStep              @default(basic)
   content Json                   @default("{}")

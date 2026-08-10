@@ -24,6 +24,7 @@ model User {
   courseReviews                CourseReview[]
   interestEmbedding            UserInterestEmbedding?
   lessonAssistantConversations LessonAssistantConversation[]
+  courseGenerations            CourseGeneration[]
   conceptMasteries             ConceptMastery[]
   learningPathCaches           LearningPathCache[]
   emailNotificationsEnabled    Boolean                       @default(true) @map("email_notifications_enabled")
