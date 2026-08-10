@@ -6,6 +6,7 @@ import {
 	makeCourse,
 	makeCourseReview,
 	makeEnrollment,
+	makeInstructorProfile,
 	makeLesson,
 	makeMessage,
 	makePayment,
@@ -245,5 +246,41 @@ describe("userRepository.anonymiseAccount", () => {
 			select: { email: true },
 		});
 		expect(new Set(emails.map((e) => e.email)).size).toBe(2);
+	});
+
+	it("blanks the instructor's authored text but keeps the payout account", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		await makeInstructorProfile({
+			userId: instructor.id,
+			professionalBio: "I have taught backend engineering since 2019.",
+			courseIdea: "A course on distributed systems",
+			teachingExperience: "5 years at a FAANG",
+			areaOfExpertise: "Distributed systems",
+			phone: "+380000000000",
+			linkedinUrl: "https://linkedin.com/in/example",
+			websiteUrl: "https://example.com",
+			stripeAccountId: "acct_test_123",
+			stripeChargesEnabled: true,
+			stripePayoutsEnabled: true,
+		});
+
+		await userRepository.anonymiseAccount(instructor.id);
+
+		const profile = await testDb.instructorProfile.findUniqueOrThrow({
+			where: { userId: instructor.id },
+		});
+
+		// Authored self-description is gone.
+		expect(profile.professionalBio).toBe("");
+		expect(profile.courseIdea).toBe("");
+		expect(profile.teachingExperience).toBe("");
+		expect(profile.areaOfExpertise).toBe("");
+		expect(profile.phone).toBeNull();
+		expect(profile.linkedinUrl).toBeNull();
+		expect(profile.websiteUrl).toBeNull();
+
+		// The payout account survives, so money already owed can still be transferred.
+		expect(profile.stripeAccountId).toBe("acct_test_123");
+		expect(profile.stripePayoutsEnabled).toBe(true);
 	});
 });

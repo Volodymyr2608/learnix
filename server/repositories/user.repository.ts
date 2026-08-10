@@ -59,6 +59,23 @@ export default class UserRepository extends BaseRepository<
 			await tx.learningPathCache.deleteMany({ where: { studentId: userId } });
 			await tx.notificationLog.deleteMany({ where: { userId } });
 
+			// The instructor profile is scrubbed rather than destroyed: it carries
+			// `stripeAccountId`, which the payout sweep needs to pay out money already
+			// owed (server/services/payments/connect.service.ts:119-128). Only the
+			// authored free text is removed.
+			await tx.instructorProfile.updateMany({
+				where: { userId },
+				data: {
+					professionalBio: "",
+					courseIdea: "",
+					teachingExperience: "",
+					areaOfExpertise: "",
+					phone: null,
+					linkedinUrl: null,
+					websiteUrl: null,
+				},
+			});
+
 			await tx.user.update({
 				where: { id: userId },
 				data: {
