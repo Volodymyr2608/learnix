@@ -2,10 +2,10 @@ model Conversation {
   id String @id @default(cuid())
 
   studentId String
-  student   User   @relation("StudentConversations", fields: [studentId], references: [id], onDelete: Cascade)
+  student   User   @relation("StudentConversations", fields: [studentId], references: [id], onDelete: Restrict)
 
   instructorId String
-  instructor   User @relation("InstructorConversations", fields: [instructorId], references: [id], onDelete: Cascade)
+  instructor   User @relation("InstructorConversations", fields: [instructorId], references: [id], onDelete: Restrict)
 
   courseId String
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -28,7 +28,7 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   senderId String
-  sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Restrict)
 
   body String @db.Text
 

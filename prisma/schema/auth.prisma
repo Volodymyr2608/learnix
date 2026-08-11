@@ -14,7 +14,6 @@ model User {
   updatedAt                    DateTime                      @default(now()) @updatedAt @map("updated_at")
   sessions                     Session[]
   accounts                     Account[]
-  posts                        Post[]
   courses                      Course[]
   progresses                   LessonProgress[]
   quizAttempts                 QuizAttempt[]
@@ -25,6 +24,7 @@ model User {
   courseReviews                CourseReview[]
   interestEmbedding            UserInterestEmbedding?
   lessonAssistantConversations LessonAssistantConversation[]
+  courseGenerations            CourseGeneration[]
   conceptMasteries             ConceptMastery[]
   learningPathCaches           LearningPathCache[]
   emailNotificationsEnabled    Boolean                       @default(true) @map("email_notifications_enabled")

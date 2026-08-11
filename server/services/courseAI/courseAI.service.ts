@@ -29,7 +29,7 @@ export class CourseAIService {
 				if (existing) return existing;
 			}
 			return courseGenerationRepository.create({
-				instructorId: userId,
+				instructor: { connect: { id: userId } },
 				step: DraftStep.basic,
 				content: {},
 				status: "active",

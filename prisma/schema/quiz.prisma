@@ -21,7 +21,7 @@ model QuizAttempt {
   quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   studentId String
-  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Restrict)
 
   selectedAnswer String
   isCorrect      Boolean

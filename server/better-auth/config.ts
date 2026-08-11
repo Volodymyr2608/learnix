@@ -1,8 +1,11 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
+import {
+	anonymiseOnAccountDeletion,
+	preventUserRowDeletion,
+} from "@/server/better-auth/accountDeletion.hooks";
 import { db } from "@/server/db";
-import { courseRepository } from "@/server/repositories/course.repository";
 import { emailService } from "@/server/services/email/email.service";
 import { env } from "../../lib/env";
 
@@ -47,6 +50,14 @@ export const auth = betterAuth({
 		},
 	},
 	plugins: [nextCookies()],
+	databaseHooks: {
+		user: {
+			// Returning exactly `false` makes Better Auth skip the underlying
+			// `DELETE FROM users` (dist/db/with-hooks.mjs:101-108). The row is retained;
+			// `beforeDelete` above has already anonymised it.
+			delete: { before: preventUserRowDeletion },
+		},
+	},
 	user: {
 		additionalFields: {
 			role: {
@@ -68,14 +79,15 @@ export const auth = betterAuth({
 		},
 		deleteUser: {
 			enabled: true,
-			// Soft-delete instructor courses before removing the account so enrolled
-			// students retain access to their course history (FR5).
-			beforeDelete: async (user) => {
-				await courseRepository.updateMany(
-					{ instructorId: user.id, deletedAt: null },
-					{ deletedAt: new Date() },
-				);
-			},
+			// Anonymise in place instead of deleting. This hook cannot stop the row
+			// delete on its own — `databaseHooks.user.delete.before` below does that —
+			// but it runs first, owns the atomic transaction, and aborts the whole
+			// request if it throws.
+			//
+			// The previous `beforeDelete` here soft-deleted the instructor's courses.
+			// It was a no-op: the FK cascade removed those same courses moments later.
+			// Do not reinstate that pattern — courses are now retained outright.
+			beforeDelete: anonymiseOnAccountDeletion,
 			sendDeleteAccountVerification: async ({ user, url }) => {
 				await emailService.send({
 					templateKey: "auth.account-deletion",

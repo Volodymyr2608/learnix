@@ -15,11 +15,11 @@ enum TransferStatus {
 model Payment {
   id           String @id @default(cuid())
   studentId    String
-  student      User   @relation("StudentPayments", fields: [studentId], references: [id], onDelete: Cascade)
+  student      User   @relation("StudentPayments", fields: [studentId], references: [id], onDelete: Restrict)
   courseId     String
-  course       Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course       Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
   instructorId String
-  instructor   User   @relation("InstructorPayments", fields: [instructorId], references: [id], onDelete: Cascade)
+  instructor   User   @relation("InstructorPayments", fields: [instructorId], references: [id], onDelete: Restrict)
 
   amountCents        Int           @map("amount_cents")
   currency           String        @default("usd")

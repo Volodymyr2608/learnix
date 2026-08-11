@@ -1,6 +1,9 @@
 import { courseRepository } from "@/server/repositories/course.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
-import { userRepository } from "@/server/repositories/user.repository";
+import {
+	NOT_ANONYMISED,
+	userRepository,
+} from "@/server/repositories/user.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 
 async function main() {
@@ -42,8 +45,11 @@ async function main() {
 	}
 
 	console.log("Recomputing user interest embeddings...");
+	// Anonymised accounts keep their enrollments, so they match this filter — but
+	// rebuilding their interest embedding would resurrect the behavioural profile
+	// `anonymiseAccount` destroyed, and they can never sign in to use it.
 	const users = await userRepository.findMany({
-		where: { enrollments: { some: {} } },
+		where: { enrollments: { some: {} }, ...NOT_ANONYMISED },
 		select: { id: true },
 	});
 	for (const user of users) {

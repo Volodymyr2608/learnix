@@ -31,7 +31,6 @@ const TABLES = [
 	"skills",
 	"instructor_profiles",
 	"notification_logs",
-	"posts",
 	"sessions",
 	"accounts",
 	"verifications",

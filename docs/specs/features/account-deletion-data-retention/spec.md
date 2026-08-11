@@ -1,7 +1,7 @@
 ---
 feature: account-deletion-data-retention
-status: planned
-models: [User, Course, Payment, CourseGeneration, Post]
+status: stable
+models: [User, Course, Payment, CourseGeneration, Verification, LearningPathCache, InstructorProfile]
 depends-on: [payments, certificates, messages]
 ---
 
@@ -37,8 +37,13 @@ courses physically. The soft-delete is a no-op and the stated guarantee is not d
 
 **1. Deletion anonymises the principal instead of removing the row.** "Delete my account"
 irreversibly overwrites the identifying fields on the `User` row — `name` becomes a fixed
-placeholder, `email` becomes `deleted-<userId>@system.invalid`, `image` is cleared — and destroys
-every credential (`Session`, `Account`). The row itself is retained.
+placeholder, `email` becomes `deleted-<randomUUID>@system.invalid`, `image` is cleared — and destroys
+every credential (`Session`, `Account`, `Verification`). The row itself is retained.
+
+The placeholder address is **random, never derived from the user's id**. A derived address is a
+pre-image: `Message.senderId` hands a counterparty the raw `userId`, so anyone who had been messaged
+could register an ordinary account at the victim's future placeholder address and block their
+deletion permanently on the `users.email` unique constraint.
 
 The row is what every foreign key and four unique constraints depend on
 (`review [courseId, studentId]`, `message [studentId, instructorId, courseId]`,
@@ -57,13 +62,14 @@ Destroyed outright:
 | Data | Why |
 |---|---|
 | `Session`, `Account` | credentials — retaining them would make the anonymisation reversible |
+| `Verification` | pending password-reset and verification tokens are credentials; a live token outliving the account is a path back in |
 | `LessonAssistantConversation` + its messages | free text the student wrote to the tutor, including anything disclosed about themselves |
 | `CourseGeneration` + `CourseGenerationMessage` | same, for the instructor's AI course-builder chat |
-| `InstructorProfile` | biography and headline — authored self-description |
 | `UserInterestEmbedding` | a behavioural profile, derived solely from this person |
-| `Notification` | addressed to the person, of no value to anyone else |
+| `LearningPathCache` | a per-student, regenerable AI cache derived solely from that student's behaviour (`steps`, `summary`, `weakConcepts`, `staleAt`); sibling of `UserInterestEmbedding` |
+| `NotificationLog` | addressed to the person, of no value to anyone else |
 
-Retained, now pointing at an anonymous principal:
+Retained or scrubbed, now pointing at an anonymous principal:
 
 | Data | Why |
 |---|---|
@@ -72,6 +78,7 @@ Retained, now pointing at an anonymous principal:
 | `Enrollment`, `CourseProgress`, `LessonProgress`, `QuizAttempt`, `ConceptMastery` | structured facts; `Enrollment` in particular is what a certificate is derived from (see 3) |
 | `CourseReview` | published content that other buyers rely on; removing it silently moves the course rating |
 | `Conversation`, `Message` | the counterparty's own correspondence, including their replies |
+| `InstructorProfile` | **scrubbed, not destroyed**: the authored free text (`professionalBio`, `courseIdea`, `teachingExperience`, `areaOfExpertise`, `phone`, `linkedinUrl`, `websiteUrl`) is blanked, but `stripeAccountId` and related payout fields are retained so the instructor can still be paid pending transfers owed to them |
 
 **3. Certificates keep verifying.** There is no `Certificate` model —
 `certificate.service.ts:12-13` renders a PDF from an `Enrollment` via
@@ -105,49 +112,39 @@ before this ships (there are none in production).
 
 **Anonymisation**
 
-- After deletion the `User` row still exists, and its `name`, `email` and `image` no longer contain
-  any value they held before.
-- The anonymised `email` is unique per deleted account, so two deletions never collide on
-  `auth.prisma:39 @@unique([email])`.
-- No `Session` or `Account` row referencing the deleted user survives; the person cannot sign in
-  again, and neither an OAuth provider nor a password reset re-attaches to the row.
-- Deleting a second account that reviewed the same course, messaged the same instructor about the
-  same course, or has progress on the same course succeeds — none of the four unique constraints is
-  violated.
+- After deletion the `User` row still exists with: `name` = "Deleted user" (invariant across all deletions), `email` = `deleted-<UUID>@system.invalid` (random UUID, unique per deletion), `image` = `null`, `emailVerified` = `false`, `emailNotificationsEnabled` = `false`, `welcomeEmailSentAt` = `null`.
+- No `Session` or `Account` row referencing the deleted user survives; the person cannot sign in again, and neither an OAuth provider nor a password reset re-attaches to the row (credentials destroyed).
+- No `Verification` row where `value` is the deleted user's id survives; pending password-reset and verification tokens are destroyed.
+- Deleting a second account that reviewed the same course, messaged the same instructor about the same course, or has progress on the same course succeeds — none of the four unique constraints is violated.
 
 **Nothing belonging to someone else is destroyed**
 
-- Deleting an instructor with an enrolled student leaves the course, its sections and lessons, and
-  that student's `Enrollment`, `CourseProgress` and `ConceptMastery` rows intact.
-- The student can still open the course and its lessons afterwards.
-- Deleting a student leaves every `Payment` row referencing them, with `amountCents`,
-  `transferStatus`, `stripeTransferId` and `stripePaymentIntentId` unchanged.
-- Deleting a student with a `transferStatus: pending` payment leaves that payment visible to the
-  transfer sweep, and the instructor is still paid.
-- Deleting either party to a conversation leaves the thread and both sides' message bodies readable
-  by the remaining party.
-- A course's average rating is the same immediately before and after one of its reviewers deletes
-  their account.
-- A certificate issued before deletion still renders afterwards.
+- Deleting an instructor with an enrolled student leaves the course (published, not archived), its sections and lessons, and that student's `Enrollment`, `CourseProgress` and `ConceptMastery` rows intact.
+- The student can still open the course and its lessons afterwards, seeing the instructor's name as "Deleted user".
+- Deleting a student leaves every `Payment` row referencing them untouched, with all fields (`amountCents`, `platformFeeCents`, `instructorNetCents`, `transferStatus`, `stripeTransferId`, `stripePaymentIntentId`) unchanged.
+- Deleting a student with a `transferStatus: pending` payment leaves that payment queryable by the transfer sweep, and the instructor is still paid.
+- Deleting either party to a conversation leaves the thread intact and both sides' message bodies readable by the remaining party.
+- A course's average rating is the same immediately before and after one of its reviewers deletes their account.
+- A certificate issued to a student before the instructor deletes their account still renders afterwards with the instructor named as "Deleted user".
 
 **Private authored content is destroyed**
 
-- No `LessonAssistantConversation`, `LessonAssistantMessage`, `CourseGeneration`,
-  `CourseGenerationMessage`, `InstructorProfile`, `UserInterestEmbedding` or `Notification` row
-  referencing the deleted user survives.
-- In particular a `CourseGeneration` row is destroyed, which is only reachable once the foreign key
-  exists.
+- No `LessonAssistantConversation`, `LessonAssistantMessage`, `CourseGeneration`, `CourseGenerationMessage`, `UserInterestEmbedding`, `LearningPathCache`, or `NotificationLog` row referencing the deleted user survives.
+- In particular a `CourseGeneration` row is destroyed (which is only reachable once its foreign key exists).
+
+**Instructor profile is scrubbed, not destroyed**
+
+- The `InstructorProfile` row for the deleted instructor survives with: `professionalBio` = "", `courseIdea` = "", `teachingExperience` = "", `areaOfExpertise` = "", `phone` = `null`, `linkedinUrl` = `null`, `websiteUrl` = `null` (all authored free text blanked).
+- The payout fields (`stripeAccountId`, `stripeChargesEnabled`, `stripePayoutsEnabled`, `stripeOnboardedAt`) are unchanged, so pending Stripe transfers can still resolve through the instructor's Connect account.
 
 **The cascade cannot come back**
 
-- Attempting to delete a `User` row directly through Prisma, for a user who has a course, a payment,
-  a review, a conversation or an enrollment, raises a foreign-key error instead of succeeding.
-- No `Post` model remains in `prisma/schema/`.
+- Attempting to delete a `User` row directly through Prisma, for a user who has retained data (course, payment, review, conversation, enrollment, progress), raises a foreign-key constraint error instead of succeeding.
+- No `Post` model exists in `prisma/schema/`.
 
 **Atomicity**
 
-- The whole operation runs in one transaction: a failure partway leaves the account fully intact and
-  still able to sign in, not partly anonymised.
+- The whole anonymisation operation runs in one transaction with a 30-second timeout: a failure partway leaves the account fully intact with all original fields and credentials, still able to sign in.
 
 ## Agent notes
 
@@ -166,8 +163,9 @@ before this ships (there are none in production).
   balance they represent.
 - **Anonymisation must be irreversible to be worth anything.** If a future feature reconstructs the
   original email (from Stripe customer records, an audit log, or an email-delivery log), the
-  remaining rows stop being anonymous and re-enter GDPR scope. The `deleted-<userId>@system.invalid`
-  form deliberately derives from the row id and nothing else.
+  remaining rows stop being anonymous and re-enter GDPR scope. The `deleted-<UUID>@system.invalid`
+  form is deliberately random, not derived from the user's id, to avoid giving anyone who has ever
+  been messaged by the account the ability to predict and re-register that account's future address.
 - **Accepted residual risk:** retained rows could in principle re-identify someone by combination —
   a niche course, a timestamp, and review prose. This is accepted rather than solved; the
   alternative (destroying reviews and payments) breaks the guarantees above. It belongs in
@@ -178,6 +176,13 @@ before this ships (there are none in production).
 - **`onDelete: Restrict` makes tests noisier.** Fixtures that tear down by deleting users will start
   failing; `test/db.ts` `truncateAll()` already truncates tables directly and is unaffected.
 - This is **complex tier** — it touches money (`Payment`), the auth model (account deletion), and a
-  migration that is expensive to undo on live data. **An ADR is required at the `/qa` gate**, and the
-  decision worth recording is anonymise-in-place versus a per-deletion tombstone user, including why
-  a single shared tombstone is not viable (it violates four unique constraints).
+  migration that is expensive to undo on live data. **An ADR is required** (see ADR-025), recording:
+  anonymise-in-place versus a per-deletion tombstone user, including why a single shared tombstone is
+  not viable (it violates four unique constraints); the two-hook Better Auth interception
+  (`user.deleteUser.beforeDelete` runs the transaction first and can abort by throwing;
+  `databaseHooks.user.delete.before` returning exactly `false` skips the row delete) and its version
+  coupling to better-auth 1.5.4 (`dist/db/with-hooks.mjs:101-108` must be re-verified on every
+  upgrade); the `InstructorProfile` payout finding (stripeAccountId and related fields kept so the
+  sweep can resolve pending transfers); the 14 `Cascade → Restrict` downgrades as a structural
+  guarantee that direct user.delete() will fail loudly; and the unguessable-placeholder decision
+  (random UUID, not user id, to prevent address prediction).

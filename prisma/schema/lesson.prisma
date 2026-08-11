@@ -34,7 +34,7 @@ model LessonProgress {
   lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   studentId String
-  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Restrict)
 
   isCompleted Boolean   @default(false)
   completedAt DateTime?

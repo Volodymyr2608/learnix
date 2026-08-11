@@ -137,3 +137,70 @@ export function makeConceptMastery(
 		data: { level: 0, ...overrides },
 	});
 }
+
+export function makeInstructorProfile(
+	overrides: Partial<Prisma.InstructorProfileUncheckedCreateInput> & {
+		userId: string;
+	},
+) {
+	return testDb.instructorProfile.create({
+		data: {
+			areaOfExpertise: "Software Engineering",
+			teachingExperience: "5 years",
+			professionalBio: "I have taught backend engineering since 2019.",
+			courseIdea: "A course on distributed systems",
+			...overrides,
+		},
+	});
+}
+
+export function makePayment(
+	overrides: Partial<Prisma.PaymentUncheckedCreateInput> & {
+		studentId: string;
+		instructorId: string;
+		courseId: string;
+	},
+) {
+	return testDb.payment.create({
+		data: {
+			amountCents: 4999,
+			platformFeeCents: 1000,
+			instructorNetCents: 3999,
+			status: "succeeded",
+			transferStatus: "none",
+			...overrides,
+		},
+	});
+}
+
+export function makeCourseReview(
+	overrides: Partial<Prisma.CourseReviewUncheckedCreateInput> & {
+		courseId: string;
+		studentId: string;
+	},
+) {
+	return testDb.courseReview.create({
+		data: { rating: 5, comment: "Excellent course.", ...overrides },
+	});
+}
+
+export function makeConversation(
+	overrides: Partial<Prisma.ConversationUncheckedCreateInput> & {
+		studentId: string;
+		instructorId: string;
+		courseId: string;
+	},
+) {
+	return testDb.conversation.create({ data: { ...overrides } });
+}
+
+export function makeMessage(
+	overrides: Partial<Prisma.MessageUncheckedCreateInput> & {
+		conversationId: string;
+		senderId: string;
+	},
+) {
+	return testDb.message.create({
+		data: { body: "Hello, I have a question about lesson 2.", ...overrides },
+	});
+}
