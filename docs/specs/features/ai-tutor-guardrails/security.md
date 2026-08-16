@@ -10,10 +10,6 @@ Companion documents: [`threat-model.md`](./threat-model.md) (entry points, STRID
 [023](../../../adr/023-chat-route-authorization-binding.md) (authorization binding),
 [024](../../../adr/024-lesson-tutor-authority-boundaries.md) (tool authority and output boundary).
 
-Point-in-time reviews (findings not yet folded into S13):
-[`security/2026-08-16-ai-tutor-independent-review.md`](../../../security/2026-08-16-ai-tutor-independent-review.md)
-and [`security/2026-08-16-ai-content-supply-chain.md`](../../../security/2026-08-16-ai-content-supply-chain.md).
-
 ---
 
 ## S1. Application domain and AI feature scope

@@ -5,11 +5,11 @@ models: [ConceptMastery]
 depends-on: [ai-input-trust-boundary, ai-chat-route-authorization]
 ---
 
-> **Reopened 2026-08-16** (Example 5 in `documentation-process.md`) to close findings F1–F7 of
-> [`docs/security/2026-08-16-ai-tutor-independent-review.md`](../../../security/2026-08-16-ai-tutor-independent-review.md).
-> Scope items 7–11, their acceptance criteria, and the `## Security` section below are the reopened
-> part; items 1–6 shipped and are unchanged. Plan: `build/hardening-plan.md` (the shipped
-> `build/plan.md` stays as the record of the original build).
+> **Reopened 2026-08-16** (Example 5 in `documentation-process.md`) after an independent review of
+> the tutor flow found seven paths where an existing guard or telemetry control did not run. Scope
+> items 7–11, their acceptance criteria, and the `## Security` section below are the reopened part;
+> items 1–6 shipped and are unchanged. Plan: `build/hardening-plan.md` (the shipped `build/plan.md`
+> stays as the record of the original build).
 
 ## Purpose
 
@@ -249,12 +249,11 @@ the event, it does not reduce the disclosure).
 ## Security
 
 **Threat pass provenance.** The `security-auditor` / `llm-security-auditor` design pass was **not**
-dispatched for this reopening, deliberately: its input would be
-[`docs/security/2026-08-16-ai-tutor-independent-review.md`](../../../security/2026-08-16-ai-tutor-independent-review.md),
-which *is* an LLM-security review of this exact surface and is the document this scope derives from.
-Re-deriving it from a cold start would produce a weaker version of its own source. Run the agents in
-`audit` mode at `/qa` as normal — that pass is not optional, and it is the one that checks these
-controls landed.
+dispatched for this reopening, deliberately: this scope is itself derived from an LLM-security review
+of this exact surface, so re-deriving it from a cold start would produce a weaker version of its own
+source. The findings are restated in full in the table below — this section is the record, not a
+pointer to one. Run the agents in `audit` mode at `/qa` as normal; that pass is not optional, and it
+is the one that checks these controls landed.
 
 **The threat, stated once.** Every finding here is the same shape: *the control runs on the happy
 path, and the adversary picks a different one.* Not a missing boundary — a boundary with an

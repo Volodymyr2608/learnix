@@ -2,10 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development`
 > (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) scope items **7–11** and their acceptance
-> criteria, [`../security.md`](../security.md), and
-> [`docs/security/2026-08-16-ai-tutor-independent-review.md`](../../../../security/2026-08-16-ai-tutor-independent-review.md)
-> for the findings (F1–F7) this closes.
+> checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) scope items **7–11**, their acceptance
+> criteria, and its `## Security` section — which restates the seven review findings (F1–F7) this
+> plan closes — plus [`../security.md`](../security.md) for the standing requirements.
 >
 > The shipped [`plan.md`](./plan.md) in this folder is the record of the **original** build. Do not
 > edit it. This file is the reopened work.
