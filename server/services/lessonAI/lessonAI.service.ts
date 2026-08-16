@@ -112,7 +112,10 @@ export class LessonAIService {
 		// second time — it only handles the validator itself throwing.
 		const runOutputBoundary = (): ReplyValidationResult => {
 			try {
-				return validateReply(fullReply, { userId: studentId, retrievedContent });
+				return validateReply(fullReply, {
+					userId: studentId,
+					retrievedContent,
+				});
 			} catch {
 				logSecurityEvent({
 					feature: "lessonAI",
@@ -132,10 +135,12 @@ export class LessonAIService {
 		// events. Without this, disconnecting after the last token is a detection
 		// bypass, and S13 §2 accepts the streaming disclosure precisely because
 		// output_validation_failed stays queryable.
-		const finishWithoutDelivery = () => {
+		const finishWithoutDelivery = async () => {
 			if (!fullReply) return;
 			const validation = runOutputBoundary();
-			if (validation.valid || !masteryCommitted) return;
+			if (validation.valid) return;
+			await lessonAssistantRepository.markContextIneligible(userRow.id);
+			if (!masteryCommitted) return;
 			logSecurityEvent({
 				feature: "lessonAI",
 				userId: studentId,
@@ -151,7 +156,7 @@ export class LessonAIService {
 
 			for await (const event of stream) {
 				if (signal?.aborted) {
-					finishWithoutDelivery();
+					await finishWithoutDelivery();
 					return;
 				}
 
@@ -193,7 +198,7 @@ export class LessonAIService {
 		} catch (_error) {
 			// A mid-stream provider error is the third exit that used to skip the
 			// output boundary with a partial reply already in the browser.
-			finishWithoutDelivery();
+			await finishWithoutDelivery();
 			if (signal?.aborted) return;
 			yield { type: "error" as const, message: "Something went wrong" };
 			return;
@@ -213,6 +218,12 @@ export class LessonAIService {
 			// the retained side effect with the retraction so a human can review a
 			// turn that was adversarial enough to be retracted yet still wrote to
 			// an educational record (S13 §24).
+			//
+			// The prompt that elicited the rejected reply leaves the model's context
+			// too: re-sending it otherwise hands the payload another sample of a
+			// stochastic model, with the previous attempt replayed as ordinary
+			// conversation. The turn stays visible in the thread.
+			await lessonAssistantRepository.markContextIneligible(userRow.id);
 			if (masteryCommitted) {
 				logSecurityEvent({
 					feature: "lessonAI",

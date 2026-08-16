@@ -79,6 +79,19 @@ class LessonAssistantRepository {
 		});
 	}
 
+	/**
+	 * Takes a message out of the model-context read while leaving it in the thread.
+	 * Used when the OUTPUT boundary rejects a reply: the prompt that elicited it is
+	 * the strongest adversarial signal available, and replaying it as ordinary
+	 * history hands the payload a fresh sample of a stochastic model on every retry.
+	 */
+	async markContextIneligible(messageId: string) {
+		await db.lessonAssistantMessage.update({
+			where: { id: messageId },
+			data: { contextEligible: false },
+		});
+	}
+
 	async clearMessages(lessonId: string, studentId: string) {
 		const convo = await db.lessonAssistantConversation.findUnique({
 			where: { lessonId_studentId: { lessonId, studentId } },

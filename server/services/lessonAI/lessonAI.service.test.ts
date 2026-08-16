@@ -8,6 +8,7 @@ const {
 	mockStreamEvents,
 	mockValidateReply,
 	mockLogSecurityEvent,
+	mockMarkContextIneligible,
 } = vi.hoisted(() => ({
 	mockSaveMessage: vi.fn().mockResolvedValue({}),
 	mockGetContextMessages: vi.fn().mockResolvedValue([]),
@@ -15,6 +16,7 @@ const {
 	mockStreamEvents: vi.fn(),
 	mockValidateReply: vi.fn(),
 	mockLogSecurityEvent: vi.fn(),
+	mockMarkContextIneligible: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("./validateReply", async (importOriginal) => {
@@ -30,6 +32,7 @@ vi.mock("@/server/repositories/lessonAssistant.repository", () => ({
 	lessonAssistantRepository: {
 		saveMessage: mockSaveMessage,
 		getContextMessages: mockGetContextMessages,
+		markContextIneligible: mockMarkContextIneligible,
 	},
 }));
 vi.mock("@/server/repositories/lessonInsights.repository", () => ({
@@ -280,6 +283,38 @@ describe("streamResponse turn persistence", () => {
 		const readOrder = mockGetContextMessages.mock.invocationCallOrder[0];
 		const writeOrder = mockSaveMessage.mock.invocationCallOrder[0];
 		expect(readOrder).toBeLessThan(writeOrder as number);
+	});
+});
+
+// F3: contextEligible was applied to turns the INPUT guard rejected. An output
+// rejection is the stronger adversarial signal of the two, and leaving the
+// eliciting prompt eligible let a payload be re-sent with its previous attempt
+// sitting in context as ordinary conversation — a fresh sample of a stochastic
+// model on every retry.
+describe("rejected replies do not return as context", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockMarkContextIneligible.mockClear();
+	});
+
+	it("flips the eliciting user turn when the reply is rejected", async () => {
+		await collect([tokenEvent("Sure — Tool usage rules (follow in order): ")]);
+
+		expect(mockMarkContextIneligible).toHaveBeenCalledWith("user-row-1");
+	});
+
+	it("leaves the user turn eligible when the reply is clean", async () => {
+		await collect([tokenEvent("A base case stops the recursion.")]);
+
+		expect(mockMarkContextIneligible).not.toHaveBeenCalled();
+	});
+
+	it("flips the user turn on an aborted, rejected turn too", async () => {
+		await collectAborted([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockMarkContextIneligible).toHaveBeenCalledWith("user-row-1");
 	});
 });
 

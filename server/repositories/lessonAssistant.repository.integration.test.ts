@@ -67,6 +67,28 @@ describe("lessonAssistantRepository context reads", () => {
 		expect(context.map((m) => m.content)).toEqual(["m2", "m3", "m4"]);
 	});
 
+	it("markContextIneligible removes a message from the model context but not the thread", async () => {
+		const saved = await lessonAssistantRepository.saveMessage(
+			lessonId,
+			studentId,
+			{ role: "user", content: "payload" },
+		);
+
+		await lessonAssistantRepository.markContextIneligible(saved.id);
+
+		const thread = await lessonAssistantRepository.getMessages(
+			lessonId,
+			studentId,
+		);
+		const context = await lessonAssistantRepository.getContextMessages(
+			lessonId,
+			studentId,
+		);
+
+		expect(thread.map((m) => m.content)).toContain("payload");
+		expect(context.map((m) => m.content)).not.toContain("payload");
+	});
+
 	it("returns nothing when the conversation does not exist", async () => {
 		expect(
 			await lessonAssistantRepository.getContextMessages(lessonId, studentId),
