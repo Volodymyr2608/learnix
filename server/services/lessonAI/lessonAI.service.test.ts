@@ -91,6 +91,43 @@ const collect = async (events: unknown[]) => {
 	return out;
 };
 
+/**
+ * Streams `events`, then disconnects the client with more of the stream still to
+ * come — which is what makes the abort observable to the loop's next iteration,
+ * and is what a real disconnect looks like.
+ */
+const collectAborted = async (events: unknown[]) => {
+	const controller = new AbortController();
+	mockStreamEvents.mockReturnValue(
+		(async function* () {
+			for (const event of events) yield event;
+			controller.abort();
+			yield tokenEvent("");
+		})(),
+	);
+	const out: { type: string }[] = [];
+	for await (const event of lessonAIService.streamResponse({
+		lessonId: "lesson-1",
+		lessonTitle: "Recursion",
+		courseTitle: "Algorithms",
+		courseId: "course-1",
+		studentId: "student-1",
+		userMessage: "explain the base case",
+		signal: controller.signal,
+	})) {
+		out.push(event as { type: string });
+	}
+	return out;
+};
+
+const recorded = 'Recorded: "Recursion" at level 2 (applied).';
+
+const markConceptEnd = (output: string) => ({
+	event: "on_tool_end",
+	name: "mark_concept_understood",
+	data: { output },
+});
+
 describe("streamResponse output boundary", () => {
 	beforeEach(() => {
 		mockSaveMessage.mockClear();
@@ -173,14 +210,6 @@ describe("streamResponse output boundary", () => {
 	// (it passed its own authorization and is not coupled to the reply text).
 	// The retract is the strongest signal a turn was adversarial, so the retained
 	// write is flagged for review — without lying about writes that never landed.
-	const recorded = 'Recorded: "Recursion" at level 2 (applied).';
-
-	const markConceptEnd = (output: string) => ({
-		event: "on_tool_end",
-		name: "mark_concept_understood",
-		data: { output },
-	});
-
 	it("flags a committed mastery write retained on a retracted turn", async () => {
 		const events = await collect([
 			markConceptEnd(recorded),
@@ -251,5 +280,64 @@ describe("streamResponse turn persistence", () => {
 		const readOrder = mockGetContextMessages.mock.invocationCallOrder[0];
 		const writeOrder = mockSaveMessage.mock.invocationCallOrder[0];
 		expect(readOrder).toBeLessThan(writeOrder as number);
+	});
+});
+
+// F1: validateReply ran only after normal completion, so a client that
+// disconnected after the last content token got the whole reply and produced no
+// security event at all. security.md S13 §2 accepts the streaming disclosure on
+// the strength of that event staying queryable — so it must not be something the
+// adversary can switch off.
+describe("streamResponse abort path", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockLogSecurityEvent.mockClear();
+	});
+
+	it("still emits output_validation_failed when the client aborts", async () => {
+		await collectAborted([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				layer: "output_validation",
+				outcome: "output_validation_failed",
+				ruleIds: ["system_prompt_echo"],
+			}),
+		);
+	});
+
+	it("persists no assistant row on abort, clean reply or not", async () => {
+		await collectAborted([tokenEvent("A base case stops the recursion.")]);
+
+		expect(assistantSaves()).toHaveLength(0);
+	});
+
+	it("emits nothing on a clean aborted reply", async () => {
+		await collectAborted([tokenEvent("A base case stops the recursion.")]);
+
+		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
+	});
+
+	it("emits nothing when aborted before any content token", async () => {
+		await collectAborted([
+			{ event: "on_tool_start", name: "retrieve_lesson_context", data: {} },
+		]);
+
+		expect(mockLogSecurityEvent).not.toHaveBeenCalled();
+	});
+
+	it("still correlates a retained mastery write on an aborted, rejected turn", async () => {
+		await collectAborted([
+			markConceptEnd(recorded),
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "mastery_write_retained" }),
+		);
 	});
 });

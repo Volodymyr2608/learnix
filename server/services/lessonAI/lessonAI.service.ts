@@ -107,11 +107,53 @@ export class LessonAIService {
 		// retracted reply — never to claim a write that never landed.
 		let masteryCommitted = false;
 
+		// The output boundary, callable from every exit. validateReply emits its own
+		// output_validation_failed via reject(), so this must not log that outcome a
+		// second time — it only handles the validator itself throwing.
+		const runOutputBoundary = (): ReplyValidationResult => {
+			try {
+				return validateReply(fullReply, { userId: studentId, retrievedContent });
+			} catch {
+				logSecurityEvent({
+					feature: "lessonAI",
+					userId: studentId,
+					layer: "output_validation",
+					outcome: "output_validation_failed",
+					ruleIds: ["validator_error"],
+					score: 0,
+				});
+				return { valid: false, ruleId: "validator_error" };
+			}
+		};
+
+		// Shared by the abort and mid-stream-error exits: the client is gone or the
+		// turn failed, so there is nothing to retract and nothing to persist — but a
+		// reply that already reached the browser must still produce its security
+		// events. Without this, disconnecting after the last token is a detection
+		// bypass, and S13 §2 accepts the streaming disclosure precisely because
+		// output_validation_failed stays queryable.
+		const finishWithoutDelivery = () => {
+			if (!fullReply) return;
+			const validation = runOutputBoundary();
+			if (validation.valid || !masteryCommitted) return;
+			logSecurityEvent({
+				feature: "lessonAI",
+				userId: studentId,
+				layer: "output_validation",
+				outcome: "mastery_write_retained",
+				ruleIds: [validation.ruleId],
+				score: 0,
+			});
+		};
+
 		try {
 			const stream = await tracedStream();
 
 			for await (const event of stream) {
-				if (signal?.aborted) return;
+				if (signal?.aborted) {
+					finishWithoutDelivery();
+					return;
+				}
 
 				if (
 					event.event === "on_chat_model_stream" &&
@@ -149,6 +191,9 @@ export class LessonAIService {
 				}
 			}
 		} catch (_error) {
+			// A mid-stream provider error is the third exit that used to skip the
+			// output boundary with a partial reply already in the browser.
+			finishWithoutDelivery();
 			if (signal?.aborted) return;
 			yield { type: "error" as const, message: "Something went wrong" };
 			return;
@@ -158,23 +203,7 @@ export class LessonAIService {
 		if (!fullReply) return;
 
 		// Fail-closed. A validator that throws is a rejection, not a pass.
-		let validation: ReplyValidationResult;
-		try {
-			validation = validateReply(fullReply, {
-				userId: studentId,
-				retrievedContent,
-			});
-		} catch {
-			logSecurityEvent({
-				feature: "lessonAI",
-				userId: studentId,
-				layer: "output_validation",
-				outcome: "output_validation_failed",
-				ruleIds: ["validator_error"],
-				score: 0,
-			});
-			validation = { valid: false, ruleId: "validator_error" };
-		}
+		const validation = runOutputBoundary();
 
 		if (!validation.valid) {
 			// Retract rather than persist: the tokens already left, but nothing
