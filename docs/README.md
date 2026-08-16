@@ -5,9 +5,20 @@
 ```
 docs/
 ├── adr/        Architecture Decision Records — why we chose what we chose
+├── security/   Dated security reviews — findings and proposals, not living specs
 ├── specs/      Living feature specs (features/) + mission, tech-stack, roadmap, process
 └── templates/  feature-spec.md (spec.md) + plan.md (build/plan.md)
 ```
+
+`security/` holds point-in-time review output. A finding that gets accepted rather than fixed moves
+into the owning feature's `security.md` risk register; a review document is never the place a
+standing risk lives. Reviews are produced by the `security-auditor` and `llm-security-auditor`
+agents (see `documentation-process.md` §3d) or by hand.
+
+| Review | Scope |
+|---|---|
+| [2026-08-16 — AI tutor](security/2026-08-16-ai-tutor-independent-review.md) | `POST /api/chat/lesson` and everything it reaches; second opinion on `ai-tutor-guardrails` |
+| [2026-08-16 — AI content supply chain](security/2026-08-16-ai-content-supply-chain.md) | Instructor content → embeddings/insights/quiz → tutor, learning path, other instructors' builders |
 
 See [`docs/specs/documentation-process.md`](specs/documentation-process.md) for the full process —
 tiers, `spec.md` format, lifecycle, and [`docs/adr/020-hybrid-documentation-model.md`](adr/020-hybrid-documentation-model.md)
