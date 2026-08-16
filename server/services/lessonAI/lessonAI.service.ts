@@ -51,6 +51,16 @@ export class LessonAIService {
 			lessonAssistantRepository.getContextMessages(lessonId, studentId),
 			lessonInsightsRepository.findByLessonId(lessonId),
 		]);
+
+		// Persist the user turn AFTER the context read, not before. getContextMessages
+		// returns the newest eligible rows, so saving first puts this very turn into
+		// its own replayed history — and it is appended again below as the current
+		// message. courseAI's route carries the same note for the same reason.
+		const userRow = await lessonAssistantRepository.saveMessage(
+			lessonId,
+			studentId,
+			{ role: "user", content: userMessage },
+		);
 		// LLM-generated JSON with no schema behind it, and this becomes the
 		// toolPolicy allowlist — a non-string entry would throw inside the policy's
 		// trim(), turning a denial into an unhandled error.

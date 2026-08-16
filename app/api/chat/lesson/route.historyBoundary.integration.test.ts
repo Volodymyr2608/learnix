@@ -93,6 +93,8 @@ describe("POST /api/chat/lesson — rejected turns never return as context", () 
 
 		// The boundary: it is not what the model sees on turn 2.
 		expect(context.map((m) => m.content)).not.toContain(PAYLOAD);
-		expect(context.map((m) => m.content)).toContain("Explain recursion");
+		// The allow-path user row is persisted by lessonAIService.streamResponse
+		// (mocked here), not by this route. Its ordering against the context read
+		// is pinned in lessonAI.service.test.ts, not in this route test.
 	});
 });

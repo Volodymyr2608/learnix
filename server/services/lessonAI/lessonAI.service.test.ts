@@ -65,6 +65,16 @@ const streamOf = (events: unknown[]) =>
 		for (const event of events) yield event;
 	})();
 
+/**
+ * The service persists both turns, so "was the reply persisted?" has to name the
+ * role — otherwise the user turn (always written) masks the assistant turn these
+ * assertions are actually about.
+ */
+const assistantSaves = () =>
+	mockSaveMessage.mock.calls.filter(
+		(call) => (call[2] as { role?: string })?.role === "assistant",
+	);
+
 const collect = async (events: unknown[]) => {
 	mockStreamEvents.mockReturnValue(streamOf(events));
 	const out: { type: string; message?: string; value?: string }[] = [];
@@ -99,7 +109,7 @@ describe("streamResponse output boundary", () => {
 
 		const retract = events.find((e) => e.type === "retract");
 		expect(retract?.message).toBe(NEUTRAL_REFUSAL_MESSAGE);
-		expect(mockSaveMessage).not.toHaveBeenCalled();
+		expect(assistantSaves()).toHaveLength(0);
 		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
 			expect.objectContaining({
 				layer: "output_validation",
@@ -115,7 +125,7 @@ describe("streamResponse output boundary", () => {
 		]);
 
 		expect(events.map((e) => e.type)).not.toContain("retract");
-		expect(mockSaveMessage).toHaveBeenCalledTimes(1);
+		expect(assistantSaves()).toHaveLength(1);
 	});
 
 	it("retracts and persists nothing when the reply leaks the system prompt", async () => {
@@ -125,7 +135,7 @@ describe("streamResponse output boundary", () => {
 
 		const retract = events.find((e) => e.type === "retract");
 		expect(retract?.message).toBe(NEUTRAL_REFUSAL_MESSAGE);
-		expect(mockSaveMessage).not.toHaveBeenCalled();
+		expect(assistantSaves()).toHaveLength(0);
 	});
 
 	it("captures tool output as a bare string for the verbatim check", async () => {
@@ -141,7 +151,7 @@ describe("streamResponse output boundary", () => {
 		]);
 
 		expect(events.some((e) => e.type === "retract")).toBe(true);
-		expect(mockSaveMessage).not.toHaveBeenCalled();
+		expect(assistantSaves()).toHaveLength(0);
 	});
 
 	it("captures tool output wrapped in a ToolMessage for the verbatim check", async () => {
@@ -210,9 +220,36 @@ describe("streamResponse output boundary", () => {
 		]);
 
 		expect(events.some((e) => e.type === "retract")).toBe(false);
-		expect(mockSaveMessage).toHaveBeenCalledTimes(1);
+		expect(assistantSaves()).toHaveLength(1);
 		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
 			expect.objectContaining({ outcome: "mastery_write_retained" }),
 		);
+	});
+});
+
+describe("streamResponse turn persistence", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockGetContextMessages.mockClear().mockResolvedValue([]);
+	});
+
+	it("persists the user turn itself", async () => {
+		await collect([tokenEvent("A base case stops the recursion.")]);
+
+		expect(mockSaveMessage).toHaveBeenCalledWith("lesson-1", "student-1", {
+			role: "user",
+			content: "explain the base case",
+		});
+	});
+
+	// The duplication bug: saving before the context read puts this turn in its
+	// own replayed history, and streamResponse appends it again as the current
+	// message. Order is the fix, so order is what the test pins.
+	it("reads model context before persisting the current turn", async () => {
+		await collect([tokenEvent("A base case stops the recursion.")]);
+
+		const readOrder = mockGetContextMessages.mock.invocationCallOrder[0];
+		const writeOrder = mockSaveMessage.mock.invocationCallOrder[0];
+		expect(readOrder).toBeLessThan(writeOrder as number);
 	});
 });
