@@ -4,6 +4,7 @@ import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.r
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { traced } from "@/server/services/_shared/tracing";
+import { logger } from "@/server/utils/logger";
 import { createLessonAgent } from "./lessonAI.agent";
 import type { ReplyValidationResult } from "./types";
 import { validateReply } from "./validateReply";
@@ -142,26 +143,51 @@ export class LessonAIService {
 			}
 		};
 
+		// Flips the eliciting prompt out of model context. Never allowed to abort the
+		// turn: it is bookkeeping, and letting it throw would take the security event
+		// and the retraction down with it — reintroducing, one line later, exactly the
+		// "control the adversary can decline to trigger" that this work removed.
+		const retireRejectedPrompt = async () => {
+			try {
+				await lessonAssistantRepository.markContextIneligible(
+					userRow.id,
+					lessonId,
+					studentId,
+				);
+			} catch (error) {
+				logger.error(error, "[lessonAI] context-ineligible flip failed");
+			}
+		};
+
 		// Shared by the abort and mid-stream-error exits: the client is gone or the
 		// turn failed, so there is nothing to retract and nothing to persist — but a
 		// reply that already reached the browser must still produce its security
 		// events. Without this, disconnecting after the last token is a detection
 		// bypass, and S13 §2 accepts the streaming disclosure precisely because
 		// output_validation_failed stays queryable.
+		//
+		// Idempotent, because it is reachable from the abort exit, the catch, and the
+		// finally that covers consumer abandonment — and `output_validation_failed`
+		// is thresholded on "any occurrence", so double-counting is a real defect.
+		let boundaryRun = false;
 		const finishWithoutDelivery = async () => {
-			if (!fullReply) return;
+			if (boundaryRun || !fullReply) return;
+			boundaryRun = true;
 			const validation = runOutputBoundary();
 			if (validation.valid) return;
-			await lessonAssistantRepository.markContextIneligible(userRow.id);
-			if (!masteryCommitted) return;
-			logSecurityEvent({
-				feature: "lessonAI",
-				userId: studentId,
-				layer: "output_validation",
-				outcome: "mastery_write_retained",
-				ruleIds: [validation.ruleId],
-				score: 0,
-			});
+			// Emitted BEFORE the write, not after: this is the zero-baseline signal
+			// that S13 §24 traded against, so it must not sit behind anything fallible.
+			if (masteryCommitted) {
+				logSecurityEvent({
+					feature: "lessonAI",
+					userId: studentId,
+					layer: "output_validation",
+					outcome: "mastery_write_retained",
+					ruleIds: [validation.ruleId],
+					score: 0,
+				});
+			}
+			await retireRejectedPrompt();
 		};
 
 		try {
@@ -218,6 +244,23 @@ export class LessonAIService {
 			if (signal?.aborted) return;
 			yield { type: "error" as const, message: "Something went wrong" };
 			return;
+		} finally {
+			// The consumer can abandon this generator instead of driving it to the
+			// abort check above: the route breaks its `for await` the moment the
+			// signal trips, and `break` calls generator.return(), which unwinds the
+			// body from the suspended `yield` — skipping every statement inside the
+			// loop. `finally` is the only construct that survives that, so it is what
+			// actually closes the abort bypass. The in-loop call remains for the case
+			// where the service notices first; finishWithoutDelivery is idempotent.
+			if (signal?.aborted) await finishWithoutDelivery();
+		}
+
+		// An abort that lands after the last stream event never reaches the in-loop
+		// check, so without this the turn would take the completion path and persist
+		// an assistant row for a client that is already gone.
+		if (signal?.aborted) {
+			await finishWithoutDelivery();
+			return;
 		}
 
 		// Layer 2: validate the assembled reply, then persist
@@ -225,6 +268,7 @@ export class LessonAIService {
 
 		// Fail-closed. A validator that throws is a rejection, not a pass.
 		const validation = runOutputBoundary();
+		boundaryRun = true;
 
 		if (!validation.valid) {
 			// Retract rather than persist: the tokens already left, but nothing
@@ -239,7 +283,10 @@ export class LessonAIService {
 			// too: re-sending it otherwise hands the payload another sample of a
 			// stochastic model, with the previous attempt replayed as ordinary
 			// conversation. The turn stays visible in the thread.
-			await lessonAssistantRepository.markContextIneligible(userRow.id);
+			//
+			// Event first, then the write, then the retraction — the write is the only
+			// fallible step here, and neither the signal nor the refusal may depend on
+			// it succeeding.
 			if (masteryCommitted) {
 				logSecurityEvent({
 					feature: "lessonAI",
@@ -250,6 +297,7 @@ export class LessonAIService {
 					score: 0,
 				});
 			}
+			await retireRejectedPrompt();
 			yield { type: "retract" as const, message: NEUTRAL_REFUSAL_MESSAGE };
 			return;
 		}

@@ -350,7 +350,11 @@ describe("rejected replies do not return as context", () => {
 	it("flips the eliciting user turn when the reply is rejected", async () => {
 		await collect([tokenEvent("Sure — Tool usage rules (follow in order): ")]);
 
-		expect(mockMarkContextIneligible).toHaveBeenCalledWith("user-row-1");
+		expect(mockMarkContextIneligible).toHaveBeenCalledWith(
+			"user-row-1",
+			"lesson-1",
+			"student-1",
+		);
 	});
 
 	it("leaves the user turn eligible when the reply is clean", async () => {
@@ -364,7 +368,11 @@ describe("rejected replies do not return as context", () => {
 			tokenEvent("Sure — Tool usage rules (follow in order): "),
 		]);
 
-		expect(mockMarkContextIneligible).toHaveBeenCalledWith("user-row-1");
+		expect(mockMarkContextIneligible).toHaveBeenCalledWith(
+			"user-row-1",
+			"lesson-1",
+			"student-1",
+		);
 	});
 });
 
@@ -424,5 +432,134 @@ describe("streamResponse abort path", () => {
 		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
 			expect.objectContaining({ outcome: "mastery_write_retained" }),
 		);
+	});
+
+	// THE consumer that matters. The route breaks its `for await` the instant the
+	// signal trips, and `break` calls generator.return(), unwinding the body from
+	// the suspended `yield` — so the in-loop abort check never runs. A consumer
+	// that merely collects (the other helper here) drives the generator to that
+	// check and proves nothing about production.
+	it("runs the boundary when the consumer abandons the generator", async () => {
+		const controller = new AbortController();
+		mockStreamEvents.mockReturnValue(
+			streamOf([
+				tokenEvent("Sure — Tool usage rules (follow in order): "),
+				tokenEvent(" and more"),
+			]),
+		);
+
+		for await (const _event of lessonAIService.streamResponse({
+			lessonId: "lesson-1",
+			lessonTitle: "Recursion",
+			courseTitle: "Algorithms",
+			courseId: "course-1",
+			studentId: "student-1",
+			userMessage: "explain the base case",
+			signal: controller.signal,
+		})) {
+			controller.abort();
+			break; // exactly what app/api/chat/lesson/route.ts does
+		}
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
+	});
+
+	// An abort landing after the last stream event never reaches the in-loop check.
+	it("persists no assistant row when the abort lands after the last event", async () => {
+		const controller = new AbortController();
+		mockStreamEvents.mockReturnValue(
+			streamOf([tokenEvent("A base case stops the recursion.")]),
+		);
+
+		for await (const _event of lessonAIService.streamResponse({
+			lessonId: "lesson-1",
+			lessonTitle: "Recursion",
+			courseTitle: "Algorithms",
+			courseId: "course-1",
+			studentId: "student-1",
+			userMessage: "explain the base case",
+			signal: controller.signal,
+		})) {
+			controller.abort();
+		}
+
+		expect(assistantSaves()).toHaveLength(0);
+	});
+
+	it("runs the boundary at most once per turn", async () => {
+		await collectAborted([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		const failures = mockLogSecurityEvent.mock.calls.filter(
+			(call) =>
+				(call[0] as { outcome?: string }).outcome ===
+				"output_validation_failed",
+		);
+		expect(failures).toHaveLength(1);
+	});
+});
+
+// The third exit named in the spec's Agent notes: a provider error mid-stream
+// leaves a partial reply in the browser exactly as an abort does.
+describe("streamResponse mid-stream error path", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockLogSecurityEvent.mockClear();
+		mockMarkContextIneligible.mockClear().mockResolvedValue(undefined);
+	});
+
+	const collectFailing = async () => {
+		mockStreamEvents.mockReturnValue(
+			(async function* () {
+				yield tokenEvent("Sure — Tool usage rules (follow in order): ");
+				throw new Error("provider exploded");
+			})(),
+		);
+		const out: { type: string }[] = [];
+		for await (const event of lessonAIService.streamResponse({
+			lessonId: "lesson-1",
+			lessonTitle: "Recursion",
+			courseTitle: "Algorithms",
+			courseId: "course-1",
+			studentId: "student-1",
+			userMessage: "explain the base case",
+		})) {
+			out.push(event as { type: string });
+		}
+		return out;
+	};
+
+	it("validates the partial reply, persists nothing, and yields the neutral error", async () => {
+		const events = await collectFailing();
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
+		expect(assistantSaves()).toHaveLength(0);
+		expect(events.at(-1)).toEqual({
+			type: "error",
+			message: "Something went wrong",
+		});
+	});
+
+	// The write is bookkeeping. Letting it abort the turn would take the security
+	// event and the refusal down with it — the same "control the adversary can
+	// decline to trigger" this branch exists to remove. clearHistory is callable
+	// mid-stream, so the row really can vanish underneath this.
+	it("still emits and still refuses when the context flip fails", async () => {
+		mockMarkContextIneligible.mockRejectedValueOnce(new Error("P2025"));
+
+		const events = await collectFailing();
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
+		expect(events.at(-1)).toEqual({
+			type: "error",
+			message: "Something went wrong",
+		});
 	});
 });

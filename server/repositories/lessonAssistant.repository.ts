@@ -109,10 +109,20 @@ class LessonAssistantRepository {
 	 * Used when the OUTPUT boundary rejects a reply: the prompt that elicited it is
 	 * the strongest adversarial signal available, and replaying it as ordinary
 	 * history hands the payload a fresh sample of a stochastic model on every retry.
+	 *
+	 * Scoped by conversation even though the only caller passes a server-minted id
+	 * from the same request: ownership belongs in the query that acts, not in the
+	 * discipline of one call site (ADR-017 Rule 2). `updateMany` also makes a
+	 * vanished row a no-op instead of a P2025 throw — the row really can vanish,
+	 * because `clearHistory` is callable while a turn is still streaming.
 	 */
-	async markContextIneligible(messageId: string) {
-		await db.lessonAssistantMessage.update({
-			where: { id: messageId },
+	async markContextIneligible(
+		messageId: string,
+		lessonId: string,
+		studentId: string,
+	) {
+		await db.lessonAssistantMessage.updateMany({
+			where: { id: messageId, conversation: { lessonId, studentId } },
 			data: { contextEligible: false },
 		});
 	}

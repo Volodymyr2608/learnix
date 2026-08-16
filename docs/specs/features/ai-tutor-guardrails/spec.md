@@ -203,7 +203,17 @@ the event, it does not reduce the disclosure).
   `output_validation_failed`, with the same `ruleId` the completed turn would have produced.
 - The same aborted turn writes **no** `LessonAssistantMessage` assistant row.
 - A turn aborted mid-stream whose accumulated reply is clean emits no `output_validation_failed`.
-- A turn aborted before any content token (empty `fullReply`) emits nothing and writes nothing.
+- A turn aborted before any content token (empty `fullReply`) emits nothing and writes no **assistant**
+  row. The user row is written unconditionally before the agent starts — that is the design, not an
+  oversight, and the criterion says "assistant" because "nothing" was false as originally written.
+- An abort that lands **after** the final stream event is still an aborted turn: it persists no
+  assistant row and takes the same boundary path. There is no in-loop check left to catch it, so this
+  is a separate guard rather than a restatement of the one above.
+- The boundary still runs when the consumer **abandons** the generator (the route `break`s on abort,
+  which calls `generator.return()` and unwinds the body from its suspended `yield`). The pinning test
+  must break the way the route does; a test that only collects events proves nothing here.
+- The boundary runs **at most once** per turn — `output_validation_failed` is thresholded on "any
+  occurrence", so double-counting is a defect.
 - An aborted turn that also committed a mastery write and whose reply fails validation still emits
   `mastery_write_retained` — the correlation in S13 §24 must not depend on the client staying
   connected.
@@ -244,7 +254,20 @@ the event, it does not reduce the disclosure).
 - Consuming the tutor's rate-limit allowance does not reduce the same account's course-builder
   allowance, and vice versa.
 - A tutor turn that would exceed the declared `recursionLimit` fails as a bounded error rather than
-  running unbounded; the student sees the standard neutral error, not a stack trace.
+  running unbounded; the student sees the standard neutral error, not a stack trace. **This is a
+  client requirement as well as a server one** — the SSE `error` frame must render, or the student
+  sees their own question with no reply and no explanation.
+
+**Failure handling (items 7–10)**
+
+- A `mark_concept_understood` write that commits, followed by a rejected reply, still emits
+  `mastery_write_retained` **even when the context-eligibility flip fails**. The flip is bookkeeping;
+  the event is the control S13 §24 was traded against, so it is emitted before the fallible write and
+  the write cannot abort the turn. (`clearHistory` is callable while a turn streams, so the row
+  really can vanish underneath it.)
+- The same turn still yields its `retract` to the client under that failure.
+- `markContextIneligible` is scoped by conversation ownership and is a no-op — not an error — when
+  the row is gone or belongs to another student.
 
 ## Security
 

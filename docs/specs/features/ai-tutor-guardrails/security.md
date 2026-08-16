@@ -197,6 +197,14 @@ ends three ways: normal completion, client abort, and a mid-stream provider erro
 `validateReply` over whatever accumulated, because in all three the tokens have already reached the
 browser.
 
+**The mechanism matters and is not obvious.** The route breaks its `for await` the instant the abort
+signal trips, and `break` calls `generator.return()`, which unwinds the generator body from the
+suspended `yield` — skipping every statement inside the streaming loop, including an abort check
+placed there. Only a `finally` on the enclosing `try` survives that, so that is where the boundary
+call lives. A unit test whose consumer merely collects events drives the generator to the in-loop
+check and therefore proves nothing about production; the pinning test must `break` the way the route
+does. There is also a re-check after the loop, for an abort that lands after the final stream event.
+
 Abort and error additionally: persist nothing, and send no `retract` (there is no listener left).
 **The event, not the retraction, is what those paths exist to produce.** Validating only on
 completion made disconnecting after the last content token a detection bypass — the reply was
@@ -253,7 +261,9 @@ through, and this is acceptable **only because L1 runs deterministically underne
 removed or made model-dependent, this decision must be revisited.
 
 **Requirement — the fail-open covers slowness, not only errors.** `checkTopicRelevance` declares
-`timeout: 3_000` and `maxRetries: 1`. Without a budget the call inherits the provider SDK's default
+`timeout: 3_000` and `maxRetries: 1` — which is **3 s per attempt over at most 2 attempts, so ~6.5 s
+worst case including backoff**, not a 3 s wall. Quote the worst case, not the constant, wherever this
+budget is reasoned about. Without a budget the call inherits the provider SDK's default
 of minutes with retries, sitting in the request path of every turn before the first token — and a
 provider that is *slow* rather than down produces neither an error nor a `fallback_triggered` event.
 The student simply waits, and the incident is invisible to the exact signal built to make it visible.
@@ -581,13 +591,18 @@ The rest are named here as accepted or open.
     it — only L3 wrapping (5/12). In that narrow window the input boundary is effectively absent for a
     non-English payload. Naming the intersection is stronger than naming either risk alone.
 
-    **Widened, deliberately, 2026-08.** The L2 latency budget (S10) converts *slow* calls into
-    fail-open allows, where previously they hung the turn. The window this describes is therefore
-    larger: it now opens on provider degradation, not only on provider failure. Accepted — a hung
-    student is a worse and far more likely outcome than a non-English injection landing in the same
-    three-second window — but it is a place where this work made a risk marginally bigger rather than
-    smaller, and it is recorded as such rather than left implicit. It raises the value of closing
-    §23 (localised L1 patterns), not of reverting the budget.
+    **Widened, deliberately, 2026-08 — and the first wording of this note was wrong.** It claimed
+    slow L2 calls previously "hung the turn"; they did not. `guardUserInput` caught whatever the SDK
+    eventually threw, so the pre-budget behaviour was *also* allow-after-L1-only — just after roughly
+    ten minutes of retries, long enough that a human attacker would have abandoned the request.
+
+    What the budget changes is **frequency and exploitability, not the verdict**. A ~6.5 s threshold
+    (S10) is crossed by ordinary provider jitter many times a day, so this window moves from "rarely
+    open, and open for a long time" to "routinely open, and briefly so". That is a real widening and
+    the acceptance stands — a hung student is worse and far more likely than a non-English injection
+    arriving inside one of those windows — but it is the one place this work made a risk bigger, and
+    it is recorded as such. It raises the value of closing §23 (localised L1 patterns), not of
+    reverting the budget.
 29. **L1 decodes only base64, single-pass, and this is deliberate** (F4). `normalize.ts` locates and
     decodes base64 segments (with a printable-ratio guard) before matching, but does *not* decode
     ROT13, hex, URL-encoding, leetspeak, or nested/double encodings. L1 is a deterministic pre-filter,
@@ -596,3 +611,39 @@ The rest are named here as accepted or open.
     evidence). Adding decoders is cheap but not free — each needs a false-positive guard and honest
     dataset rows, or it is a claim of coverage without measurement. Deliberately not added; recorded in
     `normalize.ts` so the exclusion is a conscious boundary, not an oversight.
+**Named in the `/qa` audit pass, 2026-08-16** (both agents, `audit` mode, against the branch that
+closed §17's two sub-problems). The blocking items were fixed on the branch; these two are the
+consequences that were accepted rather than solved.
+
+30. **The tutor's own model call has no timeout, no retry cap, and no output cap.**
+    `lessonAI.agent.ts` builds its `ChatOpenAI` with none of `timeout`, `maxRetries`, `maxTokens`,
+    which is precisely the omission S10 just fixed for L2 — and this is the model the student waits
+    on for far longer. `AGENT_RECURSION_LIMIT = 12` bounds the *number* of model calls per request,
+    not the duration or size of any one, so the worst case per request is 12 × (SDK default timeout ×
+    default retries) of wall clock. No injection is needed to reach it; the only other bound is the
+    per-process rate limiter (§17). Not fixed here because `maxTokens` changes reply behaviour and so
+    needs its own eval run — this is a spec'd change, not a one-line follow-on. The same omission
+    exists on `quizAI`, `courseAI`, `lessonInsightsAI` and `learningPathAI`.
+
+    It also degrades §11's guarantee: the character budget is really "8,000 characters **plus one
+    unbounded assistant reply**", because the single always-kept newest message can be a model output
+    with no size ceiling.
+
+31. **Per-feature rate-limit keys tripled the aggregate per-user AI budget.** Keying
+    `${userId}:${feature}` fixed real cross-feature interference (using the tutor spent the course
+    builder's allowance), but 20/min/user became 20/min/user **per feature** — 60/min/user/process
+    across the three chat routes. If the original 20 was sized against spend rather than against one
+    feature's UX, the ceiling moved without anyone deciding to move it. A second aggregate check
+    keyed on `userId` alone, alongside the per-feature one, is the fix. Related: `EVICT_THRESHOLD`
+    is unchanged at 5,000 while keys per user went 1 → 3, so the sweep now triggers at ~1,667
+    concurrent users instead of 5,000 — and because the sweep only deletes *expired* entries, a burst
+    of >5,000 simultaneously-live keys frees nothing and every subsequent call pays an O(n) scan.
+
+32. **Two client render paths still have no URL policy** — `CourseLearnView` renders `lesson.content`
+    and the AI builder's `ChatMessage` renders assistant text, both with a bare `<Markdown>` and no
+    `urlTransform`. Not XSS (react-markdown's default transform blocks `javascript:`) but a
+    zero-click beacon: an off-origin image in instructor lesson text loads for every student and
+    leaks viewer IP, timing and referer to a third party. The tutor closed exactly this channel at
+    `LessonAssistant/index.tsx`; these two did not, which makes the tutor's control partly moot
+    against an instructor-authored payload. Outside this feature's surface, recorded here so it is
+    not rediscovered a third time.

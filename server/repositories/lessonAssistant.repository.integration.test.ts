@@ -74,7 +74,11 @@ describe("lessonAssistantRepository context reads", () => {
 			{ role: "user", content: "payload" },
 		);
 
-		await lessonAssistantRepository.markContextIneligible(saved.id);
+		await lessonAssistantRepository.markContextIneligible(
+			saved.id,
+			lessonId,
+			studentId,
+		);
 
 		const thread = await lessonAssistantRepository.getMessages(
 			lessonId,
@@ -87,6 +91,39 @@ describe("lessonAssistantRepository context reads", () => {
 
 		expect(thread.map((m) => m.content)).toContain("payload");
 		expect(context.map((m) => m.content)).not.toContain("payload");
+	});
+
+	// Ownership lives in the query that acts, not in the discipline of the one
+	// caller that happens to pass a server-minted id (ADR-017 Rule 2).
+	it("markContextIneligible refuses to touch another student's message", async () => {
+		const other = await makeUser({ role: "STUDENT" });
+		const saved = await lessonAssistantRepository.saveMessage(
+			lessonId,
+			studentId,
+			{ role: "user", content: "victim turn" },
+		);
+
+		await lessonAssistantRepository.markContextIneligible(
+			saved.id,
+			lessonId,
+			other.id,
+		);
+
+		const context = await lessonAssistantRepository.getContextMessages(
+			lessonId,
+			studentId,
+		);
+		expect(context.map((m) => m.content)).toContain("victim turn");
+	});
+
+	it("markContextIneligible is a no-op when the row is gone", async () => {
+		await expect(
+			lessonAssistantRepository.markContextIneligible(
+				"clzzzzzzzzzzzzzzzzzzzzzzz",
+				lessonId,
+				studentId,
+			),
+		).resolves.toBeUndefined();
 	});
 
 	// A message COUNT bounds neither cost nor prompt dilution: 20 turns at the
