@@ -74,7 +74,10 @@ describe("mark_concept_understood", () => {
 	it("marks a committed write in the artifact, not only in the prose", async () => {
 		const tool = build(["Recursion"]);
 
-		const result = await invokeAsAgent(tool, { concept: "Recursion", level: 2 });
+		const result = await invokeAsAgent(tool, {
+			concept: "Recursion",
+			level: 2,
+		});
 
 		expect(result.artifact).toEqual({
 			committed: true,

@@ -26,6 +26,15 @@ const toolOutputText = (output: unknown): string => {
 	return "";
 };
 
+/**
+ * One tutor request is not one model call: L2, the router pass, each tool, then
+ * the answer. LangGraph's default ceiling is 25; 12 covers the four tools plus
+ * retries and makes the per-request cost a decision rather than a default.
+ * Exceeding it throws, which the stream's catch turns into the standard neutral
+ * error — the student never sees a stack trace.
+ */
+const AGENT_RECURSION_LIMIT = 12;
+
 export class LessonAIService {
 	async *streamResponse(params: {
 		lessonId: string;
@@ -93,7 +102,11 @@ export class LessonAIService {
 			async () =>
 				agent.streamEvents(
 					{ messages: [...langchainHistory, new HumanMessage(userMessage)] },
-					{ version: "v2", signal },
+					{
+						version: "v2",
+						signal,
+						recursionLimit: AGENT_RECURSION_LIMIT,
+					},
 				),
 			{ feature: "tutor", userId: studentId, courseId },
 		);

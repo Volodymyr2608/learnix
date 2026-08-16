@@ -315,6 +315,18 @@ describe("streamResponse turn persistence", () => {
 	// The duplication bug: saving before the context read puts this turn in its
 	// own replayed history, and streamResponse appends it again as the current
 	// message. Order is the fix, so order is what the test pins.
+	// One tutor request is not one model call: L2, the router pass, each tool, then
+	// the answer. Leaving the ceiling to LangGraph's default makes the per-request
+	// cost an accident rather than a decision.
+	it("declares an explicit recursion limit on the agent stream", async () => {
+		await collect([tokenEvent("A base case stops the recursion.")]);
+
+		expect(mockStreamEvents).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ recursionLimit: 12 }),
+		);
+	});
+
 	it("reads model context before persisting the current turn", async () => {
 		await collect([tokenEvent("A base case stops the recursion.")]);
 
