@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	if (!checkAiRateLimit(session.user.id)) {
+	if (!checkAiRateLimit(session.user.id, "lessonAI")) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
