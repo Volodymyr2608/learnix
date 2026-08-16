@@ -12,7 +12,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | ai-course-builder | stable | course |
 | ai-flow-contracts | stable | ai-course-builder, ai-input-trust-boundary |
 | ai-input-trust-boundary | stable | ai-course-builder, auth |
-| ai-tutor-guardrails | in-progress | ai-input-trust-boundary, ai-chat-route-authorization |
+| ai-tutor-guardrails | stable | ai-input-trust-boundary, ai-chat-route-authorization |
 | billing | stable | payments |
 | certificates | stable | enrollment |
 | instructor-mobile | stable | mobile-responsive |
