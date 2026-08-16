@@ -17,7 +17,13 @@ export const buildMarkConceptUnderstoodTool = (
 				{ concept, level },
 				{ userId: studentId, lessonConcepts },
 			);
-			if (!authorization.authorized) return authorization.message;
+			// The artifact is what telemetry reads; the prose is for the model and
+			// must never be load-bearing. mastery_write_retained has a baseline of
+			// zero, so a signal that dies when a shared refusal string is reworded
+			// is a permanent blind spot rather than a degraded metric.
+			if (!authorization.authorized) {
+				return [authorization.message, { committed: false }] as const;
+			}
 
 			await conceptMasteryRepository.upsertMastery(
 				studentId,
@@ -26,10 +32,14 @@ export const buildMarkConceptUnderstoodTool = (
 				level,
 			);
 			const labels = ["unfamiliar", "exposed", "applied", "mastered"];
-			return `Recorded: "${authorization.canonicalConcept}" at level ${level} (${labels[level] ?? level}).`;
+			return [
+				`Recorded: "${authorization.canonicalConcept}" at level ${level} (${labels[level] ?? level}).`,
+				{ committed: true, concept: authorization.canonicalConcept, level },
+			] as const;
 		},
 		{
 			name: "mark_concept_understood",
+			responseFormat: "content_and_artifact",
 			description:
 				"Records that the student has demonstrated understanding of a concept. Levels: 0 = unfamiliar, 1 = exposed, 2 = applied. Level 3 (mastered) is earned by completing the lesson's quizzes and cannot be set from conversation. Use sparingly — only when the student explicitly demonstrates understanding.",
 			schema: z.object({

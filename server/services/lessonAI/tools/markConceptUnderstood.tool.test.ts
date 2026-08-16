@@ -57,6 +57,42 @@ describe("mark_concept_understood", () => {
 		);
 	});
 
+	// The artifact is only materialised when the tool is invoked the way an agent
+	// invokes it — with a tool_call id. A bare `invoke(args)` returns the content
+	// string, which is why the prose assertions above still read as they do.
+	const invokeAsAgent = (
+		tool: ReturnType<typeof build>,
+		args: { concept: string; level: number },
+	) =>
+		tool.invoke({
+			name: "mark_concept_understood",
+			args,
+			id: "call-1",
+			type: "tool_call" as const,
+		});
+
+	it("marks a committed write in the artifact, not only in the prose", async () => {
+		const tool = build(["Recursion"]);
+
+		const result = await invokeAsAgent(tool, { concept: "Recursion", level: 2 });
+
+		expect(result.artifact).toEqual({
+			committed: true,
+			concept: "Recursion",
+			level: 2,
+		});
+		expect(result.content).toContain("Recorded");
+	});
+
+	it("marks a denial in the artifact", async () => {
+		const tool = build(["Recursion"]);
+
+		const result = await invokeAsAgent(tool, { concept: "Nope", level: 2 });
+
+		expect(result.artifact).toEqual({ committed: false });
+		expect(result.content).toBe(NEUTRAL_REFUSAL_MESSAGE);
+	});
+
 	it("stores the canonical spelling, not the model's", async () => {
 		const tool = build(["Base Case"]);
 

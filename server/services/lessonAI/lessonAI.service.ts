@@ -184,14 +184,17 @@ export class LessonAIService {
 				if (event.event === "on_tool_end") {
 					const text = toolOutputText(event.data?.output);
 					if (text) retrievedContent.push(text);
-					// A commit is any output from the write tool other than the
-					// neutral refusal toolPolicy returns on denial.
-					if (
-						event.name === "mark_concept_understood" &&
-						text !== "" &&
-						text !== NEUTRAL_REFUSAL_MESSAGE
-					) {
-						masteryCommitted = true;
+					// Read the commit from the tool's artifact, never from its prose.
+					// The prose is a user-facing string shared with two other refusal
+					// paths; rewording it is a product change nobody would expect to
+					// touch telemetry, and this signal's baseline is zero.
+					if (event.name === "mark_concept_understood") {
+						const artifact = (
+							event.data?.output as
+								| { artifact?: { committed?: boolean } }
+								| undefined
+						)?.artifact;
+						if (artifact?.committed === true) masteryCommitted = true;
 					}
 				}
 			}
