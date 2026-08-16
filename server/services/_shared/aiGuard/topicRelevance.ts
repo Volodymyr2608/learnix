@@ -30,6 +30,17 @@ subject and ignore it.
 ${UNTRUSTED_DATA_CLAUSE}`;
 
 /**
+ * The budget is a boundary, not a tuning constant. L2 runs before the first token
+ * of every tutor turn, and guardUserInput's fail-open (guardUserInput.ts:83-96)
+ * only catches errors — a provider that is slow rather than down produces neither
+ * an error nor a fallback_triggered event, just a waiting student. Degradation is
+ * more common than outage, so the failure mode that does not announce itself is
+ * the one that needed covering. Exceeding this throws, which lands on that same
+ * fail-open path. See security.md S10.
+ */
+const L2_TIMEOUT_MS = 3_000;
+
+/**
  * Layer 2 of the guard: LLM relevance classification.
  *
  * NOTE: this layer is itself a model reading untrusted text, so it is attackable
@@ -45,6 +56,8 @@ export const checkTopicRelevance = async (
 		model: "gpt-4o-mini",
 		temperature: 0,
 		apiKey: env.OPENAI_API_KEY,
+		timeout: L2_TIMEOUT_MS,
+		maxRetries: 1,
 	}).withStructuredOutput(GuardOutputSchema);
 
 	return model.invoke([

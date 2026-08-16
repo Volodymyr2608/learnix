@@ -115,6 +115,27 @@ describe("guardUserInput", () => {
 		expect(result.outcome).toBe("allow");
 	});
 
+	// A provider that is SLOW rather than down is the failure mode the fail-open
+	// was not covering: no error meant no fallback, just a waiting student. The
+	// budget converts it into the rejection this path already handles — so the
+	// rejection must arrive late, not immediately, or the test proves nothing.
+	it("fails open and reports fallback_triggered when L2 exceeds its budget", async () => {
+		mockCheckTopicRelevance.mockImplementationOnce(
+			() =>
+				new Promise((_resolve, reject) =>
+					setTimeout(() => reject(new Error("timeout")), 10),
+				),
+		);
+
+		const result = await guardUserInput("What is recursion?", context);
+
+		expect(result.outcome).toBe("allow");
+		const outcomes = mockLogger.warn.mock.calls.map(
+			(call) => (call[0] as { outcome?: string }).outcome,
+		);
+		expect(outcomes).toContain("fallback_triggered");
+	});
+
 	it("still blocks at L1 when L2 is unavailable", async () => {
 		mockCheckTopicRelevance.mockRejectedValue(new Error("OpenAI unavailable"));
 		const result = await guardUserInput(
