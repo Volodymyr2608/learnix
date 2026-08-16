@@ -173,6 +173,28 @@ stays possible — the point is to make skipping a conscious choice, not a silen
 The standing constraints every plan must honor live in **[`docs/constitution.md`](../constitution.md)**
 (pointer-only; links to CLAUDE.md conventions and ADR-011/016/017/018/020).
 
+### 3d. The threat pass — where security enters the chain
+
+Security is designed at `/spec` and verified at `/qa`, by two agents in `.claude/agents/`:
+
+| Agent | Owns | Triggered by |
+|---|---|---|
+| `security-auditor` | OWASP Top 10 / ASVS, authz + IDOR, input validation, money, secrets, caching, SSRF, Next.js route/middleware classes | authn/authz, roles, money, personal data, uploads, external services, raw SQL, any new `app/api/**` route or tRPC procedure |
+| `llm-security-auditor` | OWASP Top 10 for LLM Apps: prompt injection, poisoning, excessive agency, output handling, prompt leakage, embedding weaknesses, unbounded consumption | any prompt, model call, agent tool, RAG/embedding path, or component rendering model-authored text |
+
+Both run in `design` mode at `/spec` — output is controls already phrased as acceptance criteria —
+and in `audit` mode at `/qa`, where they additionally report each design-time control as
+implemented / missing / changed. `/plan` is the link between the two: every control becomes a task
+with its own test, so nothing arrives at `/qa` as a surprise.
+
+The split into two agents is deliberate. The two threat models need different reflexes — one asks
+"who is allowed to call this", the other "what does this text make the model do" — and one agent
+holding both reliably does the familiar half well and the other half shallowly.
+
+Triggers are by **surface, not tier**: standard-tier work adds most of the routes and most of the
+prompts. Tier still decides where the output lives (a `## Security` section for standard, a sibling
+`security.md` for complex).
+
 ---
 
 ## 4. `spec.md` format
@@ -198,6 +220,8 @@ Sections, in order:
   history is for.
 - **Acceptance criteria** — the DoD. For AI features, phrase each one so it could become an eval case
   directly (mirrors the `evals/` pyramid in `CLAUDE.md`).
+- **Security** — *conditional.* Present only when the feature has a security or AI surface; holds the
+  `/spec` threat-pass output (see §3d). Complex tier moves it to a sibling `security.md`.
 - **Agent notes** — anything an agent needs that isn't visible from reading the code (e.g. "tool_router
   routes are order-sensitive," "confidence_score ≥0.8 auto-advances").
 

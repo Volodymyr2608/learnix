@@ -32,7 +32,23 @@ Do not invent a spec to get past this gate.
    **real code** (no placeholders like "add error handling"), exact file paths, exact commands +
    expected output, and a per-task commit. Include the `## Self-review` mapping every acceptance
    criterion to a task and the `## Final verification` section.
-4. Do **not** write any implementation code, create files outside `build/plan.md`, or run mutations.
+4. **Carry the threat pass into tasks.** If `/spec` produced a `## Security` section, a `security.md`,
+   or security-derived acceptance criteria, every control there becomes a **task with its own test** —
+   not a line in a "harden later" task, and not an assertion bolted onto an unrelated task. In
+   particular:
+   - An authorization control names the query that enforces it and the test that proves the
+     unauthorized caller gets nothing (ADR-017 Rule 2, ADR-023 binding).
+   - A new AI surface includes its `GUARDED_ENTRY_POINTS` registration in the same task that adds the
+     model call, so `entryPoints.contract.test.ts` never goes red on a later task.
+   - A new agent tool includes its authority check (not just its Zod schema) and the denial test.
+   - A probabilistic control (guard pattern, classifier, validator) includes an `evals/` row and a
+     **false-positive** check on legitimate input, not only a recall check.
+
+   The `## Self-review` mapping must show each security acceptance criterion against its task, the
+   same as every other criterion. A control that reaches `/qa` without a task is a process failure
+   here, not there.
+
+5. Do **not** write any implementation code, create files outside `build/plan.md`, or run mutations.
    (The plan gate hook will block source edits anyway — `/plan` only produces the plan.)
 
 ## Gate

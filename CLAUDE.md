@@ -161,6 +161,16 @@ and plans are never backfilled after the code. Trivial/fix work skips the chain 
 and routes to `systematic-debugging` + TDD). Standing non-negotiables live in
 [`docs/constitution.md`](docs/constitution.md). Mechanics: [`documentation-process.md`](docs/specs/documentation-process.md) §3c.
 
+**Security is designed at `/spec`, not discovered at `/qa` (§3d).** Two agents in `.claude/agents/`
+split the job: **`security-auditor`** (OWASP Top 10 / ASVS, authz, IDOR, money, secrets, SSRF,
+Next.js route classes) and **`llm-security-auditor`** (OWASP Top 10 for LLM Apps — prompt injection,
+poisoning, excessive agency, output handling, embedding weaknesses). Triggers are by **surface, not
+tier**: any new route/procedure or anything touching authz, money, or personal data pulls the first;
+any prompt, model call, agent tool, RAG path, or model-authored rendering pulls the second. They run
+`design` mode at `/spec` (controls → acceptance criteria), their controls become tasks with tests at
+`/plan`, and `audit` mode at `/qa` reports each one implemented / missing / changed. A control
+specified at `/spec` and missing in the code blocks the PR.
+
 **Always produce a detailed, written, approved plan before any implementation code** — for every
 tier above trivial/fix, not just complex. Use the `writing-plans` skill to produce the **detailed
 implementation plan** (bite-sized TDD tasks with real code, exact file paths, and commits) at

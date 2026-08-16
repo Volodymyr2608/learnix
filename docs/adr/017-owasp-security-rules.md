@@ -1,4 +1,4 @@
-# ADR-016: OWASP Security Rules for Learnix
+# ADR-017: OWASP Security Rules for Learnix
 
 - **Status**: Accepted
 - **Date**: 2026-05

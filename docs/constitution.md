@@ -32,6 +32,17 @@ plan is not allowed to violate.
   `learnix_test`) / evals (offline, manual before prompt changes). — `CLAUDE.md` (Testing), ADR-018.
 - **OWASP rules** — ownership/IDOR checks, input validation, the security model. — ADR-017.
 - **AI features** — LangGraph course-builder shape and conventions are decided. — ADR-016.
+- **Threats are modelled at `/spec`, not discovered at `/qa`.** Any feature touching authz, money,
+  personal data, or an external service runs the **`security-auditor`** agent in `design` mode; any
+  feature touching a prompt, model call, tool, embedding path, or model-authored rendering runs the
+  **`llm-security-auditor`** in `design` mode. Their controls land in Acceptance criteria, become
+  tasks with tests at `/plan`, and are checked back one by one at `/qa`. A control specified at
+  `/spec` and missing in the code blocks the PR.
+- **A model is never a security boundary.** Enforcement is the closed tool set + authority checks,
+  validation before persistence, and the client `urlTransform` at render. Prompt instructions are
+  defence in depth and must be described as such. — ADR-022, ADR-023, ADR-024.
+- **Accepted risk is written down.** A known gap that is not fixed goes in the feature's `security.md`
+  register with its residual impact (`features/ai-tutor-guardrails/security.md` §S13 is the shape).
 
 ## Tooling
 
