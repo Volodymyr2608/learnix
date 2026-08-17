@@ -9,6 +9,12 @@ docs/
 └── templates/  feature-spec.md (spec.md) + plan.md (build/plan.md)
 ```
 
+Security review output is not kept here. A finding that gets fixed becomes acceptance criteria in the
+owning feature's `spec.md`; a finding that gets accepted goes into that feature's `security.md` risk
+register with its residual impact. Point-in-time review documents are working notes, not a tier of
+documentation — the repo records the decision, not the pass that produced it. Reviews are produced by
+the `security-auditor` and `llm-security-auditor` agents (see `documentation-process.md` §3d).
+
 See [`docs/specs/documentation-process.md`](specs/documentation-process.md) for the full process —
 tiers, `spec.md` format, lifecycle, and [`docs/adr/020-hybrid-documentation-model.md`](adr/020-hybrid-documentation-model.md)
 for why it's structured this way.

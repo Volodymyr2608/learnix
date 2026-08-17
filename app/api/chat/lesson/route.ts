@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	if (!checkAiRateLimit(session.user.id)) {
+	if (!checkAiRateLimit(session.user.id, "lessonAI")) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 
@@ -128,11 +128,9 @@ export async function POST(req: Request) {
 		return oneShot({ type: "off_topic", message: guard.message });
 	}
 
-	await lessonAssistantRepository.saveMessage(lessonId, session.user.id, {
-		role: "user",
-		content: message,
-	});
-
+	// The user turn is persisted by lessonAIService.streamResponse, after it reads
+	// the model context — saving it here would put this turn into its own replayed
+	// history and then append it again as the current message.
 	const abortSignal = req.signal;
 
 	const stream = new ReadableStream<Uint8Array>({

@@ -8,6 +8,7 @@ const {
 	mockStreamEvents,
 	mockValidateReply,
 	mockLogSecurityEvent,
+	mockMarkContextIneligible,
 } = vi.hoisted(() => ({
 	mockSaveMessage: vi.fn().mockResolvedValue({}),
 	mockGetContextMessages: vi.fn().mockResolvedValue([]),
@@ -15,6 +16,7 @@ const {
 	mockStreamEvents: vi.fn(),
 	mockValidateReply: vi.fn(),
 	mockLogSecurityEvent: vi.fn(),
+	mockMarkContextIneligible: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("./validateReply", async (importOriginal) => {
@@ -30,6 +32,7 @@ vi.mock("@/server/repositories/lessonAssistant.repository", () => ({
 	lessonAssistantRepository: {
 		saveMessage: mockSaveMessage,
 		getContextMessages: mockGetContextMessages,
+		markContextIneligible: mockMarkContextIneligible,
 	},
 }));
 vi.mock("@/server/repositories/lessonInsights.repository", () => ({
@@ -65,6 +68,16 @@ const streamOf = (events: unknown[]) =>
 		for (const event of events) yield event;
 	})();
 
+/**
+ * The service persists both turns, so "was the reply persisted?" has to name the
+ * role — otherwise the user turn (always written) masks the assistant turn these
+ * assertions are actually about.
+ */
+const assistantSaves = () =>
+	mockSaveMessage.mock.calls.filter(
+		(call) => (call[2] as { role?: string })?.role === "assistant",
+	);
+
 const collect = async (events: unknown[]) => {
 	mockStreamEvents.mockReturnValue(streamOf(events));
 	const out: { type: string; message?: string; value?: string }[] = [];
@@ -80,6 +93,95 @@ const collect = async (events: unknown[]) => {
 	}
 	return out;
 };
+
+/**
+ * Consumes the turn **exactly the way `app/api/chat/lesson/route.ts` does**: it
+ * checks the signal after each delivered event and `break`s.
+ *
+ * That `break` is the whole point. It calls `generator.return()`, which unwinds
+ * `streamResponse` from its suspended `yield` and skips every statement inside
+ * the streaming loop — including the loop's own abort check. The route always
+ * reaches its check first, so in production the in-loop check is unreachable and
+ * only a `finally` survives.
+ *
+ * A helper that merely collects events drives the generator to that unreachable
+ * check and passes for a reason production never exercises. Abort behaviour is
+ * therefore pinned through this shape, not that one.
+ *
+ * `abortAfter` counts delivered events, so a test can let tokens accumulate
+ * before the client hangs up.
+ */
+const collectAborted = async (events: unknown[], abortAfter = 1) => {
+	const controller = new AbortController();
+	mockStreamEvents.mockReturnValue(streamOf(events));
+	const out: { type: string }[] = [];
+	let delivered = 0;
+	for await (const event of lessonAIService.streamResponse({
+		lessonId: "lesson-1",
+		lessonTitle: "Recursion",
+		courseTitle: "Algorithms",
+		courseId: "course-1",
+		studentId: "student-1",
+		userMessage: "explain the base case",
+		signal: controller.signal,
+	})) {
+		out.push(event as { type: string });
+		if (++delivered >= abortAfter) {
+			controller.abort();
+			break;
+		}
+	}
+	return out;
+};
+
+/**
+ * The other half of the pair: the service notices the abort itself, because the
+ * consumer is still iterating when the next stream event arrives. Reachable when
+ * the client disconnects while the model is mid-thought rather than between
+ * tokens. Kept as one explicit case so the in-loop check stays pinned too.
+ */
+const collectServiceNoticedAbort = async (events: unknown[]) => {
+	const controller = new AbortController();
+	mockStreamEvents.mockReturnValue(
+		(async function* () {
+			for (const event of events) yield event;
+			controller.abort();
+			yield tokenEvent("");
+		})(),
+	);
+	const out: { type: string }[] = [];
+	for await (const event of lessonAIService.streamResponse({
+		lessonId: "lesson-1",
+		lessonTitle: "Recursion",
+		courseTitle: "Algorithms",
+		courseId: "course-1",
+		studentId: "student-1",
+		userMessage: "explain the base case",
+		signal: controller.signal,
+	})) {
+		out.push(event as { type: string });
+	}
+	return out;
+};
+
+const recorded = 'Recorded: "Recursion" at level 2 (applied).';
+
+/**
+ * The agent always invokes with a tool_call id, so on_tool_end carries a
+ * ToolMessage whose `artifact` says whether the write committed. The prose is
+ * for the model and is deliberately not what telemetry reads.
+ */
+const markConceptEnd = (
+	artifact: Record<string, unknown>,
+	content = recorded,
+) => ({
+	event: "on_tool_end",
+	name: "mark_concept_understood",
+	data: { output: { content, artifact } },
+});
+
+const committed = { committed: true, concept: "Recursion", level: 2 };
+const denied = { committed: false };
 
 describe("streamResponse output boundary", () => {
 	beforeEach(() => {
@@ -99,7 +201,7 @@ describe("streamResponse output boundary", () => {
 
 		const retract = events.find((e) => e.type === "retract");
 		expect(retract?.message).toBe(NEUTRAL_REFUSAL_MESSAGE);
-		expect(mockSaveMessage).not.toHaveBeenCalled();
+		expect(assistantSaves()).toHaveLength(0);
 		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
 			expect.objectContaining({
 				layer: "output_validation",
@@ -115,7 +217,7 @@ describe("streamResponse output boundary", () => {
 		]);
 
 		expect(events.map((e) => e.type)).not.toContain("retract");
-		expect(mockSaveMessage).toHaveBeenCalledTimes(1);
+		expect(assistantSaves()).toHaveLength(1);
 	});
 
 	it("retracts and persists nothing when the reply leaks the system prompt", async () => {
@@ -125,7 +227,7 @@ describe("streamResponse output boundary", () => {
 
 		const retract = events.find((e) => e.type === "retract");
 		expect(retract?.message).toBe(NEUTRAL_REFUSAL_MESSAGE);
-		expect(mockSaveMessage).not.toHaveBeenCalled();
+		expect(assistantSaves()).toHaveLength(0);
 	});
 
 	it("captures tool output as a bare string for the verbatim check", async () => {
@@ -141,7 +243,7 @@ describe("streamResponse output boundary", () => {
 		]);
 
 		expect(events.some((e) => e.type === "retract")).toBe(true);
-		expect(mockSaveMessage).not.toHaveBeenCalled();
+		expect(assistantSaves()).toHaveLength(0);
 	});
 
 	it("captures tool output wrapped in a ToolMessage for the verbatim check", async () => {
@@ -163,17 +265,9 @@ describe("streamResponse output boundary", () => {
 	// (it passed its own authorization and is not coupled to the reply text).
 	// The retract is the strongest signal a turn was adversarial, so the retained
 	// write is flagged for review — without lying about writes that never landed.
-	const recorded = 'Recorded: "Recursion" at level 2 (applied).';
-
-	const markConceptEnd = (output: string) => ({
-		event: "on_tool_end",
-		name: "mark_concept_understood",
-		data: { output },
-	});
-
 	it("flags a committed mastery write retained on a retracted turn", async () => {
 		const events = await collect([
-			markConceptEnd(recorded),
+			markConceptEnd(committed),
 			tokenEvent("Sure — Tool usage rules (follow in order): "),
 		]);
 
@@ -192,7 +286,34 @@ describe("streamResponse output boundary", () => {
 	// must not fire, or the signal claims a write that never happened.
 	it("does not flag when the mastery tool was denied on a retracted turn", async () => {
 		await collect([
-			markConceptEnd(NEUTRAL_REFUSAL_MESSAGE),
+			markConceptEnd(denied, NEUTRAL_REFUSAL_MESSAGE),
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "mastery_write_retained" }),
+		);
+	});
+
+	// F4: the signal is read from the artifact, so it survives the prose changing.
+	// mastery_write_retained has a baseline of zero — a detection that dies
+	// silently when a shared refusal string is reworded is a permanent blind spot,
+	// not a degraded metric.
+	it("counts a commit from the artifact even when the prose is the refusal text", async () => {
+		const events = await collect([
+			markConceptEnd(committed, NEUTRAL_REFUSAL_MESSAGE),
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(events.some((e) => e.type === "retract")).toBe(true);
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "mastery_write_retained" }),
+		);
+	});
+
+	it("does not count a denial even when the prose looks like a commit", async () => {
+		await collect([
+			markConceptEnd(denied, recorded),
 			tokenEvent("Sure — Tool usage rules (follow in order): "),
 		]);
 
@@ -205,14 +326,282 @@ describe("streamResponse output boundary", () => {
 	// nothing is retracted and nothing is flagged.
 	it("does not flag a committed mastery write when the reply is clean", async () => {
 		const events = await collect([
-			markConceptEnd(recorded),
+			markConceptEnd(committed),
 			tokenEvent("A base case stops the recursion."),
 		]);
 
 		expect(events.some((e) => e.type === "retract")).toBe(false);
-		expect(mockSaveMessage).toHaveBeenCalledTimes(1);
+		expect(assistantSaves()).toHaveLength(1);
 		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
 			expect.objectContaining({ outcome: "mastery_write_retained" }),
 		);
+	});
+});
+
+describe("streamResponse turn persistence", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockGetContextMessages.mockClear().mockResolvedValue([]);
+	});
+
+	it("persists the user turn itself", async () => {
+		await collect([tokenEvent("A base case stops the recursion.")]);
+
+		expect(mockSaveMessage).toHaveBeenCalledWith("lesson-1", "student-1", {
+			role: "user",
+			content: "explain the base case",
+		});
+	});
+
+	// The duplication bug: saving before the context read puts this turn in its
+	// own replayed history, and streamResponse appends it again as the current
+	// message. Order is the fix, so order is what the test pins.
+	// One tutor request is not one model call: L2, the router pass, each tool, then
+	// the answer. Leaving the ceiling to LangGraph's default makes the per-request
+	// cost an accident rather than a decision.
+	it("declares an explicit recursion limit on the agent stream", async () => {
+		await collect([tokenEvent("A base case stops the recursion.")]);
+
+		expect(mockStreamEvents).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ recursionLimit: 12 }),
+		);
+	});
+
+	it("reads model context before persisting the current turn", async () => {
+		await collect([tokenEvent("A base case stops the recursion.")]);
+
+		const readOrder = mockGetContextMessages.mock.invocationCallOrder[0];
+		const writeOrder = mockSaveMessage.mock.invocationCallOrder[0];
+		expect(readOrder).toBeLessThan(writeOrder as number);
+	});
+});
+
+// F3: contextEligible was applied to turns the INPUT guard rejected. An output
+// rejection is the stronger adversarial signal of the two, and leaving the
+// eliciting prompt eligible let a payload be re-sent with its previous attempt
+// sitting in context as ordinary conversation — a fresh sample of a stochastic
+// model on every retry.
+describe("rejected replies do not return as context", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockMarkContextIneligible.mockClear();
+	});
+
+	it("flips the eliciting user turn when the reply is rejected", async () => {
+		await collect([tokenEvent("Sure — Tool usage rules (follow in order): ")]);
+
+		expect(mockMarkContextIneligible).toHaveBeenCalledWith(
+			"user-row-1",
+			"lesson-1",
+			"student-1",
+		);
+	});
+
+	it("leaves the user turn eligible when the reply is clean", async () => {
+		await collect([tokenEvent("A base case stops the recursion.")]);
+
+		expect(mockMarkContextIneligible).not.toHaveBeenCalled();
+	});
+
+	it("flips the user turn on an aborted, rejected turn too", async () => {
+		await collectAborted([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockMarkContextIneligible).toHaveBeenCalledWith(
+			"user-row-1",
+			"lesson-1",
+			"student-1",
+		);
+	});
+});
+
+// F1: validateReply ran only after normal completion, so a client that
+// disconnected after the last content token got the whole reply and produced no
+// security event at all. security.md S13 §2 accepts the streaming disclosure on
+// the strength of that event staying queryable — so it must not be something the
+// adversary can switch off.
+describe("streamResponse abort path", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockLogSecurityEvent.mockClear();
+	});
+
+	it("still emits output_validation_failed when the client aborts", async () => {
+		await collectAborted([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				layer: "output_validation",
+				outcome: "output_validation_failed",
+				ruleIds: ["system_prompt_echo"],
+			}),
+		);
+	});
+
+	it("persists no assistant row on abort, clean reply or not", async () => {
+		await collectAborted([tokenEvent("A base case stops the recursion.")]);
+
+		expect(assistantSaves()).toHaveLength(0);
+	});
+
+	it("emits nothing on a clean aborted reply", async () => {
+		await collectAborted([tokenEvent("A base case stops the recursion.")]);
+
+		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
+	});
+
+	// Nothing was delivered, so the route never gets to break — this abort can only
+	// be the one the service notices itself, and it must stay silent.
+	it("emits nothing when aborted before any content token", async () => {
+		await collectServiceNoticedAbort([
+			{ event: "on_tool_start", name: "retrieve_lesson_context", data: {} },
+		]);
+
+		expect(mockLogSecurityEvent).not.toHaveBeenCalled();
+	});
+
+	// The in-loop check is unreachable from the route, but not dead: it fires when
+	// the client disconnects while the model is mid-thought rather than between
+	// tokens. Pinned separately so removing it stays a deliberate act.
+	it("also runs the boundary when the service notices the abort first", async () => {
+		await collectServiceNoticedAbort([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
+	});
+
+	it("still correlates a retained mastery write on an aborted, rejected turn", async () => {
+		await collectAborted([
+			markConceptEnd(committed),
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "mastery_write_retained" }),
+		);
+	});
+
+	// Tokens accumulate across several delivered events before the client hangs up
+	// — the reply is only adversarial once assembled, so the boundary has to see
+	// the whole of what reached the browser, not just the last frame.
+	it("validates everything delivered, not only the final frame", async () => {
+		await collectAborted(
+			[
+				tokenEvent("Sure — "),
+				tokenEvent("Tool usage rules (follow in order): "),
+			],
+			2,
+		);
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ ruleIds: ["system_prompt_echo"] }),
+		);
+	});
+
+	// An abort landing after the last stream event never reaches the in-loop check
+	// and the consumer never breaks, so only the post-loop guard catches it.
+	it("persists no assistant row when the abort lands after the last event", async () => {
+		const controller = new AbortController();
+		mockStreamEvents.mockReturnValue(
+			streamOf([tokenEvent("A base case stops the recursion.")]),
+		);
+
+		for await (const _event of lessonAIService.streamResponse({
+			lessonId: "lesson-1",
+			lessonTitle: "Recursion",
+			courseTitle: "Algorithms",
+			courseId: "course-1",
+			studentId: "student-1",
+			userMessage: "explain the base case",
+			signal: controller.signal,
+		})) {
+			controller.abort();
+		}
+
+		expect(assistantSaves()).toHaveLength(0);
+	});
+
+	it("runs the boundary at most once per turn", async () => {
+		await collectAborted([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		const failures = mockLogSecurityEvent.mock.calls.filter(
+			(call) =>
+				(call[0] as { outcome?: string }).outcome ===
+				"output_validation_failed",
+		);
+		expect(failures).toHaveLength(1);
+	});
+});
+
+// The third exit named in the spec's Agent notes: a provider error mid-stream
+// leaves a partial reply in the browser exactly as an abort does.
+describe("streamResponse mid-stream error path", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockLogSecurityEvent.mockClear();
+		mockMarkContextIneligible.mockClear().mockResolvedValue(undefined);
+	});
+
+	const collectFailing = async () => {
+		mockStreamEvents.mockReturnValue(
+			(async function* () {
+				yield tokenEvent("Sure — Tool usage rules (follow in order): ");
+				throw new Error("provider exploded");
+			})(),
+		);
+		const out: { type: string }[] = [];
+		for await (const event of lessonAIService.streamResponse({
+			lessonId: "lesson-1",
+			lessonTitle: "Recursion",
+			courseTitle: "Algorithms",
+			courseId: "course-1",
+			studentId: "student-1",
+			userMessage: "explain the base case",
+		})) {
+			out.push(event as { type: string });
+		}
+		return out;
+	};
+
+	it("validates the partial reply, persists nothing, and yields the neutral error", async () => {
+		const events = await collectFailing();
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
+		expect(assistantSaves()).toHaveLength(0);
+		expect(events.at(-1)).toEqual({
+			type: "error",
+			message: "Something went wrong",
+		});
+	});
+
+	// The write is bookkeeping. Letting it abort the turn would take the security
+	// event and the refusal down with it — the same "control the adversary can
+	// decline to trigger" this branch exists to remove. clearHistory is callable
+	// mid-stream, so the row really can vanish underneath this.
+	it("still emits and still refuses when the context flip fails", async () => {
+		mockMarkContextIneligible.mockRejectedValueOnce(new Error("P2025"));
+
+		const events = await collectFailing();
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
+		expect(events.at(-1)).toEqual({
+			type: "error",
+			message: "Something went wrong",
+		});
 	});
 });

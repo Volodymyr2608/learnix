@@ -132,6 +132,20 @@ export function useLessonAssistant(lessonId: string) {
 						return;
 					}
 
+					if (parsed.type === "error" && parsed.message) {
+						const message = parsed.message;
+						setLiveMessages((prev) => {
+							const last = prev[prev.length - 1];
+							if (!last || last.role !== "assistant") return prev;
+							return [...prev.slice(0, -1), { ...last, content: message }];
+						});
+						// Same reason as `retract`: the turn failed server-side and no
+						// assistant row was persisted, so letting `done` refetch history
+						// would replace this with silence — the student would see their
+						// own question and no reply at all.
+						return;
+					}
+
 					if (parsed.type === "done") {
 						void utils.lessonAssistant.getHistory.invalidate({ lessonId });
 						setLiveMessages([]);

@@ -198,6 +198,26 @@ security rejections. Rejected: off-topic is a product refusal (the question is l
 scope), not a security signal. The two must be visibly different so the student can tell "this is not
 a security issue, ask about the course instead" from "something went wrong with the system."
 
+## Amendment 2026-08 — the output boundary runs on every exit of a turn
+
+Decision 2 reasoned about "validated before persistence, retracted before completion" as if a turn
+had one ending. It has three: normal completion, client abort, and a mid-stream provider error. Only
+the first ran `validateReply`.
+
+That made disconnecting after the last content token a **detection bypass** — the reply was obtained,
+nothing was persisted (correct), and no `output_validation_failed` was emitted (not correct). The
+decision to accept the streaming disclosure was explicitly priced on that event's frequency staying
+monitorable, which left the compensating control in the adversary's hands.
+
+All three exits now run the boundary. Abort and error additionally persist nothing and send no
+`retract`, since there is no listener left — on those paths the *event* is the entire point. The
+disclosure this ADR accepted is unchanged; what changed is that it is now always observable.
+
+Two consequences worth stating: the prompt that elicited a rejected reply is flipped to
+`contextEligible: false` (see ADR-022's amendment), and `mastery_write_retained` is now read from the
+write tool's artifact rather than by comparing its output to a user-facing refusal string, because a
+zero-baseline signal that dies silently is worse than one that is merely noisy.
+
 ## References
 
 - ADR-022 (input trust boundary — the L1/L2/L3 layers that defend against injection and jailbreak)

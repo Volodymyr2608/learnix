@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockInvoke } = vi.hoisted(() => ({ mockInvoke: vi.fn() }));
+const { mockInvoke, mockChatOpenAI } = vi.hoisted(() => ({
+	mockInvoke: vi.fn(),
+	mockChatOpenAI: vi.fn(),
+}));
 
 vi.mock("@langchain/openai", () => {
 	class ChatOpenAI {
+		constructor(config: Record<string, unknown>) {
+			mockChatOpenAI(config);
+		}
 		withStructuredOutput() {
 			return { invoke: mockInvoke };
 		}
@@ -21,6 +27,7 @@ const domain = {
 describe("checkTopicRelevance", () => {
 	beforeEach(() => {
 		mockInvoke.mockReset();
+		mockChatOpenAI.mockReset();
 	});
 
 	it("returns the classifier verdict", async () => {
@@ -73,5 +80,19 @@ describe("checkTopicRelevance", () => {
 		await checkTopicRelevance("What is prompt injection?", domain);
 		const prompt = JSON.stringify(mockInvoke.mock.calls[0]?.[0]);
 		expect(prompt).toMatch(/describing or teaching/i);
+	});
+
+	// L2 sits in the request path of every tutor turn, before the first token.
+	// Without a budget the SDK default is minutes with retries, and
+	// guardUserInput's fail-open never fires because a hang is not an error —
+	// the student just waits, and no fallback_triggered is emitted.
+	it("declares a timeout and bounded retries", async () => {
+		mockInvoke.mockResolvedValue({ onTopic: true, reason: "ok" });
+
+		await checkTopicRelevance("what is recursion?", domain);
+
+		expect(mockChatOpenAI).toHaveBeenCalledWith(
+			expect.objectContaining({ timeout: 3_000, maxRetries: 1 }),
+		);
 	});
 });

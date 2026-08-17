@@ -13,10 +13,23 @@ Target feature: <feature>$ARGUMENTS</feature> (if empty, infer from the current 
 1. **Code review.** Run `superpowers:requesting-code-review` over the branch. Resolve real findings
    before proceeding (use `superpowers:receiving-code-review` for technical rigor on the feedback).
 
-2. **Security audit (complex tier).** If the feature touched money, auth/security, a new external
-   service, or a data migration, dispatch the **`security-auditor`** agent for an OWASP/IDOR pass over
-   the changed routes, services, and repositories (enforces ADR-017). Resolve High/Critical findings
-   before the PR. Skip for standard/trivial work with no security surface.
+2. **Security audit.** Triggered by surface, not by tier — standard-tier work adds most of the
+   routes. Dispatch in parallel, each in `audit` mode:
+   - **`security-auditor`** — if the branch touched authentication, authorization, roles, money,
+     personal data, file upload, an external service, raw SQL, or added/changed any `app/api/**`
+     route or tRPC procedure. Enforces ADR-017.
+   - **`llm-security-auditor`** — if the branch touched a prompt, a model call, an agent tool, a
+     RAG/embedding path, or a component rendering model-authored text. Enforces ADR-022/023/024.
+
+   **Close the loop with the design pass:** give each agent the feature's `## Security` section or
+   `security.md` from `/spec` and require it to report, per control, *implemented / missing /
+   changed*. A control that was specified at `/spec` and is absent in the code is a blocking finding
+   regardless of severity — that is the whole point of designing it up front.
+
+   Resolve Critical/High before the PR. For Medium/Low, either fix or record them explicitly as
+   accepted risks in the feature's `security.md` (the `ai-tutor-guardrails` S13 register is the shape)
+   — an unrecorded "we'll get to it" is how a known gap becomes an unknown one. If neither agent
+   applies, say so in one line.
 
 3. **Gate Docs (DoD)** — from `documentation-process.md` §7, a PR doesn't close without all three.
    Dispatch the **`docs-updater`** agent to do this pass so it isn't skipped:
@@ -35,5 +48,6 @@ Target feature: <feature>$ARGUMENTS</feature> (if empty, infer from the current 
 
 ## Gate
 
-Do not open the PR until review findings are resolved and all three Gate-Docs items are done. Report
-the actual command output, not a claim that it passed.
+Do not open the PR until review findings are resolved, every design-time control is accounted for
+(implemented or explicitly accepted in writing), and all three Gate-Docs items are done. Report the
+actual command output, not a claim that it passed.

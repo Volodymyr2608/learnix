@@ -67,6 +67,105 @@ describe("lessonAssistantRepository context reads", () => {
 		expect(context.map((m) => m.content)).toEqual(["m2", "m3", "m4"]);
 	});
 
+	it("markContextIneligible removes a message from the model context but not the thread", async () => {
+		const saved = await lessonAssistantRepository.saveMessage(
+			lessonId,
+			studentId,
+			{ role: "user", content: "payload" },
+		);
+
+		await lessonAssistantRepository.markContextIneligible(
+			saved.id,
+			lessonId,
+			studentId,
+		);
+
+		const thread = await lessonAssistantRepository.getMessages(
+			lessonId,
+			studentId,
+		);
+		const context = await lessonAssistantRepository.getContextMessages(
+			lessonId,
+			studentId,
+		);
+
+		expect(thread.map((m) => m.content)).toContain("payload");
+		expect(context.map((m) => m.content)).not.toContain("payload");
+	});
+
+	// Ownership lives in the query that acts, not in the discipline of the one
+	// caller that happens to pass a server-minted id (ADR-017 Rule 2).
+	it("markContextIneligible refuses to touch another student's message", async () => {
+		const other = await makeUser({ role: "STUDENT" });
+		const saved = await lessonAssistantRepository.saveMessage(
+			lessonId,
+			studentId,
+			{ role: "user", content: "victim turn" },
+		);
+
+		await lessonAssistantRepository.markContextIneligible(
+			saved.id,
+			lessonId,
+			other.id,
+		);
+
+		const context = await lessonAssistantRepository.getContextMessages(
+			lessonId,
+			studentId,
+		);
+		expect(context.map((m) => m.content)).toContain("victim turn");
+	});
+
+	it("markContextIneligible is a no-op when the row is gone", async () => {
+		await expect(
+			lessonAssistantRepository.markContextIneligible(
+				"clzzzzzzzzzzzzzzzzzzzzzzz",
+				lessonId,
+				studentId,
+			),
+		).resolves.toBeUndefined();
+	});
+
+	// A message COUNT bounds neither cost nor prompt dilution: 20 turns at the
+	// 2,000-char input cap is ~40 KB, so a student writing long messages gets 20×
+	// the dilution of one writing short ones — backwards from what the limit is for.
+	it("bounds the model context by characters, keeping whole newest messages", async () => {
+		const long = "x".repeat(3_000);
+		for (let i = 0; i < 5; i++) {
+			await lessonAssistantRepository.saveMessage(lessonId, studentId, {
+				role: "user",
+				content: `${i}-${long}`,
+			});
+		}
+
+		const context = await lessonAssistantRepository.getContextMessages(
+			lessonId,
+			studentId,
+		);
+
+		const chars = context.reduce((sum, m) => sum + m.content.length, 0);
+		expect(chars).toBeLessThanOrEqual(8_000);
+		// Newest kept, oldest dropped, and nothing split.
+		expect(context.at(-1)?.content.startsWith("4-")).toBe(true);
+		expect(context.every((m) => m.content.length === long.length + 2)).toBe(
+			true,
+		);
+	});
+
+	it("keeps at least one message even when it alone exceeds the budget", async () => {
+		await lessonAssistantRepository.saveMessage(lessonId, studentId, {
+			role: "user",
+			content: "y".repeat(20_000),
+		});
+
+		const context = await lessonAssistantRepository.getContextMessages(
+			lessonId,
+			studentId,
+		);
+
+		expect(context).toHaveLength(1);
+	});
+
 	it("returns nothing when the conversation does not exist", async () => {
 		expect(
 			await lessonAssistantRepository.getContextMessages(lessonId, studentId),

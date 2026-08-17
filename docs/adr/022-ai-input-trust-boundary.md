@@ -242,6 +242,27 @@ Both rules are enforced by contract tests (`entryPoints.contract.test.ts`,
 limitation that let the original exemption rot. Runtime enumeration of each agent's bound tools and
 assembled prompt is the stronger version if this ever needs to be airtight.
 
+## Amendment 2026-08 — two widenings
+
+**`contextEligible` is triggered by output rejection too.** The rule was written for turns the
+*input* guard rejected. An output rejection is the stronger adversarial signal of the two, yet the
+prompt that elicited it stayed eligible and returned as trusted history — so a payload that tripped
+`validateReply` could be re-sent with its previous attempt replayed as ordinary conversation, drawing
+a fresh sample from a stochastic model each time. The prompt got retries; the defence got one sample
+per retry. `lessonAssistantRepository.markContextIneligible` now flips the eliciting turn on
+rejection, on both the normal and the aborted path. The turn stays visible in the thread.
+
+**The L2 fail-open covers slowness, not only errors.** `checkTopicRelevance` had no timeout, so it
+inherited the provider SDK's default of minutes with retries while sitting in the request path of
+every turn. The fail-open catch only catches errors, and a slow provider throws none — the student
+just waited, and `fallback_triggered` never fired. The layer built to make an L2 incident visible was
+blind to the most common kind. A 3 s budget with one retry converts it into the rejection this path
+already handles.
+
+That budget slightly *widens* the compound risk in `security.md` S13 §28 (an L2 outage during a
+non-English injection), because degradation now fails open where it previously hung. Accepted, and
+recorded there rather than left implicit: a hung student is worse and far more likely.
+
 See also: [`docs/specs/features/ai-input-trust-boundary/spec.md`](../specs/features/ai-input-trust-boundary/spec.md)
 for the full functional scope and acceptance criteria, and
 [`docs/specs/ai-hardening-plan.md`](../specs/ai-hardening-plan.md) for the broader hardening

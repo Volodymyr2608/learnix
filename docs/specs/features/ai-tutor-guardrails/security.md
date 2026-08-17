@@ -124,8 +124,23 @@ AI services.
 into a prompt. `$&`, `` $` `` and `$'` are substitution patterns in the *replacement*, so a title
 containing `$'` expands to the text after the match and escapes the wrapper. Use a function replacer.
 
-**Requirement — rejected turns never become context.** A turn the guard rejected is stored with
-`contextEligible: false` and is never replayed to the model as history. The UI still shows it.
+**Requirement — rejected turns never become context.** This applies to rejections at *both*
+boundaries, and the persistence differs by which one fired:
+
+| Rejection | Persisted | Context-eligible |
+|---|---|---|
+| L1 block | **nothing** — a stored payload is replayed as trusted `HumanMessage` history on the next turn, where no L3 wrapping applies | n/a |
+| L2 off-topic | both rows, so the refusal survives a reload | no |
+| Output validation | the user turn only (the reply is retracted, never persisted) | the user turn is flipped to `false` |
+
+The UI still shows every row it persists. Only the model's view is narrowed.
+
+The output-validation case is the important one to get right: an output rejection is a *stronger*
+adversarial signal than an input rejection — it is what `mastery_write_retained` exists to correlate
+— so leaving the eliciting prompt eligible would let a payload be re-sent with its previous attempt
+replayed as ordinary conversation, drawing a fresh sample from a stochastic model on every retry.
+Enforced by `lessonAssistantRepository.markContextIneligible`; pinned by `lessonAI.service.test.ts`
+("rejected replies do not return as context") and the repository integration test.
 
 **Known gap:** the `contextEligible` fix is not retroactive; rows written before the migration remain
 context-eligible. Recorded in the migration itself.
@@ -177,6 +192,27 @@ run of retrieved content; or a link/image whose destination is off-origin.
 
 **Requirement.** A validator that throws counts as a rejection, not a pass.
 
+**Requirement — the output boundary runs on every exit of the turn, not only on completion.** A turn
+ends three ways: normal completion, client abort, and a mid-stream provider error. All three run
+`validateReply` over whatever accumulated, because in all three the tokens have already reached the
+browser.
+
+**The mechanism matters and is not obvious.** The route breaks its `for await` the instant the abort
+signal trips, and `break` calls `generator.return()`, which unwinds the generator body from the
+suspended `yield` — skipping every statement inside the streaming loop, including an abort check
+placed there. Only a `finally` on the enclosing `try` survives that, so that is where the boundary
+call lives. A unit test whose consumer merely collects events drives the generator to the in-loop
+check and therefore proves nothing about production; the pinning test must `break` the way the route
+does. There is also a re-check after the loop, for an abort that lands after the final stream event.
+
+Abort and error additionally: persist nothing, and send no `retract` (there is no listener left).
+**The event, not the retraction, is what those paths exist to produce.** Validating only on
+completion made disconnecting after the last content token a detection bypass — the reply was
+obtained and no security event was emitted at all, which is a control the adversary chooses whether
+to run. S13 §2 accepts the streaming disclosure specifically because
+`output_validation_failed` stays queryable (S11), so that acceptance was priced against a control
+that could be switched off. Pinned by `lessonAI.service.test.ts` ("streamResponse abort path").
+
 **Requirement — off-origin destinations are checked in two layers, and the renderer is the
 enforcement point.** `validateReply`'s regexes are a server-side pre-filter whose real job is to fire
 the security event; `inAppUrlTransform` on the assistant's `<Markdown>` decides what actually
@@ -192,11 +228,12 @@ refusal names the course title and reaches the client on a path that returns bef
 
 | Layer | Outcome | User sees | Persisted |
 |---|---|---|---|
-| L1 block | `guard_blocked` | `NEUTRAL_REFUSAL_MESSAGE` | user turn, `contextEligible: false` |
+| L1 block | `guard_blocked` | `NEUTRAL_REFUSAL_MESSAGE` | **nothing** — see S6 |
 | L1 suspect | `guard_suspect` | nothing — turn proceeds | normally |
-| L2 off-topic | `guard_off_topic` | subject-naming refusal | both rows |
+| L2 off-topic | `guard_off_topic` | subject-naming refusal | both rows, `contextEligible: false` |
 | Tool policy | `unsafe_tool_call` | `NEUTRAL_REFUSAL_MESSAGE` (to the model) | **no mastery row** |
-| Output validation | `output_validation_failed` | `retract` + `NEUTRAL_REFUSAL_MESSAGE` | **nothing** |
+| Output validation | `output_validation_failed` | `retract` + `NEUTRAL_REFUSAL_MESSAGE` | **no reply**; the user turn stays, flipped to `contextEligible: false` |
+| Output validation, client aborted | `output_validation_failed` | nothing — the connection is gone | same as above, minus the `retract` |
 
 **Requirement.** The three *security* refusals produce byte-identical text, imported from one
 constant and never rebuilt, so wording cannot be used to map the defence by binary search. Off-topic
@@ -223,6 +260,18 @@ Blocking every student during a provider outage is a worse failure than letting 
 through, and this is acceptable **only because L1 runs deterministically underneath**. If L1 is ever
 removed or made model-dependent, this decision must be revisited.
 
+**Requirement — the fail-open covers slowness, not only errors.** `checkTopicRelevance` declares
+`timeout: 3_000` and `maxRetries: 1` — which is **3 s per attempt over at most 2 attempts, so ~6.5 s
+worst case including backoff**, not a 3 s wall. Quote the worst case, not the constant, wherever this
+budget is reasoned about. Without a budget the call inherits the provider SDK's default
+of minutes with retries, sitting in the request path of every turn before the first token — and a
+provider that is *slow* rather than down produces neither an error nor a `fallback_triggered` event.
+The student simply waits, and the incident is invisible to the exact signal built to make it visible.
+A fail-open that only catches errors covers the failure mode that announces itself and not the one
+that doesn't, and degradation is more common than outage. Exceeding the budget throws, so it lands on
+the same fallback and is byte-identical to the provider-error path: a dashboard need not tell them
+apart. Pinned by `topicRelevance.test.ts` and `guardUserInput.test.ts`.
+
 ## S11. Logging and monitoring requirements
 
 **Requirement.** Security events are written only through `logSecurityEvent`, with exactly six
@@ -241,7 +290,17 @@ unstructured error — an outage that no detection rule can match is indistingui
 being exploited.
 
 **Requirement.** `output_validation_failed` frequency is the compensating control for the streaming
-disclosure in S13; it must remain queryable.
+disclosure in S13; it must remain queryable **and must not be reachable only on the happy path** —
+see S8. A compensating control the adversary can decline to trigger is not one.
+
+**Requirement — `mastery_write_retained` is decided structurally.** Whether a write committed is read
+from the `mark_concept_understood` tool's **artifact** (`content_and_artifact` response format),
+never by comparing its output text to `NEUTRAL_REFUSAL_MESSAGE`. That string is user-facing and shared
+by three refusal paths, so rewording it is a product change nobody would expect to touch telemetry —
+and a second denial message would silently make denials count as commits. With a baseline of zero,
+either failure is a permanent blind spot rather than a degraded metric. Pinned by two deliberately
+adversarial cases in `lessonAI.service.test.ts`: a commit whose prose *is* the refusal text, and a
+denial whose prose looks like a commit.
 
 ### Thresholds — what each outcome means when it moves
 
@@ -299,10 +358,18 @@ own record. Access control is powerless against them by definition — which is 
 **Requirement — account deletion.** Deletion anonymises the principal in place: the `User` row is
 retained with identifying fields irreversibly overwritten, credentials destroyed, and privately
 authored free text (AI conversations, instructor bio, interest embeddings, notifications) deleted.
-Structured facts and financial records are retained, pointing at an anonymous principal. **Not yet
-implemented** — specified in
-[`features/account-deletion-data-retention/spec.md`](../account-deletion-data-retention/spec.md); see
-S13.
+Structured facts and financial records are retained, pointing at an anonymous principal.
+
+**Implemented** — [`features/account-deletion-data-retention/spec.md`](../account-deletion-data-retention/spec.md)
+(`status: stable`) and [ADR-025](../../../adr/025-account-deletion-and-anonymisation.md). What this
+document depends on: `LessonAssistantConversation` and its messages are **destroyed**, which is what
+makes the retention claim for free-text conversation in S3 true rather than aspirational.
+
+**Requirement — the cascade must not come back.** Anonymisation is an ordered service operation
+(`userService.anonymiseAccount`) run in a single transaction and interposed through Better Auth's
+`deleteUser.beforeDelete` hook, not a database cascade. The 14 relations carrying retained data are
+`onDelete: Restrict`, so a future code path that deletes a `User` row directly fails on a foreign
+key instead of silently removing a paid course or a payment record.
 
 **Requirement — LLM tracing is disabled in production.** LangSmith traces carry the full prompt
 (including the student's message), the completion, tool outputs, and `userId`/`courseId` tags; they
@@ -330,6 +397,12 @@ Written as facts after implementation, not as intentions before it.
    validation, and was chosen anyway: the recipient is the party who elicited the text, and what
    retraction protects is durability — not persisted, never re-enters model context, never read by
    anyone else. ADR-024 decision 2.
+
+   **Updated 2026-08:** this acceptance rests on `output_validation_failed` staying queryable, and
+   until now that event only fired on the happy path — a client that disconnected after the last
+   token got the reply and emitted nothing. The boundary now runs on all three exits (S8), so the
+   compensating control is no longer the adversary's to switch off. The disclosure itself is
+   unchanged and still accepted.
 3. **Delimiters are mitigation, and the mitigation is weak — now measured.** `aiGuard:indirect` runs
    twelve indirect payloads twice, raw and wrapped, against the same model. Raw: **6/12 obeyed**.
    Wrapped: **5/12 obeyed**. The wrapper flipped exactly one payload (a persona switch).
@@ -366,14 +439,23 @@ Written as facts after implementation, not as intentions before it.
    is clean, but answers an instructor writes *into the lesson body* remain reachable by a student who
    asks well.
 
-**Open gaps — known, not yet closed**
+**Open gaps — known, not yet closed** (§10 has since been closed; it keeps its number because
+§11–§29 are cross-referenced from other documents)
 
-10. **Account deletion is destructive and lossy.** All 20 relations to `User` cascade: deleting an
-   instructor destroys enrolled students' records, and deleting either party destroys `Payment` rows
-   — including `transferStatus: pending`, i.e. money owed to an instructor that the sweep has not yet
-   transferred. `CourseGeneration` has no foreign key at all, so the instructor's AI conversation
-   survives as orphans. Specified, deliberately deferred (S12). If production carries real payments,
-   the one-line stopgap is `deleteUser.enabled: false`.
+10. **Account deletion — closed.** It was destructive and lossy: all 20 relations to `User`
+    cascaded, so deleting an instructor destroyed enrolled students' records, and deleting either
+    party destroyed `Payment` rows — including `transferStatus: pending`, i.e. money owed to an
+    instructor that the sweep had not yet transferred. `CourseGeneration` had no foreign key at all,
+    so the instructor's AI conversation survived as orphans.
+
+    Deletion now anonymises in place and retains those rows (S12); 14 relations were downgraded to
+    `Restrict` so the cascade cannot return; `CourseGeneration` gained the foreign key it never had,
+    so the AI conversation is destroyed rather than orphaned. ADR-025.
+
+    **Residual, accepted:** retained rows could in principle re-identify someone by combination — a
+    niche course, a timestamp, and review prose. Accepted rather than solved, because the
+    alternative (destroying reviews and payments) breaks the third-party and legal-retention
+    guarantees that motivated the change.
 11. **The quiz answer key reaches the client.** `quiz.service.getByLesson` returns `...quiz`
     including `correct`. Not an AI surface; found while auditing the indexing channel.
 12. **No retention period is set for security events.** They carry `userId` and are retained under
@@ -392,9 +474,17 @@ Written as facts after implementation, not as intentions before it.
 16. **`tutor.eval.ts` validates its own copy of the prompt.** It does not import `SYSTEM_PROMPT` or
     the real tool definitions, and its copies have already drifted from production; its dataset is
     two rows, so one failure moves the score by 50%. It is green and proves very little.
-17. **The rate limiter lives in process memory** (`learningPathAI.service.ts:8`). The guarantee is
-    20 requests per instance per minute, and the attacker controls instance count through
-    parallelism. Out of scope for this area.
+17. **The rate limiter lives in process memory** — `server/utils/aiRateLimiter.ts`, shared by all
+    three `app/api/chat/**` routes (a second, separate limiter lives in
+    `learningPathAI.service.ts:8`). The guarantee is 20 requests per instance per minute, and the
+    attacker controls instance count through parallelism. **Still open**; a distributed limiter is
+    R3.
+
+    **Closed 2026-08, two narrower problems that were filed here by mistake:** the window is now
+    keyed `${userId}:${feature}`, so using the tutor no longer spends the same account's
+    course-builder allowance; and `createLessonAgent`'s stream declares
+    `recursionLimit: 12`, so one *request* no longer means an unbounded number of model calls. The
+    per-process property is unchanged.
 
 **Measured — one run, 2026-08-09, `gpt-4o-mini`**
 
@@ -500,6 +590,19 @@ The rest are named here as accepted or open.
     outage L2 fails open, and if that same turn is a non-English injection, no deterministic layer sees
     it — only L3 wrapping (5/12). In that narrow window the input boundary is effectively absent for a
     non-English payload. Naming the intersection is stronger than naming either risk alone.
+
+    **Widened, deliberately, 2026-08 — and the first wording of this note was wrong.** It claimed
+    slow L2 calls previously "hung the turn"; they did not. `guardUserInput` caught whatever the SDK
+    eventually threw, so the pre-budget behaviour was *also* allow-after-L1-only — just after roughly
+    ten minutes of retries, long enough that a human attacker would have abandoned the request.
+
+    What the budget changes is **frequency and exploitability, not the verdict**. A ~6.5 s threshold
+    (S10) is crossed by ordinary provider jitter many times a day, so this window moves from "rarely
+    open, and open for a long time" to "routinely open, and briefly so". That is a real widening and
+    the acceptance stands — a hung student is worse and far more likely than a non-English injection
+    arriving inside one of those windows — but it is the one place this work made a risk bigger, and
+    it is recorded as such. It raises the value of closing §23 (localised L1 patterns), not of
+    reverting the budget.
 29. **L1 decodes only base64, single-pass, and this is deliberate** (F4). `normalize.ts` locates and
     decodes base64 segments (with a printable-ratio guard) before matching, but does *not* decode
     ROT13, hex, URL-encoding, leetspeak, or nested/double encodings. L1 is a deterministic pre-filter,
@@ -508,3 +611,39 @@ The rest are named here as accepted or open.
     evidence). Adding decoders is cheap but not free — each needs a false-positive guard and honest
     dataset rows, or it is a claim of coverage without measurement. Deliberately not added; recorded in
     `normalize.ts` so the exclusion is a conscious boundary, not an oversight.
+**Named in the `/qa` audit pass, 2026-08-16** (both agents, `audit` mode, against the branch that
+closed §17's two sub-problems). The blocking items were fixed on the branch; these two are the
+consequences that were accepted rather than solved.
+
+30. **The tutor's own model call has no timeout, no retry cap, and no output cap.**
+    `lessonAI.agent.ts` builds its `ChatOpenAI` with none of `timeout`, `maxRetries`, `maxTokens`,
+    which is precisely the omission S10 just fixed for L2 — and this is the model the student waits
+    on for far longer. `AGENT_RECURSION_LIMIT = 12` bounds the *number* of model calls per request,
+    not the duration or size of any one, so the worst case per request is 12 × (SDK default timeout ×
+    default retries) of wall clock. No injection is needed to reach it; the only other bound is the
+    per-process rate limiter (§17). Not fixed here because `maxTokens` changes reply behaviour and so
+    needs its own eval run — this is a spec'd change, not a one-line follow-on. The same omission
+    exists on `quizAI`, `courseAI`, `lessonInsightsAI` and `learningPathAI`.
+
+    It also degrades §11's guarantee: the character budget is really "8,000 characters **plus one
+    unbounded assistant reply**", because the single always-kept newest message can be a model output
+    with no size ceiling.
+
+31. **Per-feature rate-limit keys tripled the aggregate per-user AI budget.** Keying
+    `${userId}:${feature}` fixed real cross-feature interference (using the tutor spent the course
+    builder's allowance), but 20/min/user became 20/min/user **per feature** — 60/min/user/process
+    across the three chat routes. If the original 20 was sized against spend rather than against one
+    feature's UX, the ceiling moved without anyone deciding to move it. A second aggregate check
+    keyed on `userId` alone, alongside the per-feature one, is the fix. Related: `EVICT_THRESHOLD`
+    is unchanged at 5,000 while keys per user went 1 → 3, so the sweep now triggers at ~1,667
+    concurrent users instead of 5,000 — and because the sweep only deletes *expired* entries, a burst
+    of >5,000 simultaneously-live keys frees nothing and every subsequent call pays an O(n) scan.
+
+32. **Two client render paths still have no URL policy** — `CourseLearnView` renders `lesson.content`
+    and the AI builder's `ChatMessage` renders assistant text, both with a bare `<Markdown>` and no
+    `urlTransform`. Not XSS (react-markdown's default transform blocks `javascript:`) but a
+    zero-click beacon: an off-origin image in instructor lesson text loads for every student and
+    leaks viewer IP, timing and referer to a third party. The tutor closed exactly this channel at
+    `LessonAssistant/index.tsx`; these two did not, which makes the tutor's control partly moot
+    against an instructor-authored payload. Outside this feature's surface, recorded here so it is
+    not rediscovered a third time.
