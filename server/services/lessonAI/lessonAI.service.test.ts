@@ -95,11 +95,52 @@ const collect = async (events: unknown[]) => {
 };
 
 /**
- * Streams `events`, then disconnects the client with more of the stream still to
- * come — which is what makes the abort observable to the loop's next iteration,
- * and is what a real disconnect looks like.
+ * Consumes the turn **exactly the way `app/api/chat/lesson/route.ts` does**: it
+ * checks the signal after each delivered event and `break`s.
+ *
+ * That `break` is the whole point. It calls `generator.return()`, which unwinds
+ * `streamResponse` from its suspended `yield` and skips every statement inside
+ * the streaming loop — including the loop's own abort check. The route always
+ * reaches its check first, so in production the in-loop check is unreachable and
+ * only a `finally` survives.
+ *
+ * A helper that merely collects events drives the generator to that unreachable
+ * check and passes for a reason production never exercises. Abort behaviour is
+ * therefore pinned through this shape, not that one.
+ *
+ * `abortAfter` counts delivered events, so a test can let tokens accumulate
+ * before the client hangs up.
  */
-const collectAborted = async (events: unknown[]) => {
+const collectAborted = async (events: unknown[], abortAfter = 1) => {
+	const controller = new AbortController();
+	mockStreamEvents.mockReturnValue(streamOf(events));
+	const out: { type: string }[] = [];
+	let delivered = 0;
+	for await (const event of lessonAIService.streamResponse({
+		lessonId: "lesson-1",
+		lessonTitle: "Recursion",
+		courseTitle: "Algorithms",
+		courseId: "course-1",
+		studentId: "student-1",
+		userMessage: "explain the base case",
+		signal: controller.signal,
+	})) {
+		out.push(event as { type: string });
+		if (++delivered >= abortAfter) {
+			controller.abort();
+			break;
+		}
+	}
+	return out;
+};
+
+/**
+ * The other half of the pair: the service notices the abort itself, because the
+ * consumer is still iterating when the next stream event arrives. Reachable when
+ * the client disconnects while the model is mid-thought rather than between
+ * tokens. Kept as one explicit case so the in-loop check stays pinned too.
+ */
+const collectServiceNoticedAbort = async (events: unknown[]) => {
 	const controller = new AbortController();
 	mockStreamEvents.mockReturnValue(
 		(async function* () {
@@ -415,12 +456,27 @@ describe("streamResponse abort path", () => {
 		);
 	});
 
+	// Nothing was delivered, so the route never gets to break — this abort can only
+	// be the one the service notices itself, and it must stay silent.
 	it("emits nothing when aborted before any content token", async () => {
-		await collectAborted([
+		await collectServiceNoticedAbort([
 			{ event: "on_tool_start", name: "retrieve_lesson_context", data: {} },
 		]);
 
 		expect(mockLogSecurityEvent).not.toHaveBeenCalled();
+	});
+
+	// The in-loop check is unreachable from the route, but not dead: it fires when
+	// the client disconnects while the model is mid-thought rather than between
+	// tokens. Pinned separately so removing it stays a deliberate act.
+	it("also runs the boundary when the service notices the abort first", async () => {
+		await collectServiceNoticedAbort([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
+			expect.objectContaining({ outcome: "output_validation_failed" }),
+		);
 	});
 
 	it("still correlates a retained mastery write on an aborted, rejected turn", async () => {
@@ -434,39 +490,25 @@ describe("streamResponse abort path", () => {
 		);
 	});
 
-	// THE consumer that matters. The route breaks its `for await` the instant the
-	// signal trips, and `break` calls generator.return(), unwinding the body from
-	// the suspended `yield` — so the in-loop abort check never runs. A consumer
-	// that merely collects (the other helper here) drives the generator to that
-	// check and proves nothing about production.
-	it("runs the boundary when the consumer abandons the generator", async () => {
-		const controller = new AbortController();
-		mockStreamEvents.mockReturnValue(
-			streamOf([
-				tokenEvent("Sure — Tool usage rules (follow in order): "),
-				tokenEvent(" and more"),
-			]),
+	// Tokens accumulate across several delivered events before the client hangs up
+	// — the reply is only adversarial once assembled, so the boundary has to see
+	// the whole of what reached the browser, not just the last frame.
+	it("validates everything delivered, not only the final frame", async () => {
+		await collectAborted(
+			[
+				tokenEvent("Sure — "),
+				tokenEvent("Tool usage rules (follow in order): "),
+			],
+			2,
 		);
 
-		for await (const _event of lessonAIService.streamResponse({
-			lessonId: "lesson-1",
-			lessonTitle: "Recursion",
-			courseTitle: "Algorithms",
-			courseId: "course-1",
-			studentId: "student-1",
-			userMessage: "explain the base case",
-			signal: controller.signal,
-		})) {
-			controller.abort();
-			break; // exactly what app/api/chat/lesson/route.ts does
-		}
-
 		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "output_validation_failed" }),
+			expect.objectContaining({ ruleIds: ["system_prompt_echo"] }),
 		);
 	});
 
-	// An abort landing after the last stream event never reaches the in-loop check.
+	// An abort landing after the last stream event never reaches the in-loop check
+	// and the consumer never breaks, so only the post-loop guard catches it.
 	it("persists no assistant row when the abort lands after the last event", async () => {
 		const controller = new AbortController();
 		mockStreamEvents.mockReturnValue(
