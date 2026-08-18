@@ -12,6 +12,12 @@ import { buildSystemPrompt } from "@/server/services/courseAI/prompts/systemProm
  * Reads: userMessage, currentStep, content, intent, history.
  * Writes: assistantText (append reducer).
  * Fails: propagates — model.stream is unguarded; a mid-stream drop loses the partial reply.
+ *
+ * Deliberately does NOT read `state.messages`. That channel holds tool results,
+ * and search_similar_courses deposits other instructors' titles and subtitles
+ * into it — cross-tenant copy. tool_router reads it to choose tools; this node
+ * streams straight to the instructor, so pulling it in here would put another
+ * tenant's text into a reply. Pinned by chatResponse.containment.contract.test.ts.
  */
 export const chatResponse = withNodeErrors(
 	"chat_response",
