@@ -15,12 +15,27 @@ const PER_FEATURE_MAX: Record<AiFeature, number> = {
 	courseAI: 20,
 	quizAI: 10,
 	lessonInsightsAI: 10,
-	// NOT 1. The 1/min per-(student, course) rule lives in the service, keyed on a
-	// VERIFIED enrollment courseId — a limiter key must not be derived from
-	// request input, so the scope cannot come through the middleware. A
-	// per-feature ceiling of 1 here would collapse that rule into 1/min across
-	// all of a student's courses.
+	// NOT 1: this is the UNSCOPED ceiling, and 1 here would collapse the
+	// per-course rule into 1/min across all of a student's courses. The 1/min
+	// per-(student, course) contract lives in SCOPED_MAX below, keyed on a
+	// VERIFIED enrollment courseId — a limiter key must never be derived from
+	// request input, which is why the scope cannot come through the middleware.
 	learningPathAI: 10,
+};
+
+/**
+ * The ceiling for a SCOPED window, which is a different rule from the
+ * per-feature one above. learningPathAI's contract is 1 regeneration per minute
+ * per (student, course) — the rule the old private bucket enforced. Without
+ * this, a scoped call inherits PER_FEATURE_MAX and the rule silently becomes
+ * 10/min per course: a 10x amplification on the most expensive surface here.
+ *
+ * A feature absent from this table has no scoped rule and keeps its per-feature
+ * ceiling, which is why it is Partial and why the lookup below is explicit
+ * about the fallback.
+ */
+const SCOPED_MAX: Partial<Record<AiFeature, number>> = {
+	learningPathAI: 1,
 };
 
 /** Below the sum of the per-feature ceilings on purpose: the aggregate is the budget. */
@@ -109,9 +124,12 @@ export const checkAiRateLimit = (
 	const countAggregate = opts?.countAggregate !== false;
 	const aggKey = aggregateKey(userId);
 	const featKey = featureKey(userId, feature, opts?.scope);
-	// No `?? 1` fallback: PER_FEATURE_MAX is total over AiFeature, so a sixth
-	// surface must fail to compile rather than silently inherit a ceiling.
-	const max = PER_FEATURE_MAX[feature];
+	// PER_FEATURE_MAX is total over AiFeature, so a sixth surface fails to
+	// compile rather than silently inheriting a ceiling. SCOPED_MAX is partial by
+	// design: only a feature with a per-scope contract appears there.
+	const max = opts?.scope
+		? (SCOPED_MAX[feature] ?? PER_FEATURE_MAX[feature])
+		: PER_FEATURE_MAX[feature];
 
 	const agg = countAggregate ? peek(aggKey, now) : undefined;
 	const feat = peek(featKey, now);

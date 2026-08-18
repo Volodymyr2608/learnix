@@ -92,17 +92,28 @@ describe("checkAiRateLimit", () => {
 	});
 
 	it("a hostile scope cannot collide with the aggregate key (AC 40)", () => {
-		// scope is a courseId, which reaches the limiter before any existence check.
-		// The disjointness invariant is the separator at index userId.length, not
-		// the absence of spaces.
+		// The invariant is the separator at index userId.length — ":" for a
+		// feature key, " " for the aggregate — not the absence of spaces in scope.
+		// Assert the aggregate is UNTOUCHED by a scope that spells it out.
+		checkAiRateLimit("u1", "courseAI");
+		const aggregate = __aggregateCountForTest("u1");
+
 		for (const scope of [" aggregate", "a:b:c", "x".repeat(10_000)]) {
-			expect(checkAiRateLimit("u1", "learningPathAI", { scope })).toBe(true);
+			checkAiRateLimit("u1", "learningPathAI", {
+				scope,
+				countAggregate: false,
+			});
+			expect(__aggregateCountForTest("u1"), scope).toBe(aggregate);
 		}
 
-		expect(__aggregateCountForTest("u1")).toBeLessThanOrEqual(AGGREGATE_MAX);
+		// And an empty feature name cannot reach the aggregate's key space either.
+		expect(__featureCountForTest("u1", "", " aggregate")).toBe(0);
 	});
 
-	it("preserves a per-(student, course) scoped window (AC 43)", () => {
+	it("enforces ONE regeneration per minute per (student, course) (AC 43)", () => {
+		// The rule the private learningPathAI bucket enforced before consolidation.
+		// The second call to the SAME course must fail — asserting it succeeds is
+		// how a 10x relaxation hides behind a passing test.
 		expect(
 			checkAiRateLimit("u1", "learningPathAI", {
 				scope: "c1",
@@ -114,17 +125,36 @@ describe("checkAiRateLimit", () => {
 				scope: "c1",
 				countAggregate: false,
 			}),
-		).toBe(true);
+		).toBe(false);
+	});
 
-		// A different course is a different window, not a shared one.
-		expect(__featureCountForTest("u1", "learningPathAI", "c2")).toBe(0);
+	it("keeps that window per course, not per student (AC 43)", () => {
+		checkAiRateLimit("u1", "learningPathAI", {
+			scope: "c1",
+			countAggregate: false,
+		});
+
+		// A different course the same student is enrolled in is a different window.
 		expect(
 			checkAiRateLimit("u1", "learningPathAI", {
 				scope: "c2",
 				countAggregate: false,
 			}),
 		).toBe(true);
-		expect(__featureCountForTest("u1", "learningPathAI", "c1")).toBe(2);
+		expect(__featureCountForTest("u1", "learningPathAI", "c1")).toBe(1);
+		expect(__featureCountForTest("u1", "learningPathAI", "c2")).toBe(1);
+	});
+
+	it("leaves the unscoped ceiling alone, so the scoped rule cannot collapse it", () => {
+		// A per-feature ceiling of 1 would have made this 1/min across ALL of a
+		// student's courses, which is the mistake the scoped table exists to avoid.
+		let allowed = 0;
+		for (let i = 0; i < 12; i++) {
+			if (checkAiRateLimit("u1", "learningPathAI")) allowed++;
+			else break;
+		}
+
+		expect(allowed).toBe(10);
 	});
 
 	it("eviction frees space even when nothing has expired (AC 42)", () => {
