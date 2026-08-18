@@ -240,6 +240,43 @@ The repo's own history is the argument: the tutor's FP rate measured 17.5% again
 **Requirement.** `evals/aiOutput:falsePositive` ships **before** the thresholds, with the measured
 number recorded here.
 
+### Measured, 2026-08-18
+
+42 rows of legitimate instructor and builder content, run through each surface's real assembled
+prompt and real wrapping, 3 samples per row (the event is stochastic), 630 samples in total. The
+model output was then judged by `validateModelText` with `emit: false`.
+
+| Surface | Rejected | Rate |
+|---|---|---|
+| lessonAI | 0/126 | **0.0%** |
+| courseAI | 0/126 | **0.0%** |
+| quizAI | 14/126 | **11.1%** |
+| lessonInsightsAI | 12/126 | **9.5%** |
+| learningPathAI | 0/126 | **0.0%** |
+
+**Every rejection came from one rule: `untrusted_data_echo` (26 samples, 4.1% overall).**
+`system_prompt_echo` and `off_origin_link` produced no false positive on any surface.
+
+By corpus kind, rejected samples only:
+
+| Kind | Rejected | Rate |
+|---|---|---|
+| `untrusted_tag_literal` (content containing the literal `<untrusted_data`) | 18/45 | 40.0% |
+| `untrusted_tag_in_code_fence` | 2/30 | 6.7% |
+| `course_builder_turn` (the row quoting the tag) | 6/90 | 6.7% |
+
+**Interpretation.** The predicted failure mode is real and it is narrow. It is not "content about
+prompt injection" in general — it is content that reproduces the literal opening tag. A lesson that
+quotes attack strings, discusses delimiters in prose, or writes the ESCAPED form `&lt;untrusted_data`
+never tripped the rule: the escaped rows produced zero rejections, which confirms that
+`wrapUntrustedContent`'s escaping does its job and that the residual event is the model re-emitting
+a tag it read verbatim.
+
+It concentrates on exactly the two surfaces that paraphrase lesson vocabulary back into short
+structured fields — quizAI (a question about the tag contains the tag) and lessonInsightsAI (a
+glossary entry FOR the tag). The two conversational surfaces and the path planner never reproduced
+it, which is why their numbers are 0.0% rather than merely low.
+
 ## S12. The rate limiter is an authorization surface, not only a cost control
 
 **Requirement.** `aiLimits` exports a **middleware** composed onto existing role procedures. A
@@ -302,6 +339,14 @@ would otherwise read the asymmetry as a bug. `rel="noopener noreferrer"` bounds 
 `LessonInsights.concepts` is read by five consumers, including `quiz.service`'s level-3 promotion path
 *after* `QuizAttempt` is written.
 
+**Correction at implementation.** This section was written as though it formalised an existing
+graceful degradation. It does not: on a stored value of `{"concepts":"not-an-array"}`,
+`lessonAI.service.ts`, `lesson.repository.ts` and transitively `quiz.service.ts` called `.map` on a
+string and threw a `TypeError`. The requirements below are a **bug fix** with a boundary attached,
+not a formalisation — which is also why the parse lives in the repository rather than in each
+consumer, and why the second read path parses per element (an `Array.isArray` guard would let
+`[{ notName: 1 }]` through and yield `[undefined]` downstream).
+
 **Requirement.** `findByLessonId` uses `safeParse` and **never throws**; on failure it returns
 `concepts: []` and emits telemetry. A strict throwing parse would let one malformed stored row break
 the student study guide, the tutor, the learning path and quiz promotion at once — and, because the
@@ -332,6 +377,7 @@ row, and its 3–7 bound is a generation-time cardinality rule that must not gat
 | D-J | C7 (quizAI hint) | **Pulled into scope** | This feature telemeters that exact fail-open; instrumenting it unfixed is worse than neither |
 | D-K | Parse-failure telemetry | Ordinary telemetry event, not a new `SecurityOutcome` | Data-shape defect, not an attack signal |
 | D-L | Step-commit-after-retraction | Correlating event, courseAI analogue of `mastery_write_retained` | Same reasoning as tutor S13 §24 |
+| D-M | Fail-closed vs report-only per surface, after the S11 measurement (2026-08-18) | **Split.** courseAI and learningPathAI (0.0% FP) **fail closed**; quizAI (11.1%) and lessonInsightsAI (9.5%) ship **report-only** — `validateModelText` runs with `emit: true` and the surface does not throw | The threshold in S11 exists so enforcement is priced. On the two structured surfaces a rejection is not a visible error the instructor can act on, it is a generation that silently produces nothing; at ~10% that is a worse outcome than the disclosure the rule prevents. Enforcement there is a follow-up gated on bringing `untrusted_data_echo`'s FP down, not on re-running the same eval |
 
 ## S16. Accepted risks and residuals
 
@@ -344,6 +390,11 @@ row, and its 3–7 bound is a generation-time cardinality rule that must not gat
    instructor rather than an adversary.
 3. **Leak detection on short structured fields is thin** (S3). The effective checks there are the tag
    echo and the off-origin destination.
+   *Corrected at implementation:* "thin" understated the position this feature inherited. On quizAI,
+   lessonInsightsAI and learningPathAI leak detection was not thin, it was **absent** — the marker
+   registry knew only about the tutor, so those three surfaces ran no `system_prompt_echo` check at
+   all. Task 8 makes the registry total and pins a marker against every prompt variant; what remains
+   thin afterwards is the *fixed-phrase* nature of the markers (§4), not their existence.
 4. **Fixed-phrase leak markers remain fixed-phrase** (tutor S13 §27). This feature makes them
    per-surface and pinned; it does not make them robust to paraphrase or translation.
 5. **The completeness test's three documented false negatives** (S7) — cross-file assembly, wrong
@@ -351,10 +402,20 @@ row, and its 3–7 bound is a generation-time cardinality rule that must not gat
 6. **The limiter stays per-process** (tutor S13 §17). This feature narrows blast radius and repairs the
    aggregate; it does not make the limiter distributed.
 7. **Off-origin links in lesson bodies are permitted** (D-C).
-8. **Nothing consumes the security events** (tutor S13 §13). This feature roughly **triples** emission
-   volume into a `consola` stdout writer with no sampling and no sink, and adds an abort-path event
-   that fires on ordinary client navigation. It raises the value of the sink and the cost of not
-   having one. A volume sanity check belongs in the plan.
+7a. **quizAI and lessonInsightsAI detect but do not enforce** (D-M). Their output boundary runs and
+   emits `output_validation_failed`; it does not stop the generation. A model that reproduces its
+   instructions into a quiz question or a glossary entry on those two surfaces is visible in the
+   event stream and still reaches the student. The compensating control is the same one the
+   streaming surfaces rely on — event frequency — which is worth exactly as much as §8's missing
+   sink.
+8. **Nothing consumes the security events** (tutor S13 §13). This feature raises emission volume into
+   a `consola` stdout writer with no sampling and no sink, and so raises the value of the sink and
+   the cost of not having one.
+   *Corrected at implementation:* an earlier draft of this section said the feature "adds an
+   abort-path event that fires on ordinary client navigation", and priced the volume on that. Under
+   the design that shipped, the courseAI route validates from a `finally` on every exit but emits
+   **only on rejection** — a clean turn, including one the reader navigated away from, emits nothing.
+   Abort-path events are therefore ~0% of emissions rather than a dominant fraction.
 
 ## S17. Out of scope, with blocking assessment
 
