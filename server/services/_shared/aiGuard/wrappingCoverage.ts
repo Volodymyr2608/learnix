@@ -26,9 +26,15 @@
  *  3. **Mixed-trust serialisation.** `JSON.stringify(x)` is judged on `x`'s root
  *     alone, so an object that is server-built but carries one model-authored
  *     field reads as trusted.
- *  4. **A chain with no template.** A binding assembled by `.map(m => m.content)`
- *     with no template literal anywhere in it is skipped rather than followed.
- *     No such shape exists here today; a new one would pass unseen.
+ *  4. **A chain with no template.** A binding assembled by a call — `.map(...)`,
+ *     `Object.fromEntries(...)` — is skipped rather than followed, and only its
+ *     parts are judged where the walker meets them. One such shape exists
+ *     (`revisePriorField.ts`'s `currentStepData`) and is wrapped by hand; the
+ *     scan is not what proves it.
+ *  5. **A prompt builder outside the scan set.** A call to a builder named in
+ *     TRUSTED_INTERPOLATIONS is trusted at the call site, so the claim holds only
+ *     while every such builder is also a registered entry point. Both halves are
+ *     asserted by the contract test below.
  */
 
 /**
@@ -44,9 +50,12 @@ export const TRUSTED_INTERPOLATIONS: string[] = [
 	"STEP_PROMPTS",
 	"SYSTEM_PROMPT",
 	"STEP_MESSAGES",
-	// The platform's own prompt builders. Their bodies are scanned in their own
-	// files (both are registered entry points), so trusting the call site is
-	// composition, not an exemption.
+	// The platform's own prompt builders. Every one of them is a REGISTERED entry
+	// point, so its body is scanned in its own file and trusting the call site is
+	// composition rather than an exemption. That claim was previously written for
+	// "both" builders while four existed — and the two unregistered ones were
+	// exactly where an unwrapped interpolation was hiding. Adding a builder here
+	// without adding its file to GUARDED_ENTRY_POINTS re-opens that hole.
 	"autoTransitionPrompt",
 	"reviseConfirmPrompt",
 	"clarifyIntentPrompt",
@@ -143,6 +152,19 @@ export const ALLOWED_INTERPOLATIONS: AllowedInterpolation[] = [
 		reason: "See chatResponse — a chat message with its own role.",
 	},
 
+	{
+		file: "server/services/courseAI/graph/nodes/toolRouter.ts",
+		expression: "m.content",
+		reason:
+			"A conversation turn passed as its own LangChain message with its own role (HumanMessage / AIMessage), not interpolated into an instruction — the same claim as chatResponse and clarify.",
+	},
+	{
+		file: "server/services/courseAI/graph/nodes/toolRouter.ts",
+		expression: "state.messages as BaseMessage[]",
+		reason:
+			"Tool results, each wrapped by the tool that produced it at return time: searchSimilarCourses and fetchInstructorPriorCourses wrap as course_data, validateCurriculumCoherence wraps its judge prose as model_output, and lookupCategoryTaxonomy returns server-authored taxonomy. This is the cross-tenant channel chat_response deliberately does not read (S8).",
+	},
+
 	// --- ids, integers and enums
 	{
 		file: "server/services/courseAI/prompts/chatResponsePrompts.ts",
@@ -154,6 +176,28 @@ export const ALLOWED_INTERPOLATIONS: AllowedInterpolation[] = [
 		file: "server/services/courseAI/prompts/chatResponsePrompts.ts",
 		expression: "step.toUpperCase()",
 		reason: "The same DraftStep enum, upper-cased for the section heading.",
+	},
+	{
+		file: "server/services/courseAI/prompts/extractStepDataPrompt.ts",
+		expression: "step",
+		reason: "The DraftStep enum, passed in from the extraction node.",
+	},
+	{
+		file: "server/services/courseAI/prompts/extractStepDataPrompt.ts",
+		expression: "history",
+		reason:
+			"Already-wrapped text: extractStepData.ts builds this string with wrapUntrustedContent around each message's content before passing it in. Wrapping again here would nest two regions.",
+	},
+	{
+		file: "server/services/courseAI/prompts/systemPrompt.ts",
+		expression: "step",
+		reason:
+			"The DraftStep enum, passed in from the node that builds the prompt.",
+	},
+	{
+		file: "server/services/courseAI/prompts/systemPrompt.ts",
+		expression: "step.toUpperCase()",
+		reason: "The same DraftStep enum, upper-cased for a heading.",
 	},
 	{
 		file: "server/services/courseAI/prompts/clarifyPrompts.ts",

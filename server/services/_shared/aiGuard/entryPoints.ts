@@ -13,6 +13,11 @@ export const GUARDED_ENTRY_POINTS: string[] = [
 	// the claim now belongs to these two files as well as to the nodes.
 	"server/services/courseAI/prompts/chatResponsePrompts.ts",
 	"server/services/courseAI/prompts/clarifyPrompts.ts",
+	// The other two prompt builders. Registered because they interpolate course
+	// content too: extractStepDataPrompt did so unwrapped while the trust list
+	// asserted its body was scanned, which it was not.
+	"server/services/courseAI/prompts/extractStepDataPrompt.ts",
+	"server/services/courseAI/prompts/systemPrompt.ts",
 	"server/services/courseAI/tools/validateCurriculumCoherence.ts",
 	"server/services/learningPathAI/nodes/mergeAndExplain.node.ts",
 	"server/services/learningPathAI/nodes/reflectAndCheck.node.ts",

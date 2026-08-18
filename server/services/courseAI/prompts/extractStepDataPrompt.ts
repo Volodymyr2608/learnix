@@ -1,4 +1,6 @@
 import { DraftStep } from "@/generated/prisma";
+import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 
 const structures = {
 	[DraftStep.basic]: `{ "title": "string", "subtitle": "string", "description": "string", "category": "string", "level": "Beginner | Intermediate | Advanced", "language": "string", "duration": "string" }`,
@@ -23,10 +25,12 @@ export const extractStepDataPrompt = ({
     CURRENT STEP: ${step}
 
     COURSE DATA COLLECTED SO FAR (authoritative — use for context and consistency):
-    ${JSON.stringify(courseData ?? {}, null, 2)}
+    ${wrapUntrustedContent(JSON.stringify(courseData ?? {}, null, 2), "course_data")}
 
     EXPECTED JSON STRUCTURE for this step:
     ${structures[step]}
+
+    ${UNTRUSTED_DATA_CLAUSE}
 
     RULES:
     1. Return ONLY a JSON object matching the structure above. No extra fields, no explanations.

@@ -62,7 +62,10 @@ export const revisePriorField = withNodeErrors(
 			`The user wants to revise the "${target}" step of their course.`,
 			historyForTarget &&
 				`CONVERSATION HISTORY FOR THIS STEP:\n${historyForTarget}`,
-			`CURRENT SAVED VALUES for this step:\n${JSON.stringify(currentStepData, null, 2)}`,
+			`CURRENT SAVED VALUES for this step:\n${wrapUntrustedContent(
+				JSON.stringify(currentStepData, null, 2),
+				"course_data",
+			)}`,
 			`User's revision request: "${state.userMessage}"`,
 			`Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`,
 		]

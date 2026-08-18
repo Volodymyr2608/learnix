@@ -12,7 +12,21 @@ type Finding = { file: string; line: number; text: string; root: string };
 
 /** Object-literal keys that carry model input, on any of these call targets. */
 const MODEL_INPUT_KEYS = new Set(["content", "input", "question", "text"]);
-const MODEL_INPUT_CALLS = new Set(["invoke", "format", "pipe"]);
+const MODEL_INPUT_CALLS = new Set([
+	"invoke",
+	"format",
+	"pipe",
+	"stream",
+	"streamEvents",
+]);
+
+/** LangChain message constructors: `new HumanMessage(untrusted)` is a prompt. */
+const MESSAGE_CONSTRUCTORS = new Set([
+	"HumanMessage",
+	"AIMessage",
+	"SystemMessage",
+	"ToolMessage",
+]);
 
 const FIXTURES = "server/services/_shared/aiGuard/__fixtures__";
 
@@ -127,6 +141,13 @@ const scan = (file: string): Finding[] => {
 		if (ts.isParenthesizedExpression(expr))
 			return record(node, expr.expression, seen);
 
+		// A literal collection is judged by its parts: the walker visits array
+		// elements and role-bearing object literals in their own branches, so
+		// recording the container would report the same values under a less
+		// useful name.
+		if (ts.isArrayLiteralExpression(expr) || ts.isObjectLiteralExpression(expr))
+			return;
+
 		const root = rootNode(expr);
 		if (isAuthoredLiteral(root)) return;
 
@@ -164,6 +185,40 @@ const scan = (file: string): Finding[] => {
 
 	const visit = (node: ts.Node): void => {
 		if (ts.isTemplateSpan(node)) record(node, node.expression);
+
+		// `new HumanMessage(m.content)` is a prompt with no template and no object
+		// literal anywhere in it. Without this, a file that builds its messages
+		// entirely from constructors has ZERO expressions scanned and still reads
+		// green — registration coverage wearing a default-deny badge.
+		if (
+			ts.isNewExpression(node) &&
+			ts.isIdentifier(node.expression) &&
+			MESSAGE_CONSTRUCTORS.has(node.expression.text)
+		) {
+			for (const arg of node.arguments ?? []) {
+				if (ts.isObjectLiteralExpression(arg)) continue;
+				record(node, arg);
+			}
+		}
+
+		// A spread into a messages array carries whatever the array holds. Only a
+		// FORWARDED value is recorded here (`...state.messages`): a spread of a
+		// `.map(...)` call has its callback body walked, so recording the call
+		// would report the same values twice under a less useful name.
+		if (
+			ts.isSpreadElement(node) &&
+			ts.isArrayLiteralExpression(node.parent) &&
+			/messages|prompt/i.test(node.parent.parent?.getText().slice(0, 80) ?? "")
+		) {
+			const spread = ts.isAsExpression(node.expression)
+				? node.expression.expression
+				: node.expression;
+			const forwarded =
+				ts.isIdentifier(spread) ||
+				ts.isPropertyAccessExpression(spread) ||
+				ts.isElementAccessExpression(spread);
+			if (forwarded) record(node, node.expression);
+		}
 
 		if (
 			ts.isCallExpression(node) &&
@@ -265,6 +320,26 @@ describe("wrapping completeness (AC 59-64)", () => {
 		}
 	});
 
+	it("registers every prompt builder it trusts at a call site (AC 63 §5)", () => {
+		// TRUSTED_INTERPOLATIONS waves a builder through wherever it is called, on
+		// the claim that the builder's own body is scanned. That claim is only true
+		// while the builder's file is in the scan set — and it was false for two of
+		// them, which is where an unwrapped interpolation was sitting.
+		const builders = TRUSTED_INTERPOLATIONS.filter((name) =>
+			/Prompt$|^buildSystemPrompt$/.test(name),
+		);
+		expect(builders.length).toBeGreaterThanOrEqual(4);
+
+		const unregistered = builders.filter((name) => {
+			const defined = ALL_MODEL_FILES.some((file) =>
+				new RegExp(`export const ${name}\\b`).test(readFileSync(file, "utf-8")),
+			);
+			return !defined;
+		});
+
+		expect(unregistered, unregistered.join(", ")).toEqual([]);
+	});
+
 	it("records the false negatives it does not cover (AC 63)", () => {
 		const doc = readFileSync(
 			"server/services/_shared/aiGuard/wrappingCoverage.ts",
@@ -277,6 +352,7 @@ describe("wrapping completeness (AC 59-64)", () => {
 			"The wrong `source` label",
 			"Mixed-trust serialisation",
 			"A chain with no template",
+			"A prompt builder outside the scan set",
 		]) {
 			expect(doc).toContain(gap);
 		}

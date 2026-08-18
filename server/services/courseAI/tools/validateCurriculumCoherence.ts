@@ -59,7 +59,10 @@ Rules:
 - Otherwise list specific issues.`.trim();
 
 			const result = await judge.invoke([{ role: "user", content: prompt }]);
-			return JSON.stringify(result);
+			// The judge's prose lands in state.messages and from there in
+			// tool_router's next prompt. It is another model's output, not course
+			// data, and it was the one tool result travelling unmarked.
+			return wrapUntrustedContent(JSON.stringify(result), "model_output");
 		} catch (err) {
 			logger.error(
 				new CourseAIToolError(`validate_curriculum_coherence: ${String(err)}`),
