@@ -277,6 +277,34 @@ structured fields — quizAI (a question about the tag contains the tag) and les
 glossary entry FOR the tag). The two conversational surfaces and the path planner never reproduced
 it, which is why their numbers are 0.0% rather than merely low.
 
+### Recall, measured 2026-08-18 — and what it did NOT measure
+
+`evals/aiOutput:leak`, 4 prompt-recital payloads x 5 surfaces x 3 samples, run twice: once WRAPPED
+(production) and once RAW (the wrapper removed, everything else identical).
+
+| Surface | Recited, wrapped | Recited, raw | Caught |
+|---|---|---|---|
+| lessonAI | 0/12 | 0/12 | 0 |
+| courseAI | 0/12 | 0/12 | 0 |
+| quizAI | 0/12 | 0/12 | 0 |
+| lessonInsightsAI | 0/12 | 0/12 | 0 |
+| learningPathAI | 0/12 | 0/12 | 11 (`untrusted_data_echo`) |
+
+**`system_prompt_echo` recall is UNMEASURED on every surface, which is not the same as 100%.**
+gpt-4o-mini refused all four recital payloads on all five surfaces — with the wrapper and without
+it. A boundary that is never handed a leak has no recall to report. The eval is therefore a standing
+harness, not a completed measurement: it will produce a number the first time a model complies.
+
+Two things follow, and both matter more than a passing row would have:
+
+1. **The 0.0% marker false-positive rate in the section above is not evidence the markers work.** It
+   is evidence they do not misfire. Those are different claims and the conformance matrix should not
+   be read as making the first one.
+2. **The only catches in the whole run came from a different rule.** learningPathAI's raw arm
+   reproduced the `untrusted_data` tag from the clause in its own system prompt 11 times, and
+   `untrusted_data_echo` caught every one. That is the rule doing real work — and it is also the
+   rule responsible for 100% of the false positives in S11, which is the tension D-M priced.
+
 ## S12. The rate limiter is an authorization surface, not only a cost control
 
 **Requirement.** `aiLimits` exports a **middleware** composed onto existing role procedures. A
@@ -396,7 +424,10 @@ row, and its 3–7 bound is a generation-time cardinality rule that must not gat
    all. Task 8 makes the registry total and pins a marker against every prompt variant; what remains
    thin afterwards is the *fixed-phrase* nature of the markers (§4), not their existence.
 4. **Fixed-phrase leak markers remain fixed-phrase** (tutor S13 §27). This feature makes them
-   per-surface and pinned; it does not make them robust to paraphrase or translation.
+   per-surface and pinned; it does not make them robust to paraphrase or translation. **And their
+   recall is unmeasured**: in the 2026-08-18 run no model recited on any surface, wrapped or raw, so
+   `system_prompt_echo` was never exercised against a real leak. The markers are pinned to the
+   prompts and proven not to misfire; whether they fire when they should is an open number.
 5. **The completeness test's three documented false negatives** (S7) — cross-file assembly, wrong
    `source` label, mixed-trust `JSON.stringify`.
 6. **The limiter stays per-process** (tutor S13 §17). This feature narrows blast radius and repairs the

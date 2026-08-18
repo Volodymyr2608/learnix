@@ -1,6 +1,6 @@
 ---
 feature: ai-defence-layers
-status: in-progress
+status: stable
 models: [CourseGenerationMessage]
 depends-on: [ai-input-trust-boundary, ai-tutor-guardrails, ai-chat-route-authorization]
 ---
@@ -476,6 +476,11 @@ Each line is phrased to become a test or eval row directly. `[EVAL]` marks rows 
 72. Every service constructing a `ChatOpenAI` appears in the conformance declaration; one that does
     not fails CI.
 
+**Shipped mode (D-M, 2026-08-18)**
+75. `courseAI` and `learningPathAI` reject; `quizAI` and `lessonInsightsAI` emit and continue. A
+    boundary rejection is not distinguishable by the caller from a semantic-validation failure on
+    any surface — the rejection error extends the existing failure type and carries its message.
+
 **C7**
 73. Only validator messages are fed back into quizAI's retry prompt; a thrown error retries with no
     hint and is logged.
@@ -506,6 +511,16 @@ Each line is phrased to become a test or eval row directly. `[EVAL]` marks rows 
 - **An output rejection must never feed a retry.** `mergeAndExplain` already loops three times with
   its violation reason in the prompt; joining that loop would turn the fix into a hill-climbing
   oracle.
+- **quizAI and lessonInsightsAI detect but do not enforce.** Their output boundary runs and emits;
+  it does not reject the generation. That is decision D-M, taken on the measured false-positive rate
+  (11.1% and 9.5%, all `untrusted_data_echo`, almost all of it lessons that legitimately discuss the
+  wrapper tag) rather than on a hunch. Anyone reading the conformance matrix should see
+  `applied_with_exception` there, not `applied`. Flipping either to fail-closed is a follow-up gated
+  on bringing that number down, and the matrix test is what will make the declaration follow.
+- **The false-positive corpus is part of the control.** `evals/datasets/aiOutput/falsePositive.jsonl`
+  contains both the literal `<untrusted_data` and its escaped form deliberately: the escaped rows
+  are what prove `wrapUntrustedContent`'s escaping works, and dropping them would make the number
+  measure something else. Re-measure before changing any rule in `_shared/aiOutput/checks.ts`.
 - **This feature does not close the detection loop.** `logSecurityEvent` still writes to stdout with
   no consumer (`ai-tutor-guardrails` security.md S13 §13). This work roughly triples the number of
   surfaces emitting events and does not give them a destination — that remains the highest-value open
