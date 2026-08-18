@@ -4,11 +4,13 @@ import {
 	instructorProcedure,
 	protectedProcedure,
 } from "@/server/api/trpc";
+import { aiRateLimit } from "@/server/services/_shared/aiLimits/aiRateLimit.middleware";
 import { lessonInsightsAIService } from "@/server/services/lessonInsightsAI/lessonInsightsAI.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 
 export const lessonInsightsAIRouter = createTRPCRouter({
 	generateLessonInsights: instructorProcedure
+		.use(aiRateLimit("lessonInsightsAI"))
 		.input(LessonInsightsSchema.shape.lessonId)
 		.mutation(async ({ ctx, input }) => {
 			try {
