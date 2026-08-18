@@ -18,8 +18,12 @@ export const SafeAnchor = ({ href, children, ...rest }: SafeAnchorProps) => {
 		);
 	}
 
+	// `rest` is spread FIRST so a `rel` or `target` arriving with the node cannot
+	// override the hardening. Nothing can supply those today — rehype-raw is off
+	// everywhere, and a renderer contract test keeps it off — but the ordering
+	// should not be the thing standing between that and an opener leak.
 	return (
-		<a href={href} rel="noopener noreferrer" target="_blank" {...rest}>
+		<a {...rest} href={href} rel="noopener noreferrer" target="_blank">
 			{children}
 		</a>
 	);

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { SafeAnchor } from "@/app/_components/_shared/markdown/SafeAnchor";
 import { MarkdownContent } from "@/app/_components/Course/components/CourseLearnView/components/MarkdownContent";
 import { POLICY_NAME, RENDERER_POLICY } from "./renderers";
 
@@ -121,6 +122,26 @@ describe("the policy is enforced at render, not merely imported", () => {
 		const html = render("[click](javascript:alert(1))");
 
 		expect(html).not.toContain("javascript:");
+	});
+
+	it("keeps rel on an off-origin anchor even if the node carries its own", () => {
+		// The spread order in SafeAnchor is what guarantees this; a `{...rest}`
+		// placed after the rel would let the node win.
+		const html = renderToStaticMarkup(
+			createElement(
+				SafeAnchor,
+				{
+					href: "https://developer.mozilla.org/",
+					rel: "opener",
+					target: "_self",
+				},
+				"docs",
+			),
+		);
+
+		expect(html).toContain('rel="noopener noreferrer"');
+		expect(html).toContain('target="_blank"');
+		expect(html).not.toContain('rel="opener"');
 	});
 
 	it("renders on the server without throwing — the SSR regression", () => {
