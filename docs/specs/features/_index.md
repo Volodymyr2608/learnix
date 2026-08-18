@@ -20,6 +20,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | messages | stable | auth |
 | mobile-responsive | planned | — |
 | payments | stable | auth, course |
+| quiz-answer-key | planned | ai-tutor-guardrails, ai-defence-layers |
 | semantic-search-recommendations | stable | course, enrollment |
 | skill-progress | stable | progress |
 <!-- AUTO-GENERATED:END -->
