@@ -1,5 +1,9 @@
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { checkAiRateLimit } from "@/server/services/_shared/aiLimits";
+import {
+	GRAPH_RECURSION_LIMIT,
+	withTurnDeadline,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { traced } from "@/server/services/_shared/tracing";
 import { LearningPathRateLimitedError } from "./learningPathAI.errors";
 import { buildLearningPathGraph } from "./learningPathAI.graph";
@@ -45,7 +49,13 @@ class LearningPathAIService {
 		return traced(
 			"learning-path",
 			async () => {
-				const result = await this.graph.invoke({ studentId, courseId });
+				const result = await this.graph.invoke(
+					{ studentId, courseId },
+					{
+						recursionLimit: GRAPH_RECURSION_LIMIT,
+						signal: withTurnDeadline(),
+					},
+				);
 				return learningPathRepository.upsertPath({
 					studentId,
 					courseId,
@@ -74,7 +84,11 @@ class LearningPathAIService {
 
 		const stream = await this.graph.streamEvents(
 			{ studentId, courseId },
-			{ version: "v2" },
+			{
+				version: "v2",
+				recursionLimit: GRAPH_RECURSION_LIMIT,
+				signal: withTurnDeadline(),
+			},
 		);
 
 		let finalState: PathState | null = null;

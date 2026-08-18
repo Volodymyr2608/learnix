@@ -1,6 +1,10 @@
 import { type CourseGeneration, DraftStep } from "@/generated/prisma";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { courseGenerationMessageRepository } from "@/server/repositories/courseGenerationMessage.repository";
+import {
+	GRAPH_RECURSION_LIMIT,
+	withTurnDeadline,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { traced } from "@/server/services/_shared/tracing";
 import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
 import { courseBuilderGraph } from "@/server/services/courseAI/graph/graph";
@@ -136,7 +140,11 @@ export class CourseAIService {
 			async () =>
 				courseBuilderGraph.streamEvents(initialState, {
 					version: "v2",
-					signal,
+					// MODEL_TIMEOUT_MS bounds one CALL; this bounds the TURN. A chained
+					// graph can spend the per-call budget many times over, so the
+					// caller's own signal is combined with a deadline.
+					signal: withTurnDeadline(signal),
+					recursionLimit: GRAPH_RECURSION_LIMIT,
 					configurable: { instructorId: courseGeneration.instructorId },
 				}),
 			{
@@ -165,7 +173,11 @@ export class CourseAIService {
 			async () =>
 				courseBuilderGraph.streamEvents(initialState, {
 					version: "v2",
-					signal,
+					// MODEL_TIMEOUT_MS bounds one CALL; this bounds the TURN. A chained
+					// graph can spend the per-call budget many times over, so the
+					// caller's own signal is combined with a deadline.
+					signal: withTurnDeadline(signal),
+					recursionLimit: GRAPH_RECURSION_LIMIT,
 					configurable: { instructorId: courseGeneration.instructorId },
 				}),
 			{

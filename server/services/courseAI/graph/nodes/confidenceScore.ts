@@ -2,6 +2,10 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
@@ -26,6 +30,8 @@ export const confidenceScore = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
+			timeout: MODEL_TIMEOUT_MS,
+			maxRetries: MODEL_MAX_RETRIES,
 		}).withStructuredOutput(outSchema, { method: "functionCalling" });
 
 		const historyText = state.history

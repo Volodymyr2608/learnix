@@ -4,6 +4,10 @@ import { createAgent } from "langchain";
 import { env } from "@/lib/env";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { QuizOutputSchema } from "./schemas/quizOutput.schema";
 import { buildGetExistingQuizzesTool } from "./tools/getExistingQuizzes.tool";
 import { buildGetLessonContentTool } from "./tools/getLessonContent.tool";
@@ -56,6 +60,8 @@ export async function createQuizAgent(
 		model: "gpt-4o-mini",
 		temperature: regenerate ? 0.9 : 0.3,
 		apiKey: env.OPENAI_API_KEY,
+		timeout: MODEL_TIMEOUT_MS,
+		maxRetries: MODEL_MAX_RETRIES,
 	});
 
 	const template = regenerate ? regenerateTemplate : initialTemplate;

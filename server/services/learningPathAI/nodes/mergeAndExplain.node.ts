@@ -6,6 +6,10 @@ import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.r
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { LearningPathInvalidError } from "../learningPathAI.errors";
 import type { PathState } from "../learningPathAI.state";
 import type { LearningPath, PathStep } from "../schemas/learningPath.schema";
@@ -265,6 +269,8 @@ export async function mergeAndExplain(
 		model: "gpt-4o-mini",
 		temperature: 0.3,
 		apiKey: env.OPENAI_API_KEY,
+		timeout: MODEL_TIMEOUT_MS,
+		maxRetries: MODEL_MAX_RETRIES,
 	}).withStructuredOutput(LearningPathSchema);
 
 	let lastViolation: SemanticViolation | undefined;

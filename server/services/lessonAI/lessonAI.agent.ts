@@ -3,6 +3,10 @@ import { createAgent, type ReactAgent } from "langchain";
 import { env } from "@/lib/env";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { buildGetStudentProgressTool } from "./tools/getStudentProgress.tool";
 import { buildMarkConceptUnderstoodTool } from "./tools/markConceptUnderstood.tool";
 import { buildRetrieveLessonContextTool } from "./tools/retrieveLessonContext.tool";
@@ -39,6 +43,8 @@ export function createLessonAgent(params: {
 		temperature: 0.4,
 		streaming: true,
 		apiKey: env.OPENAI_API_KEY,
+		timeout: MODEL_TIMEOUT_MS,
+		maxRetries: MODEL_MAX_RETRIES,
 	});
 
 	const concepts = params.lessonConcepts ?? [];

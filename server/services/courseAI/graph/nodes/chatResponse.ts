@@ -1,5 +1,9 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import {
 	autoTransitionPrompt,
@@ -29,6 +33,8 @@ export const chatResponse = withNodeErrors(
 			temperature: 0.4,
 			apiKey: env.OPENAI_API_KEY,
 			streaming: true,
+			timeout: MODEL_TIMEOUT_MS,
+			maxRetries: MODEL_MAX_RETRIES,
 		});
 
 		let messages: Array<{

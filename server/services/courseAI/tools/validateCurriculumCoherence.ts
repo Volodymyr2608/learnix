@@ -4,6 +4,10 @@ import { z } from "zod";
 import { env } from "@/lib/env";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { CourseAIToolError } from "@/server/services/courseAI/courseAI.errors";
 import { logger } from "@/server/utils/logger";
 
@@ -38,6 +42,8 @@ export const validateCurriculumCoherenceTool = tool(
 				model: "gpt-4o-mini",
 				temperature: 0,
 				apiKey: env.OPENAI_API_KEY,
+				timeout: MODEL_TIMEOUT_MS,
+				maxRetries: MODEL_MAX_RETRIES,
 			}).withStructuredOutput(resultSchema);
 
 			const prompt =

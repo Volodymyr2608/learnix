@@ -3,6 +3,10 @@ import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
@@ -30,6 +34,8 @@ export const revisePriorField = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
+			timeout: MODEL_TIMEOUT_MS,
+			maxRetries: MODEL_MAX_RETRIES,
 		}).withStructuredOutput(extractionSchema, { method: "functionCalling" });
 
 		// DB content is flat ({title, subtitle, sections, …}), never nested by step name.

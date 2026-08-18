@@ -1,5 +1,9 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import {
@@ -23,6 +27,8 @@ export const clarify = withNodeErrors(
 			temperature: 0.3,
 			apiKey: env.OPENAI_API_KEY,
 			streaming: true,
+			timeout: MODEL_TIMEOUT_MS,
+			maxRetries: MODEL_MAX_RETRIES,
 		});
 
 		// assess_completion routes here when the user's intent was ambiguous.
