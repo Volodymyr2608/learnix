@@ -34,7 +34,11 @@ export type UntrustedSource =
 	| "lesson_content"
 	| "course_data"
 	| "lesson_summary"
-	| "path_candidates";
+	| "path_candidates"
+	// Text another model wrote. Its own label because a critic model's prose is
+	// not lesson content, and mislabelling it defeats the reason the region is
+	// marked at all (security.md S7, false negative #2).
+	| "model_output";
 
 /**
  * Every surface that constructs a model call. Standalone on purpose: it was

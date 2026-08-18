@@ -171,10 +171,17 @@ ${UNTRUSTED_DATA_CLAUSE}`;
 		JSON.stringify(enrichedCandidates),
 		"path_candidates",
 	)}
-Weak concepts: ${JSON.stringify(state.weakConcepts)}
+Weak concepts: ${wrapUntrustedContent(
+		JSON.stringify(state.weakConcepts),
+		"lesson_summary",
+	)}
 Completed lesson IDs: ${JSON.stringify(state.completedLessonIds)}
 Failed quiz IDs: ${JSON.stringify(state.failedQuizzes)}
-Prior reflection feedback: ${state.reflectionFeedback ?? "none"}${
+Prior reflection feedback: ${
+		state.reflectionFeedback
+			? wrapUntrustedContent(state.reflectionFeedback, "model_output")
+			: "none"
+	}${
 		violationFeedback ? `\nValidation error to fix: ${violationFeedback}` : ""
 	}`;
 
