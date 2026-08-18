@@ -42,6 +42,19 @@ export class CourseAIService {
 		}
 	}
 
+	/**
+	 * `contextEligible: false` keeps a turn in the thread for the UI while
+	 * excluding it from every later prompt. The caller sets it on the user turn
+	 * that elicited a retracted reply.
+	 *
+	 * Ownership is discharged upstream: this is a create bound to a generationId
+	 * that already proved ownership in getOrCreateCourseGeneration, which filters
+	 * { id, instructorId } and creates fresh on a non-match. What that shape does
+	 * NOT buy — unlike the tutor's updateMany — is tolerance of a vanished row: a
+	 * create against a deleted generationId raises P2003. The route's `finally`
+	 * swallows it through `.catch(logger.error)`; removing that catch would break
+	 * the ordering guarantee that the retraction always reaches the client.
+	 */
 	async saveMessage(generationId: string, message: MessageShape) {
 		try {
 			return await courseGenerationMessageRepository.create({
@@ -49,6 +62,9 @@ export class CourseAIService {
 				role: message.role,
 				content: message.content,
 				step: message.step,
+				...(message.contextEligible === false
+					? { contextEligible: false }
+					: {}),
 			});
 		} catch (e) {
 			logger.error(e);
@@ -63,8 +79,12 @@ export class CourseAIService {
 	}): Promise<CourseBuilderStateT> {
 		const { courseGeneration: gen, userMessage, mode } = args;
 
+		// Turns whose reply was retracted stay in the thread but never return to
+		// the model. Nothing marks the ASSISTANT row ineligible, which is safe only
+		// because a rejected reply is never persisted at all — a later "keep
+		// rejected replies for audit" change would silently reintroduce the replay.
 		const lastMessages = await courseGenerationMessageRepository.findMany({
-			where: { generationId: gen.id },
+			where: { generationId: gen.id, contextEligible: true },
 			orderBy: { createdAt: "desc" },
 			take: HISTORY_LIMIT,
 		});

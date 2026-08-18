@@ -46,6 +46,11 @@ model CourseGenerationMessage {
   content String     @db.Text
   step    DraftStep?
 
+  /// False for turns whose reply the output boundary retracted: they stay in the
+  /// thread for the UI but are never replayed to the model as prior context.
+  /// Mirrors LessonAssistantMessage.contextEligible.
+  contextEligible Boolean @default(true) @map("context_eligible")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([generationId, createdAt])
