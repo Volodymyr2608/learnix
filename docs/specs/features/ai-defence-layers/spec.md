@@ -364,6 +364,13 @@ Each line is phrased to become a test or eval row directly. `[EVAL]` marks rows 
     the insights row is written, and the row is not cached — so the next call regenerates.
 25. A `quizAI` `question` or `option` containing an `untrusted_data` echo is rejected before quiz
     rows are written.
+
+    > **Superseded on the two report-only surfaces by AC 75 / D-M (2026-08-18).** As shipped,
+    > quizAI and lessonInsightsAI run the boundary and emit; they do not reject, so a flagged
+    > generation IS written and cached. `cacheIsUsable` heals a *malformed* row, not a *leaked*
+    > one. AC 24/25 remain the target for those surfaces and describe learningPathAI and courseAI
+    > today.
+
 26. An output rejection is terminal: it does not consume a `semanticValidate` retry, does not append
     to `mergeAndExplain`'s violation feedback, and its reason never appears in a prompt. It is also
     **not distinguishable by the caller** from that surface's ordinary generation failure — same

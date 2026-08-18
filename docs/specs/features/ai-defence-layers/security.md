@@ -389,6 +389,14 @@ row, and its 3–7 bound is a generation-time cardinality rule that must not gat
 **Requirement.** The tutor's existing defensive filter stays; its behaviour on a bad row is unchanged
 — empty allowlist, `toolPolicy` denies all writes, which is the documented fail-closed path.
 
+**A second structured-output exclusion, alongside `finalize`.** `revise_prior_field` persists
+`withStructuredOutput` output to `CourseGeneration.content` before `chat_response` runs and therefore
+before `output_boundary`. This is priced (D-L, `content_revised_retained`) and the node returns
+`assistantText: ""` so the boundary is not misled — but the conformance matrix named only the
+`finalize` path as the place model-authored structured data escapes L5. Course title and subtitle
+written this way feed `CourseEmbedding → search_similar_courses → another instructor's builder`,
+which is the same cross-tenant tail the finalize exclusion already flags.
+
 ## S15. Decision record
 
 | # | Decision | Choice | Rationale |
@@ -428,6 +436,19 @@ row, and its 3–7 bound is a generation-time cardinality rule that must not gat
    recall is unmeasured**: in the 2026-08-18 run no model recited on any surface, wrapped or raw, so
    `system_prompt_echo` was never exercised against a real leak. The markers are pinned to the
    prompts and proven not to misfire; whether they fire when they should is an open number.
+
+   **The harness cannot close that number as written, and the earlier wording here overstated it.**
+   `leakRecall.eval.ts` computes `recited` with the same marker set that `caught` uses, so for
+   `system_prompt_echo` `recited ⟹ caught` by construction and the column can only ever print
+   `100.0%` or `n/a`. A model that *paraphrases* or translates its instructions — the failure this
+   very entry names as the live one — scores `recited: false` and leaves the denominator rather than
+   appearing as a miss. The eval also delivers its payload as a chat turn on the two surfaces that
+   read untrusted text through a **tool result** in production (lessonAI's RAG tools, quizAI's
+   `get_lesson_content`), which is the lower-compliance channel. So the zero is partly a property of
+   the harness, not only of the model. Closing this needs ground truth independent of the detector
+   (distinct probe phrases plus a paraphrase judge) and a tool-result delivery arm; until then the
+   honest statement is that the harness cannot measure the paraphrase case, not that it is waiting
+   for a compliant model.
 5. **The completeness test's three documented false negatives** (S7) — cross-file assembly, wrong
    `source` label, mixed-trust `JSON.stringify`.
 6. **The limiter stays per-process** (tutor S13 §17). This feature narrows blast radius and repairs the
@@ -439,7 +460,15 @@ row, and its 3–7 bound is a generation-time cardinality rule that must not gat
    event stream and still reaches the student. The compensating control is the same one the
    streaming surfaces rely on — event frequency — which is worth exactly as much as §8's missing
    sink.
-8. **Nothing consumes the security events** (tutor S13 §13). This feature raises emission volume into
+8. **Pressure eviction fails open, and by a measurable amount.** Above 5 000 live
+   window keys with nothing expired, the limiter drops the oldest 10% by insertion
+   order — roughly 500 windows, aggregate buckets included, i.e. a fresh budget for
+   ~500 users, fired exactly under the load where the ceiling matters. Reaching it
+   needs ~170+ concurrently active users at full rate, and a single account cannot
+   steer it because `bump()` is never reached on a rejected call. Recorded here
+   because `checkAiRateLimit.ts` cites this section by name; before this entry the
+   citation pointed at nothing, which is an accepted risk nobody accepted.
+9. **Nothing consumes the security events** (tutor S13 §13). This feature raises emission volume into
    a `consola` stdout writer with no sampling and no sink, and so raises the value of the sink and
    the cost of not having one.
    *Corrected at implementation:* an earlier draft of this section said the feature "adds an

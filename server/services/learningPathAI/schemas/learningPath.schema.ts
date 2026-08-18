@@ -6,13 +6,15 @@ export const PathStepSchema = z.object({
 	// channel for carrying prose back into the retry prompt. A cuid is ~25 chars.
 	lessonId: z.string().max(64),
 	quizId: z.string().max(64).nullable(),
-	title: z.string(),
-	reason: z.string().min(20),
+	// Model-authored, persisted and rendered to the student — bounded for the
+	// same reason StoredConceptSchema bounds a concept name.
+	title: z.string().max(200),
+	reason: z.string().min(20).max(2000),
 });
 
 export const LearningPathSchema = z.object({
 	steps: z.array(PathStepSchema).min(1).max(5),
-	summary: z.string().min(20),
+	summary: z.string().min(20).max(2000),
 	weakConcepts: z.array(z.string()).max(8),
 });
 

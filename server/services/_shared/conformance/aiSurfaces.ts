@@ -126,6 +126,7 @@ export const AI_SURFACES: SurfaceConformance[] = [
 		exclusions: [
 			"The finalize path (START --finalize--> extract_step_data -> validate -> confidence_score -> persist_and_emit) commits model-authored draftStepData — course title, subtitle, section titles — with no output boundary in front of it. Residual is low: no free prose, and a human reviews before a Course exists. It is not zero: course title and subtitle feed CourseEmbedding -> search_similar_courses -> another instructor's builder.",
 			"chat_response deliberately does not read state.messages, so tool results carrying other instructors' course copy never reach a streamed reply.",
+			"revise_prior_field persists structured model output to CourseGeneration.content BEFORE chat_response, and therefore before the output boundary. The write is priced by D-L (content_revised_retained) rather than prevented, and course title/subtitle written this way feed the same CourseEmbedding -> search_similar_courses tail as the finalize exclusion.",
 		],
 	},
 	{

@@ -30,9 +30,11 @@ export const LessonContentUpdateDto = z.object({
 	resources: z
 		.array(
 			z.object({
-				id: z.string(),
-				name: z.string(),
-				type: z.string(),
+				id: z.string().max(64),
+				// Rendered to every enrolled student; bounded so a single lesson
+				// update cannot store megabytes of instructor-authored label text.
+				name: z.string().max(200),
+				type: z.string().max(32),
 				// hasSafeScheme, not !isOffOrigin: a javascript: URL classifies as
 				// "drop" rather than "off_origin", so a negated off-origin check
 				// accepts every dangerous scheme and constrains only the http(s)
@@ -43,6 +45,7 @@ export const LessonContentUpdateDto = z.object({
 					.refine(hasSafeScheme, "Unsupported URL scheme"),
 			}),
 		)
+		.max(50)
 		.optional(),
 	quizzes: z.array(QuizUpsertDto).optional(),
 });
