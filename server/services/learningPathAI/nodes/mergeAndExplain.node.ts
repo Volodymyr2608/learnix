@@ -102,34 +102,70 @@ async function gatherEnrichment(
 	return enrichment;
 }
 
-function semanticValidate(
+export type SemanticViolationCode =
+	| "duplicate_lesson_id"
+	| "lesson_not_in_course"
+	| "new_lesson_completed"
+	| "review_lesson_not_completed"
+	| "missing_quiz_id"
+	| "quiz_not_failed";
+
+export type SemanticViolation = {
+	code: SemanticViolationCode;
+	stepIndex: number;
+};
+
+/**
+ * The retry prompt's correction sentence, keyed on a code. Fixed server text and
+ * an integer position — never the offending id, which the model authored and
+ * which used to travel back into the next attempt's prompt verbatim.
+ */
+const VIOLATION_SENTENCES: Record<SemanticViolationCode, string> = {
+	duplicate_lesson_id:
+		"repeats a lesson already used by an earlier step; every step must reference a different lesson.",
+	lesson_not_in_course:
+		"references a lesson that is not part of this course; use only the candidate lessons provided.",
+	new_lesson_completed:
+		"is a NEW_LESSON for a lesson the student has already completed; use REVIEW_LESSON instead.",
+	review_lesson_not_completed:
+		"is a REVIEW_LESSON for a lesson the student has not completed; use NEW_LESSON instead.",
+	missing_quiz_id:
+		"is a RETRY_QUIZ without a quizId; every RETRY_QUIZ step needs one from the failed quizzes.",
+	quiz_not_failed:
+		"is a RETRY_QUIZ for a quiz the student has not failed; use only quizIds from failedQuizzes.",
+};
+
+export const violationFeedback = (violation: SemanticViolation): string =>
+	`Step ${violation.stepIndex + 1} ${VIOLATION_SENTENCES[violation.code]}`;
+
+export function semanticValidate(
 	draft: LearningPath,
 	state: PathState,
-): string | null {
+): SemanticViolation | null {
 	const completedSet = new Set(state.completedLessonIds);
 	const allLessonIds = new Set(state.lessonOrder.map((l) => l.id));
 	const failedQuizIds = new Set(state.failedQuizzes.map((f) => f.quizId));
 	const seenLessonIds = new Set<string>();
 
-	for (const step of draft.steps) {
+	for (const [stepIndex, step] of draft.steps.entries()) {
 		if (seenLessonIds.has(step.lessonId)) {
-			return `duplicate lessonId "${step.lessonId}" in steps`;
+			return { code: "duplicate_lesson_id", stepIndex };
 		}
 		seenLessonIds.add(step.lessonId);
 
 		if (!allLessonIds.has(step.lessonId)) {
-			return `lessonId "${step.lessonId}" does not belong to this course`;
+			return { code: "lesson_not_in_course", stepIndex };
 		}
 		if (step.type === "NEW_LESSON" && completedSet.has(step.lessonId)) {
-			return `NEW_LESSON step references completed lessonId "${step.lessonId}"`;
+			return { code: "new_lesson_completed", stepIndex };
 		}
 		if (step.type === "REVIEW_LESSON" && !completedSet.has(step.lessonId)) {
-			return `REVIEW_LESSON step references non-completed lessonId "${step.lessonId}"`;
+			return { code: "review_lesson_not_completed", stepIndex };
 		}
 		if (step.type === "RETRY_QUIZ") {
-			if (!step.quizId) return `RETRY_QUIZ step is missing quizId`;
+			if (!step.quizId) return { code: "missing_quiz_id", stepIndex };
 			if (!failedQuizIds.has(step.quizId)) {
-				return `RETRY_QUIZ quizId "${step.quizId}" has no failed attempt for this student`;
+				return { code: "quiz_not_failed", stepIndex };
 			}
 		}
 	}
@@ -139,7 +175,7 @@ function semanticValidate(
 function buildPromptMessages(
 	state: PathState,
 	enrichment: Map<string, LessonEnrichment>,
-	violationFeedback?: string,
+	violation?: SemanticViolation,
 ) {
 	const enrichedCandidates = state.candidateSteps.map((c) => {
 		const lessonMeta = state.lessonOrder.find((l) => l.id === c.lessonId);
@@ -182,7 +218,9 @@ Prior reflection feedback: ${
 			? wrapUntrustedContent(state.reflectionFeedback, "model_output")
 			: "none"
 	}${
-		violationFeedback ? `\nValidation error to fix: ${violationFeedback}` : ""
+		violation
+			? `\nValidation error to fix: ${violationFeedback(violation)}`
+			: ""
 	}`;
 
 	return [
@@ -227,7 +265,7 @@ export async function mergeAndExplain(
 		apiKey: env.OPENAI_API_KEY,
 	}).withStructuredOutput(LearningPathSchema);
 
-	let lastViolation: string | undefined;
+	let lastViolation: SemanticViolation | undefined;
 
 	for (let attempt = 0; attempt < 3; attempt++) {
 		const messages = buildPromptMessages(state, enrichment, lastViolation);

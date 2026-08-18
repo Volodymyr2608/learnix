@@ -2,8 +2,10 @@ import { z } from "zod";
 
 export const PathStepSchema = z.object({
 	type: z.enum(["NEW_LESSON", "REVIEW_LESSON", "RETRY_QUIZ"]),
-	lessonId: z.string(),
-	quizId: z.string().nullable(),
+	// Bounded because these ids are model-authored: an unbounded string is a
+	// channel for carrying prose back into the retry prompt. A cuid is ~25 chars.
+	lessonId: z.string().max(64),
+	quizId: z.string().max(64).nullable(),
 	title: z.string(),
 	reason: z.string().min(20),
 });
