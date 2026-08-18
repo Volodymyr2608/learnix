@@ -141,7 +141,10 @@ pre-change population exactly, with no migration.
 Adding it later, once the table is large and the cutoff has passed, is both expensive and
 unrecoverable.
 
-**Requirement.** The pre-change count is measured and written into this file before merge.
+**Measured 2026-08-18 (local dev database):** 3 `ConceptMastery` rows in total — 2 at level 2, **1 at
+level 3**. The pre-change population carrying unverified provenance is therefore a single row here.
+Re-measure against production before deploying: the control is the cutoff column, and this number
+only says how much history it has to cover in this environment.
 
 ## S9. Decision record
 
