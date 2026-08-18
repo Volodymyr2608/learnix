@@ -2,12 +2,12 @@ import { z } from "zod";
 import type { DraftStep } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
-import { RetryableNodeError } from "@/server/services/courseAI/courseAI.errors";
-import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 import {
 	checkAiRateLimit,
 	validateMessageLength,
-} from "@/server/utils/aiRateLimiter";
+} from "@/server/services/_shared/aiLimits";
+import { RetryableNodeError } from "@/server/services/courseAI/courseAI.errors";
+import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 import { logger } from "@/server/utils/logger";
 
 export const runtime = "nodejs";

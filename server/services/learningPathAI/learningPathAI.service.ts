@@ -1,32 +1,35 @@
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
+import { checkAiRateLimit } from "@/server/services/_shared/aiLimits";
 import { traced } from "@/server/services/_shared/tracing";
 import { LearningPathRateLimitedError } from "./learningPathAI.errors";
 import { buildLearningPathGraph } from "./learningPathAI.graph";
 import type { PathState } from "./learningPathAI.state";
 import type { PathStep } from "./schemas/learningPath.schema";
 
-const rateLimitBucket = new Map<string, number>();
-const RATE_LIMIT_MS = 60_000;
-const EVICT_THRESHOLD = 5_000;
-
+/**
+ * The 1/min per-(student, course) rule, now a scoped window on the shared
+ * limiter. `countAggregate: false` because the procedure or route has already
+ * spent this request's aggregate slot — without it one user action would cost
+ * two of the account's AI budget.
+ *
+ * The courseId reaching this function is a VERIFIED one (the caller checks the
+ * enrollment first); a limiter key derived from raw request input would let a
+ * caller pick their own bucket.
+ */
 function checkRateLimit(studentId: string, courseId: string): void {
-	const key = `${studentId}:${courseId}`;
-	const now = Date.now();
-
-	if (rateLimitBucket.size > EVICT_THRESHOLD) {
-		for (const [k, ts] of rateLimitBucket) {
-			if (now - ts >= RATE_LIMIT_MS) rateLimitBucket.delete(k);
-		}
-	}
-
-	const lastAt = rateLimitBucket.get(key) ?? 0;
-	if (now - lastAt < RATE_LIMIT_MS) {
+	const allowed = checkAiRateLimit(studentId, "learningPathAI", {
+		scope: courseId,
+		countAggregate: false,
+	});
+	if (!allowed) {
 		throw new LearningPathRateLimitedError(
-			"You can only regenerate once per minute",
+			// Fixed, and deliberately vague about the window: a message naming the
+			// rate ("once per minute") or a remaining count hands a caller the shape
+			// of the limiter for free (AC 47).
+			"Please wait a moment before regenerating your learning path",
 			"TOO_MANY_REQUESTS",
 		);
 	}
-	rateLimitBucket.set(key, now);
 }
 
 class LearningPathAIService {
