@@ -5,6 +5,7 @@ import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
+import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import {
 	MODEL_MAX_RETRIES,
@@ -288,6 +289,22 @@ export async function mergeAndExplain(
 		}
 		lastViolation = violation;
 	}
+
+	// Three drafts in a row failed semantic validation. The control flow is
+	// unchanged — this still throws — but the event makes the give-up visible:
+	// without it, a model being steered into repeated invalid paths looks
+	// identical to an ordinary provider hiccup. The student is the operator here,
+	// never the author of the content that steered it, so the subject is the
+	// course.
+	logSecurityEvent({
+		feature: "learningPathAI",
+		userId: state.studentId,
+		layer: "model_call_fallback",
+		outcome: "fallback_triggered",
+		ruleIds: lastViolation ? [lastViolation.code] : [],
+		score: 0,
+		subject: { kind: "course", id: state.courseId },
+	});
 
 	throw new LearningPathInvalidError(
 		"Structured output failed semantic validation after 3 attempts",
