@@ -1,11 +1,11 @@
-import { z } from "zod";
+import { LearningPathCourseDto } from "@/server/entities/learningPath";
 import { learningPathAIService } from "@/server/services/learningPathAI/learningPathAI.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 import { createTRPCRouter, studentProcedure } from "../trpc";
 
 export const learningPathRouter = createTRPCRouter({
 	getForCourse: studentProcedure
-		.input(z.object({ courseId: z.string().min(1) }))
+		.input(LearningPathCourseDto)
 		.query(async ({ ctx, input }) => {
 			try {
 				return await learningPathAIService.getForCourse(
@@ -18,7 +18,7 @@ export const learningPathRouter = createTRPCRouter({
 		}),
 
 	regenerate: studentProcedure
-		.input(z.object({ courseId: z.string().min(1) }))
+		.input(LearningPathCourseDto)
 		.mutation(async ({ ctx, input }) => {
 			try {
 				return await learningPathAIService.regenerate(
