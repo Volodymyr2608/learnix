@@ -61,10 +61,15 @@ export const SHARED_MODEL_CALLERS: string[] = [
 	"server/services/_shared/aiGuard/topicRelevance.ts",
 ];
 
-const PENDING_OUTPUT_BOUNDARY: RuleStatus = {
-	status: "pending",
+/**
+ * D-M: measured at 9.5% (lessonInsightsAI) and 11.1% (quizAI) false positives,
+ * all of it untrusted_data_echo on lessons that legitimately discuss the wrapper
+ * tag. The boundary runs and emits on those two surfaces; it does not block.
+ */
+const REPORT_ONLY: RuleStatus = {
+	status: "applied_with_exception",
 	reason:
-		"Specified, and gated on the aiOutput:falsePositive measurement: a fail-closed rejection on this surface caches nothing, so every later call regenerates and trips again. The number decides whether it ships fail-closed or report-only.",
+		"Report-only (D-M). validateModelText runs over every persisted model-authored field and emits output_validation_failed, but the generation is not rejected: the measured false-positive rate on this surface is ~10%, and a rejection here produces no error the caller can act on. Enforcement is a follow-up gated on bringing untrusted_data_echo's FP down — residual 7a.",
 };
 
 const NOT_RENDERED_AS_MARKDOWN: RuleStatus = {
@@ -112,9 +117,9 @@ export const AI_SURFACES: SurfaceConformance[] = [
 		inputGuard: APPLIED,
 		wrapping: APPLIED,
 		outputBoundary: {
-			system_prompt_echo: PENDING_OUTPUT_BOUNDARY,
-			untrusted_data_echo: PENDING_OUTPUT_BOUNDARY,
-			off_origin_link: PENDING_OUTPUT_BOUNDARY,
+			system_prompt_echo: APPLIED,
+			untrusted_data_echo: APPLIED,
+			off_origin_link: APPLIED,
 		},
 		renderPolicy: APPLIED,
 		resourceLimits: APPLIED,
@@ -135,8 +140,8 @@ export const AI_SURFACES: SurfaceConformance[] = [
 		},
 		wrapping: APPLIED,
 		outputBoundary: {
-			system_prompt_echo: PENDING_OUTPUT_BOUNDARY,
-			untrusted_data_echo: PENDING_OUTPUT_BOUNDARY,
+			system_prompt_echo: REPORT_ONLY,
+			untrusted_data_echo: REPORT_ONLY,
 			off_origin_link: NOT_RENDERED_AS_MARKDOWN,
 		},
 		renderPolicy: NOT_RENDERED_AS_MARKDOWN,
@@ -161,8 +166,8 @@ export const AI_SURFACES: SurfaceConformance[] = [
 		},
 		wrapping: APPLIED,
 		outputBoundary: {
-			system_prompt_echo: PENDING_OUTPUT_BOUNDARY,
-			untrusted_data_echo: PENDING_OUTPUT_BOUNDARY,
+			system_prompt_echo: REPORT_ONLY,
+			untrusted_data_echo: REPORT_ONLY,
 			off_origin_link: NOT_RENDERED_AS_MARKDOWN,
 		},
 		renderPolicy: NOT_RENDERED_AS_MARKDOWN,
@@ -186,8 +191,8 @@ export const AI_SURFACES: SurfaceConformance[] = [
 		},
 		wrapping: APPLIED,
 		outputBoundary: {
-			system_prompt_echo: PENDING_OUTPUT_BOUNDARY,
-			untrusted_data_echo: PENDING_OUTPUT_BOUNDARY,
+			system_prompt_echo: APPLIED,
+			untrusted_data_echo: APPLIED,
 			off_origin_link: NOT_RENDERED_AS_MARKDOWN,
 		},
 		renderPolicy: NOT_RENDERED_AS_MARKDOWN,

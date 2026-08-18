@@ -158,6 +158,20 @@ describe("the output boundary is declared per rule, with reasons", () => {
 		}
 	});
 
+	it("says so when a surface detects without enforcing (D-M)", () => {
+		// The two report-only surfaces must not read as enforcing. If either flips
+		// to fail-closed later, this is what makes the matrix follow.
+		const reportOnly = AI_SURFACES.filter((surface) =>
+			Object.values(surface.outputBoundary).some(
+				(entry) =>
+					entry.status === "applied_with_exception" &&
+					entry.reason.includes("Report-only"),
+			),
+		).map((surface) => surface.feature);
+
+		expect(reportOnly.sort()).toEqual(["lessonInsightsAI", "quizAI"]);
+	});
+
 	it("gives every surface at least one written exclusion", () => {
 		for (const surface of AI_SURFACES) {
 			expect(surface.exclusions.length, surface.feature).toBeGreaterThan(0);
