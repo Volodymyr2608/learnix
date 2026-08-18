@@ -77,6 +77,27 @@ describe("validateModelText", () => {
 		}
 	});
 
+	it("rejects a destination whose scheme is hidden by a character reference", () => {
+		// Markdown decodes &#9; to a tab before the renderer resolves it, so a
+		// scanner reading the raw text has to decode too.
+		for (const text of [
+			"see ![x](&#9;https://evil.example/p.png)",
+			"see ![x](&#32;https://evil.example/p.png)",
+			"see [x](&#x0a;https://evil.example/p)",
+		]) {
+			expect(validateModelText(text, ctx), text).toEqual({
+				valid: false,
+				ruleId: "off_origin_link",
+			});
+		}
+	});
+
+	it("rejects a destination whose scheme is hidden by literal whitespace", () => {
+		expect(
+			validateModelText("see ![x](\thttps://evil.example/p.png)", ctx),
+		).toEqual({ valid: false, ruleId: "off_origin_link" });
+	});
+
 	it("leaves in-app destinations alone", () => {
 		for (const text of [
 			"see [the lesson](/dashboard/courses/abc)",

@@ -49,6 +49,17 @@ describe("authoredContentUrlPolicy (AC 48)", () => {
 		}
 	});
 
+	it("drops a whitespace-hidden off-origin image, and returns the normalised value", () => {
+		const hidden = "\thttps://evil.example/beacon.png";
+
+		expect(asImage(authoredContentUrlPolicy, hidden)).toBeUndefined();
+		// A link keeps the destination, but as the NORMALISED string — otherwise
+		// the browser resolves something the policy never classified.
+		expect(asLink(authoredContentUrlPolicy, hidden)).toBe(
+			"https://evil.example/beacon.png",
+		);
+	});
+
 	it("treats a video source as image-like — it loads without a click too", () => {
 		const url = "https://evil.example.com/beacon.mp4";
 
@@ -62,6 +73,15 @@ describe("modelOutputUrlPolicy (AC 49)", () => {
 
 		expect(asLink(modelOutputUrlPolicy, url)).toBeUndefined();
 		expect(asImage(modelOutputUrlPolicy, url)).toBeUndefined();
+	});
+
+	it("drops a whitespace-hidden off-origin destination", () => {
+		expect(
+			asLink(modelOutputUrlPolicy, "\thttps://evil.example/p"),
+		).toBeUndefined();
+		expect(
+			asImage(modelOutputUrlPolicy, " https://evil.example/p"),
+		).toBeUndefined();
 	});
 
 	it("keeps in-app destinations, which is how the tutor links a lesson", () => {

@@ -45,10 +45,26 @@ export const containsUntrustedDataEcho = (text: string): boolean => {
 	);
 };
 
+/**
+ * Markdown decodes character references in a link destination, so the renderer
+ * sees `\thttps://evil.example/x` where this scanner sees `&#9;https://...`.
+ * Undecoded, that destination starts with `&`, fails the scheme test and reads
+ * as in-app — the server missing exactly what the client would then load.
+ * Only numeric references matter here: they are the ones that can produce the
+ * leading whitespace that hides a scheme.
+ */
+const decodeNumericRefs = (href: string): string =>
+	href.replace(/&#(x)?([0-9a-f]+);?/gi, (whole, hex, digits) => {
+		const code = Number.parseInt(digits, hex ? 16 : 10);
+		return Number.isFinite(code) && code > 0 && code <= 0x10ffff
+			? String.fromCodePoint(code)
+			: whole;
+	});
+
 const collectHrefs = (text: string): string[] =>
 	[INLINE_LINK_OR_IMAGE, REFERENCE_DEFINITION, AUTOLINK].flatMap((pattern) =>
 		[...text.matchAll(pattern)].map((match) =>
-			stripAngleBrackets(match[1] ?? ""),
+			decodeNumericRefs(stripAngleBrackets(match[1] ?? "")),
 		),
 	);
 

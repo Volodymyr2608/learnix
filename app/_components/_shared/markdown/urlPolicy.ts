@@ -1,4 +1,4 @@
-import { classifyUrl } from "@/lib/url";
+import { classifyUrl, normaliseUrl } from "@/lib/url";
 import type { UrlPolicy } from "./types";
 
 /**
@@ -31,14 +31,18 @@ const isImageLike = (node: Parameters<UrlPolicy>[2], key: string): boolean => {
  * do not.
  */
 export const authoredContentUrlPolicy: UrlPolicy = (url, key, node) => {
+	// Hand back the NORMALISED value: the string that was judged must be the
+	// string that renders, or a leading tab lets the browser resolve something
+	// the policy never saw.
+	const safe = normaliseUrl(url);
 	const kind = classifyUrl(url);
 	if (kind === "drop") return undefined;
-	if (kind === "in_app") return url;
-	return isImageLike(node, key) ? undefined : url;
+	if (kind === "in_app") return safe;
+	return isImageLike(node, key) ? undefined : safe;
 };
 
 /** Model-authored markdown: nothing off-origin renders at all. */
 export const modelOutputUrlPolicy: UrlPolicy = (url) =>
-	classifyUrl(url) === "in_app" ? url : undefined;
+	classifyUrl(url) === "in_app" ? normaliseUrl(url) : undefined;
 
 export { isOffOrigin } from "@/lib/url";
