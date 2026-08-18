@@ -54,7 +54,11 @@ export const revisePriorField = withNodeErrors(
 		const historyForTarget = state.history
 			.filter((m) => m.step === target)
 			.map(
-				(m) => `[${m.role}]: ${wrapUntrustedContent(m.content, "course_data")}`,
+				(m) =>
+					`[${m.role}]: ${wrapUntrustedContent(
+						m.content,
+						m.role === "assistant" ? "model_output" : "course_data",
+					)}`,
 			)
 			.join("\n");
 

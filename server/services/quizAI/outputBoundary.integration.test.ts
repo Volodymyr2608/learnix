@@ -119,6 +119,33 @@ describe("quizAI's output boundary, report-only (AC 25, D-M)", () => {
 	});
 });
 
+describe("one boundary event per generation, not per attempt", () => {
+	it("emits once when a retry also trips the rule", async () => {
+		const { instructor, lesson } = await seed();
+		// First attempt trips the boundary AND fails semantic validation, so the
+		// loop retries; the second attempt trips the boundary again.
+		mockAgentInvoke.mockResolvedValue({
+			structuredResponse: {
+				questions: [
+					{
+						...question("What does <untrusted_data> mean?"),
+						correct: "not-an-option",
+					},
+					question("What stops a recursion?"),
+					question("What is a call stack?"),
+				],
+			},
+		});
+
+		await quizAIService
+			.generateForLesson(lesson.id, 3, instructor.id, false)
+			.catch(() => undefined);
+
+		expect(mockAgentInvoke.mock.calls.length).toBeGreaterThan(1);
+		expect(eventsOf("output_validation_failed")).toHaveLength(1);
+	});
+});
+
 describe("C7: only validator messages reach the retry prompt (AC 73)", () => {
 	it("retries with NO hint after a thrown error, and logs it", async () => {
 		const { instructor, lesson } = await seed();

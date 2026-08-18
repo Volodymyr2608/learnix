@@ -216,7 +216,77 @@ describe("POST /api/chat/course — the output boundary", () => {
 		expect(eventsOf("output_validation_failed")).toHaveLength(1);
 	});
 
-	it("the provider-error path persists nothing and sends no done (F6)", async () => {
+	it("a mid-stream provider error persists no TRUNCATED reply and sends no done (F6)", async () => {
+		// The `failed` flag exists for exactly this: tokens already streamed, then
+		// the provider dies. Rejecting before the first token never exercises it,
+		// so the truncated text is what has to be on the wire when it throws.
+		mockRunChat.mockResolvedValue({
+			async *[Symbol.asyncIterator]() {
+				yield {
+					event: "on_chat_model_stream",
+					metadata: { langgraph_node: "chat_response" },
+					data: { chunk: { content: "Here are three good objec" } },
+				};
+				throw new Error("provider exploded mid-stream");
+			},
+		});
+
+		const body = await readSse(
+			await post({
+				courseGenerationId: generationId,
+				userMessage: "Draft the basics.",
+			}),
+		);
+
+		expect(body).toContain('"type":"error"');
+		expect(body).not.toContain('"type":"done"');
+		expect(
+			await testDb.courseGenerationMessage.count({
+				where: { generationId, role: "assistant" },
+			}),
+		).toBe(0);
+	});
+
+	it("an aborted turn persists nothing and sends no done", async () => {
+		const controller = new AbortController();
+		mockRunChat.mockImplementation(async () => ({
+			async *[Symbol.asyncIterator]() {
+				yield {
+					event: "on_chat_model_stream",
+					metadata: { langgraph_node: "chat_response" },
+					data: { chunk: { content: "Here are three" } },
+				};
+				controller.abort();
+				yield {
+					event: "on_chat_model_stream",
+					metadata: { langgraph_node: "chat_response" },
+					data: { chunk: { content: " more tokens" } },
+				};
+			},
+		}));
+
+		const res = await POST(
+			new Request("http://localhost/api/chat/course", {
+				method: "POST",
+				signal: controller.signal,
+				body: JSON.stringify({
+					mode: "chat",
+					courseGenerationId: generationId,
+					userMessage: "Draft the basics.",
+				}),
+			}),
+		);
+		const body = await readSse(res).catch(() => "");
+
+		expect(body).not.toContain('"type":"done"');
+		expect(
+			await testDb.courseGenerationMessage.count({
+				where: { generationId, role: "assistant" },
+			}),
+		).toBe(0);
+	});
+
+	it("the pre-stream provider-error path persists nothing and sends no done", async () => {
 		mockRunChat.mockRejectedValue(new Error("provider exploded"));
 
 		const body = await readSse(

@@ -56,7 +56,11 @@ export const extractStepData = withNodeErrors(
 				: []),
 		]
 			.map(
-				(m) => `[${m.role}]: ${wrapUntrustedContent(m.content, "course_data")}`,
+				(m) =>
+					`[${m.role}]: ${wrapUntrustedContent(
+						m.content,
+						m.role === "assistant" ? "model_output" : "course_data",
+					)}`,
 			)
 			.join("\n");
 

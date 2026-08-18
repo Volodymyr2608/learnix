@@ -37,6 +37,12 @@ export const parseStoredConcepts = (
 	value: unknown,
 	context: { lessonId: string },
 ): StoredConcept[] => {
+	// Absence is not corruption. A lesson with no insights row yet — the default
+	// state for most lessons — must not emit a security event: one bogus event
+	// per lesson per listing buries the real signal in the channel this feature
+	// exists to populate.
+	if (value == null) return [];
+
 	const parsed = StoredConceptsSchema.safeParse(value);
 	if (parsed.success) return parsed.data;
 
@@ -62,6 +68,7 @@ export const parseStoredConceptsPerElement = (
 	value: unknown,
 	context: { lessonId: string },
 ): StoredConcept[] => {
+	if (value == null) return [];
 	if (!Array.isArray(value)) return parseStoredConcepts(value, context);
 
 	const kept = value.flatMap((element) => {

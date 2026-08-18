@@ -37,7 +37,11 @@ export const confidenceScore = withNodeErrors(
 		const historyText = state.history
 			.filter((m) => m.step === state.currentStep)
 			.map(
-				(m) => `[${m.role}]: ${wrapUntrustedContent(m.content, "course_data")}`,
+				(m) =>
+					`[${m.role}]: ${wrapUntrustedContent(
+						m.content,
+						m.role === "assistant" ? "model_output" : "course_data",
+					)}`,
 			)
 			.join("\n");
 

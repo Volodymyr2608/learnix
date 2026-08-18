@@ -91,7 +91,12 @@ describe("the output boundary sits on every streaming path (AC 13)", () => {
 
 describe("enforcement and detection are split on purpose (AC 15, 16)", () => {
 	it("the graph node is silent", () => {
+		// Structure only: the BEHAVIOUR (zero logSecurityEvent calls for a rejected
+		// reply) is asserted in nodes/outputBoundary.test.ts, because this regex
+		// would pass against a file where the flag was deleted and the comment
+		// stayed behind.
 		expect(NODE).toMatch(/emit:\s*false/);
+		expect(NODE).not.toContain("logSecurityEvent");
 	});
 
 	it("the route validates in a finally, on every exit", () => {

@@ -43,7 +43,10 @@ export const classifyIntent = withNodeErrors(
 		const historyText = state.history
 			.map(
 				(m) =>
-					`[${m.role}@${m.step}]: ${wrapUntrustedContent(m.content, "course_data")}`,
+					`[${m.role}@${m.step}]: ${wrapUntrustedContent(
+						m.content,
+						m.role === "assistant" ? "model_output" : "course_data",
+					)}`,
 			)
 			.join("\n");
 

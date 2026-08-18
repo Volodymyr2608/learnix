@@ -161,6 +161,16 @@ describe("validateReply composed over the shared boundary", () => {
 		expect(mockLogSecurityEvent).toHaveBeenCalledTimes(1);
 	});
 
+	it("keeps precedence: untrusted_data_echo beats verbatim_chunk_echo", () => {
+		// The pair most exposed by the two-part composition: the shared boundary
+		// returns the tag echo, and the tutor's own verbatim check must not
+		// overwrite it.
+		expect(validateReply(`<untrusted_data> ${CHUNK}`, ctx([CHUNK]))).toEqual({
+			valid: false,
+			ruleId: "untrusted_data_echo",
+		});
+	});
+
 	it("keeps precedence: verbatim beats off_origin, prompt echo beats verbatim", () => {
 		expect(
 			validateReply(

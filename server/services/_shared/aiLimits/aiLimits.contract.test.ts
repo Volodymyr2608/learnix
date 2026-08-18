@@ -12,6 +12,54 @@ const walk = (dir: string): string[] =>
 		return full.endsWith(".ts") ? [full] : [];
 	});
 
+/**
+ * The procedure a `.use(aiRateLimit(` site is chained onto, found by walking
+ * LEFT over balanced calls: `publicProcedure.input(Dto).use(aiRateLimit(…))`
+ * must attribute to `publicProcedure`, not to whatever token happens to sit
+ * next to `.use`. Scanned rather than matched, because the regex form of this
+ * needs nested quantifiers and backtracks catastrophically on a real router.
+ *
+ * Returns null when the head cannot be identified — an unattributable site is
+ * an offender, since silence is how a publicProcedure call site slips through.
+ */
+const procedureHead = (source: string, useIndex: number): string | null => {
+	let i = useIndex - 1;
+
+	for (let guard = 0; guard < 200; guard++) {
+		while (i >= 0 && /\s/.test(source[i] as string)) i--;
+		if (i < 0) return null;
+
+		if (source[i] === ")") {
+			let depth = 0;
+			while (i >= 0) {
+				if (source[i] === ")") depth++;
+				else if (source[i] === "(") {
+					depth--;
+					if (depth === 0) break;
+				}
+				i--;
+			}
+			if (i < 0) return null;
+			i--; // step past "("
+			while (i >= 0 && /[\w$]/.test(source[i] as string)) i--; // the method name
+			while (i >= 0 && /\s/.test(source[i] as string)) i--;
+			if (source[i] !== ".") return null;
+			i--; // step past "."
+			continue;
+		}
+
+		if (/[\w$]/.test(source[i] as string)) {
+			const end = i + 1;
+			while (i >= 0 && /[\w$]/.test(source[i] as string)) i--;
+			return source.slice(i + 1, end);
+		}
+
+		return null;
+	}
+
+	return null;
+};
+
 const code = (file: string): string =>
 	readFileSync(file, "utf-8")
 		.replace(/\/\*[\s\S]*?\*\//g, "")
@@ -50,12 +98,16 @@ describe("aiLimits exports no way to lose a role check (AC 35)", () => {
 	it("every .use(aiRateLimit( in the router tree sits on a role procedure", () => {
 		const offenders: string[] = [];
 
-		for (const file of walk("server/api/routers")) {
+		for (const file of walk("server/api")) {
 			if (file.endsWith(".test.ts")) continue;
-			for (const match of code(file).matchAll(
-				/(\w+)\s*\n?\s*\.use\(aiRateLimit\(/g,
-			)) {
-				const builder = match[1] as string;
+			const source = code(file);
+
+			for (const match of source.matchAll(/\.use\(aiRateLimit\(/g)) {
+				const builder = procedureHead(source, match.index as number);
+				if (builder === null) {
+					offenders.push(`${file}: unattributable .use(aiRateLimit(…)) site`);
+					continue;
+				}
 				if (!new RegExp(`^${ROLE_PROCEDURES}$`).test(builder)) {
 					offenders.push(`${file}: ${builder}.use(aiRateLimit(…))`);
 				}
@@ -66,7 +118,7 @@ describe("aiLimits exports no way to lose a role check (AC 35)", () => {
 	});
 
 	it("finds the call sites at all — the scan is not vacuous", () => {
-		const sites = walk("server/api/routers")
+		const sites = walk("server/api")
 			.filter((f) => !f.endsWith(".test.ts"))
 			.flatMap((file) => [...code(file).matchAll(/\.use\(aiRateLimit\(/g)]);
 

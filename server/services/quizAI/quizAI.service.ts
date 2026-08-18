@@ -34,7 +34,7 @@ const MAX_ATTEMPTS = 3;
 const reportModelText = (
 	questions: QuizQuestion[],
 	ctx: { lessonId: string; userId: string },
-): void => {
+): boolean => {
 	const modelText = questions.flatMap((q) => [
 		q.question,
 		...(q.options ?? []),
@@ -47,9 +47,11 @@ const reportModelText = (
 			userId: ctx.userId,
 			subject: { kind: "lesson", id: ctx.lessonId },
 		});
-		// One event per generation, not one per field.
-		if (!verdict.valid) return;
+		// One event per generation, not one per field — and the caller uses the
+		// return value to keep it one per generation rather than one per attempt.
+		if (!verdict.valid) return true;
 	}
+	return false;
 };
 
 class QuizAIService {
@@ -104,6 +106,11 @@ class QuizAIService {
 				const agent = await createQuizAgent(n, level, regen, lId);
 
 				let hint = "";
+				// One boundary event per GENERATION. reportModelText sits inside the
+				// retry loop, so without this a generation that trips a rule and then
+				// fails semantic validation twice emits three identical events —
+				// inflating exactly the count a threshold would read.
+				let reported = false;
 
 				for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 					try {
@@ -122,10 +129,12 @@ class QuizAIService {
 							result.structuredResponse as { questions: QuizQuestion[] }
 						).questions;
 
-						reportModelText(questions, {
-							lessonId: lId,
-							userId: instructorId,
-						});
+						if (!reported) {
+							reported = reportModelText(questions, {
+								lessonId: lId,
+								userId: instructorId,
+							});
+						}
 
 						const violation = validateSemantics(questions);
 

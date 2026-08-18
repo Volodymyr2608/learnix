@@ -85,7 +85,10 @@ describe("aiOutput module boundaries", () => {
 				.replace(/\/\*[\s\S]*?\*\//g, "")
 				.replace(/\/\/.*$/gm, "");
 
-		const unpermitted = walk("server")
+		// app/api is in the walk because that is where the one caller that must NOT
+		// silence emission lives — the courseAI route. Scanning only server/ left
+		// the route class invisible to the very allowlist written for it.
+		const unpermitted = [...walk("server"), ...walk("app/api")]
 			.filter((f) => !f.endsWith(".test.ts"))
 			.filter((f) => /emit:\s*false/.test(code(f)))
 			.filter((f) => !ALLOWED_SILENT_CALLERS.includes(f));
