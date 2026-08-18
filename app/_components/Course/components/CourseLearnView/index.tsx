@@ -30,8 +30,8 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import Markdown from "react-markdown";
 import { api } from "trpc/client";
+import { MarkdownContent } from "@/app/_components/Course/components/CourseLearnView/components/MarkdownContent";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
 import { LearningPathCard } from "@/app/_components/Course/components/LearningPathCard";
@@ -42,14 +42,6 @@ import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { formatDuration } from "@/lib/format/formatDuration";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
-
-function MarkdownContent({ content }: { content: string }) {
-	return (
-		<div className="prose prose-sm dark:prose-invert max-w-none">
-			<Markdown>{content}</Markdown>
-		</div>
-	);
-}
 
 const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 	const router = useRouter();

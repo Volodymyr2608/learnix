@@ -1,11 +1,17 @@
-import type { Element } from "hast";
 import { describe, expect, it } from "vitest";
 import { authoredContentUrlPolicy, modelOutputUrlPolicy } from "./urlPolicy";
 
 const OWN = "http://localhost:3000";
 
-const node = (tagName: string): Element =>
-	({ type: "element", tagName, properties: {}, children: [] }) as Element;
+// The node shape react-markdown passes to urlTransform. Typed structurally
+// rather than imported from hast, which is a transitive dependency.
+const node = (tagName: string) =>
+	({
+		type: "element",
+		tagName,
+		properties: {},
+		children: [],
+	}) as Parameters<typeof authoredContentUrlPolicy>[2];
 
 const asImage = (policy: typeof authoredContentUrlPolicy, url: string) =>
 	policy(url, "src", node("img"));

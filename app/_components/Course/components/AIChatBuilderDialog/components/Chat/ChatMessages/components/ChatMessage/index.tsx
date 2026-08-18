@@ -1,5 +1,7 @@
 import { Bot, Check, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { SafeAnchor } from "@/app/_components/_shared/markdown/SafeAnchor";
+import { modelOutputUrlPolicy } from "@/app/_components/_shared/markdown/urlPolicy";
 import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import type { ChatMessageProps } from "@/app/_components/Course/components/AIChatBuilderDialog/components/Chat/ChatMessages/components/ChatMessage/types";
@@ -42,7 +44,12 @@ const ChatMessage = ({
 						{isUser ? (
 							message.content
 						) : (
-							<ReactMarkdown>{message.content}</ReactMarkdown>
+							<ReactMarkdown
+								components={{ a: SafeAnchor }}
+								urlTransform={modelOutputUrlPolicy}
+							>
+								{message.content}
+							</ReactMarkdown>
 						)}
 						{message.isStreaming && (
 							<span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-current" />
