@@ -4,14 +4,15 @@ import { createAgent } from "langchain";
 import { env } from "@/lib/env";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { QuizOutputSchema } from "./schemas/quizOutput.schema";
 import { buildGetExistingQuizzesTool } from "./tools/getExistingQuizzes.tool";
 import { buildGetLessonContentTool } from "./tools/getLessonContent.tool";
 
-const initialTemplate = ChatPromptTemplate.fromMessages([
-	[
-		"system",
-		`You are an expert quiz writer for an online learning platform.
+export const QUIZ_INITIAL_SYSTEM_PROMPT = `You are an expert quiz writer for an online learning platform.
 
 		Your job is to generate exactly {count} multiple-choice questions for a lesson.
 
@@ -24,14 +25,13 @@ const initialTemplate = ChatPromptTemplate.fromMessages([
 		6. Calibrate difficulty to {level} level (Beginner = basic recall, Intermediate = application, Advanced = analysis/synthesis).
 		7. Output must conform to the required schema — no markdown, no extra keys.
 
-		${UNTRUSTED_DATA_CLAUSE}`,
-	],
+		${UNTRUSTED_DATA_CLAUSE}`;
+
+const initialTemplate = ChatPromptTemplate.fromMessages([
+	["system", QUIZ_INITIAL_SYSTEM_PROMPT],
 ]);
 
-const regenerateTemplate = ChatPromptTemplate.fromMessages([
-	[
-		"system",
-		`You are an expert quiz writer for an online learning platform.
+export const QUIZ_REGENERATE_SYSTEM_PROMPT = `You are an expert quiz writer for an online learning platform.
 
 		Your job is to generate exactly {count} brand-new multiple-choice questions for a lesson.
 
@@ -44,8 +44,10 @@ const regenerateTemplate = ChatPromptTemplate.fromMessages([
 		6. Calibrate difficulty to {level} level (Beginner = basic recall, Intermediate = application, Advanced = analysis/synthesis).
 		7. Output must conform to the required schema — no markdown, no extra keys.
 
-		${UNTRUSTED_DATA_CLAUSE}`,
-	],
+		${UNTRUSTED_DATA_CLAUSE}`;
+
+const regenerateTemplate = ChatPromptTemplate.fromMessages([
+	["system", QUIZ_REGENERATE_SYSTEM_PROMPT],
 ]);
 
 export async function createQuizAgent(
@@ -58,6 +60,8 @@ export async function createQuizAgent(
 		model: "gpt-4o-mini",
 		temperature: regenerate ? 0.9 : 0.3,
 		apiKey: env.OPENAI_API_KEY,
+		timeout: MODEL_TIMEOUT_MS,
+		maxRetries: MODEL_MAX_RETRIES,
 	});
 
 	const template = regenerate ? regenerateTemplate : initialTemplate;

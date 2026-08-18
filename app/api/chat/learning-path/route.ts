@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import { checkAiRateLimit } from "@/server/services/_shared/aiLimits";
 import { learningPathAIService } from "@/server/services/learningPathAI/learningPathAI.service";
-import { checkAiRateLimit } from "@/server/utils/aiRateLimiter";
 
 export const runtime = "nodejs";
 

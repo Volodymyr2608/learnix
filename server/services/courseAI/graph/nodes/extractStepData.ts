@@ -1,5 +1,10 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import { extractStepDataPrompt } from "@/server/services/courseAI/prompts/extractStepDataPrompt";
@@ -23,6 +28,8 @@ export const extractStepData = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
+			timeout: MODEL_TIMEOUT_MS,
+			maxRetries: MODEL_MAX_RETRIES,
 		}).withStructuredOutput(schema, { method: "functionCalling" });
 
 		// Filter to current step only — prior-step messages (e.g. "duration: 1 week"
@@ -48,7 +55,13 @@ export const extractStepData = withNodeErrors(
 					]
 				: []),
 		]
-			.map((m) => `[${m.role}]: ${m.content}`)
+			.map(
+				(m) =>
+					`[${m.role}]: ${wrapUntrustedContent(
+						m.content,
+						m.role === "assistant" ? "model_output" : "course_data",
+					)}`,
+			)
 			.join("\n");
 
 		const prompt = extractStepDataPrompt({

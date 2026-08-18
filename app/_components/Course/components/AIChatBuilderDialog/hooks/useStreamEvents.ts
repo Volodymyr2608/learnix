@@ -51,6 +51,16 @@ export const useStreamEvents = () => {
 				autoAdvancedRef.current = idx >= 0 && idx + 1 < STEPS.length;
 				break;
 			}
+			case "retract":
+				// No step advanced and no accept button: the turn produced nothing the
+				// instructor can act on. The flags are cleared exactly as "done" clears
+				// them, so the next turn starts from a clean slate.
+				setActiveToolCall(null);
+				setShowAcceptButton(false);
+				stepCommittedRef.current = false;
+				confidenceFiredRef.current = false;
+				autoAdvancedRef.current = false;
+				break;
 			case "done":
 				setActiveToolCall(null);
 				if (!stepCommittedRef.current && confidenceFiredRef.current) {

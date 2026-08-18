@@ -48,6 +48,7 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 				shouldAutoAdvance: false,
 				assistantText: "",
 				validationErrors: null,
+				outputRejected: false,
 				messages: [],
 			});
 			return {

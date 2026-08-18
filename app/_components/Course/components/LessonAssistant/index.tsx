@@ -6,8 +6,9 @@ import { Textarea } from "app/_components/_shared/ui/textarea";
 import { Bot, Send, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import Markdown from "react-markdown";
+import { SafeAnchor } from "@/app/_components/_shared/markdown/SafeAnchor";
+import { modelOutputUrlPolicy } from "@/app/_components/_shared/markdown/urlPolicy";
 import { useLessonAssistant } from "./hooks/useLessonAssistant";
-import { inAppUrlTransform } from "./utils";
 
 export function LessonAssistant({ lessonId }: { lessonId: string }) {
 	const { messages, isLoading, sendMessage, clearHistory, isClearingHistory } =
@@ -71,7 +72,10 @@ export function LessonAssistant({ lessonId }: { lessonId: string }) {
 								>
 									{msg.role === "assistant" ? (
 										<div className="prose prose-sm dark:prose-invert max-w-none">
-											<Markdown urlTransform={inAppUrlTransform}>
+											<Markdown
+												components={{ a: SafeAnchor }}
+												urlTransform={modelOutputUrlPolicy}
+											>
 												{msg.content}
 											</Markdown>
 											{msg.isStreaming && (

@@ -30,8 +30,8 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import Markdown from "react-markdown";
 import { api } from "trpc/client";
+import { MarkdownContent } from "@/app/_components/Course/components/CourseLearnView/components/MarkdownContent";
 import { toFlatLessons } from "@/app/_components/Course/components/CourseLearnView/helpers/toFlatLessons";
 import type { CourseLearnViewProps } from "@/app/_components/Course/components/CourseLearnView/types";
 import { LearningPathCard } from "@/app/_components/Course/components/LearningPathCard";
@@ -40,16 +40,9 @@ import { LessonAssistant } from "@/app/_components/Course/components/LessonAssis
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
 import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { formatDuration } from "@/lib/format/formatDuration";
+import { hasSafeScheme, isAllowedVideoUrl } from "@/lib/url";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
-
-function MarkdownContent({ content }: { content: string }) {
-	return (
-		<div className="prose prose-sm dark:prose-invert max-w-none">
-			<Markdown>{content}</Markdown>
-		</div>
-	);
-}
 
 const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 	const router = useRouter();
@@ -149,7 +142,10 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 				<div className="space-y-6 lg:col-span-2">
 					<Card className="overflow-hidden">
 						<div className="aspect-video w-full bg-black">
-							{lesson?.videoUrl ? (
+							{/* The DTO is a write control, and rows stored before it existed
+							    were never parsed by it — so the host allowlist is applied
+							    here too, where the fetch actually happens. */}
+							{lesson?.videoUrl && isAllowedVideoUrl(lesson.videoUrl) ? (
 								<video className="h-full w-full" controls>
 									<track default kind="captions" src="" srcLang="en" />
 									<source src={lesson.videoUrl} type="video/mp4" />
@@ -267,15 +263,17 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 														</p>
 													</div>
 												</div>
-												<Button asChild size="sm" variant="ghost">
-													<a
-														href={resource.url}
-														rel="noopener noreferrer"
-														target="_blank"
-													>
-														<Download className="h-4 w-4" />
-													</a>
-												</Button>
+												{hasSafeScheme(resource.url) && (
+													<Button asChild size="sm" variant="ghost">
+														<a
+															href={resource.url}
+															rel="noopener noreferrer"
+															target="_blank"
+														>
+															<Download className="h-4 w-4" />
+														</a>
+													</Button>
+												)}
 											</div>
 										))
 									) : (

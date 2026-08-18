@@ -1,6 +1,10 @@
 import { type CourseGeneration, DraftStep } from "@/generated/prisma";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
 import { courseGenerationMessageRepository } from "@/server/repositories/courseGenerationMessage.repository";
+import {
+	GRAPH_RECURSION_LIMIT,
+	withTurnDeadline,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { traced } from "@/server/services/_shared/tracing";
 import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
 import { courseBuilderGraph } from "@/server/services/courseAI/graph/graph";
@@ -42,6 +46,19 @@ export class CourseAIService {
 		}
 	}
 
+	/**
+	 * `contextEligible: false` keeps a turn in the thread for the UI while
+	 * excluding it from every later prompt. The caller sets it on the user turn
+	 * that elicited a retracted reply.
+	 *
+	 * Ownership is discharged upstream: this is a create bound to a generationId
+	 * that already proved ownership in getOrCreateCourseGeneration, which filters
+	 * { id, instructorId } and creates fresh on a non-match. What that shape does
+	 * NOT buy — unlike the tutor's updateMany — is tolerance of a vanished row: a
+	 * create against a deleted generationId raises P2003. The route's `finally`
+	 * swallows it through `.catch(logger.error)`; removing that catch would break
+	 * the ordering guarantee that the retraction always reaches the client.
+	 */
 	async saveMessage(generationId: string, message: MessageShape) {
 		try {
 			return await courseGenerationMessageRepository.create({
@@ -49,6 +66,9 @@ export class CourseAIService {
 				role: message.role,
 				content: message.content,
 				step: message.step,
+				...(message.contextEligible === false
+					? { contextEligible: false }
+					: {}),
 			});
 		} catch (e) {
 			logger.error(e);
@@ -63,8 +83,12 @@ export class CourseAIService {
 	}): Promise<CourseBuilderStateT> {
 		const { courseGeneration: gen, userMessage, mode } = args;
 
+		// Turns whose reply was retracted stay in the thread but never return to
+		// the model. Nothing marks the ASSISTANT row ineligible, which is safe only
+		// because a rejected reply is never persisted at all — a later "keep
+		// rejected replies for audit" change would silently reintroduce the replay.
 		const lastMessages = await courseGenerationMessageRepository.findMany({
-			where: { generationId: gen.id },
+			where: { generationId: gen.id, contextEligible: true },
 			orderBy: { createdAt: "desc" },
 			take: HISTORY_LIMIT,
 		});
@@ -94,6 +118,7 @@ export class CourseAIService {
 			shouldAutoAdvance: false,
 			assistantText: "",
 			validationErrors: null,
+			outputRejected: false,
 		};
 	}
 
@@ -116,7 +141,11 @@ export class CourseAIService {
 			async () =>
 				courseBuilderGraph.streamEvents(initialState, {
 					version: "v2",
-					signal,
+					// MODEL_TIMEOUT_MS bounds one CALL; this bounds the TURN. A chained
+					// graph can spend the per-call budget many times over, so the
+					// caller's own signal is combined with a deadline.
+					signal: withTurnDeadline(signal),
+					recursionLimit: GRAPH_RECURSION_LIMIT,
 					configurable: { instructorId: courseGeneration.instructorId },
 				}),
 			{
@@ -145,7 +174,11 @@ export class CourseAIService {
 			async () =>
 				courseBuilderGraph.streamEvents(initialState, {
 					version: "v2",
-					signal,
+					// MODEL_TIMEOUT_MS bounds one CALL; this bounds the TURN. A chained
+					// graph can spend the per-call budget many times over, so the
+					// caller's own signal is combined with a deadline.
+					signal: withTurnDeadline(signal),
+					recursionLimit: GRAPH_RECURSION_LIMIT,
 					configurable: { instructorId: courseGeneration.instructorId },
 				}),
 			{

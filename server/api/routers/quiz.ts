@@ -4,6 +4,7 @@ import {
 	QuizSubmitDto,
 	QuizUpsertManyDto,
 } from "@/server/entities/quiz";
+import { aiRateLimit } from "@/server/services/_shared/aiLimits/aiRateLimit.middleware";
 import { quizService } from "@/server/services/quiz/quiz.service";
 import { quizAIService } from "@/server/services/quizAI/quizAI.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
@@ -63,6 +64,7 @@ export const quizRouter = createTRPCRouter({
 		}),
 
 	generateAI: instructorProcedure
+		.use(aiRateLimit("quizAI"))
 		.input(QuizGenerateAIDto)
 		.mutation(async ({ ctx, input }) => {
 			try {

@@ -10,6 +10,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | achievements | stable | progress |
 | ai-chat-route-authorization | stable | ai-input-trust-boundary, auth |
 | ai-course-builder | stable | course |
+| ai-defence-layers | stable | ai-input-trust-boundary, ai-tutor-guardrails, ai-chat-route-authorization |
 | ai-flow-contracts | stable | ai-course-builder, ai-input-trust-boundary |
 | ai-input-trust-boundary | stable | ai-course-builder, auth |
 | ai-tutor-guardrails | stable | ai-input-trust-boundary, ai-chat-route-authorization |
@@ -19,6 +20,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | messages | stable | auth |
 | mobile-responsive | planned | — |
 | payments | stable | auth, course |
+| quiz-answer-key | planned | ai-tutor-guardrails, ai-defence-layers |
 | semantic-search-recommendations | stable | course, enrollment |
 | skill-progress | stable | progress |
 <!-- AUTO-GENERATED:END -->

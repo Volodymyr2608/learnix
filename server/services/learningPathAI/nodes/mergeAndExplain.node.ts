@@ -2,10 +2,16 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import type { StoredConcept } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
+import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { LearningPathInvalidError } from "../learningPathAI.errors";
 import type { PathState } from "../learningPathAI.state";
 import type { LearningPath, PathStep } from "../schemas/learningPath.schema";
@@ -13,7 +19,7 @@ import { LearningPathSchema } from "../schemas/learningPath.schema";
 
 type LessonEnrichment = {
 	summary: string | null;
-	concepts: Prisma.JsonValue;
+	concepts: StoredConcept[];
 	glossary: Prisma.JsonValue;
 	quizAttempts?: {
 		quizId: string;
@@ -25,7 +31,9 @@ type LessonEnrichment = {
 
 async function fetchLessonSummary(lessonId: string): Promise<{
 	summary: string | null;
-	concepts: Prisma.JsonValue;
+	// Parsed at the repository's read boundary, so this is a real array rather
+	// than whatever JSON the column held.
+	concepts: StoredConcept[];
 	glossary: Prisma.JsonValue;
 }> {
 	const insights = await lessonInsightsRepository.findByLessonId(lessonId);
@@ -102,34 +110,81 @@ async function gatherEnrichment(
 	return enrichment;
 }
 
-function semanticValidate(
+export const MERGE_SYSTEM_PROMPT = `You are planning a student's next learning steps in a course.
+Given candidate actions and weak concepts, produce 3–5 final steps with concrete one-sentence reasons grounded in the student's progress.
+Rules:
+- NEW_LESSON steps must use a lessonId NOT in completedLessonIds.
+- REVIEW_LESSON steps must use a lessonId IN completedLessonIds.
+- RETRY_QUIZ steps must include a quizId from failedQuizzes.
+- Each reason must be at least 20 characters and reference the student's actual data.
+- summary must be at least 20 characters describing the overall recommendation.
+
+${UNTRUSTED_DATA_CLAUSE}`;
+
+export type SemanticViolationCode =
+	| "duplicate_lesson_id"
+	| "lesson_not_in_course"
+	| "new_lesson_completed"
+	| "review_lesson_not_completed"
+	| "missing_quiz_id"
+	| "quiz_not_failed";
+
+export type SemanticViolation = {
+	code: SemanticViolationCode;
+	stepIndex: number;
+};
+
+/**
+ * The retry prompt's correction sentence, keyed on a code. Fixed server text and
+ * an integer position — never the offending id, which the model authored and
+ * which used to travel back into the next attempt's prompt verbatim.
+ */
+const VIOLATION_SENTENCES: Record<SemanticViolationCode, string> = {
+	duplicate_lesson_id:
+		"repeats a lesson already used by an earlier step; every step must reference a different lesson.",
+	lesson_not_in_course:
+		"references a lesson that is not part of this course; use only the candidate lessons provided.",
+	new_lesson_completed:
+		"is a NEW_LESSON for a lesson the student has already completed; use REVIEW_LESSON instead.",
+	review_lesson_not_completed:
+		"is a REVIEW_LESSON for a lesson the student has not completed; use NEW_LESSON instead.",
+	missing_quiz_id:
+		"is a RETRY_QUIZ without a quizId; every RETRY_QUIZ step needs one from the failed quizzes.",
+	quiz_not_failed:
+		"is a RETRY_QUIZ for a quiz the student has not failed; use only quizIds from failedQuizzes.",
+};
+
+export const violationFeedback = (violation: SemanticViolation): string =>
+	`Step ${violation.stepIndex + 1} ${VIOLATION_SENTENCES[violation.code]}`;
+
+export function semanticValidate(
 	draft: LearningPath,
 	state: PathState,
-): string | null {
+): SemanticViolation | null {
 	const completedSet = new Set(state.completedLessonIds);
 	const allLessonIds = new Set(state.lessonOrder.map((l) => l.id));
 	const failedQuizIds = new Set(state.failedQuizzes.map((f) => f.quizId));
 	const seenLessonIds = new Set<string>();
 
-	for (const step of draft.steps) {
+	for (const [stepIndex, step] of draft.steps.entries()) {
 		if (seenLessonIds.has(step.lessonId)) {
-			return `duplicate lessonId "${step.lessonId}" in steps`;
+			return { code: "duplicate_lesson_id", stepIndex };
 		}
 		seenLessonIds.add(step.lessonId);
 
 		if (!allLessonIds.has(step.lessonId)) {
-			return `lessonId "${step.lessonId}" does not belong to this course`;
+			return { code: "lesson_not_in_course", stepIndex };
 		}
 		if (step.type === "NEW_LESSON" && completedSet.has(step.lessonId)) {
-			return `NEW_LESSON step references completed lessonId "${step.lessonId}"`;
+			return { code: "new_lesson_completed", stepIndex };
 		}
 		if (step.type === "REVIEW_LESSON" && !completedSet.has(step.lessonId)) {
-			return `REVIEW_LESSON step references non-completed lessonId "${step.lessonId}"`;
+			return { code: "review_lesson_not_completed", stepIndex };
 		}
 		if (step.type === "RETRY_QUIZ") {
-			if (!step.quizId) return `RETRY_QUIZ step is missing quizId`;
+			if (!step.quizId) return { code: "missing_quiz_id", stepIndex };
 			if (!failedQuizIds.has(step.quizId)) {
-				return `RETRY_QUIZ quizId "${step.quizId}" has no failed attempt for this student`;
+				return { code: "quiz_not_failed", stepIndex };
 			}
 		}
 	}
@@ -139,7 +194,7 @@ function semanticValidate(
 function buildPromptMessages(
 	state: PathState,
 	enrichment: Map<string, LessonEnrichment>,
-	violationFeedback?: string,
+	violation?: SemanticViolation,
 ) {
 	const enrichedCandidates = state.candidateSteps.map((c) => {
 		const lessonMeta = state.lessonOrder.find((l) => l.id === c.lessonId);
@@ -156,26 +211,26 @@ function buildPromptMessages(
 		};
 	});
 
-	const systemContent = `You are planning a student's next learning steps in a course.
-Given candidate actions and weak concepts, produce 3–5 final steps with concrete one-sentence reasons grounded in the student's progress.
-Rules:
-- NEW_LESSON steps must use a lessonId NOT in completedLessonIds.
-- REVIEW_LESSON steps must use a lessonId IN completedLessonIds.
-- RETRY_QUIZ steps must include a quizId from failedQuizzes.
-- Each reason must be at least 20 characters and reference the student's actual data.
-- summary must be at least 20 characters describing the overall recommendation.
-
-${UNTRUSTED_DATA_CLAUSE}`;
+	const systemContent = MERGE_SYSTEM_PROMPT;
 
 	const humanContent = `Candidate steps: ${wrapUntrustedContent(
 		JSON.stringify(enrichedCandidates),
 		"path_candidates",
 	)}
-Weak concepts: ${JSON.stringify(state.weakConcepts)}
+Weak concepts: ${wrapUntrustedContent(
+		JSON.stringify(state.weakConcepts),
+		"lesson_summary",
+	)}
 Completed lesson IDs: ${JSON.stringify(state.completedLessonIds)}
 Failed quiz IDs: ${JSON.stringify(state.failedQuizzes)}
-Prior reflection feedback: ${state.reflectionFeedback ?? "none"}${
-		violationFeedback ? `\nValidation error to fix: ${violationFeedback}` : ""
+Prior reflection feedback: ${
+		state.reflectionFeedback
+			? wrapUntrustedContent(state.reflectionFeedback, "model_output")
+			: "none"
+	}${
+		violation
+			? `\nValidation error to fix: ${violationFeedback(violation)}`
+			: ""
 	}`;
 
 	return [
@@ -218,9 +273,11 @@ export async function mergeAndExplain(
 		model: "gpt-4o-mini",
 		temperature: 0.3,
 		apiKey: env.OPENAI_API_KEY,
+		timeout: MODEL_TIMEOUT_MS,
+		maxRetries: MODEL_MAX_RETRIES,
 	}).withStructuredOutput(LearningPathSchema);
 
-	let lastViolation: string | undefined;
+	let lastViolation: SemanticViolation | undefined;
 
 	for (let attempt = 0; attempt < 3; attempt++) {
 		const messages = buildPromptMessages(state, enrichment, lastViolation);
@@ -235,6 +292,22 @@ export async function mergeAndExplain(
 		}
 		lastViolation = violation;
 	}
+
+	// Three drafts in a row failed semantic validation. The control flow is
+	// unchanged — this still throws — but the event makes the give-up visible:
+	// without it, a model being steered into repeated invalid paths looks
+	// identical to an ordinary provider hiccup. The student is the operator here,
+	// never the author of the content that steered it, so the subject is the
+	// course.
+	logSecurityEvent({
+		feature: "learningPathAI",
+		userId: state.studentId,
+		layer: "model_call_fallback",
+		outcome: "fallback_triggered",
+		ruleIds: lastViolation ? [lastViolation.code] : [],
+		score: 0,
+		subject: { kind: "course", id: state.courseId },
+	});
 
 	throw new LearningPathInvalidError(
 		"Structured output failed semantic validation after 3 attempts",

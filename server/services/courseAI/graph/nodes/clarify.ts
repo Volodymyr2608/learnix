@@ -1,7 +1,15 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
+import {
+	assessClarifyPrompt,
+	validationFailurePrompt,
+} from "@/server/services/courseAI/prompts/clarifyPrompts";
 
 /**
  * Purpose: streams one clarifying question — either the ambiguous-intent question from
@@ -19,6 +27,8 @@ export const clarify = withNodeErrors(
 			temperature: 0.3,
 			apiKey: env.OPENAI_API_KEY,
 			streaming: true,
+			timeout: MODEL_TIMEOUT_MS,
+			maxRetries: MODEL_MAX_RETRIES,
 		});
 
 		// assess_completion routes here when the user's intent was ambiguous.
@@ -26,20 +36,17 @@ export const clarify = withNodeErrors(
 		const isAssessClarify =
 			!state.validationErrors || state.validationErrors.length === 0;
 
+		// assessClarify, the validation errors and draftStepData are all model
+		// output: the question another node's model wrote, and zod's report on the
+		// data a model extracted. Streamed straight back to the instructor, so the
+		// region has to be marked even though it never left the platform.
 		const prompt = isAssessClarify
-			? `Ask the user the following question, in a friendly and concise way. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations or repeat it in another language: "${state.assessClarify ?? "Everything looks good — shall I finalize this step and move on?"}"`
-			: (() => {
-					const issues = (state.validationErrors ?? [])
-						.map((issue, i) => `${i + 1}. ${JSON.stringify(issue)}`)
-						.join("\n");
-					return `You just tried to finalize the "${state.currentStep}" step but validation failed. Ask the user ONE concise, friendly follow-up question about the most important missing field. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations. Do not list every error. Do not show JSON.
-
-			VALIDATION ERRORS:
-			${issues}
-
-			EXTRACTED (FAILING) DATA:
-			${JSON.stringify(state.draftStepData, null, 2)}`;
-				})();
+			? assessClarifyPrompt(state.assessClarify)
+			: validationFailurePrompt({
+					step: state.currentStep,
+					validationErrors: state.validationErrors ?? [],
+					draftStepData: state.draftStepData,
+				});
 
 		// Pass the recent conversation so the model has a real language anchor.
 		// Without this, "respond in the user's language" has nothing to match

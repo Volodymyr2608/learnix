@@ -1,6 +1,7 @@
 import type { Lesson, Prisma } from "@/generated/prisma";
 import type { LessonOrderRow } from "@/server/services/learningPathAI/learningPathAI.state";
 import { BaseRepository } from "./base/base.repository";
+import { parseStoredConceptsPerElement } from "./lessonInsights.conceptsSchema";
 
 class LessonRepository extends BaseRepository<
 	"lesson",
@@ -32,10 +33,12 @@ class LessonRepository extends BaseRepository<
 				title: l.title,
 				sectionOrder: s.order,
 				lessonOrder: l.order,
-				concepts:
-					(l.lessonInsights?.concepts as { name: string }[] | null)?.map(
-						(c) => c.name,
-					) ?? [],
+				// Per element: one malformed entry drops itself rather than the
+				// lesson's whole list, and `[{ notName: 1 }]` yields [] rather than
+				// [undefined] into the learning-path graph.
+				concepts: parseStoredConceptsPerElement(l.lessonInsights?.concepts, {
+					lessonId: l.id,
+				}).map((c) => c.name),
 			})),
 		);
 	}

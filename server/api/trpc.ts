@@ -80,6 +80,15 @@ export const createCallerFactory = t.createCallerFactory;
 export const createTRPCRouter = t.router;
 
 /**
+ * The middleware factory only. `t` stays unexported: handing every file
+ * `t.procedure` / `t.router` would widen the surface this narrows. A real but
+ * near-zero-value narrowing — publicProcedure is exported anyway, so anyone
+ * wanting an unauthenticated procedure already has one. Keep it for blast
+ * radius and one import site; it is not a control.
+ */
+export const createTRPCMiddleware = t.middleware;
+
+/**
  * Middleware for timing procedure execution and adding an artificial delay in development.
  *
  * You can remove this if you don't like it, but it can help catch unwanted waterfalls by simulating

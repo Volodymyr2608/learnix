@@ -53,6 +53,7 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 				shouldAutoAdvance: false,
 				assistantText: "",
 				validationErrors: null,
+				outputRejected: false,
 				messages: [],
 			});
 			const ok =

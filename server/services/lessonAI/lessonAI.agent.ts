@@ -3,12 +3,16 @@ import { createAgent, type ReactAgent } from "langchain";
 import { env } from "@/lib/env";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { buildGetStudentProgressTool } from "./tools/getStudentProgress.tool";
 import { buildMarkConceptUnderstoodTool } from "./tools/markConceptUnderstood.tool";
 import { buildRetrieveLessonContextTool } from "./tools/retrieveLessonContext.tool";
 import { buildSearchAcrossCourseTool } from "./tools/searchAcrossCourse.tool";
 
-const SYSTEM_PROMPT = `You are an AI tutor for one lesson of one course. The lesson title, the course title and the concept names you may mark are instructor-authored text, given in the untrusted_data block at the end of this prompt.
+export const SYSTEM_PROMPT = `You are an AI tutor for one lesson of one course. The lesson title, the course title and the concept names you may mark are instructor-authored text, given in the untrusted_data block at the end of this prompt.
 
 Tool usage rules (follow in order):
 1. If the question asks WHERE or WHICH LESSON in the course covered a topic (e.g. "where did we cover X?", "which lesson talked about Y?", "what lesson covers Z?") — call search_across_course ONLY. Do NOT call retrieve_lesson_context for these questions.
@@ -39,6 +43,8 @@ export function createLessonAgent(params: {
 		temperature: 0.4,
 		streaming: true,
 		apiKey: env.OPENAI_API_KEY,
+		timeout: MODEL_TIMEOUT_MS,
+		maxRetries: MODEL_MAX_RETRIES,
 	});
 
 	const concepts = params.lessonConcepts ?? [];

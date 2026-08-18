@@ -48,6 +48,7 @@ export async function runAssessCompletionEval(): Promise<boolean> {
 				shouldAutoAdvance: false,
 				assistantText: r.assistantText,
 				validationErrors: null,
+				outputRejected: false,
 				messages: [],
 			});
 			return {

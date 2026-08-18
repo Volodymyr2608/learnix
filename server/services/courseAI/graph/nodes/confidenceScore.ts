@@ -1,6 +1,11 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
@@ -25,21 +30,31 @@ export const confidenceScore = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
+			timeout: MODEL_TIMEOUT_MS,
+			maxRetries: MODEL_MAX_RETRIES,
 		}).withStructuredOutput(outSchema, { method: "functionCalling" });
+
+		const historyText = state.history
+			.filter((m) => m.step === state.currentStep)
+			.map(
+				(m) =>
+					`[${m.role}]: ${wrapUntrustedContent(
+						m.content,
+						m.role === "assistant" ? "model_output" : "course_data",
+					)}`,
+			)
+			.join("\n");
 
 		const prompt =
 			`Rate your confidence (0..1) that the "${state.currentStep}" step is complete and correct.
 
 			EXTRACTED DATA (primary basis for scoring):
-			${JSON.stringify(state.draftStepData, null, 2)}
+			${wrapUntrustedContent(JSON.stringify(state.draftStepData, null, 2), "model_output")}
 
 			CONVERSATION CONTEXT:
-			${state.history
-				.filter((m) => m.step === state.currentStep)
-				.map((m) => `[${m.role}]: ${m.content}`)
-				.join("\n")}
+			${historyText}
 			[user]: ${state.userMessage}
-			${state.assistantText ? `[assistant]: ${state.assistantText}` : ""}
+			${state.assistantText ? `[assistant]: ${wrapUntrustedContent(state.assistantText, "model_output")}` : ""}
 
 			Guidelines:
 			- Base your score PRIMARILY on the EXTRACTED DATA quality and completeness.

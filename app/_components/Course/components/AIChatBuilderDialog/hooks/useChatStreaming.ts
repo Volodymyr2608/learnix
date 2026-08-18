@@ -67,6 +67,17 @@ export const useChatStreaming = (cb: Callbacks) => {
 						toast.error(parsed.message);
 						return;
 					}
+					if (parsed.type === "retract") {
+						// Replace, never append: the streamed tokens are what is being
+						// withdrawn, so leaving them above the notice would defeat the
+						// retraction entirely.
+						updateMessage(messageId, (m) => ({
+							...m,
+							content: parsed.message,
+							isStreaming: false,
+						}));
+						return;
+					}
 				}
 			}
 		} catch (e) {

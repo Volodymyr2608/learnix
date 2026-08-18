@@ -76,6 +76,7 @@ export async function runExtractStepDataEval(): Promise<boolean> {
 				shouldAutoAdvance: false,
 				assistantText: "",
 				validationErrors: null,
+				outputRejected: false,
 				messages: [],
 			});
 			const schema = getValidatorForStep(step);

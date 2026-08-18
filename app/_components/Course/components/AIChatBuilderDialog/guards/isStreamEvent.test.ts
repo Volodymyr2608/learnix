@@ -1,28 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { isStreamEvent } from "./isStreamEvent";
+import { isStreamEvent, type StreamEvent } from "./isStreamEvent";
 
-describe("isStreamEvent — error variant", () => {
-	it("accepts an error event carrying the retryable flag", () => {
-		expect(
-			isStreamEvent({ type: "error", message: "boom", retryable: true }),
-		).toBe(true);
+describe("isStreamEvent", () => {
+	it("accepts a retract frame", () => {
+		expect(isStreamEvent({ type: "retract", message: "…" })).toBe(true);
 	});
 
-	it("still accepts an error event without the flag, rather than dropping it", () => {
-		// A rejected event is skipped by useChatStreaming, so requiring the flag
-		// would turn a stale-server error into complete silence.
-		expect(isStreamEvent({ type: "error", message: "boom" })).toBe(true);
+	it("rejects a retract frame with no message", () => {
+		expect(isStreamEvent({ type: "retract" })).toBe(false);
 	});
 
-	it("rejects an error event whose flag is not a boolean", () => {
-		expect(
-			isStreamEvent({ type: "error", message: "boom", retryable: "yes" }),
-		).toBe(false);
+	it("rejects an unknown event type", () => {
+		expect(isStreamEvent({ type: "not_a_real_event" })).toBe(false);
 	});
 
-	it("still accepts the events it accepted before", () => {
-		expect(isStreamEvent({ type: "done" })).toBe(true);
-		expect(isStreamEvent({ type: "token", value: "hi" })).toBe(true);
-		expect(isStreamEvent({ type: "guard_blocked", message: "no" })).toBe(true);
+	it("rejects a non-object", () => {
+		for (const value of [null, undefined, "retract", 7, []]) {
+			expect(isStreamEvent(value)).toBe(false);
+		}
+	});
+
+	it("accepts every event type the server can send", () => {
+		const events: StreamEvent[] = [
+			{ type: "token", value: "hi" },
+			{ type: "start", courseGenerationId: "gen-1" },
+			{ type: "tool_call", name: "search", args: {} },
+			{ type: "node_start", node: "validate" },
+			{ type: "confidence", value: 0.9 },
+			{
+				type: "step_committed",
+				step: "basic",
+				autoAdvanced: false,
+				confidence: 0.9,
+			},
+			{ type: "content_revised" },
+			{ type: "error", message: "…" },
+			{ type: "guard_blocked", message: "…" },
+			{ type: "retract", message: "…" },
+			{ type: "done" },
+		];
+
+		for (const event of events) {
+			expect(isStreamEvent(event), event.type).toBe(true);
+		}
 	});
 });

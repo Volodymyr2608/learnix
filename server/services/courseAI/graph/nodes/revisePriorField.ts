@@ -2,6 +2,11 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	MODEL_MAX_RETRIES,
+	MODEL_TIMEOUT_MS,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
@@ -29,6 +34,8 @@ export const revisePriorField = withNodeErrors(
 			model: "gpt-4o-mini",
 			temperature: 0,
 			apiKey: env.OPENAI_API_KEY,
+			timeout: MODEL_TIMEOUT_MS,
+			maxRetries: MODEL_MAX_RETRIES,
 		}).withStructuredOutput(extractionSchema, { method: "functionCalling" });
 
 		// DB content is flat ({title, subtitle, sections, …}), never nested by step name.
@@ -46,14 +53,23 @@ export const revisePriorField = withNodeErrors(
 		// original AI proposals when state.content is empty (no extraction yet).
 		const historyForTarget = state.history
 			.filter((m) => m.step === target)
-			.map((m) => `[${m.role}]: ${m.content}`)
+			.map(
+				(m) =>
+					`[${m.role}]: ${wrapUntrustedContent(
+						m.content,
+						m.role === "assistant" ? "model_output" : "course_data",
+					)}`,
+			)
 			.join("\n");
 
 		const prompt = [
 			`The user wants to revise the "${target}" step of their course.`,
 			historyForTarget &&
 				`CONVERSATION HISTORY FOR THIS STEP:\n${historyForTarget}`,
-			`CURRENT SAVED VALUES for this step:\n${JSON.stringify(currentStepData, null, 2)}`,
+			`CURRENT SAVED VALUES for this step:\n${wrapUntrustedContent(
+				JSON.stringify(currentStepData, null, 2),
+				"course_data",
+			)}`,
 			`User's revision request: "${state.userMessage}"`,
 			`Return the complete updated version of the "${target}" step that incorporates the user's change. Keep all existing values unless the user explicitly asked to change them.`,
 		]

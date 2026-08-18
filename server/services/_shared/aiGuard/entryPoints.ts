@@ -8,7 +8,16 @@
  */
 export const GUARDED_ENTRY_POINTS: string[] = [
 	"server/services/_shared/aiGuard/topicRelevance.ts",
-	"server/services/courseAI/graph/nodes/chatResponse.ts",
+	// The streamed prompt text moved out of the two nodes so its variants can be
+	// assembled and pinned (promptVariants.ts); the wrapping moved with it, so
+	// the claim now belongs to these two files as well as to the nodes.
+	"server/services/courseAI/prompts/chatResponsePrompts.ts",
+	"server/services/courseAI/prompts/clarifyPrompts.ts",
+	// The other two prompt builders. Registered because they interpolate course
+	// content too: extractStepDataPrompt did so unwrapped while the trust list
+	// asserted its body was scanned, which it was not.
+	"server/services/courseAI/prompts/extractStepDataPrompt.ts",
+	"server/services/courseAI/prompts/systemPrompt.ts",
 	"server/services/courseAI/tools/validateCurriculumCoherence.ts",
 	"server/services/learningPathAI/nodes/mergeAndExplain.node.ts",
 	"server/services/learningPathAI/nodes/reflectAndCheck.node.ts",
@@ -42,6 +51,12 @@ export const EXEMPT_MODEL_CALLERS: string[] = [
 	"server/services/courseAI/graph/nodes/assessCompletion.ts",
 	"server/services/courseAI/graph/nodes/extractStepData.ts",
 	"server/services/courseAI/graph/nodes/confidenceScore.ts",
+	// chat_response and clarify: the instructor's own turn is guarded at
+	// app/api/chat/course/route.ts, and the prompt text they stream — with its
+	// wrapping — now lives in courseAI/prompts/{chatResponse,clarify}Prompts.ts,
+	// which are registered above. History reaches these two as chat messages
+	// carrying their own role, never interpolated into an instruction.
+	"server/services/courseAI/graph/nodes/chatResponse.ts",
 	"server/services/courseAI/graph/nodes/clarify.ts",
 	"server/services/courseAI/graph/nodes/revisePriorField.ts",
 	"server/services/courseAI/graph/nodes/toolRouter.ts",

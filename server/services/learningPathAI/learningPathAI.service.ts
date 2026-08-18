@@ -1,33 +1,82 @@
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
+import { checkAiRateLimit } from "@/server/services/_shared/aiLimits";
+import {
+	GRAPH_RECURSION_LIMIT,
+	withTurnDeadline,
+} from "@/server/services/_shared/aiLimits/modelDefaults";
+import { validateModelText } from "@/server/services/_shared/aiOutput";
 import { traced } from "@/server/services/_shared/tracing";
-import { LearningPathRateLimitedError } from "./learningPathAI.errors";
+import {
+	LearningPathOutputRejectedError,
+	LearningPathRateLimitedError,
+} from "./learningPathAI.errors";
 import { buildLearningPathGraph } from "./learningPathAI.graph";
 import type { PathState } from "./learningPathAI.state";
 import type { PathStep } from "./schemas/learningPath.schema";
 
-const rateLimitBucket = new Map<string, number>();
-const RATE_LIMIT_MS = 60_000;
-const EVICT_THRESHOLD = 5_000;
-
+/**
+ * The 1/min per-(student, course) rule, now a scoped window on the shared
+ * limiter. `countAggregate: false` because the procedure or route has already
+ * spent this request's aggregate slot — without it one user action would cost
+ * two of the account's AI budget.
+ *
+ * The courseId reaching this function is a VERIFIED one (the caller checks the
+ * enrollment first); a limiter key derived from raw request input would let a
+ * caller pick their own bucket.
+ */
 function checkRateLimit(studentId: string, courseId: string): void {
-	const key = `${studentId}:${courseId}`;
-	const now = Date.now();
-
-	if (rateLimitBucket.size > EVICT_THRESHOLD) {
-		for (const [k, ts] of rateLimitBucket) {
-			if (now - ts >= RATE_LIMIT_MS) rateLimitBucket.delete(k);
-		}
-	}
-
-	const lastAt = rateLimitBucket.get(key) ?? 0;
-	if (now - lastAt < RATE_LIMIT_MS) {
+	const allowed = checkAiRateLimit(studentId, "learningPathAI", {
+		scope: courseId,
+		countAggregate: false,
+	});
+	if (!allowed) {
 		throw new LearningPathRateLimitedError(
-			"You can only regenerate once per minute",
+			// Fixed, and deliberately vague about the window: a message naming the
+			// rate ("once per minute") or a remaining count hands a caller the shape
+			// of the limiter for free (AC 47).
+			"Please wait a moment before regenerating your learning path",
 			"TOO_MANY_REQUESTS",
 		);
 	}
-	rateLimitBucket.set(key, now);
 }
+
+/**
+ * Every model-authored, persisted, student-visible field this surface produces:
+ * the summary, each step's title and reason, and the generated weak concepts.
+ *
+ * Terminal for the whole generation — no retry is consumed, nothing is appended
+ * to violation feedback and the rejected text never re-enters a prompt. A retry
+ * loop here would be a hill-climbing oracle built out of the boundary itself.
+ */
+const assertModelTextClean = (
+	result: {
+		summary?: string;
+		finalSteps?: PathStep[];
+		generatedWeakConcepts?: string[];
+	},
+	ctx: { studentId: string; courseId: string },
+): void => {
+	const steps = result.finalSteps ?? [];
+	const modelText = [
+		result.summary,
+		...steps.flatMap((step) => [step.title, step.reason]),
+		...(result.generatedWeakConcepts ?? []),
+	];
+
+	for (const text of modelText) {
+		const verdict = validateModelText(text ?? "", {
+			feature: "learningPathAI",
+			userId: ctx.studentId,
+			subject: { kind: "course", id: ctx.courseId },
+		});
+		if (!verdict.valid) {
+			throw new LearningPathOutputRejectedError(
+				"Learning path generation failed validation",
+				"INTERNAL_SERVER_ERROR",
+			);
+		}
+	}
+};
 
 class LearningPathAIService {
 	private readonly graph = buildLearningPathGraph();
@@ -42,7 +91,15 @@ class LearningPathAIService {
 		return traced(
 			"learning-path",
 			async () => {
-				const result = await this.graph.invoke({ studentId, courseId });
+				const result = await this.graph.invoke(
+					{ studentId, courseId },
+					{
+						recursionLimit: GRAPH_RECURSION_LIMIT,
+						signal: withTurnDeadline(),
+					},
+				);
+				assertModelTextClean(result, { studentId, courseId });
+
 				return learningPathRepository.upsertPath({
 					studentId,
 					courseId,
@@ -71,7 +128,11 @@ class LearningPathAIService {
 
 		const stream = await this.graph.streamEvents(
 			{ studentId, courseId },
-			{ version: "v2" },
+			{
+				version: "v2",
+				recursionLimit: GRAPH_RECURSION_LIMIT,
+				signal: withTurnDeadline(),
+			},
 		);
 
 		let finalState: PathState | null = null;
@@ -89,6 +150,11 @@ class LearningPathAIService {
 		}
 
 		if (!finalState) return;
+
+		// Same boundary on the streaming path: the progress frames carry no model
+		// prose, so nothing has reached the student yet and the rejection is still
+		// terminal rather than a retraction.
+		assertModelTextClean(finalState, { studentId, courseId });
 
 		const cached = await learningPathRepository.upsertPath({
 			studentId,

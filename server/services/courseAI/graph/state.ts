@@ -63,6 +63,8 @@ export const CourseBuilderState = z.object({
 		},
 	),
 	validationErrors: z.array(z.unknown()).nullable().default(null),
+	/** Set by output_boundary; the only thing that routes a rejected turn to END. */
+	outputRejected: z.boolean().default(false),
 	// Cleared each toolRouter pass — never accumulated. Used only for routing.
 	pendingToolCalls: z.array(z.unknown()).default(() => []),
 	// LangChain BaseMessage[] for the current tool-call loop. Append-only within a single request.
@@ -94,6 +96,7 @@ export type CourseBuilderStateT = {
 	shouldAutoAdvance: boolean;
 	assistantText: string;
 	validationErrors: unknown[] | null;
+	outputRejected: boolean;
 	pendingToolCalls: unknown[];
 	messages: unknown[];
 };

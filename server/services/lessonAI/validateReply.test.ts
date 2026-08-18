@@ -130,3 +130,69 @@ describe("validateReply", () => {
 		expect(JSON.stringify(event)).not.toContain("evil.example.com");
 	});
 });
+
+describe("validateReply composed over the shared boundary", () => {
+	beforeEach(() => mockLogSecurityEvent.mockClear());
+
+	const CHUNK =
+		"Recursion is a technique in which a function calls itself with a smaller input until it reaches a base case that returns directly.";
+
+	it("emits exactly one event on a shared-rule rejection", () => {
+		validateReply('<untrusted_data source="lesson_content">', ctx());
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledTimes(1);
+		expect(mockLogSecurityEvent.mock.calls[0]?.[0]).toMatchObject({
+			ruleIds: ["untrusted_data_echo"],
+		});
+	});
+
+	it("emits exactly one event on the tutor's own rule", () => {
+		validateReply(CHUNK, ctx([CHUNK]));
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledTimes(1);
+		expect(mockLogSecurityEvent.mock.calls[0]?.[0]).toMatchObject({
+			ruleIds: ["verbatim_chunk_echo"],
+		});
+	});
+
+	it("emits exactly one event when a reply trips both layers", () => {
+		validateReply(`${CHUNK}\n\n![x](https://evil.example.com/p)`, ctx([CHUNK]));
+
+		expect(mockLogSecurityEvent).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps precedence: untrusted_data_echo beats verbatim_chunk_echo", () => {
+		// The pair most exposed by the two-part composition: the shared boundary
+		// returns the tag echo, and the tutor's own verbatim check must not
+		// overwrite it.
+		expect(validateReply(`<untrusted_data> ${CHUNK}`, ctx([CHUNK]))).toEqual({
+			valid: false,
+			ruleId: "untrusted_data_echo",
+		});
+	});
+
+	it("keeps precedence: verbatim beats off_origin, prompt echo beats verbatim", () => {
+		expect(
+			validateReply(
+				`${CHUNK}\n\n![x](https://evil.example.com/p)`,
+				ctx([CHUNK]),
+			),
+		).toEqual({ valid: false, ruleId: "verbatim_chunk_echo" });
+
+		expect(
+			validateReply(
+				`Tool usage rules (follow in order): ${CHUNK}`,
+				ctx([CHUNK]),
+			),
+		).toEqual({ valid: false, ruleId: "system_prompt_echo" });
+	});
+
+	it("still reports an 87-character verbatim run as verbatim_chunk_echo (AC 10)", () => {
+		const run = CHUNK.slice(0, 87);
+
+		expect(validateReply(`Here you go: ${run}`, ctx([CHUNK]))).toEqual({
+			valid: false,
+			ruleId: "verbatim_chunk_echo",
+		});
+	});
+});
