@@ -34,7 +34,15 @@ class LessonInsightsAIService {
 					.digest("hex");
 
 				const existing = await lessonInsightsRepository.findByLessonId(lId);
-				if (existing?.contentHash === contentHash) return existing;
+				// A matching hash alone is not enough to serve the cached row: the
+				// read boundary turns a malformed `concepts` value into [], so a
+				// poisoned or truncated row would otherwise short-circuit its own
+				// replacement forever — the hash still matches, and every later call
+				// returns the same empty list. An empty array on a lesson that has
+				// content is treated as a miss, and regeneration heals the row.
+				const cacheIsUsable =
+					existing?.contentHash === contentHash && existing.concepts.length > 0;
+				if (cacheIsUsable) return existing;
 
 				const result = await insightsChain.invoke({
 					content: wrapUntrustedContent(lesson.content, "lesson_content"),

@@ -2,6 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import type { StoredConcept } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
@@ -18,7 +19,7 @@ import { LearningPathSchema } from "../schemas/learningPath.schema";
 
 type LessonEnrichment = {
 	summary: string | null;
-	concepts: Prisma.JsonValue;
+	concepts: StoredConcept[];
 	glossary: Prisma.JsonValue;
 	quizAttempts?: {
 		quizId: string;
@@ -30,7 +31,9 @@ type LessonEnrichment = {
 
 async function fetchLessonSummary(lessonId: string): Promise<{
 	summary: string | null;
-	concepts: Prisma.JsonValue;
+	// Parsed at the repository's read boundary, so this is a real array rather
+	// than whatever JSON the column held.
+	concepts: StoredConcept[];
 	glossary: Prisma.JsonValue;
 }> {
 	const insights = await lessonInsightsRepository.findByLessonId(lessonId);
