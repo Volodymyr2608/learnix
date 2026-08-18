@@ -524,6 +524,12 @@ Each line is phrased to become a test or eval row directly. `[EVAL]` marks rows 
   wrapper tag) rather than on a hunch. Anyone reading the conformance matrix should see
   `applied_with_exception` there, not `applied`. Flipping either to fail-closed is a follow-up gated
   on bringing that number down, and the matrix test is what will make the declaration follow.
+- **The courseAI evals were run against the prompt changes, and the result is recorded.** Tasks 4
+  and 8 edited every courseAI prompt, so `classifyIntent` (85.0%), `assessCompletion` (100.0%
+  precision), `extractStepData` (95.0%) and `confidenceScore` (91.7%) all pass their gates on this
+  branch. `classifyIntent` sits exactly on its 0.85 threshold — which it also does on `main`, where
+  it fails outright on most runs. See `security.md` S16 §10 before reading a future red run as a
+  regression from this feature.
 - **The false-positive corpus is part of the control.** `evals/datasets/aiOutput/falsePositive.jsonl`
   contains both the literal `<untrusted_data` and its escaped form deliberately: the escaped rows
   are what prove `wrapUntrustedContent`'s escaping works, and dropping them would make the number

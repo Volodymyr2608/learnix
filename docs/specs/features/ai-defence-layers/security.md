@@ -477,6 +477,29 @@ which is the same cross-tenant tail the finalize exclusion already flags.
    **only on rejection** — a clean turn, including one the reader navigated away from, emits nothing.
    Abort-path events are therefore ~0% of emissions rather than a dominant fraction.
 
+10. **The behavioural eval guarding courseAI's prompts is flaky at its own threshold, and was
+   before this feature touched it.** This matters here because Tasks 4 and 8 edited every courseAI
+   prompt — wrapping conversation history per message, and moving the four `chat_response` branches
+   and two `clarify` branches into `prompts/` modules — and `courseAI:classifyIntent` is the evidence
+   that those edits did not change behaviour. Measured 2026-08-18, 20 rows per run:
+
+   | Revision | Runs | Result |
+   |---|---|---|
+   | This branch | 4 | 17/20 (85.0%) every run |
+   | Base `5f16944`, pre-feature | 3 | 16/20, 17/20, 16/20 — **fails its own 0.85 gate on two of three** |
+
+   Pooled, 68/80 (85.0%) on the branch against 49/60 (81.7%) on base. The branch is at or above
+   baseline on every run, so there is no regression — but the 3-point difference is far inside the
+   noise of a 20-row sample and must not be read as an improvement either.
+
+   The residual is the *assurance*, not a vulnerability: a gate that fails roughly half the time on
+   the mainline carries no information when it goes red, which trains a reader to ignore it — and it
+   is the only automated check standing behind "the prompt move changed no behaviour". Twenty rows is
+   thin for a four-way classifier, and the 0.85 threshold is a round number rather than one derived
+   from a measured baseline. Fixing either is out of scope for this feature (it is not an AI defence
+   layer), and is recorded here so the next prompt change does not mistake a red run for a signal or
+   a green one for proof.
+
 ## S17. Out of scope, with blocking assessment
 
 - **C4 (quiz answer key)** — not a blocking dependency, **but** it makes the conformance matrix
