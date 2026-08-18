@@ -1,8 +1,11 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
-import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
+import {
+	assessClarifyPrompt,
+	validationFailurePrompt,
+} from "@/server/services/courseAI/prompts/clarifyPrompts";
 
 /**
  * Purpose: streams one clarifying question — either the ambiguous-intent question from
@@ -32,26 +35,12 @@ export const clarify = withNodeErrors(
 		// data a model extracted. Streamed straight back to the instructor, so the
 		// region has to be marked even though it never left the platform.
 		const prompt = isAssessClarify
-			? `Ask the user the following question, in a friendly and concise way. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations or repeat it in another language: "${
-					state.assessClarify
-						? wrapUntrustedContent(state.assessClarify, "model_output")
-						: "Everything looks good — shall I finalize this step and move on?"
-				}"`
-			: (() => {
-					const issues = (state.validationErrors ?? [])
-						.map(
-							(issue, i) =>
-								`${i + 1}. ${wrapUntrustedContent(JSON.stringify(issue), "model_output")}`,
-						)
-						.join("\n");
-					return `You just tried to finalize the "${state.currentStep}" step but validation failed. Ask the user ONE concise, friendly follow-up question about the most important missing field. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations. Do not list every error. Do not show JSON.
-
-			VALIDATION ERRORS:
-			${issues}
-
-			EXTRACTED (FAILING) DATA:
-			${wrapUntrustedContent(JSON.stringify(state.draftStepData, null, 2), "model_output")}`;
-				})();
+			? assessClarifyPrompt(state.assessClarify)
+			: validationFailurePrompt({
+					step: state.currentStep,
+					validationErrors: state.validationErrors ?? [],
+					draftStepData: state.draftStepData,
+				});
 
 		// Pass the recent conversation so the model has a real language anchor.
 		// Without this, "respond in the user's language" has nothing to match

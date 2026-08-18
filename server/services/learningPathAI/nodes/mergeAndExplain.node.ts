@@ -102,6 +102,17 @@ async function gatherEnrichment(
 	return enrichment;
 }
 
+export const MERGE_SYSTEM_PROMPT = `You are planning a student's next learning steps in a course.
+Given candidate actions and weak concepts, produce 3–5 final steps with concrete one-sentence reasons grounded in the student's progress.
+Rules:
+- NEW_LESSON steps must use a lessonId NOT in completedLessonIds.
+- REVIEW_LESSON steps must use a lessonId IN completedLessonIds.
+- RETRY_QUIZ steps must include a quizId from failedQuizzes.
+- Each reason must be at least 20 characters and reference the student's actual data.
+- summary must be at least 20 characters describing the overall recommendation.
+
+${UNTRUSTED_DATA_CLAUSE}`;
+
 export type SemanticViolationCode =
 	| "duplicate_lesson_id"
 	| "lesson_not_in_course"
@@ -192,16 +203,7 @@ function buildPromptMessages(
 		};
 	});
 
-	const systemContent = `You are planning a student's next learning steps in a course.
-Given candidate actions and weak concepts, produce 3–5 final steps with concrete one-sentence reasons grounded in the student's progress.
-Rules:
-- NEW_LESSON steps must use a lessonId NOT in completedLessonIds.
-- REVIEW_LESSON steps must use a lessonId IN completedLessonIds.
-- RETRY_QUIZ steps must include a quizId from failedQuizzes.
-- Each reason must be at least 20 characters and reference the student's actual data.
-- summary must be at least 20 characters describing the overall recommendation.
-
-${UNTRUSTED_DATA_CLAUSE}`;
+	const systemContent = MERGE_SYSTEM_PROMPT;
 
 	const humanContent = `Candidate steps: ${wrapUntrustedContent(
 		JSON.stringify(enrichedCandidates),

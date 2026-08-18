@@ -10,6 +10,10 @@ const CriticSchema = z.object({
 	feedback: z.string(),
 });
 
+export const REFLECT_SYSTEM_PROMPT = `Review the proposed learning path. Return ok=true if the path is reasonable. Return ok=false with concise feedback if: there are too many review steps relative to new lessons, weak concepts are not addressed, or steps are repeated.
+
+${UNTRUSTED_DATA_CLAUSE}`;
+
 /**
  * Purpose: critiques the proposed path and, on rejection, loops back to mergeAndExplain with
  * feedback — capped at 2 attempts.
@@ -34,9 +38,7 @@ export async function reflectAndCheck(
 	const { ok, feedback } = await critic.invoke([
 		{
 			role: "system" as const,
-			content: `Review the proposed learning path. Return ok=true if the path is reasonable. Return ok=false with concise feedback if: there are too many review steps relative to new lessons, weak concepts are not addressed, or steps are repeated.
-
-${UNTRUSTED_DATA_CLAUSE}`,
+			content: REFLECT_SYSTEM_PROMPT,
 		},
 		{
 			role: "human" as const,

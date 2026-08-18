@@ -20,6 +20,27 @@ const walk = (dir: string): string[] =>
 const moduleFiles = (): string[] =>
 	walk(DIR).filter((f) => !f.endsWith(".test.ts"));
 
+/** Every file the barrel pulls in, transitively, following relative imports. */
+const reachableFromBarrel = (): string[] => {
+	const seen = new Set<string>();
+	const queue = [`${DIR}/index.ts`];
+
+	while (queue.length > 0) {
+		const file = queue.pop() as string;
+		if (seen.has(file)) continue;
+		seen.add(file);
+
+		const source = readFileSync(file, "utf-8");
+		for (const match of source.matchAll(/from\s+["'](\.[^"']+)["']/g)) {
+			const specifier = match[1] ?? "";
+			const resolved = join(DIR, `${specifier.replace(/^\.\//, "")}.ts`);
+			if (!seen.has(resolved)) queue.push(resolved);
+		}
+	}
+
+	return [...seen];
+};
+
 describe("aiOutput module boundaries", () => {
 	it("does not export the raw check functions — wildcard or named (AC 4)", () => {
 		const barrel = readFileSync(`${DIR}/index.ts`, "utf-8");
@@ -32,11 +53,21 @@ describe("aiOutput module boundaries", () => {
 	});
 
 	it("imports nothing from lessonAI (AC 7)", () => {
-		const offenders = moduleFiles().filter((file) =>
+		// Scoped to what the boundary actually loads: every file reachable from the
+		// barrel. `promptVariants.ts` sits in the same folder and imports all five
+		// surfaces by design — it is the marker-pinning registry, not part of the
+		// boundary — and the next test proves it is outside this graph rather than
+		// asserting it by hand.
+		const offenders = reachableFromBarrel().filter((file) =>
 			/from\s+["'][^"']*lessonAI/.test(readFileSync(file, "utf-8")),
 		);
 
 		expect(offenders).toEqual([]);
+	});
+
+	it("does not load the prompt-variant registry at runtime", () => {
+		expect(reachableFromBarrel()).not.toContain(`${DIR}/promptVariants.ts`);
+		expect(moduleFiles()).toContain(`${DIR}/promptVariants.ts`);
 	});
 
 	it("asks lib/url for the origin decision rather than answering it twice", () => {

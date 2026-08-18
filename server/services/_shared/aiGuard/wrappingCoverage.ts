@@ -44,6 +44,16 @@ export const TRUSTED_INTERPOLATIONS: string[] = [
 	"STEP_PROMPTS",
 	"SYSTEM_PROMPT",
 	"STEP_MESSAGES",
+	// The platform's own prompt builders. Their bodies are scanned in their own
+	// files (both are registered entry points), so trusting the call site is
+	// composition, not an exemption.
+	"autoTransitionPrompt",
+	"reviseConfirmPrompt",
+	"clarifyIntentPrompt",
+	"assessClarifyPrompt",
+	"validationFailurePrompt",
+	"buildSystemPrompt",
+	"extractStepDataPrompt",
 ];
 
 /**
@@ -135,7 +145,23 @@ export const ALLOWED_INTERPOLATIONS: AllowedInterpolation[] = [
 
 	// --- ids, integers and enums
 	{
-		file: "server/services/courseAI/graph/nodes/clarify.ts",
+		file: "server/services/courseAI/prompts/chatResponsePrompts.ts",
+		expression: "step",
+		reason:
+			"The DraftStep enum, passed in from the node — see state.currentStep, which is where it comes from.",
+	},
+	{
+		file: "server/services/courseAI/prompts/chatResponsePrompts.ts",
+		expression: "step.toUpperCase()",
+		reason: "The same DraftStep enum, upper-cased for the section heading.",
+	},
+	{
+		file: "server/services/courseAI/prompts/clarifyPrompts.ts",
+		expression: "step",
+		reason: "The DraftStep enum, passed in from the clarify node.",
+	},
+	{
+		file: "server/services/courseAI/prompts/clarifyPrompts.ts",
 		expression: "i",
 		reason: "A loop index the server derives while numbering the error list.",
 	},

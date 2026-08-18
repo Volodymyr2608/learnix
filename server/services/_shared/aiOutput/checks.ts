@@ -1,7 +1,7 @@
 import { env } from "@/lib/env";
 import { isOffOrigin, stripAngleBrackets } from "@/lib/url/origin";
 import type { AiFeature } from "@/server/services/_shared/aiGuard/types";
-import { SYSTEM_PROMPT_LEAK_MARKERS } from "./leakMarkers";
+import { leakMarkersFor } from "./promptLeakMarkers";
 
 /**
  * The three checks that hold on any surface, whatever it generates. They are
@@ -31,7 +31,7 @@ export const containsSystemPromptLeak = (
 	feature: AiFeature,
 ): boolean => {
 	const haystack = text.toLowerCase();
-	return SYSTEM_PROMPT_LEAK_MARKERS[feature].some((marker) =>
+	return leakMarkersFor(feature).some((marker) =>
 		haystack.includes(marker.toLowerCase()),
 	);
 };
