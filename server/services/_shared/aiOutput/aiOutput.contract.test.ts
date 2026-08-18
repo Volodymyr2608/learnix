@@ -73,7 +73,7 @@ describe("aiOutput module boundaries", () => {
 	it("asks lib/url for the origin decision rather than answering it twice", () => {
 		const checks = readFileSync(`${DIR}/checks.ts`, "utf-8");
 
-		expect(checks).toContain('from "@/lib/url/origin"');
+		expect(checks).toContain('from "@/lib/url"');
 		expect(checks).not.toMatch(/const\s+isOffOrigin\s*=/);
 	});
 

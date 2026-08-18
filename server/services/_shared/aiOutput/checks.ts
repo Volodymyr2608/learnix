@@ -1,5 +1,4 @@
-import { env } from "@/lib/env";
-import { isOffOrigin, stripAngleBrackets } from "@/lib/url/origin";
+import { classifyUrl, stripAngleBrackets } from "@/lib/url";
 import type { AiFeature } from "@/server/services/_shared/aiGuard/types";
 import { leakMarkersFor } from "./promptLeakMarkers";
 
@@ -53,5 +52,11 @@ const collectHrefs = (text: string): string[] =>
 		),
 	);
 
+/**
+ * Flags any destination that is not in-app: another origin, a protocol-relative
+ * host, or a scheme outside the allowlist. `isOffOrigin` alone would be wrong
+ * here — it answers "allowed scheme, different origin", so `javascript:` and
+ * `//evil.example.com` would both read as false and sail through.
+ */
 export const containsOffOriginLink = (text: string): boolean =>
-	collectHrefs(text).some((href) => isOffOrigin(href, env.BASE_URL));
+	collectHrefs(text).some((href) => classifyUrl(href) !== "in_app");

@@ -1,12 +1,21 @@
-/**
- * One answer to "does this destination leave the app", shared by the server-side
- * output boundary (`_shared/aiOutput/checks.ts`) and the client-side render
- * policy. Two implementations of one decision is its own drift risk, so this
- * module takes the origin as an argument and imports nothing: the server passes
- * `env.BASE_URL`, the browser passes `window.location.origin`.
- */
+import { env } from "@/lib/env";
 
-export const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+/**
+ * The app's own origin, resolvable on the server AND in the browser.
+ *
+ * `env.BASE_URL` is server-only. Reading `window.location.origin` is
+ * client-only, and the lesson page is server-rendered — a client component
+ * prerendered on the server has no `window`, so a policy that reaches for it
+ * throws during SSR and 500s the page it is meant to protect. The trigger is an
+ * ordinary instructor link, not an attack.
+ *
+ * One source for one decision: the server-side output boundary and the
+ * client-side render policy must not disagree about what "our origin" is.
+ */
+export const appOrigin = (): string => {
+	if (typeof window !== "undefined") return window.location.origin;
+	return new URL(env.NEXT_PUBLIC_APP_URL).origin;
+};
 
 /**
  * `[x](<https://host/p>)` is one destination, not a destination wrapped in an
@@ -15,27 +24,3 @@ export const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
  */
 export const stripAngleBrackets = (href: string): string =>
 	href.startsWith("<") && href.endsWith(">") ? href.slice(1, -1) : href;
-
-/**
- * `appOrigin` may be null when the caller has no origin to compare against
- * (server prerender of a client component, for one). A null origin means only
- * structural judgements are available: a scheme or a protocol-relative prefix is
- * off-origin, everything else is not.
- */
-export const isOffOrigin = (
-	href: string,
-	appOrigin: string | null,
-): boolean => {
-	// Protocol-relative: "//evil.example.com" inherits the scheme but not the host.
-	if (href.startsWith("//")) return true;
-	// A href with no scheme cannot leave the app, whatever the origin is. Deciding
-	// this structurally rather than by resolving against the origin keeps in-app
-	// links working under a misconfigured or relative origin.
-	if (!HAS_SCHEME.test(href)) return false;
-	if (!appOrigin) return true;
-	try {
-		return new URL(href).origin !== new URL(appOrigin).origin;
-	} catch {
-		return true; // unparseable, or the origin is not absolute → fail closed
-	}
-};
