@@ -265,6 +265,23 @@ describe("wrapping completeness (AC 59-64)", () => {
 		}
 	});
 
+	it("records the false negatives it does not cover (AC 63)", () => {
+		const doc = readFileSync(
+			"server/services/_shared/aiGuard/wrappingCoverage.ts",
+			"utf-8",
+		);
+
+		expect(doc).toContain("What this scan does NOT prove");
+		for (const gap of [
+			"Cross-file assembly",
+			"The wrong `source` label",
+			"Mixed-trust serialisation",
+			"A chain with no template",
+		]) {
+			expect(doc).toContain(gap);
+		}
+	});
+
 	it("holds no stale exemption — every allowed expression is still in its file", () => {
 		const stale = ALLOWED_INTERPOLATIONS.filter(
 			(entry) => !readFileSync(entry.file, "utf-8").includes(entry.expression),

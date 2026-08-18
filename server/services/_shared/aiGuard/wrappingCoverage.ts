@@ -10,6 +10,25 @@
  *     site vacuously fine.
  *   - `JSON` — serialisation is the dominant idiom in these files, so trusting
  *     the callee waves through every value nested in a `JSON.stringify(...)`.
+ *
+ * ## What this scan does NOT prove (AC 63)
+ *
+ * A green run means every interpolation is wrapped or claimed. It does not mean
+ * the prompts are safe. Four known false negatives, recorded so the test claims
+ * no completeness it lacks:
+ *
+ *  1. **Cross-file assembly.** A prompt built in file A from a value read in
+ *     file B is judged only where the interpolation is written. `buildSystemPrompt`
+ *     is a real instance: its own template lives in `courseAI/prompts/`, which is
+ *     not a model-calling file and so is not scanned.
+ *  2. **The wrong `source` label.** The scan sees that `wrapUntrustedContent` was
+ *     called, never whether `"course_data"` was the honest label for the value.
+ *  3. **Mixed-trust serialisation.** `JSON.stringify(x)` is judged on `x`'s root
+ *     alone, so an object that is server-built but carries one model-authored
+ *     field reads as trusted.
+ *  4. **A chain with no template.** A binding assembled by `.map(m => m.content)`
+ *     with no template literal anywhere in it is skipped rather than followed.
+ *     No such shape exists here today; a new one would pass unseen.
  */
 
 /**
