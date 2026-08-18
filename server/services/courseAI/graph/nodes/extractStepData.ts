@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import { extractStepDataPrompt } from "@/server/services/courseAI/prompts/extractStepDataPrompt";
@@ -48,7 +49,9 @@ export const extractStepData = withNodeErrors(
 					]
 				: []),
 		]
-			.map((m) => `[${m.role}]: ${m.content}`)
+			.map(
+				(m) => `[${m.role}]: ${wrapUntrustedContent(m.content, "course_data")}`,
+			)
 			.join("\n");
 
 		const prompt = extractStepDataPrompt({

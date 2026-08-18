@@ -2,6 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { Prisma } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { courseGenerationRepository } from "@/server/repositories/courseGeneration.repository";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
@@ -46,7 +47,9 @@ export const revisePriorField = withNodeErrors(
 		// original AI proposals when state.content is empty (no extraction yet).
 		const historyForTarget = state.history
 			.filter((m) => m.step === target)
-			.map((m) => `[${m.role}]: ${m.content}`)
+			.map(
+				(m) => `[${m.role}]: ${wrapUntrustedContent(m.content, "course_data")}`,
+			)
 			.join("\n");
 
 		const prompt = [

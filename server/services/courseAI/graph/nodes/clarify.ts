@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
@@ -26,11 +27,22 @@ export const clarify = withNodeErrors(
 		const isAssessClarify =
 			!state.validationErrors || state.validationErrors.length === 0;
 
+		// assessClarify, the validation errors and draftStepData are all model
+		// output: the question another node's model wrote, and zod's report on the
+		// data a model extracted. Streamed straight back to the instructor, so the
+		// region has to be marked even though it never left the platform.
 		const prompt = isAssessClarify
-			? `Ask the user the following question, in a friendly and concise way. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations or repeat it in another language: "${state.assessClarify ?? "Everything looks good — shall I finalize this step and move on?"}"`
+			? `Ask the user the following question, in a friendly and concise way. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations or repeat it in another language: "${
+					state.assessClarify
+						? wrapUntrustedContent(state.assessClarify, "model_output")
+						: "Everything looks good — shall I finalize this step and move on?"
+				}"`
 			: (() => {
 					const issues = (state.validationErrors ?? [])
-						.map((issue, i) => `${i + 1}. ${JSON.stringify(issue)}`)
+						.map(
+							(issue, i) =>
+								`${i + 1}. ${wrapUntrustedContent(JSON.stringify(issue), "model_output")}`,
+						)
 						.join("\n");
 					return `You just tried to finalize the "${state.currentStep}" step but validation failed. Ask the user ONE concise, friendly follow-up question about the most important missing field. Respond in the SAME LANGUAGE as the user's most recent message above. Output a single question only — do NOT add translations. Do not list every error. Do not show JSON.
 
@@ -38,7 +50,7 @@ export const clarify = withNodeErrors(
 			${issues}
 
 			EXTRACTED (FAILING) DATA:
-			${JSON.stringify(state.draftStepData, null, 2)}`;
+			${wrapUntrustedContent(JSON.stringify(state.draftStepData, null, 2), "model_output")}`;
 				})();
 
 		// Pass the recent conversation so the model has a real language anchor.

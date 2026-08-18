@@ -1,6 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
 const outSchema = z.object({
@@ -46,7 +47,9 @@ export const assessCompletion = withNodeErrors(
 				step: state.currentStep,
 			},
 		]
-			.map((m) => `[${m.role}]: ${m.content}`)
+			.map(
+				(m) => `[${m.role}]: ${wrapUntrustedContent(m.content, "course_data")}`,
+			)
 			.join("\n");
 
 		const prompt =
