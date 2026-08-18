@@ -11,6 +11,7 @@ import { clarify } from "./nodes/clarify";
 import { classifyIntent } from "./nodes/classifyIntent";
 import { confidenceScore } from "./nodes/confidenceScore";
 import { extractStepData } from "./nodes/extractStepData";
+import { outputBoundary } from "./nodes/outputBoundary";
 import { persistAndEmit } from "./nodes/persistAndEmit";
 import { revisePriorField } from "./nodes/revisePriorField";
 import { toolRouter } from "./nodes/toolRouter";
@@ -88,6 +89,16 @@ const routeAfterValidate = (s: CourseBuilderStateT) =>
 const routeAfterConfidence = (s: CourseBuilderStateT) =>
 	s.mode === "finalize" || s.shouldAutoAdvance ? "persist" : "hold";
 
+/**
+ * Purpose: sends a turn whose reply failed the output boundary straight to END,
+ * so no later node commits a step or extracts data from it.
+ * Reads: outputRejected.
+ * Writes: nothing.
+ * Fails: cannot fail.
+ */
+const routeAfterOutputBoundary = (s: CourseBuilderStateT) =>
+	s.outputRejected ? "rejected" : "assess";
+
 // --- builder ---
 
 export const courseBuilderGraph = new StateGraph(CourseBuilderState)
@@ -101,6 +112,10 @@ export const courseBuilderGraph = new StateGraph(CourseBuilderState)
 	.addNode("validate", validate)
 	.addNode("confidence_score", confidenceScore)
 	.addNode("clarify", clarify)
+	// Two registrations of one implementation: chat_response needs a fork,
+	// clarify's successor is END either way.
+	.addNode("output_boundary", outputBoundary)
+	.addNode("output_boundary_clarify", outputBoundary)
 	.addNode("persist_and_emit", persistAndEmit)
 	.addConditionalEdges(START, routeByMode, {
 		chat: "classify_intent",
@@ -116,7 +131,11 @@ export const courseBuilderGraph = new StateGraph(CourseBuilderState)
 		answer: "chat_response",
 	})
 	.addEdge("tool_node", "tool_router")
-	.addEdge("chat_response", "assess_completion")
+	.addEdge("chat_response", "output_boundary")
+	.addConditionalEdges("output_boundary", routeAfterOutputBoundary, {
+		rejected: END,
+		assess: "assess_completion",
+	})
 	.addEdge("revise_prior_field", "chat_response")
 	.addConditionalEdges("assess_completion", routeAfterAssess, {
 		ready: "extract_step_data",
@@ -132,6 +151,7 @@ export const courseBuilderGraph = new StateGraph(CourseBuilderState)
 		persist: "persist_and_emit",
 		hold: END,
 	})
-	.addEdge("clarify", END)
+	.addEdge("clarify", "output_boundary_clarify")
+	.addEdge("output_boundary_clarify", END)
 	.addEdge("persist_and_emit", END)
 	.compile();

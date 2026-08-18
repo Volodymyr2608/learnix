@@ -2,10 +2,13 @@ import { z } from "zod";
 import type { DraftStep } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
+import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
+import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import {
 	checkAiRateLimit,
 	validateMessageLength,
 } from "@/server/services/_shared/aiLimits";
+import { validateModelText } from "@/server/services/_shared/aiOutput";
 import { RetryableNodeError } from "@/server/services/courseAI/courseAI.errors";
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
 import { logger } from "@/server/utils/logger";
@@ -99,6 +102,10 @@ export async function POST(req: Request) {
 
 			let assistantFullText = "";
 			let aborted = false;
+			/** A provider or graph error reached the catch: nothing durable may follow. */
+			let failed = false;
+			/** revise_prior_field committed a field before the reply was judged (D-L). */
+			let revisedThisTurn = false;
 			const onAbort = () => {
 				aborted = true;
 				try {
@@ -152,6 +159,10 @@ export async function POST(req: Request) {
 						ev.event === "on_chain_end" &&
 						ev.name === "revise_prior_field"
 					) {
+						// The durable write already happened inside the node, and the client
+						// is about to know about it. If this turn's reply is later retracted,
+						// that write still stands — see the finally block (D-L).
+						revisedThisTurn = true;
 						send({ type: "content_revised" });
 					} else if (
 						ev.event === "on_chain_start" &&
@@ -194,16 +205,8 @@ export async function POST(req: Request) {
 						}
 					}
 				}
-
-				if (!aborted && assistantFullText) {
-					await courseAIService.saveMessage(courseGeneration.id, {
-						role: "assistant",
-						content: assistantFullText,
-						step: courseGeneration.step,
-					});
-				}
-				if (!aborted) send({ type: "done" });
 			} catch (e) {
+				failed = true;
 				if (!abortSignal.aborted) {
 					// Anything not thrown through withNodeErrors — notably a tool-argument
 					// rejection from the unwrapped tool_node — is unclassified and so reads
@@ -223,6 +226,64 @@ export async function POST(req: Request) {
 					});
 				}
 			} finally {
+				// DETECTION, and the sole emitter. Unconditional, so "at most once per
+				// turn" is structural: `finally` runs once per request and
+				// validateModelText emits once per rejected call. No coordination with
+				// the graph node, which runs the same check silently — a node cannot
+				// fire on client abort or a mid-stream provider error, which are
+				// exactly the two exits where tokens already reached the browser.
+				const verdict = assistantFullText
+					? validateModelText(assistantFullText, {
+							feature: "courseAI",
+							userId: session.user.id,
+							subject: { kind: "generation", id: courseGeneration.id },
+						})
+					: ({ valid: true } as const);
+				const isRejected = !verdict.valid;
+
+				// D-L: revise_prior_field already wrote to CourseGeneration.content
+				// before chat_response ran, and the client already saw content_revised.
+				// The write stands — it passed its own authorization — so correlate it
+				// with the adversarial signal rather than pretend the turn was inert.
+				if (isRejected && revisedThisTurn) {
+					logSecurityEvent({
+						feature: "courseAI",
+						userId: session.user.id,
+						layer: "output_validation",
+						outcome: "content_revised_retained",
+						ruleIds: [verdict.ruleId],
+						score: 0,
+						subject: { kind: "generation", id: courseGeneration.id },
+					});
+				}
+
+				// Ordering: event, then retraction, then the fallible writes. Nothing
+				// that can throw sits between the event and the retract frame.
+				if (isRejected) {
+					send({ type: "retract", message: NEUTRAL_REFUSAL_MESSAGE });
+				}
+
+				// `failed` is not cosmetic: the assistant write used to sit inside the
+				// try, so a mid-stream provider error skipped it. Gating only on
+				// !aborted && !isRejected would persist the TRUNCATED reply, send done
+				// after error, and replay that text into the next turn's context.
+				const persistable = !aborted && !failed && !isRejected;
+				if (persistable && assistantFullText) {
+					await courseAIService
+						.saveMessage(courseGeneration.id, {
+							role: "assistant",
+							content: assistantFullText,
+							step: courseGeneration.step,
+						})
+						.catch((err) =>
+							logger.error(
+								{ feature: "courseAI", err },
+								"[courseAI] failed to save the assistant message",
+							),
+						);
+				}
+				if (persistable) send({ type: "done" });
+
 				// Save user message after the graph so state.history never contains
 				// the current-turn message during this request (avoids duplication in
 				// every node that appends state.userMessage to the history it builds).
@@ -232,6 +293,9 @@ export async function POST(req: Request) {
 							role: "user",
 							content: body.userMessage,
 							step: courseGeneration.step,
+							// The turn that elicited a retracted reply stays in the thread
+							// and leaves the model's context.
+							contextEligible: !isRejected,
 						})
 						.catch((err) =>
 							logger.error(

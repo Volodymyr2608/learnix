@@ -15,6 +15,9 @@ export type StreamEvent =
 	| { type: "content_revised" }
 	| { type: "error"; message: string; retryable?: boolean }
 	| { type: "guard_blocked"; message: string }
+	// The reply failed the output boundary after streaming: the tokens already on
+	// screen are withdrawn and replaced by a neutral message.
+	| { type: "retract"; message: string }
 	| { type: "done" };
 
 export const isStreamEvent = (data: unknown): data is StreamEvent => {
@@ -42,6 +45,8 @@ export const isStreamEvent = (data: unknown): data is StreamEvent => {
 			);
 		case "content_revised":
 			return true;
+		case "retract":
+			return typeof event.message === "string";
 		case "error":
 			// `retryable` is optional on purpose: rejecting the event when it is
 			// missing would drop the frame entirely (useChatStreaming skips whatever

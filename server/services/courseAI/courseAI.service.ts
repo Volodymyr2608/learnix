@@ -118,6 +118,7 @@ export class CourseAIService {
 			shouldAutoAdvance: false,
 			assistantText: "",
 			validationErrors: null,
+			outputRejected: false,
 		};
 	}
 
