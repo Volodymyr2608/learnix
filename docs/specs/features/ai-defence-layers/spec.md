@@ -527,3 +527,5 @@ Each line is phrased to become a test or eval row directly. `[EVAL]` marks rows 
   item in the AI area and is tracked separately.
 
 Security design, decision record and accepted risks live in [`security.md`](./security.md).
+The decision and its consequences are recorded in
+[ADR-026](../../../adr/026-shared-ai-defence-layers.md).
