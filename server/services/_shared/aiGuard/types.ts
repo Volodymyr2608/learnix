@@ -36,8 +36,34 @@ export type UntrustedSource =
 	| "lesson_summary"
 	| "path_candidates";
 
+/**
+ * Every surface that constructs a model call. Standalone on purpose: it was
+ * aliased to GuardContext["feature"], which is why three surfaces could not emit
+ * a security event at all (G2).
+ *
+ * GuardContext["feature"] stays narrow — only the two chat surfaces run the input
+ * guard. These two unions and AiRateLimitFeature are three declarations with
+ * three jobs; TypeScript cannot tell a derived alias from a hand-copied union, so
+ * the guard against a future "remove the duplication" refactor is a source-text
+ * contract test, not the type system.
+ */
+export type AiFeature =
+	| "courseAI"
+	| "lessonAI"
+	| "lessonInsightsAI"
+	| "quizAI"
+	| "learningPathAI";
+
 /** Telemetry vocabulary. Separate from GuardOutcome, which drives control flow. */
-export type SecurityLayer = "L1" | "L2" | "tool_policy" | "output_validation";
+export type SecurityLayer =
+	| "L1"
+	| "L2"
+	| "tool_policy"
+	| "output_validation"
+	// A model call that failed and was answered with a degraded path instead of an
+	// error. Its own value because callers would otherwise pick "L2" as the nearest
+	// fit and the layer field would stop discriminating.
+	| "model_call_fallback";
 
 export type SecurityOutcome =
 	| "guard_blocked"
@@ -50,13 +76,28 @@ export type SecurityOutcome =
 	// authorization); this correlates the retained side effect with the
 	// adversarial signal for review. See security.md S7/S13 §24.
 	| "mastery_write_retained"
-	| "fallback_triggered";
+	| "fallback_triggered"
+	// D-L: a prior-field write that stands on a turn whose reply was retracted.
+	// courseAI's analogue of mastery_write_retained.
+	| "content_revised_retained";
+
+/**
+ * Who authored the content that tripped the boundary, when that is not the user
+ * who triggered the call. On insights / quiz / path, `userId` is the operator and
+ * never the author. Id-only and closed, so "no event carries free text, enforced
+ * by the type" survives the addition.
+ */
+export type SecuritySubject = {
+	kind: "lesson" | "course" | "generation" | "quiz";
+	id: string;
+};
 
 export type SecurityEvent = {
-	feature: GuardContext["feature"];
+	feature: AiFeature;
 	userId: string;
 	layer: SecurityLayer;
 	outcome: SecurityOutcome;
 	ruleIds: string[];
 	score: number;
+	subject?: SecuritySubject;
 };

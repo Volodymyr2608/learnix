@@ -1,6 +1,6 @@
 ---
 feature: ai-defence-layers
-status: planned
+status: in-progress
 models: [CourseGenerationMessage]
 depends-on: [ai-input-trust-boundary, ai-tutor-guardrails, ai-chat-route-authorization]
 ---
