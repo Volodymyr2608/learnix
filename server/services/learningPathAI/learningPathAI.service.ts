@@ -4,8 +4,12 @@ import {
 	GRAPH_RECURSION_LIMIT,
 	withTurnDeadline,
 } from "@/server/services/_shared/aiLimits/modelDefaults";
+import { validateModelText } from "@/server/services/_shared/aiOutput";
 import { traced } from "@/server/services/_shared/tracing";
-import { LearningPathRateLimitedError } from "./learningPathAI.errors";
+import {
+	LearningPathOutputRejectedError,
+	LearningPathRateLimitedError,
+} from "./learningPathAI.errors";
 import { buildLearningPathGraph } from "./learningPathAI.graph";
 import type { PathState } from "./learningPathAI.state";
 import type { PathStep } from "./schemas/learningPath.schema";
@@ -36,6 +40,44 @@ function checkRateLimit(studentId: string, courseId: string): void {
 	}
 }
 
+/**
+ * Every model-authored, persisted, student-visible field this surface produces:
+ * the summary, each step's title and reason, and the generated weak concepts.
+ *
+ * Terminal for the whole generation — no retry is consumed, nothing is appended
+ * to violation feedback and the rejected text never re-enters a prompt. A retry
+ * loop here would be a hill-climbing oracle built out of the boundary itself.
+ */
+const assertModelTextClean = (
+	result: {
+		summary?: string;
+		finalSteps?: PathStep[];
+		generatedWeakConcepts?: string[];
+	},
+	ctx: { studentId: string; courseId: string },
+): void => {
+	const steps = result.finalSteps ?? [];
+	const modelText = [
+		result.summary,
+		...steps.flatMap((step) => [step.title, step.reason]),
+		...(result.generatedWeakConcepts ?? []),
+	];
+
+	for (const text of modelText) {
+		const verdict = validateModelText(text ?? "", {
+			feature: "learningPathAI",
+			userId: ctx.studentId,
+			subject: { kind: "course", id: ctx.courseId },
+		});
+		if (!verdict.valid) {
+			throw new LearningPathOutputRejectedError(
+				"Learning path generation failed validation",
+				"INTERNAL_SERVER_ERROR",
+			);
+		}
+	}
+};
+
 class LearningPathAIService {
 	private readonly graph = buildLearningPathGraph();
 
@@ -56,6 +98,8 @@ class LearningPathAIService {
 						signal: withTurnDeadline(),
 					},
 				);
+				assertModelTextClean(result, { studentId, courseId });
+
 				return learningPathRepository.upsertPath({
 					studentId,
 					courseId,
@@ -106,6 +150,11 @@ class LearningPathAIService {
 		}
 
 		if (!finalState) return;
+
+		// Same boundary on the streaming path: the progress frames carry no model
+		// prose, so nothing has reached the student yet and the rejection is still
+		// terminal rather than a retraction.
+		assertModelTextClean(finalState, { studentId, courseId });
 
 		const cached = await learningPathRepository.upsertPath({
 			studentId,
