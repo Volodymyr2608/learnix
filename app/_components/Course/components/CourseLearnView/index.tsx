@@ -40,6 +40,7 @@ import { LessonAssistant } from "@/app/_components/Course/components/LessonAssis
 import QuizPlayer from "@/app/_components/Quiz/QuizPlayer";
 import STUDENT_URLS from "@/lib/constants/urls/studentsUrls";
 import { formatDuration } from "@/lib/format/formatDuration";
+import { hasSafeScheme, isAllowedVideoUrl } from "@/lib/url";
 
 type ResourceItem = { id: string; name: string; type: string; url: string };
 
@@ -141,7 +142,10 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 				<div className="space-y-6 lg:col-span-2">
 					<Card className="overflow-hidden">
 						<div className="aspect-video w-full bg-black">
-							{lesson?.videoUrl ? (
+							{/* The DTO is a write control, and rows stored before it existed
+							    were never parsed by it — so the host allowlist is applied
+							    here too, where the fetch actually happens. */}
+							{lesson?.videoUrl && isAllowedVideoUrl(lesson.videoUrl) ? (
 								<video className="h-full w-full" controls>
 									<track default kind="captions" src="" srcLang="en" />
 									<source src={lesson.videoUrl} type="video/mp4" />
@@ -259,15 +263,17 @@ const CourseLearnView = ({ course, lesson }: CourseLearnViewProps) => {
 														</p>
 													</div>
 												</div>
-												<Button asChild size="sm" variant="ghost">
-													<a
-														href={resource.url}
-														rel="noopener noreferrer"
-														target="_blank"
-													>
-														<Download className="h-4 w-4" />
-													</a>
-												</Button>
+												{hasSafeScheme(resource.url) && (
+													<Button asChild size="sm" variant="ghost">
+														<a
+															href={resource.url}
+															rel="noopener noreferrer"
+															target="_blank"
+														>
+															<Download className="h-4 w-4" />
+														</a>
+													</Button>
+												)}
 											</div>
 										))
 									) : (
