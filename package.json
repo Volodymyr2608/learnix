@@ -24,6 +24,7 @@
 		"test": "vitest run --passWithNoTests",
 		"test:unit": "vitest run --project unit --passWithNoTests",
 		"test:integration": "vitest run --project integration --passWithNoTests",
+		"test:redis": "vitest run --project redis --passWithNoTests",
 		"test:watch": "vitest",
 		"coverage": "vitest run --project unit --coverage --passWithNoTests",
 		"reindex": "tsx --env-file=.env.local scripts/reindex-embeddings.ts",

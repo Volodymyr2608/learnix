@@ -12,6 +12,29 @@ services:
       - postgres:/var/lib/postgresql/data
     ports:
       - '5433:5432'
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    container_name: learnix-redis
+    ports:
+      - '6379:6379'
+
+  srh:
+    # @upstash/redis speaks HTTP/REST, not the Redis wire protocol, so a plain
+    # redis container is not enough. SRH is the HTTP proxy Upstash documents for
+    # local development and testing.
+    image: hiett/serverless-redis-http:latest
+    restart: always
+    container_name: learnix-srh
+    ports:
+      - '8079:80'
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: test-token
+      SRH_CONNECTION_STRING: 'redis://redis:6379'
+    depends_on:
+      - redis
 volumes:
   postgres:
     driver: local

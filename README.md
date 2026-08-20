@@ -102,6 +102,12 @@ UNSUBSCRIBE_SECRET=""
 docker-compose up -d
 ```
 
+This also starts `redis` and `srh` (serverless-redis-http). The AI rate limiter's
+Redis-backed tests need both, plus the two `KV_REST_API_*` values from
+`.env.test.example` in your `.env.test`. `@upstash/redis` speaks HTTP rather than the
+Redis wire protocol, which is why the proxy is there. Without them `pnpm test:redis`
+**skips** rather than fails, so neither CI nor a fresh checkout needs Redis.
+
 ### 4. Run migrations and generate the Prisma client
 
 ```bash

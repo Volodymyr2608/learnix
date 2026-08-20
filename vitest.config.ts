@@ -29,6 +29,19 @@ export default defineConfig({
 					fileParallelism: false,
 				},
 			}),
+			defineProject({
+				resolve: { tsconfigPaths: true },
+				test: {
+					name: "redis",
+					environment: "node",
+					include: ["**/*.redis.test.ts"],
+					exclude: ["**/node_modules/**"],
+					setupFiles: ["./test/loadEnv.ts"],
+					// One shared Redis, and the distribution test asserts an exact shared
+					// ceiling — parallel files would race on the same keys.
+					fileParallelism: false,
+				},
+			}),
 		],
 	},
 });
