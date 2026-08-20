@@ -94,9 +94,14 @@ provisioned here. It injects five variables; only the REST pair is used:
 | `KV_URL` | `rediss://` TCP | no — the client is HTTP-only |
 | `REDIS_URL` | `redis://` TCP | no — same |
 
-Two traps this creates. `Redis.fromEnv()` **cannot** be used: it reads the SDK's own
-`UPSTASH_REDIS_REST_*` names, so the client must be constructed explicitly. And
-`KV_REST_API_READ_ONLY_TOKEN` must never be wired in — the limiter's every call is an `INCR`, and
+Two rules follow. **The adapter never reads the environment itself** — url and token are
+parameters. `Redis.fromEnv()` would in fact work (the SDK falls back to `KV_REST_API_URL` /
+`KV_REST_API_TOKEN`, `node_modules/@upstash/redis/nodejs.mjs:272,278`), and that is precisely why it
+is banned: an adapter that sources its own credentials could connect with values `selectStore` never
+saw, so the production assertion in §5 would pass judgement on one thing while the client used
+another. One decision point, or the assertion guards nothing.
+
+And **`KV_REST_API_READ_ONLY_TOKEN` is never wired in** — the limiter's every call is an `INCR`, and
 because the store fails closed (§4) a read-only token would surface as *every AI request
 rate-limited* rather than as a recognisable credentials error.
 
@@ -127,7 +132,9 @@ Only the 9 run against both adapters; the 2 eviction tests stay memory-only and 
 6. **[BOTH]** Limits are per user: one user exhausting a window does not affect another.
 7. **[BOTH]** A hostile `scope` cannot collide with another key space — verified with `" aggregate"`,
    `"a:b:c"` and a 10 000-character scope.
-8. **[BOTH]** A window expires: after `WINDOW_MS` the caller is allowed again.
+8. A window expires: after `WINDOW_MS` the caller is allowed again. Covered per-adapter
+   (`memory.store.test.ts`, `upstash.redis.test.ts`) rather than in the shared suite — the shared
+   suite carries the nine properties the original file had, and expiry was not among them.
 
 **Distribution — the criterion that closes R3**
 
@@ -155,16 +162,21 @@ Only the 9 run against both adapters; the 2 eviction tests stay memory-only and 
 
 16. `KV_REST_API_URL` / `KV_REST_API_TOKEN` are declared in `lib/env.js` under both
     `server:` and `runtimeEnv:`, and are **optional**, so `pnpm build`, `pnpm test` and a fresh
-    checkout all work without them.
-16a. `KV_REST_API_READ_ONLY_TOKEN` appears nowhere in the codebase — not in `lib/env.js`, not in any
-    `.env.example`. The limiter only ever writes, and fail-closed would disguise a read-only
-    credential as a rate-limit. Not declaring it is the control.
+    checkout all work without them. This is why store selection is deferred to first use (AC 18):
+    `next build` runs with `NODE_ENV=production` and evaluates route modules during page-data
+    collection, so selecting at import time made a credential-less build fail.
+16a. `KV_REST_API_READ_ONLY_TOKEN` is never **declared or wired** — not in `lib/env.js`, not as a
+    key in any `.env` file. The limiter only ever writes, and fail-closed would disguise a read-only
+    credential as a rate-limit. Not declaring it is the control. (It is *named* in prohibition
+    comments in `.env.example` and `lib/env.js`; a source scan asserts no code references it.)
 16b. The Redis client is constructed explicitly from the two values passed into the adapter;
     `Redis.fromEnv()` is not used anywhere, because it reads `UPSTASH_REDIS_REST_*` and would
     silently find nothing under this deployment's variable names.
 17. Startup fails with a clear error when `NODE_ENV === "production"` and `KV_REST_API_URL`
     is absent. A missing production env var must not degrade silently to the memory adapter.
-18. The adapter is chosen once at module load; no call-path branch re-reads the environment.
+18. The adapter is resolved **once, on first use, and memoised** — no call-path branch re-reads the
+    environment after that. Deliberately not at module load: see AC 16. On serverless first use *is*
+    the cold start, so the production assertion is no less prompt where it matters.
 19. The four existing contract tests still pass unchanged in intent: `aiLimits.contract.test.ts`
     (every `.use(aiRateLimit(` sits on a role procedure, `t` stays unexported),
     `limiterMessages.contract.test.ts`, `modelBounds.contract.test.ts`, and
@@ -176,6 +188,31 @@ Only the 9 run against both adapters; the 2 eviction tests stay memory-only and 
     round trip either.
 21. `resourceLimits: APPLIED` in `server/services/_shared/conformance/aiSurfaces.ts` remains accurate
     for all five surfaces.
+
+**Added at `/qa`, from the audit passes**
+
+22. Every `checkAiRateLimit` call site **gates on the verdict**, not merely awaits it. `await
+    checkAiRateLimit(userId, "lessonAI");` as a bare statement awaits correctly, satisfies the
+    conformance scan's `/checkAiRateLimit\(/`, keeps `resourceLimits: APPLIED` green — and leaves the
+    surface completely unlimited. The scan requires `!(await …)`, `const x = await …` or
+    `return await …`, and walks `lib/`, `trpc/` and `scripts/` as well as `server/` and `app/`.
+23. The Redis tier runs **in CI** against `redis` + `serverless-redis-http` services, and a guard
+    test fails when `CI` is set but the credentials are absent. Without it, deleting the job turns
+    every distribution test into a silent skip and takes the evidence for R3's closure with it.
+24. `selectStore` uses an **allowlist** (`development`, `test`) rather than `nodeEnv !== "production"`.
+    `lib/env.js`'s `.default("development")` does not apply under `SKIP_ENV_VALIDATION`, which that
+    file recommends for Docker builds, so an unset `NODE_ENV` would otherwise hand a production
+    deploy the memory adapter and put `airl:v1:undefined:` in the key namespace.
+25. The fail-closed log records the error's **class only**. `@upstash/redis` builds its message as
+    `` `${body.error}, command was: ${JSON.stringify(req.body)}` ``, and an `eval` body carries the
+    Lua script plus the prefixed keys — which embed the userId, and the courseId on a scoped window.
+    Logging the raw error would write an identifiable userId to stdout for every AI request during an
+    outage, outside `logSecurityEvent` and under no retention policy.
+26. `checkAndBump([])` returns `false`. An empty window list makes the Lua guard loop vacuous and
+    would return 1 — a fail-open shape. Unreachable today; the guard is against a future caller.
+27. No production file imports `__resetWindowsForTest`, `resetForTest` or `__storeSizeForTest`. On
+    the Upstash adapter `resetForTest` is `KEYS` + `DEL` across the environment's whole key space —
+    one production call would drop every user's counters.
 
 ## Agent notes
 

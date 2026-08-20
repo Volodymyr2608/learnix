@@ -31,8 +31,11 @@ detector, not a proof; its value against an adaptive attacker is a function of a
 Move the counters to a shared store, keep the policy exactly where it is, and make the distribution
 property a **test** rather than a claim.
 
-1. **A `RateLimitStore` port with two adapters, selected once at module load.** Upstash when
-   `KV_REST_API_URL` is set, the existing in-memory `Map` otherwise. Development and CI run
+1. **A `RateLimitStore` port with two adapters, resolved once on first use and memoised.** Upstash
+   when `KV_REST_API_URL` is set, the existing in-memory `Map` otherwise. Resolution is deferred
+   rather than done at import because `next build` runs with `NODE_ENV=production` and evaluates
+   route modules during page-data collection, so an import-time assertion failed builds that have no
+   credentials. On serverless first use *is* the cold start, so nothing is lost where it matters. Development and CI run
    on memory, so neither acquires a service dependency. Both adapters are driven by one shared
    table-driven suite — the 9 behavioural properties `checkAiRateLimit.test.ts` pins today — because a
    port whose implementations are tested separately is a port whose implementations diverge. (The
@@ -60,15 +63,21 @@ property a **test** rather than a claim.
    unreachable store cannot hold an SSE route open until the 30 s model timeout — that would turn a
    dependency outage into resource exhaustion on our own side.
 
-6. **Env vars optional in `lib/env.js`, with a production startup assertion.** Optional keeps Redis
-   out of CI and out of a fresh checkout. The assertion — fail at startup when `NODE_ENV` is
-   `production` and the URL is absent — is what makes optional safe.
+6. **Env vars optional in `lib/env.js`, with a production assertion at store selection.** Optional
+   keeps Redis out of CI and out of a fresh checkout. The assertion is what makes optional safe, and
+   it keys on an **allowlist** — only `development` and `test` may run on the Map. Not
+   `NODE_ENV !== "production"`: `lib/env.js`'s `.default("development")` does not apply under
+   `SKIP_ENV_VALIDATION`, which that same file recommends for Docker builds, so an unset `NODE_ENV`
+   would otherwise select the Map silently and namespace its keys `airl:v1:undefined:`.
 
    The names are **`KV_REST_API_URL` and `KV_REST_API_TOKEN`**, because the store was provisioned
    through the Vercel Upstash/KV marketplace integration, which injects those rather than the SDK's
-   own `UPSTASH_REDIS_REST_*` defaults. Two consequences follow and are easy to get wrong:
-   `Redis.fromEnv()` cannot be used (it reads the SDK names), so the client is constructed
-   explicitly; and `KV_REST_API_READ_ONLY_TOKEN` must never be wired in — the limiter's whole job is
+   own `UPSTASH_REDIS_REST_*` defaults. Two consequences follow and are easy to get wrong. The
+   adapter takes url and token as **parameters** and never reads the environment: `Redis.fromEnv()`
+   would actually work here — the SDK falls back to the `KV_REST_API_*` names — and that is the
+   reason to ban it, because an adapter sourcing its own credentials could connect with values
+   `selectStore` never inspected, leaving the production assertion adjudicating a decision it does
+   not control. And `KV_REST_API_READ_ONLY_TOKEN` must never be wired in — the limiter's whole job is
    `INCR`, and because the adapter fails closed a read-only token would present as *every AI request
    rate-limited* rather than as an obvious credentials error. The integration also injects `KV_URL`
    and `REDIS_URL`, which are TCP and belong to the `ioredis` option rejected below.
@@ -118,6 +127,13 @@ call outside its own module must be immediately preceded by `await`
 it fail. The four pre-existing source-scanning contract tests were checked against the added
 `await` and need no changes — they match `checkAiRateLimit(` unanchored and `.use(aiRateLimit(` at
 router call sites, neither of which this touches.
+
+**The distribution test runs in CI, or it does not count.** The tier skips itself when the
+credentials are absent, so without a CI job it would have reported green by never executing — leaving
+the production adapter with no behavioural coverage at all and the Lua script guarded by two
+`indexOf` assertions. A `redis` job runs it against `redis` + `serverless-redis-http`, and a guard
+test fails when `CI` is set and the credentials are not, so deleting the job cannot quietly restore
+the old state.
 
 **The most likely failure mode of this work is that it is never enabled.** A missing production env
 var puts the platform back on the per-process Map with the whole suite, and the

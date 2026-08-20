@@ -66,9 +66,12 @@ rejection, not a pass.
 - `@upstash/redis` API (verified via Context7, `/upstash/docs`):
   `redis.eval(script, keys[], args[])`; `new Redis({ url, token, signal: () => AbortSignal.timeout(ms), retry: { retries } })`;
   a timeout throws `TimeoutError`.
-- **`Redis.fromEnv()` must NOT be used.** It reads `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`,
-  and the Vercel Upstash/KV integration injects `KV_REST_API_*` instead. Always construct explicitly
-  with `new Redis({ url, token })` from the values passed into `createUpstashStore`.
+- **`Redis.fromEnv()` must NOT be used** — but not because it would fail. It reads
+  `UPSTASH_REDIS_REST_*` and *falls back to* `KV_REST_API_URL` / `KV_REST_API_TOKEN`
+  (`node_modules/@upstash/redis/nodejs.mjs:272,278`), so it would work. It is banned because the
+  adapter must not source its own credentials: `selectStore` is the single decision point and the
+  place the production assertion lives. Always construct explicitly with `new Redis({ url, token })`
+  from the values passed into `createUpstashStore`.
 - **The five variables Vercel injects, and which to use** (present but commented out in `.env.local`):
   | Variable | Transport | Use it? |
   |---|---|---|

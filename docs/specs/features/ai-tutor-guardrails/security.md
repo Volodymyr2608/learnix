@@ -492,8 +492,9 @@ Written as facts after implementation, not as intentions before it.
     **Closed 2026-08, two narrower problems that were filed here by mistake:** the window is now
     keyed `${userId}:${feature}`, so using the tutor no longer spends the same account's
     course-builder allowance; and `createLessonAgent`'s stream declares
-    `recursionLimit: 12`, so one *request* no longer means an unbounded number of model calls. The
-    per-process property is unchanged.
+    `recursionLimit: 12`, so one *request* no longer means an unbounded number of model calls. ~~The
+    per-process property is unchanged.~~ **R3's per-process property closed 2026-08-20** by
+    `distributed-ai-rate-limiter` / ADR-027: counters now live in a shared store.
 
 **Measured — one run, 2026-08-09, `gpt-4o-mini`**
 
@@ -630,7 +631,7 @@ consequences that were accepted rather than solved.
     on for far longer. `AGENT_RECURSION_LIMIT = 12` bounds the *number* of model calls per request,
     not the duration or size of any one, so the worst case per request is 12 × (SDK default timeout ×
     default retries) of wall clock. No injection is needed to reach it; the only other bound is the
-    per-process rate limiter (§17). Not fixed here because `maxTokens` changes reply behaviour and so
+    distributed rate limiter (§17). Not fixed here because `maxTokens` changes reply behaviour and so
     needs its own eval run — this is a spec'd change, not a one-line follow-on. The same omission
     exists on `quizAI`, `courseAI`, `lessonInsightsAI` and `learningPathAI`.
 

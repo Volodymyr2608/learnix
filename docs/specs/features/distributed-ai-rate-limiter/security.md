@@ -1,9 +1,10 @@
 # Security — distributed-ai-rate-limiter
 
 **Status:** design (produced at `/spec`, 2026-08-20) · **Tier:** complex ·
-**Method:** manual design pass over the drafted spec, with code verification of every load-bearing
-claim. **A formal `security-auditor` + `llm-security-auditor` design-mode pass has _not_ been run**
-— see S8.
+**Method:** manual design pass over the drafted spec at `/spec`, with code verification of every
+load-bearing claim. The design-mode passes CLAUDE.md §3d requires were **not** run (S8); both agents
+ran in **`audit` mode at `/qa`** instead, and what they found is in S7b. Treat S8 as the standing
+process debt this feature carries.
 
 Written as requirements, so it can be followed without reading the implementation. Every control
 here appears as an acceptance criterion in [`spec.md`](./spec.md) — that is what makes `/plan` unable
@@ -152,6 +153,55 @@ against the same deliberate omission and watching it fail. This is the same reas
 ADR-026's wrapping scan: where the type system cannot express the invariant, the source text is the
 enforcement point.
 
+## S7b. Found at `/qa`, by the audit passes S8 says were skipped at `/spec`
+
+Both agents ran in `audit` mode over the finished branch. Everything here was **fixed**, not
+accepted; each is listed because the class matters more than the instance.
+
+1. **The redis tier never ran in CI** (highest-severity finding). `.github/workflows/ci.yml` ran only
+   `test:unit` and `test:integration`, and the tier skips itself when the credentials are absent — so
+   the distribution test that closes R3, and *all* behavioural coverage of the production adapter,
+   reported green by never executing. The Lua script's only CI coverage was two `indexOf` assertions
+   and a mocked `eval` returning a canned `1`; a one-character error in the `ARGV[i + 1]` max lookup
+   would have passed every gate. Fixed: a `redis` CI job with `redis` + SRH services, plus a guard
+   test that fails when `CI` is set and the credentials are not (AC 23). **R3's closure now has
+   automated evidence rather than a reviewer's word.**
+2. **Two AC 20 assertions had become vacuous.** `expect(__windowSizeForTest()).toBe(0)` read the
+   *memory* Map while the limiter under test ran on whichever store `selectStore` picked. With
+   `KV_REST_API_*` set — the configuration `.env.test.example` invites — the Map is never written and
+   the assertion passed regardless of whether the role check ran first. Fixed by reading through the
+   limiter's own store (AC 20). This is the S6 defect class turned inward: a control that reads as
+   applied and is empty in fact.
+3. **`await` was not the same as *gating*.** The S7a scan required `await` before every call, which a
+   bare `await checkAiRateLimit(userId, "lessonAI");` satisfies while leaving the surface completely
+   unlimited — and the conformance scan stays green, because it only greps for the identifier. Fixed
+   by requiring a gating shape (AC 22). Verified by injecting the bypass: the conformance suite
+   passed 13/13, and only the tightened scan caught it.
+4. **The production assertion fired at `next build`.** Selecting the store at module load meant a
+   credential-less build failed during page-data collection, contradicting AC 16 and `lib/env.js`'s
+   own comment. Fixed by deferring selection to first use (AC 16, AC 18). The alternative — keep the
+   build failure and amend the docs — was considered and rejected: it gates nothing in CI (which
+   never runs `pnpm build`), and its likely outcome is a contributor setting a placeholder URL, which
+   fails closed and would 429 every AI request on a deploy that built and started cleanly.
+5. **`nodeEnv` could be `undefined`.** Under `SKIP_ENV_VALIDATION` — recommended by `lib/env.js` for
+   Docker builds — `.default("development")` does not apply, so a deny-list check would have handed a
+   production deploy the memory adapter silently. Fixed with an allowlist (AC 24).
+6. **The fail-closed log carried a userId.** Verified live by the auditor: an `UpstashError` embeds
+   `command was: [...]`, i.e. the Lua script and the prefixed keys. Fixed to log the error class only
+   (AC 25). The token was never at risk — it travels in the `authorization` header, not the body.
+
+**Corrected, and worth recording because the control survived a false rationale:** the spec and
+ADR-027 justified banning `Redis.fromEnv()` on the grounds that it reads only `UPSTASH_REDIS_REST_*`.
+That is false — it falls back to `KV_REST_API_*` (`node_modules/@upstash/redis/nodejs.mjs:272,278`),
+so it would have worked. The ban is still right, for a different reason: the adapter must not source
+its own credentials, because `selectStore` is the single decision point and the place the production
+assertion lives.
+
+**Not fixed, accepted:** the three raw SSE routes still have no behavioural rate-limit test — no test
+drives `POST /api/chat/lesson` to a 429. AC 22's scan plus the middleware integration test cover the
+tRPC surfaces and the call shape; the routes' enforcement is proven by source scan only. Recorded
+here rather than silently left: the next change to those handlers should add one.
+
 ## S8. Method gap
 
 `CLAUDE.md` §3d requires a design-time pass by `security-auditor` (new external service, an
@@ -165,5 +215,22 @@ against this spec before `/plan`, and fold anything they add into S2–S7 as acc
   `studentProcedure` with no limiter, and semantic search is not a member of the `AiFeature` union at
   all — so it is outside this limiter's type domain and cannot simply be added to the table. Both
   call an embedding model. Pre-existing, untouched by this feature, and worth its own spec.
+
+  Two things this feature changes about it. **Relatively it is now worse**: the five `AiFeature`
+  surfaces are hard-capped at 30/min/user, which makes an uncapped embedding endpoint the cheapest
+  way to burn OpenAI spend on the platform. And **no contract test can currently see it** —
+  `aiSurfaces.contract.test.ts` derives model callers from `/new ChatOpenAI\(/`, so
+  `OpenAIEmbeddings` is structurally invisible to the completeness scan. It is not an omission the
+  matrix could ever have caught. Widen the scan to `/new (ChatOpenAI|OpenAIEmbeddings)\(/` when that
+  surface gets its own spec.
+
+- **The divisor moved from instances to accounts, and nothing here prices accounts.** R3's closure
+  makes the L1 brute-force budget 30 probes/min *per account* (20 on `lessonAI`, 20 on `courseAI`,
+  aggregate binding at 30). What that costs an attacker is now a function of how fast they can create
+  accounts, which this feature does not bound. Two things do: `requireEmailVerification` means each
+  identity costs a deliverable mailbox, and `role.input: false` means a self-registered account
+  cannot reach `courseAI` at all — leaving `lessonAI` at 20/min behind an enrollment. Sign-up
+  throttling is classic AppSec and belongs to `security-auditor`; recorded here because it is the
+  quantitative successor to R3, not an unrelated auth gap.
 - Better Auth sign-in has no throttling. Out of scope here; noted because "the platform rate-limits"
   is the kind of claim that generalises further than the code does.
