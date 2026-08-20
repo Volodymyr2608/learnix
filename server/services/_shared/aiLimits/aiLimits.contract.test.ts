@@ -125,3 +125,49 @@ describe("aiLimits exports no way to lose a role check (AC 35)", () => {
 		expect(sites.length).toBeGreaterThanOrEqual(3);
 	});
 });
+
+/**
+ * `checkAiRateLimit` returns a Promise since the counters moved to a shared
+ * store. A Promise is ALWAYS truthy, so a call site that drops the `await`
+ * reads `if (!promise)` — permanently false — and the surface silently stops
+ * being rate limited.
+ *
+ * Neither gate catches it: tsc accepts `!somePromise`, and Biome's formatter
+ * and linter have nothing to say about it either (verified by removing an
+ * `await` and running both). The failure is invisible in tests too, because
+ * `await` over a non-Promise is a no-op, so the same test passes against the
+ * sync and async versions alike.
+ *
+ * That leaves the source text, which is the same reason AC 35 above is a scan.
+ */
+describe("every checkAiRateLimit call site awaits its result", () => {
+	const CALLERS = ["server", "app"];
+	const OWN_MODULE = "server/services/_shared/aiLimits/checkAiRateLimit.ts";
+
+	const callSites = () =>
+		CALLERS.flatMap((root) => walk(root))
+			.filter((f) => !f.endsWith(".test.ts") && f !== OWN_MODULE)
+			.flatMap((file) => {
+				const source = code(file);
+				return [...source.matchAll(/checkAiRateLimit\s*\(/g)].map((match) => ({
+					file,
+					before: source.slice(
+						Math.max(0, (match.index as number) - 8),
+						match.index as number,
+					),
+				}));
+			});
+
+	it("has no unawaited call", () => {
+		const offenders = callSites()
+			.filter(({ before }) => !/\bawait\s+$/.test(before))
+			.map(({ file }) => `${file}: checkAiRateLimit(…) without await`);
+
+		expect(offenders, offenders.join("\n")).toEqual([]);
+	});
+
+	it("finds the call sites at all — the scan is not vacuous", () => {
+		// Three raw routes, the tRPC middleware, and learningPathAI's scoped window.
+		expect(callSites().length).toBeGreaterThanOrEqual(5);
+	});
+});

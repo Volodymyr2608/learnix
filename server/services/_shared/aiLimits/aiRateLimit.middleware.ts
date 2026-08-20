@@ -20,11 +20,11 @@ import { checkAiRateLimit } from "./checkAiRateLimit";
  * would let a caller choose whose budget to spend.
  */
 export const aiRateLimit = (feature: AiRateLimitFeature) =>
-	createTRPCMiddleware(({ ctx, next }) => {
+	createTRPCMiddleware(async ({ ctx, next }) => {
 		const userId = ctx.session?.user?.id;
 		if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
 
-		if (!checkAiRateLimit(userId, feature)) {
+		if (!(await checkAiRateLimit(userId, feature))) {
 			throw new TRPCError({
 				code: "TOO_MANY_REQUESTS",
 				message: "Too many AI requests — please try again shortly.",

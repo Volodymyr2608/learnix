@@ -24,8 +24,11 @@ import type { PathStep } from "./schemas/learningPath.schema";
  * enrollment first); a limiter key derived from raw request input would let a
  * caller pick their own bucket.
  */
-function checkRateLimit(studentId: string, courseId: string): void {
-	const allowed = checkAiRateLimit(studentId, "learningPathAI", {
+async function checkRateLimit(
+	studentId: string,
+	courseId: string,
+): Promise<void> {
+	const allowed = await checkAiRateLimit(studentId, "learningPathAI", {
 		scope: courseId,
 		countAggregate: false,
 	});
@@ -86,7 +89,7 @@ class LearningPathAIService {
 	}
 
 	async regenerate(studentId: string, courseId: string) {
-		checkRateLimit(studentId, courseId);
+		await checkRateLimit(studentId, courseId);
 
 		return traced(
 			"learning-path",
@@ -114,7 +117,7 @@ class LearningPathAIService {
 	}
 
 	async *streamRegenerate(studentId: string, courseId: string) {
-		checkRateLimit(studentId, courseId);
+		await checkRateLimit(studentId, courseId);
 
 		const nodeProgressMap: Record<string, string> = {
 			loadStudentSignal: "Analyzing your progress…",

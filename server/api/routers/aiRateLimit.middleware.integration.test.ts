@@ -7,8 +7,8 @@ import { createCallerFactory } from "@/server/api/trpc";
 import {
 	__featureCountForTest,
 	__resetWindowsForTest,
-	__windowSizeForTest,
 } from "@/server/services/_shared/aiLimits/checkAiRateLimit";
+import { __windowSizeForTest } from "@/server/services/_shared/aiLimits/store/memory.store";
 import { testDb, truncateAll } from "@/test/db";
 import {
 	makeCourse,
@@ -45,8 +45,8 @@ const seedLesson = async () => {
 	return { instructor, lesson };
 };
 
-beforeEach(() => {
-	__resetWindowsForTest();
+beforeEach(async () => {
+	await __resetWindowsForTest();
 	mockGenerate.mockReset();
 	mockGenerate.mockResolvedValue([]);
 });
@@ -87,7 +87,9 @@ describe("aiRateLimit middleware ordering (AC 34, 36, 37)", () => {
 			regenerate: false,
 		});
 
-		expect(__featureCountForTest(instructor.id, "quizAI")).toBe(1);
+		await expect(__featureCountForTest(instructor.id, "quizAI")).resolves.toBe(
+			1,
+		);
 		expect(mockGenerate).toHaveBeenCalled();
 	});
 

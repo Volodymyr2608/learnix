@@ -8,8 +8,8 @@ import {
 	__aggregateCountForTest,
 	__featureCountForTest,
 	__resetWindowsForTest,
-	__windowSizeForTest,
 } from "@/server/services/_shared/aiLimits/checkAiRateLimit";
+import { __windowSizeForTest } from "@/server/services/_shared/aiLimits/store/memory.store";
 import { testDb, truncateAll } from "@/test/db";
 import {
 	makeCourse,
@@ -55,8 +55,8 @@ const seedCourse = async (title: string) => {
 	return course;
 };
 
-beforeEach(() => {
-	__resetWindowsForTest();
+beforeEach(async () => {
+	await __resetWindowsForTest();
 	mockRegenerate.mockReset();
 	mockRegenerate.mockResolvedValue({ steps: [], summary: "ok" });
 });
@@ -146,7 +146,11 @@ describe("learningPath.regenerate rate limiting", () => {
 			...({ userId: victim.id } as any),
 		});
 
-		expect(__featureCountForTest(student.id, "learningPathAI")).toBe(1);
-		expect(__featureCountForTest(victim.id, "learningPathAI")).toBe(0);
+		await expect(
+			__featureCountForTest(student.id, "learningPathAI"),
+		).resolves.toBe(1);
+		await expect(
+			__featureCountForTest(victim.id, "learningPathAI"),
+		).resolves.toBe(0);
 	});
 });
