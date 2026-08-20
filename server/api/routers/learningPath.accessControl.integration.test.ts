@@ -8,8 +8,8 @@ import {
 	__aggregateCountForTest,
 	__featureCountForTest,
 	__resetWindowsForTest,
+	__storeSizeForTest,
 } from "@/server/services/_shared/aiLimits/checkAiRateLimit";
-import { __windowSizeForTest } from "@/server/services/_shared/aiLimits/store/memory.store";
 import { testDb, truncateAll } from "@/test/db";
 import {
 	makeCourse,
@@ -131,7 +131,12 @@ describe("learningPath.regenerate rate limiting", () => {
 				.catch(() => undefined);
 		}
 
-		expect(__windowSizeForTest()).toBe(0);
+		// Through the limiter's OWN store, not the memory Map. The old assertion read
+		// __windowSizeForTest directly off the Map, so with KV_REST_API_URL set the
+		// limiter ran on Redis, the Map was never written, and this passed whether or
+		// not the auth check ran first. An anonymous call has no userId to query, so
+		// the property genuinely needs a store-wide count.
+		await expect(__storeSizeForTest()).resolves.toBe(0);
 	});
 
 	it("keys on ctx.session.user.id only — an input id cannot spend someone else's budget (AC 37)", async () => {

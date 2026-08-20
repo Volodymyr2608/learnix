@@ -21,4 +21,14 @@ export type RateLimitStore = {
 	countForTest(key: string): Promise<number>;
 	/** Test-only. Drop all state. */
 	resetForTest(): Promise<void>;
+	/**
+	 * Test-only. How many live windows this store holds.
+	 *
+	 * On the port, not on the memory adapter alone: the assertion it serves — an
+	 * ANONYMOUS caller creates no window at all — has no userId to query, so it
+	 * needs a store-wide count, and it must read the store the limiter actually
+	 * used. Reading the memory Map while the limiter ran on Redis makes that
+	 * assertion pass unconditionally: applied in the matrix, empty in fact.
+	 */
+	sizeForTest(): Promise<number>;
 };

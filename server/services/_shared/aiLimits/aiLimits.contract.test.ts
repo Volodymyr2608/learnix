@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -140,28 +140,54 @@ describe("aiLimits exports no way to lose a role check (AC 35)", () => {
  *
  * That leaves the source text, which is the same reason AC 35 above is a scan.
  */
-describe("every checkAiRateLimit call site awaits its result", () => {
-	const CALLERS = ["server", "app"];
+describe("every checkAiRateLimit call site gates on its result", () => {
+	// Not just server/ and app/: a call site added under lib/, trpc/ or scripts/
+	// would otherwise be invisible to this control.
+	const CALLERS = ["server", "app", "lib", "trpc", "scripts"];
 	const OWN_MODULE = "server/services/_shared/aiLimits/checkAiRateLimit.ts";
+	// Not a .test.ts file, but a test helper: its ~18 awaited calls would pad the
+	// vacuity count below and let it pass with every real call site deleted.
+	const CONTRACT_SUITE =
+		"server/services/_shared/aiLimits/store/storeContract.ts";
+
+	/**
+	 * The two shapes the codebase actually uses:
+	 *   if (!(await checkAiRateLimit(…)))
+	 *   const allowed = await checkAiRateLimit(…)
+	 *
+	 * `await` alone is NOT enough. `await checkAiRateLimit(userId, "lessonAI");`
+	 * as a bare statement awaits correctly, satisfies the conformance scan's
+	 * `/checkAiRateLimit\(/`, keeps `resourceLimits: APPLIED` green — and leaves
+	 * the surface completely unlimited, because nothing reads the verdict.
+	 */
+	const GATED =
+		/(?:!\s*\(\s*await\s+|(?:const|let|var)\s+\w+\s*=\s*await\s+|return\s+await\s+)$/;
 
 	const callSites = () =>
-		CALLERS.flatMap((root) => walk(root))
-			.filter((f) => !f.endsWith(".test.ts") && f !== OWN_MODULE)
+		CALLERS.filter((root) => existsSync(root))
+			.flatMap((root) => walk(root))
+			.filter(
+				(f) =>
+					!f.endsWith(".test.ts") && f !== OWN_MODULE && f !== CONTRACT_SUITE,
+			)
 			.flatMap((file) => {
 				const source = code(file);
 				return [...source.matchAll(/checkAiRateLimit\s*\(/g)].map((match) => ({
 					file,
 					before: source.slice(
-						Math.max(0, (match.index as number) - 8),
+						Math.max(0, (match.index as number) - 40),
 						match.index as number,
 					),
 				}));
 			});
 
-	it("has no unawaited call", () => {
+	it("uses every verdict to gate the request", () => {
 		const offenders = callSites()
-			.filter(({ before }) => !/\bawait\s+$/.test(before))
-			.map(({ file }) => `${file}: checkAiRateLimit(…) without await`);
+			.filter(({ before }) => !GATED.test(before))
+			.map(
+				({ file }) =>
+					`${file}: checkAiRateLimit(…) result is not awaited into a gate`,
+			);
 
 		expect(offenders, offenders.join("\n")).toEqual([]);
 	});
@@ -169,5 +195,39 @@ describe("every checkAiRateLimit call site awaits its result", () => {
 	it("finds the call sites at all — the scan is not vacuous", () => {
 		// Three raw routes, the tRPC middleware, and learningPathAI's scoped window.
 		expect(callSites().length).toBeGreaterThanOrEqual(5);
+	});
+});
+
+/**
+ * `resetForTest` used to clear one process's Map. On the Upstash adapter it is
+ * `KEYS airl:v1:<env>:*` followed by `DEL` — one call from production code would
+ * drop EVERY user's counters in that environment, and `KEYS` blocks the shared
+ * database while it scans.
+ *
+ * `aiLimits/index.ts` deliberately keeps the test helpers out of the barrel, but
+ * nothing enforced that a caller could not deep-import them. This does.
+ */
+describe("the test-only store helpers stay out of production code", () => {
+	const ROOTS = ["server", "app", "lib", "trpc", "scripts"];
+	const OWNERS = [
+		"server/services/_shared/aiLimits/checkAiRateLimit.ts",
+		"server/services/_shared/aiLimits/store/index.ts",
+		"server/services/_shared/aiLimits/store/memory.store.ts",
+		"server/services/_shared/aiLimits/store/upstash.store.ts",
+		"server/services/_shared/aiLimits/store/types.ts",
+		"server/services/_shared/aiLimits/store/storeContract.ts",
+	];
+
+	it("no production file reaches for __resetWindowsForTest or resetForTest", () => {
+		const offenders = ROOTS.filter((root) => existsSync(root))
+			.flatMap((root) => walk(root))
+			.filter((f) => !f.endsWith(".test.ts") && !OWNERS.includes(f))
+			.filter((file) =>
+				/__resetWindowsForTest|\bresetForTest\b|__storeSizeForTest/.test(
+					code(file),
+				),
+			);
+
+		expect(offenders, offenders.join("\n")).toEqual([]);
 	});
 });

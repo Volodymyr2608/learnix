@@ -77,6 +77,8 @@ export const memoryStore: RateLimitStore = {
 		peek(key, Date.now())?.count ?? 0,
 
 	resetForTest: async (): Promise<void> => windows.clear(),
+
+	sizeForTest: async (): Promise<number> => windows.size,
 };
 
 /** Memory-adapter-only: the eviction tests assert on total key count. */

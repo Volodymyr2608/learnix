@@ -106,6 +106,7 @@ export const createRateLimiter = (store: RateLimitStore) => {
 		featureCountForTest: (userId: string, feature: string, scope?: string) =>
 			store.countForTest(featureKey(userId, feature, scope)),
 		resetForTest: () => store.resetForTest(),
+		storeSizeForTest: () => store.sizeForTest(),
 	};
 };
 
@@ -120,3 +121,5 @@ export const validateMessageLength = (m: string): boolean =>
 export const __resetWindowsForTest = limiter.resetForTest;
 export const __aggregateCountForTest = limiter.aggregateCountForTest;
 export const __featureCountForTest = limiter.featureCountForTest;
+/** Store-wide live-window count, for "an anonymous caller created nothing at all". */
+export const __storeSizeForTest = limiter.storeSizeForTest;

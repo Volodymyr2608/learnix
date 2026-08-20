@@ -89,6 +89,12 @@ export const createUpstashStore = (
 			windows: readonly LimitWindow[],
 			windowMs: number,
 		): Promise<boolean> => {
+			// An empty window list would make the Lua script's guard loop vacuous and
+			// return 1 — a fail-OPEN shape. Unreachable today (checkAiRateLimit always
+			// pushes the feature window), so this is a guard against a future caller,
+			// not a live defect.
+			if (windows.length === 0) return false;
+
 			try {
 				const result = await redis.eval(
 					CHECK_AND_BUMP_SCRIPT,
@@ -101,9 +107,17 @@ export const createUpstashStore = (
 				// search; a limiter that opens under load is not a limiter, because
 				// inducing that load is cheap. The availability cost is deliberate and
 				// recorded in the feature's security.md S4.
+				// The SHAPE of the error, never the payload. @upstash/redis builds its
+				// message as `${body.error}, command was: ${JSON.stringify(req.body)}`,
+				// and for an eval that body carries the whole Lua script plus the
+				// prefixed keys — which embed the userId, and the courseId on a scoped
+				// window. Logging the raw error would write an identifiable userId to
+				// stdout for EVERY AI request during an outage or a bad token, outside
+				// logSecurityEvent and under no retention policy. (The token itself is
+				// never at risk: it travels in the authorization header, not the body.)
 				console.error(
 					"[aiLimits] rate-limit store unavailable — failing closed",
-					error,
+					{ name: error instanceof Error ? error.name : "unknown" },
 				);
 				return false;
 			}
@@ -118,5 +132,8 @@ export const createUpstashStore = (
 			const keys = await redis.keys(`${keyPrefix()}*`);
 			if (keys.length > 0) await redis.del(...keys);
 		},
+
+		sizeForTest: async (): Promise<number> =>
+			(await redis.keys(`${keyPrefix()}*`)).length,
 	};
 };
