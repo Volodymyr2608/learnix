@@ -11,7 +11,7 @@ export {
 	AGGREGATE_MAX,
 	type AiRateLimitFeature,
 	checkAiRateLimit,
-	EVICT_THRESHOLD,
+	createRateLimiter,
 	MAX_MSG_LENGTH,
 	validateMessageLength,
 } from "./checkAiRateLimit";

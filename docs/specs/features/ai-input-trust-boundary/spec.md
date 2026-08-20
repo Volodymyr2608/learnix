@@ -231,7 +231,8 @@ Each criterion is phrased to become an eval or unit case directly.
   separate mechanism (M1) against a separate threat, tracked as Д4.
 - **Any check on the model's output.** A poisoned reply is still streamed to the browser and stored,
   and returns as `AIMessage` context on the next turn. Tracked as Д5/M2.
-- Per-process rate limiting being per-instance rather than per-user (Д6).
+- Per-process rate limiting being per-instance rather than per-user (Д6). **Closed 2026-08-20 by
+  ADR-027** — the counters moved to a shared store.
 - Rate limiting and input-length ceilings (L0 in the hardening plan) — separate concern, no dependency.
 - AI metrics, latency budgets, cost tracking — workstream D of `ai-hardening-plan.md`.
 - Per-node documentation and typed node errors — workstream B.

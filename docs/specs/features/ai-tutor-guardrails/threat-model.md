@@ -228,7 +228,7 @@ Only entries that apply are listed; a boundary is not padded to six rows.
 | Boundary | Threat | Assessment |
 |---|---|---|
 | **B1** anon → student | **S**poofing | Better Auth session; no tutor path accepts a user id from the client. |
-| | **D**oS | Rate limit is per-process (R3): the effective guarantee is 20 requests per *instance*, not per user. Message length capped at 2000. |
+| | **D**oS | Rate limit is enforced in a shared store (R3 closed, ADR-027), so the ceiling is per *user* rather than per instance. Message length capped at 2000. |
 | **B2** shape | **T**ampering | Prisma accepts a `StringFilter` wherever a `String` id is expected; `z.cuid()` removes the representation. |
 | | **I**nfo disclosure | Validation runs **after** auth, so an unauthenticated caller cannot probe the schema shape. |
 | **B3** student → course | **E**levation | Historically the highest-value threat here: check and fetch resolving to different rows (closed, ADR-023). Cancelled enrollments are now excluded, closing a paywall bypass billed to the platform's OpenAI account. |
@@ -319,7 +319,7 @@ into L2's scope description. *Closed* by wrapping channel 5.
 |---|---|---|---|
 | **R1** | `mark_concept_understood` accepts any string 1–80 chars and writes `ConceptMastery` with no authorisation. The allowlist is a sentence in the prompt; if `lessonConcepts` is empty there is no constraint at all. The Zod schema validates *shape*, never *authority*. | M1 | **High** — falsified educational records, reachable without any injection (A2) |
 | **R2** | No boundary on model output: tokens stream straight to the browser and the reply is persisted as-is. No prompt-leak check, no confidence signal, one `catch` collapsing every error. | M2 | **Closed** — `validateReply` runs fail-closed on all three exits of a turn (completion, client abort, mid-stream error), so the disclosure is unchanged and accepted (S13 §2) while the detection gap is shut. Residual: the tokens still reach the browser before any verdict; what is now guaranteed is that they always produce an event. |
-| **R3** | Rate limiter state is a `Map` in process memory: parallel requests reach separate instances each with its own counter, and a cold start resets the window. **The guarantee is 20 requests per instance per minute, and the attacker controls the instance count through parallelism.** It is also the only thing pricing a brute-force search for a phrasing that slips past L1. | Area 2 | Medium |
+| **R3** | Rate limiter state was a `Map` in process memory: parallel requests reached separate instances each with its own counter, and a cold start reset the window. The guarantee was 20 requests per instance per minute, with the attacker choosing the instance count through parallelism. | Area 2 | **Closed** — counters moved to a shared store (Upstash Redis, one atomic Lua check-then-bump) behind a `RateLimitStore` port; see [ADR-027](../../../adr/027-distributed-ai-rate-limiting.md) and [`../distributed-ai-rate-limiter/spec.md`](../distributed-ai-rate-limiter/spec.md). Proven by a test using two independently constructed clients against one Redis, which fails under per-instance counting. Residual: fail-closed means a store outage disables every AI surface (that feature's `security.md` S4). |
 | **R4** | Both contract tests verify **registration, not completeness** — they catch "a new file appeared", not "an existing file grew a new input channel". This is exactly how the original `lessonAI` exemption rotted. A stronger form imports the agents at runtime and walks their actually-bound tools and assembled prompt. | — | Medium — accepted, documented |
 | **R5** | Escaping is only as strong as every subsequent string operation. `String.replace` treats `$&`, `` $` `` and `$'` as substitution patterns **in the replacement**, so a wrapped value passed as a replacement argument can break out of its own region. Fixed with function replacers; the invariant is **invisible at the call site**, which is why it is written down (ADR-022, Rule 1). | — | Closed, permanently fragile |
 | **R6** | The `contextEligible` fix is **not retroactive**: guard verdicts were never persisted, so historical off-topic rows cannot be identified after the fact and remain eligible. Recorded in the migration itself. | — | Low |
@@ -348,4 +348,4 @@ author sees a ready-made tool and connects it without re-reading the scope.
 | `searchLessonChunks` not filtering `deleted_at` | A01 | B6 | ADR-022 — invariant moved into the SQL |
 | Unauthorised write tool | LLM06 | B6 | **open — R1** |
 | No output boundary | LLM02 / LLM05 | B7 | **open — R2** |
-| In-memory rate limiter | LLM10 / A04 | B1 | **open — R3** |
+| In-memory rate limiter | LLM10 / A04 | B1 | ADR-027 — counters moved to a shared store |

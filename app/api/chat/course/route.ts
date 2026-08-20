@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 		return new Response("Forbidden", { status: 403 });
 	}
 
-	if (!checkAiRateLimit(session.user.id, "courseAI")) {
+	if (!(await checkAiRateLimit(session.user.id, "courseAI"))) {
 		return new Response("Too Many Requests", { status: 429 });
 	}
 

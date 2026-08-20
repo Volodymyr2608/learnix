@@ -1,4 +1,6 @@
 import type { AiFeature } from "@/server/services/_shared/aiGuard/types";
+import { rateLimitStore } from "./store";
+import type { LimitWindow, RateLimitStore } from "./store/types";
 
 /**
  * Derived, never hand-maintained. The union this replaces omitted quizAI and
@@ -40,118 +42,84 @@ const SCOPED_MAX: Partial<Record<AiFeature, number>> = {
 
 /** Below the sum of the per-feature ceilings on purpose: the aggregate is the budget. */
 export const AGGREGATE_MAX = 30;
-export const EVICT_THRESHOLD = 5_000;
-
-type Entry = { count: number; resetAt: number };
-
-/**
- * Pinned on globalThis, not module scope. Next bundles route handlers, the tRPC
- * handler and the RSC server separately; module-scope state is per bundle
- * instance, so "one aggregate bucket" would silently become two or three inside
- * a single process — and every unit test would still pass, because they import
- * the module once. Same pattern as server/db.ts.
- */
-const globalForLimits = globalThis as unknown as {
-	aiRateWindows?: Map<string, Entry>;
-};
-const windows = globalForLimits.aiRateWindows ?? new Map<string, Entry>();
-globalForLimits.aiRateWindows = windows;
 
 /**
  * Key spaces are disjoint because the character at index userId.length is ":"
  * for every feature key and " " for the aggregate, and userId is server-derived.
  * NOT because "no key contains a space" — `scope` can contain anything.
+ *
+ * These stay here, with the policy, and are never passed to the store: the store
+ * sees opaque strings and cannot enforce "derived from the session, never from
+ * request input".
  */
 const aggregateKey = (userId: string) => `${userId} aggregate`;
 const featureKey = (userId: string, feature: string, scope?: string) =>
 	scope ? `${userId}:${feature}:${scope}` : `${userId}:${feature}`;
 
-const evict = (now: number): void => {
-	if (windows.size <= EVICT_THRESHOLD) return;
-
-	const before = windows.size;
-	for (const [key, entry] of windows) {
-		if (now >= entry.resetAt) windows.delete(key);
-	}
-	if (windows.size < before) return;
-
-	// Nothing expired — a burst of live keys. Dropping the oldest 10% by INSERTION
-	// order resets ~500 windows at once, i.e. a fresh budget for ~500 users, and it
-	// fires exactly under the load where the ceiling matters. Fails OPEN, never
-	// closed. Reaching it needs ~170+ concurrently active users at full rate; a
-	// single account cannot steer it, because bump() is never reached on a
-	// rejected call. Magnitude recorded in security.md S16.
-	const surplus = Math.ceil(windows.size * 0.1);
-	let dropped = 0;
-	for (const key of windows.keys()) {
-		windows.delete(key);
-		if (++dropped >= surplus) break;
-	}
-};
-
-const peek = (key: string, now: number): Entry | undefined => {
-	const entry = windows.get(key);
-	return !entry || now >= entry.resetAt ? undefined : entry;
-};
-
-const bump = (key: string, now: number): void => {
-	const entry = peek(key, now);
-	if (!entry) windows.set(key, { count: 1, resetAt: now + WINDOW_MS });
-	else entry.count++;
-};
-
 /**
- * One aggregate bucket per user, shared by the raw app/api/chat routes and every
- * tRPC AI procedure. Living here rather than in the tRPC middleware is the
- * point: a middleware-side aggregate would leave the three SSE routes on a
- * separate budget.
- *
- * Both windows are evaluated before either is incremented — no await between
- * peek and bump, so this is atomic within Node's single-threaded execution.
- *
- * `countAggregate: false` is for the SECOND limiter call inside one request
- * (learningPathAI checks an aggregate at the procedure and a scoped window in
- * the service). Without it one user request would spend two of AGGREGATE_MAX.
+ * Bound to a store rather than reading a module-level one, so the behavioural
+ * contract suite can run the identical assertions against both adapters. The
+ * production instance below is bound once, at module load.
  */
-export const checkAiRateLimit = (
-	userId: string,
-	feature: AiRateLimitFeature,
-	opts?: { scope?: string; countAggregate?: boolean },
-): boolean => {
-	const now = Date.now();
-	evict(now);
+export const createRateLimiter = (store: RateLimitStore) => {
+	/**
+	 * One aggregate bucket per user, shared by the raw app/api/chat routes and
+	 * every tRPC AI procedure. Living here rather than in the tRPC middleware is
+	 * the point: a middleware-side aggregate would leave the three SSE routes on a
+	 * separate budget.
+	 *
+	 * Both windows are handed to the store together because it must evaluate both
+	 * before incrementing either — a rejected call spends nothing.
+	 *
+	 * `countAggregate: false` is for the SECOND limiter call inside one request
+	 * (learningPathAI checks an aggregate at the procedure and a scoped window in
+	 * the service). Without it one user request would spend two of AGGREGATE_MAX.
+	 */
+	const check = (
+		userId: string,
+		feature: AiRateLimitFeature,
+		opts?: { scope?: string; countAggregate?: boolean },
+	): Promise<boolean> => {
+		const countAggregate = opts?.countAggregate !== false;
+		// PER_FEATURE_MAX is total over AiFeature, so a sixth surface fails to
+		// compile rather than silently inheriting a ceiling. SCOPED_MAX is partial by
+		// design: only a feature with a per-scope contract appears there.
+		const max = opts?.scope
+			? (SCOPED_MAX[feature] ?? PER_FEATURE_MAX[feature])
+			: PER_FEATURE_MAX[feature];
 
-	const countAggregate = opts?.countAggregate !== false;
-	const aggKey = aggregateKey(userId);
-	const featKey = featureKey(userId, feature, opts?.scope);
-	// PER_FEATURE_MAX is total over AiFeature, so a sixth surface fails to
-	// compile rather than silently inheriting a ceiling. SCOPED_MAX is partial by
-	// design: only a feature with a per-scope contract appears there.
-	const max = opts?.scope
-		? (SCOPED_MAX[feature] ?? PER_FEATURE_MAX[feature])
-		: PER_FEATURE_MAX[feature];
+		// Aggregate first: it is the window that rejects first today, and the store
+		// returns on the first window found at its ceiling.
+		const windows: LimitWindow[] = [];
+		if (countAggregate) {
+			windows.push({ key: aggregateKey(userId), max: AGGREGATE_MAX });
+		}
+		windows.push({ key: featureKey(userId, feature, opts?.scope), max });
 
-	const agg = countAggregate ? peek(aggKey, now) : undefined;
-	const feat = peek(featKey, now);
+		return store.checkAndBump(windows, WINDOW_MS);
+	};
 
-	if (countAggregate && (agg?.count ?? 0) >= AGGREGATE_MAX) return false;
-	if ((feat?.count ?? 0) >= max) return false;
-
-	if (countAggregate) bump(aggKey, now);
-	bump(featKey, now);
-	return true;
+	return {
+		checkAiRateLimit: check,
+		aggregateCountForTest: (userId: string) =>
+			store.countForTest(aggregateKey(userId)),
+		featureCountForTest: (userId: string, feature: string, scope?: string) =>
+			store.countForTest(featureKey(userId, feature, scope)),
+		resetForTest: () => store.resetForTest(),
+		storeSizeForTest: () => store.sizeForTest(),
+	};
 };
+
+const limiter = createRateLimiter(rateLimitStore);
+
+export const checkAiRateLimit = limiter.checkAiRateLimit;
 
 export const MAX_MSG_LENGTH = 2000;
 export const validateMessageLength = (m: string): boolean =>
 	m.length <= MAX_MSG_LENGTH;
 
-export const __resetWindowsForTest = (): void => windows.clear();
-export const __windowSizeForTest = (): number => windows.size;
-export const __aggregateCountForTest = (userId: string): number =>
-	windows.get(aggregateKey(userId))?.count ?? 0;
-export const __featureCountForTest = (
-	userId: string,
-	feature: string,
-	scope?: string,
-): number => windows.get(featureKey(userId, feature, scope))?.count ?? 0;
+export const __resetWindowsForTest = limiter.resetForTest;
+export const __aggregateCountForTest = limiter.aggregateCountForTest;
+export const __featureCountForTest = limiter.featureCountForTest;
+/** Store-wide live-window count, for "an anonymous caller created nothing at all". */
+export const __storeSizeForTest = limiter.storeSizeForTest;

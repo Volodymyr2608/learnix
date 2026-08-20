@@ -474,17 +474,27 @@ Written as facts after implementation, not as intentions before it.
 16. **`tutor.eval.ts` validates its own copy of the prompt.** It does not import `SYSTEM_PROMPT` or
     the real tool definitions, and its copies have already drifted from production; its dataset is
     two rows, so one failure moves the score by 50%. It is green and proves very little.
-17. **The rate limiter lives in process memory** — `server/utils/aiRateLimiter.ts`, shared by all
-    three `app/api/chat/**` routes (a second, separate limiter lives in
-    `learningPathAI.service.ts:8`). The guarantee is 20 requests per instance per minute, and the
-    attacker controls instance count through parallelism. **Still open**; a distributed limiter is
-    R3.
+17. **The rate limiter lived in process memory** — then `server/utils/aiRateLimiter.ts`, shared by
+    all three `app/api/chat/**` routes (a second, separate limiter lived in
+    `learningPathAI.service.ts:8`). The guarantee was 20 requests per instance per minute, and the
+    attacker controlled instance count through parallelism.
+
+    **Closed 2026-08-20 (R3).** Counters moved behind a `RateLimitStore` port
+    (`server/services/_shared/aiLimits/store/`) with an Upstash Redis adapter running one atomic Lua
+    check-then-bump; the in-memory `Map` survives only as the dev/CI adapter. The policy — every
+    limit, window and key — is unchanged. See
+    [ADR-027](../../../adr/027-distributed-ai-rate-limiting.md) and
+    [`../distributed-ai-rate-limiter/security.md`](../distributed-ai-rate-limiter/security.md),
+    which carries the three residuals this introduced: fail-closed availability (S4), one HTTP round
+    trip per check (S5), and the silent-downgrade risk that the production startup assertion answers
+    (S6).
 
     **Closed 2026-08, two narrower problems that were filed here by mistake:** the window is now
     keyed `${userId}:${feature}`, so using the tutor no longer spends the same account's
     course-builder allowance; and `createLessonAgent`'s stream declares
-    `recursionLimit: 12`, so one *request* no longer means an unbounded number of model calls. The
-    per-process property is unchanged.
+    `recursionLimit: 12`, so one *request* no longer means an unbounded number of model calls. ~~The
+    per-process property is unchanged.~~ **R3's per-process property closed 2026-08-20** by
+    `distributed-ai-rate-limiter` / ADR-027: counters now live in a shared store.
 
 **Measured — one run, 2026-08-09, `gpt-4o-mini`**
 
@@ -621,7 +631,7 @@ consequences that were accepted rather than solved.
     on for far longer. `AGENT_RECURSION_LIMIT = 12` bounds the *number* of model calls per request,
     not the duration or size of any one, so the worst case per request is 12 × (SDK default timeout ×
     default retries) of wall clock. No injection is needed to reach it; the only other bound is the
-    per-process rate limiter (§17). Not fixed here because `maxTokens` changes reply behaviour and so
+    distributed rate limiter (§17). Not fixed here because `maxTokens` changes reply behaviour and so
     needs its own eval run — this is a spec'd change, not a one-line follow-on. The same omission
     exists on `quizAI`, `courseAI`, `lessonInsightsAI` and `learningPathAI`.
 

@@ -451,8 +451,11 @@ which is the same cross-tenant tail the finalize exclusion already flags.
    for a compliant model.
 5. **The completeness test's three documented false negatives** (S7) — cross-file assembly, wrong
    `source` label, mixed-trust `JSON.stringify`.
-6. **The limiter stays per-process** (tutor S13 §17). This feature narrows blast radius and repairs the
-   aggregate; it does not make the limiter distributed.
+6. ~~**The limiter stays per-process** (tutor S13 §17). This feature narrows blast radius and repairs
+   the aggregate; it does not make the limiter distributed.~~ **Closed 2026-08-20** by
+   [`../distributed-ai-rate-limiter/`](../distributed-ai-rate-limiter/spec.md) /
+   [ADR-027](../../../adr/027-distributed-ai-rate-limiting.md): counters now live in a shared store.
+   The policy this feature set is unchanged; only storage moved.
 7. **Off-origin links in lesson bodies are permitted** (D-C).
 7a. **quizAI and lessonInsightsAI detect but do not enforce** (D-M). Their output boundary runs and
    emits `output_validation_failed`; it does not stop the generation. A model that reproduces its
@@ -468,6 +471,11 @@ which is the same cross-tenant tail the finalize exclusion already flags.
    steer it because `bump()` is never reached on a rejected call. Recorded here
    because `checkAiRateLimit.ts` cites this section by name; before this entry the
    citation pointed at nothing, which is an accepted risk nobody accepted.
+
+   **Scope reduced 2026-08-20 (ADR-027).** Redis bounds its key space with TTLs, so the Upstash
+   adapter has no eviction path and no fail-open branch at all. This residual now describes only the
+   in-memory adapter, which after that change is the development and CI store rather than the
+   production one.
 9. **Nothing consumes the security events** (tutor S13 §13). This feature raises emission volume into
    a `consola` stdout writer with no sampling and no sink, and so raises the value of the sink and
    the cost of not having one.

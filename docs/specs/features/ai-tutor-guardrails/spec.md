@@ -140,7 +140,8 @@ none of which changes a user-visible behaviour:
 
 **Out of scope:** `validateReply` on `quizAI` / `courseAI` / `learningPathAI` / `lessonInsightsAI`
 (they have structured Zod output); a cross-instance rate limiter (R3 — item 11 changes the *key* and
-the per-request ceiling, it does not make the limiter distributed, and the per-process caveat stands);
+the per-request ceiling, it does not make the limiter distributed, and the per-process caveat stands;
+**R3 closed since, by ADR-027**);
 runtime enumeration in the contract tests (R4); LangSmith retention and redaction policy (R8); the
 quiz answer key exposed to the client by `quiz.service.ts` (tracked as C4 in the supply-chain review,
 domain work, not this flow); sliding-window validation of the stream (S13 §2 stands — item 7 restores
@@ -313,14 +314,17 @@ reading the code, so a stale requirement there propagates into the next AI surfa
 - **S11** — state that `mastery_write_retained` is decided structurally.
 - **S13 §17** — correct the file reference to `server/utils/aiRateLimiter.ts`, record that the key is
   now per-feature and the agent has an explicit recursion limit, and keep the per-process property
-  open (it is unchanged).
+  open (it is unchanged). *(Both since superseded: the limiter moved to
+  `server/services/_shared/aiLimits/checkAiRateLimit.ts`, and ADR-027 closed the per-process
+  property on 2026-08-20.)*
 - **`threat-model.md`** — R2's residual changes: the disclosure stands, the detection gap closes.
 
 **Residual after this work, accepted:**
 
 - The streaming disclosure itself (S13 §2) is untouched. Item 7 restores detection, not confinement.
-- The rate limiter stays per-process (S13 §17 / R3). Item 11 narrows the blast radius of a shared
-  bucket; it does not make the limit distributed.
+- ~~The rate limiter stays per-process (S13 §17 / R3). Item 11 narrows the blast radius of a shared
+  bucket; it does not make the limit distributed.~~ **Superseded 2026-08-20:** ADR-027 moved the
+  counters to a shared store, closing R3.
 - Items 7–11 add no new pattern coverage, so the English-only L1 gap (S13 §23) and the compound
   L2-outage-plus-non-English case (§28) are unchanged — item 8 slightly *widens* §28's window by
   converting some slow calls into fail-open allows that previously blocked the request by timing out
@@ -407,9 +411,8 @@ amendments to ADR-022 and ADR-024, not a new ADR: no decision is being reversed,
   after a delay, not one that rejects immediately, or it proves nothing about the budget.
 - **Item 11's rate-limit key change touches three call sites.** `checkAiRateLimit` is called by
   `/api/chat/lesson`, `/api/chat/course` and `/api/chat/learning-path`. Changing the signature
-  without updating all three silently re-merges the buckets. The per-process caveat is unchanged and
-  stays recorded in `security.md` S13 §17 — item 11 corrects that entry's *file reference*, it does
-  not close it.
+  without updating all three silently re-merges the buckets. The per-process caveat is recorded in
+  `security.md` S13 §17 — item 11 corrects that entry's *file reference*, and ADR-027 closes R3.
 - **Item 10 changes a tool's return value, which the model reads.** Keep the natural-language
   sentence and add the structural field; a bare JSON return would change how the agent narrates the
   write to the student. `lessonAI.agent.test.ts` pins prompt/tool expectations — check it before

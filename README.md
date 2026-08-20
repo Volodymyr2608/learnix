@@ -102,6 +102,12 @@ UNSUBSCRIBE_SECRET=""
 docker-compose up -d
 ```
 
+This also starts `redis` and `srh` (serverless-redis-http). The AI rate limiter's
+Redis-backed tests need both, plus the two `KV_REST_API_*` values from
+`.env.test.example` in your `.env.test`. `@upstash/redis` speaks HTTP rather than the
+Redis wire protocol, which is why the proxy is there. Without them `pnpm test:redis`
+**skips** rather than fails, so neither CI nor a fresh checkout needs Redis.
+
 ### 4. Run migrations and generate the Prisma client
 
 ```bash
@@ -222,3 +228,10 @@ For architectural decisions and feature specifications see [`docs/`](docs/README
 The app is designed for **Vercel** deployment. The `vercel-build` script runs `prisma generate && prisma migrate deploy && next build`.
 
 Required Vercel environment variables: everything in `.env.example` plus the Vercel-injected `BLOB_READ_WRITE_TOKEN`. All vars are validated at build time via `@t3-oss/env-nextjs` (`lib/env.js`).
+
+`KV_REST_API_URL` and `KV_REST_API_TOKEN` (from the Vercel Upstash/KV integration) are **required in
+production**: the app refuses to start without them, because the AI rate limiter would otherwise fall
+back to per-process memory and the ceiling would be per-instance rather than per-user
+([ADR-027](docs/adr/027-distributed-ai-rate-limiting.md)). Do **not** use
+`KV_REST_API_READ_ONLY_TOKEN` — the limiter only ever writes, and it fails closed, so a read-only
+token would present as every AI request being rate-limited.

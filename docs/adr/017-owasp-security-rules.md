@@ -231,7 +231,7 @@ export const SemanticSearchDto = z.object({
 });
 ```
 
-The in-memory rate limiter (`server/utils/aiRateLimiter.ts`) is per-process. For multi-instance deployments, replace with a shared store (Redis). The current Map implementation self-evicts stale entries when it exceeds 5 000 entries.
+The rate limiter (`server/services/_shared/aiLimits/checkAiRateLimit.ts`) runs against a `RateLimitStore` port with two adapters: an in-memory Map (dev/CI) and Upstash Redis (production). R3 is closed by ADR-027; see [`distributed-ai-rate-limiter/spec.md`](../specs/features/distributed-ai-rate-limiter/spec.md). The memory adapter self-evicts stale entries when it exceeds 5 000 entries; the Redis adapter uses TTLs.
 
 ---
 

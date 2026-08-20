@@ -8,7 +8,7 @@ import {
 	__aggregateCountForTest,
 	__featureCountForTest,
 	__resetWindowsForTest,
-	__windowSizeForTest,
+	__storeSizeForTest,
 } from "@/server/services/_shared/aiLimits/checkAiRateLimit";
 import { testDb, truncateAll } from "@/test/db";
 import {
@@ -55,8 +55,8 @@ const seedCourse = async (title: string) => {
 	return course;
 };
 
-beforeEach(() => {
-	__resetWindowsForTest();
+beforeEach(async () => {
+	await __resetWindowsForTest();
 	mockRegenerate.mockReset();
 	mockRegenerate.mockResolvedValue({ steps: [], summary: "ok" });
 });
@@ -97,7 +97,7 @@ describe("learningPath.regenerate rate limiting", () => {
 
 		await createCaller(ctxFor(student.id)).regenerate({ courseId: course.id });
 
-		expect(__aggregateCountForTest(student.id)).toBe(1);
+		await expect(__aggregateCountForTest(student.id)).resolves.toBe(1);
 	});
 
 	it("a student enrolled in two courses can regenerate both within a minute (AC 43)", async () => {
@@ -131,7 +131,12 @@ describe("learningPath.regenerate rate limiting", () => {
 				.catch(() => undefined);
 		}
 
-		expect(__windowSizeForTest()).toBe(0);
+		// Through the limiter's OWN store, not the memory Map. The old assertion read
+		// __windowSizeForTest directly off the Map, so with KV_REST_API_URL set the
+		// limiter ran on Redis, the Map was never written, and this passed whether or
+		// not the auth check ran first. An anonymous call has no userId to query, so
+		// the property genuinely needs a store-wide count.
+		await expect(__storeSizeForTest()).resolves.toBe(0);
 	});
 
 	it("keys on ctx.session.user.id only — an input id cannot spend someone else's budget (AC 37)", async () => {
@@ -146,7 +151,11 @@ describe("learningPath.regenerate rate limiting", () => {
 			...({ userId: victim.id } as any),
 		});
 
-		expect(__featureCountForTest(student.id, "learningPathAI")).toBe(1);
-		expect(__featureCountForTest(victim.id, "learningPathAI")).toBe(0);
+		await expect(
+			__featureCountForTest(student.id, "learningPathAI"),
+		).resolves.toBe(1);
+		await expect(
+			__featureCountForTest(victim.id, "learningPathAI"),
+		).resolves.toBe(0);
 	});
 });

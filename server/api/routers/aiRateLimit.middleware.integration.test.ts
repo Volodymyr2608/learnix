@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Role } from "@/generated/prisma";
 import { createCallerFactory } from "@/server/api/trpc";
 import {
+	__aggregateCountForTest,
 	__featureCountForTest,
 	__resetWindowsForTest,
-	__windowSizeForTest,
 } from "@/server/services/_shared/aiLimits/checkAiRateLimit";
 import { testDb, truncateAll } from "@/test/db";
 import {
@@ -45,8 +45,8 @@ const seedLesson = async () => {
 	return { instructor, lesson };
 };
 
-beforeEach(() => {
-	__resetWindowsForTest();
+beforeEach(async () => {
+	await __resetWindowsForTest();
 	mockGenerate.mockReset();
 	mockGenerate.mockResolvedValue([]);
 });
@@ -75,7 +75,13 @@ describe("aiRateLimit middleware ordering (AC 34, 36, 37)", () => {
 			.generateAI({ lessonId: lesson.id, count: 3, regenerate: false })
 			.catch(() => undefined);
 
-		expect(__windowSizeForTest()).toBe(0);
+		// Read the counters through the limiter's OWN store, not the memory Map.
+		// __windowSizeForTest reads the Map directly, so with KV_REST_API_URL set
+		// the limiter runs on Redis, the Map is never written, and the assertion
+		// passes no matter what the middleware does — a check that reads as applied
+		// and is empty in fact.
+		await expect(__featureCountForTest(student.id, "quizAI")).resolves.toBe(0);
+		await expect(__aggregateCountForTest(student.id)).resolves.toBe(0);
 	});
 
 	it("an instructor's call spends that instructor's quizAI window", async () => {
@@ -87,7 +93,9 @@ describe("aiRateLimit middleware ordering (AC 34, 36, 37)", () => {
 			regenerate: false,
 		});
 
-		expect(__featureCountForTest(instructor.id, "quizAI")).toBe(1);
+		await expect(__featureCountForTest(instructor.id, "quizAI")).resolves.toBe(
+			1,
+		);
 		expect(mockGenerate).toHaveBeenCalled();
 	});
 
