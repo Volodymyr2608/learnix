@@ -1,26 +1,28 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-	__aggregateCountForTest,
-	__featureCountForTest,
 	__resetWindowsForTest,
-	AGGREGATE_MAX,
 	checkAiRateLimit,
 	MAX_MSG_LENGTH,
 	validateMessageLength,
 } from "./checkAiRateLimit";
-import { __windowSizeForTest, EVICT_THRESHOLD } from "./store/memory.store";
+import {
+	__windowSizeForTest,
+	EVICT_THRESHOLD,
+	memoryStore,
+} from "./store/memory.store";
+import { describeRateLimiterContract } from "./store/storeContract";
 
 const FILE = "server/services/_shared/aiLimits/checkAiRateLimit.ts";
 
-describe("checkAiRateLimit", () => {
-	beforeEach(async () => {
-		await __resetWindowsForTest();
-	});
+// The nine behavioural properties. The identical suite runs against the Upstash
+// adapter in upstash.redis.test.ts — that pairing is what makes the port real.
+describeRateLimiterContract("memory", memoryStore);
 
+describe("checkAiRateLimit policy declarations", () => {
 	it("AiRateLimitFeature is derived, not hand-copied", () => {
-		// Every behavioural test below passes against a hand-copied union with
-		// today's five members, and would keep passing while a sixth AiFeature went
+		// Every behavioural test passes against a hand-copied union with today's
+		// five members, and would keep passing while a sixth AiFeature went
 		// unlimited. Only the source text distinguishes the two.
 		expect(readFileSync(FILE, "utf-8")).toMatch(
 			/export type AiRateLimitFeature = AiFeature;?\s*$/m,
@@ -35,127 +37,16 @@ describe("checkAiRateLimit", () => {
 		expect(code).toMatch(/PER_FEATURE_MAX:\s*Record<AiFeature, number>/);
 		expect(code).not.toMatch(/PER_FEATURE_MAX\[feature\]\s*\?\?/);
 	});
+});
 
-	it("shares one aggregate bucket across features (AC 39)", async () => {
-		let allowed = 0;
-		for (let i = 0; i < 100; i++) {
-			// 20 + 20 > 30, so the aggregate is what stops this, not either ceiling.
-			const feature = i % 2 === 0 ? "courseAI" : "lessonAI";
-			if (await checkAiRateLimit("u1", feature)) allowed++;
-			else break;
-		}
-
-		expect(allowed).toBe(AGGREGATE_MAX);
-	});
-
-	it("keeps each user's budget separate", async () => {
-		// Mixed features, because 30 courseAI calls stop bumping the aggregate at
-		// its own ceiling of 20 and the aggregate would never fill.
-		for (let i = 0; i < 15; i++) await checkAiRateLimit("u1", "courseAI");
-		for (let i = 0; i < 15; i++) await checkAiRateLimit("u1", "lessonAI");
-
-		expect(await checkAiRateLimit("u1", "quizAI")).toBe(false);
-		expect(await checkAiRateLimit("u2", "quizAI")).toBe(true);
-	});
-
-	it("enforces the per-feature ceiling below the aggregate", async () => {
-		let allowed = 0;
-		for (let i = 0; i < 30; i++) {
-			if (await checkAiRateLimit("u1", "quizAI")) allowed++;
-			else break;
-		}
-
-		expect(allowed).toBe(10);
-	});
-
-	it("a request rejected by the aggregate leaves the per-feature counter alone (AC 41)", async () => {
-		// Exhaust the AGGREGATE with MIXED features: 20 courseAI alone hits the
-		// per-feature ceiling at 20 and stops bumping, so the aggregate would never
-		// reach 30 and the assertion below would fail for the wrong reason.
-		for (let i = 0; i < 15; i++) await checkAiRateLimit("u1", "courseAI");
-		for (let i = 0; i < 15; i++) await checkAiRateLimit("u1", "lessonAI");
-
-		const before = await __featureCountForTest("u1", "quizAI");
-		expect(await checkAiRateLimit("u1", "quizAI")).toBe(false);
-		expect(await __featureCountForTest("u1", "quizAI")).toBe(before);
-	});
-
-	it("countAggregate: false does not spend a second aggregate slot", async () => {
-		await checkAiRateLimit("u1", "learningPathAI");
-		const agg = await __aggregateCountForTest("u1");
-
-		await checkAiRateLimit("u1", "learningPathAI", {
-			scope: "c1",
-			countAggregate: false,
-		});
-
-		expect(await __aggregateCountForTest("u1")).toBe(agg);
-	});
-
-	it("a hostile scope cannot collide with the aggregate key (AC 40)", async () => {
-		// The invariant is the separator at index userId.length — ":" for a
-		// feature key, " " for the aggregate — not the absence of spaces in scope.
-		// Assert the aggregate is UNTOUCHED by a scope that spells it out.
-		await checkAiRateLimit("u1", "courseAI");
-		const aggregate = await __aggregateCountForTest("u1");
-
-		for (const scope of [" aggregate", "a:b:c", "x".repeat(10_000)]) {
-			await checkAiRateLimit("u1", "learningPathAI", {
-				scope,
-				countAggregate: false,
-			});
-			expect(await __aggregateCountForTest("u1"), scope).toBe(aggregate);
-		}
-
-		// And an empty feature name cannot reach the aggregate's key space either.
-		expect(await __featureCountForTest("u1", "", " aggregate")).toBe(0);
-	});
-
-	it("enforces ONE regeneration per minute per (student, course) (AC 43)", async () => {
-		// The rule the private learningPathAI bucket enforced before consolidation.
-		// The second call to the SAME course must fail — asserting it succeeds is
-		// how a 10x relaxation hides behind a passing test.
-		expect(
-			await checkAiRateLimit("u1", "learningPathAI", {
-				scope: "c1",
-				countAggregate: false,
-			}),
-		).toBe(true);
-		expect(
-			await checkAiRateLimit("u1", "learningPathAI", {
-				scope: "c1",
-				countAggregate: false,
-			}),
-		).toBe(false);
-	});
-
-	it("keeps that window per course, not per student (AC 43)", async () => {
-		await checkAiRateLimit("u1", "learningPathAI", {
-			scope: "c1",
-			countAggregate: false,
-		});
-
-		// A different course the same student is enrolled in is a different window.
-		expect(
-			await checkAiRateLimit("u1", "learningPathAI", {
-				scope: "c2",
-				countAggregate: false,
-			}),
-		).toBe(true);
-		expect(await __featureCountForTest("u1", "learningPathAI", "c1")).toBe(1);
-		expect(await __featureCountForTest("u1", "learningPathAI", "c2")).toBe(1);
-	});
-
-	it("leaves the unscoped ceiling alone, so the scoped rule cannot collapse it", async () => {
-		// A per-feature ceiling of 1 would have made this 1/min across ALL of a
-		// student's courses, which is the mistake the scoped table exists to avoid.
-		let allowed = 0;
-		for (let i = 0; i < 12; i++) {
-			if (await checkAiRateLimit("u1", "learningPathAI")) allowed++;
-			else break;
-		}
-
-		expect(allowed).toBe(10);
+/**
+ * Memory-adapter-only. Redis bounds its key space with TTLs, so there is no
+ * equivalent code path to test on the other adapter — which is why these two
+ * are not in the shared contract suite.
+ */
+describe("memory adapter eviction", () => {
+	beforeEach(async () => {
+		await __resetWindowsForTest();
 	});
 
 	it("eviction frees space even when nothing has expired (AC 42)", async () => {

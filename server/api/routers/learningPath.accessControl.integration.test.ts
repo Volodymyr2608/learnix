@@ -97,7 +97,7 @@ describe("learningPath.regenerate rate limiting", () => {
 
 		await createCaller(ctxFor(student.id)).regenerate({ courseId: course.id });
 
-		expect(__aggregateCountForTest(student.id)).toBe(1);
+		await expect(__aggregateCountForTest(student.id)).resolves.toBe(1);
 	});
 
 	it("a student enrolled in two courses can regenerate both within a minute (AC 43)", async () => {
