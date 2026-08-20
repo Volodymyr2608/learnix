@@ -1,6 +1,6 @@
 ---
 feature: distributed-ai-rate-limiter
-status: in-progress
+status: stable
 models: []
 depends-on: [ai-defence-layers, ai-tutor-guardrails]
 ---
@@ -12,12 +12,12 @@ on OpenAI spend per user, an authorization surface
 ([`../ai-defence-layers/security.md`](../ai-defence-layers/security.md) S12), and the only thing
 that **prices** a brute-force search for a phrasing that slips past the L1 input guard.
 
-Its state is a `Map` pinned on `globalThis`
+Its state **was** a `Map` pinned on `globalThis`
 (`server/services/_shared/aiLimits/checkAiRateLimit.ts`). On one Node process that is sound. The
 deployment target is **Vercel** (`README.md`, `docs/specs/tech-stack.md`) and every AI surface runs
 as a serverless function (`export const runtime = "nodejs"` in all three `app/api/chat/**` routes).
-So concurrent requests land on **separate instances, each holding its own Map**, and a cold start
-resets the window.
+So concurrent requests landed on **separate instances, each holding its own Map**, and a cold start
+reset the window.
 
 The consequence is written down and has been open since the tutor shipped —
 [`../ai-tutor-guardrails/threat-model.md`](../ai-tutor-guardrails/threat-model.md) risk **R3**
@@ -51,14 +51,19 @@ the aggregate and per-feature key spaces are disjoint by construction (the chara
 `userId.length` is `" "` for the aggregate and `":"` for a feature key). That invariant belongs next
 to the policy that depends on it, not behind a storage port that only sees opaque strings.
 
-**2. A `RateLimitStore` port with two adapters.** A new
-`server/services/_shared/aiLimits/store/` directory holds a narrow interface — check every supplied
-window, then increment all of them or none — and two implementations:
+**2. A `RateLimitStore` port with two adapters.** `server/services/_shared/aiLimits/store/` holds a
+narrow interface — check every supplied window, then increment all of them or none — and two
+implementations:
 
-- **Memory** — the current `globalThis`-pinned `Map`, its `evict()` sweep and `EVICT_THRESHOLD`,
-  moved essentially verbatim. This is what local development and the test suite run on, so neither
-  gains a service dependency.
-- **Upstash** — `@upstash/redis`, one Lua script per check.
+- **Memory** (`memory.store.ts`) — the `globalThis`-pinned `Map`, its `evict()` sweep and
+  `EVICT_THRESHOLD`, moved verbatim. This is what local development and the test suite run on, so
+  neither gains a service dependency.
+- **Upstash** (`upstash.store.ts`) — `@upstash/redis`, one Lua script per check.
+
+The Redis client is a **constructor parameter** on `createUpstashStore`, not a private field reached
+through a test seam. `@upstash/redis` auto-pipelines and routes `eval` through a proxy, so assigning
+over the method after construction is silently ignored and the "stubbed" call reaches the network.
+Injection is the only seam that holds.
 
 The adapter is selected **once at module load**, never per call: Upstash when
 `KV_REST_API_URL` is present, memory otherwise.

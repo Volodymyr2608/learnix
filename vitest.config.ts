@@ -14,7 +14,13 @@ export default defineConfig({
 					name: "unit",
 					environment: "node",
 					include: ["**/*.test.ts"],
-					exclude: ["**/*.integration.test.ts", "**/node_modules/**"],
+					exclude: [
+						"**/*.integration.test.ts",
+						// Its own tier: it needs a live Redis, and `**/*.test.ts` would
+						// otherwise match it here too and run every case twice.
+						"**/*.redis.test.ts",
+						"**/node_modules/**",
+					],
 					setupFiles: ["./test/loadEnv.ts"],
 				},
 			}),

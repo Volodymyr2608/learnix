@@ -140,7 +140,8 @@ none of which changes a user-visible behaviour:
 
 **Out of scope:** `validateReply` on `quizAI` / `courseAI` / `learningPathAI` / `lessonInsightsAI`
 (they have structured Zod output); a cross-instance rate limiter (R3 — item 11 changes the *key* and
-the per-request ceiling, it does not make the limiter distributed, and the per-process caveat stands);
+the per-request ceiling, it does not make the limiter distributed, and the per-process caveat stands;
+**R3 closed since, by ADR-027**);
 runtime enumeration in the contract tests (R4); LangSmith retention and redaction policy (R8); the
 quiz answer key exposed to the client by `quiz.service.ts` (tracked as C4 in the supply-chain review,
 domain work, not this flow); sliding-window validation of the stream (S13 §2 stands — item 7 restores
@@ -320,7 +321,8 @@ reading the code, so a stale requirement there propagates into the next AI surfa
 
 - The streaming disclosure itself (S13 §2) is untouched. Item 7 restores detection, not confinement.
 - The rate limiter stays per-process (S13 §17 / R3). Item 11 narrows the blast radius of a shared
-  bucket; it does not make the limit distributed.
+  bucket; it does not make the limit distributed. **Superseded 2026-08-20:** ADR-027 moved the
+  counters to a shared store, closing R3.
 - Items 7–11 add no new pattern coverage, so the English-only L1 gap (S13 §23) and the compound
   L2-outage-plus-non-English case (§28) are unchanged — item 8 slightly *widens* §28's window by
   converting some slow calls into fail-open allows that previously blocked the request by timing out

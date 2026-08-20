@@ -228,3 +228,10 @@ For architectural decisions and feature specifications see [`docs/`](docs/README
 The app is designed for **Vercel** deployment. The `vercel-build` script runs `prisma generate && prisma migrate deploy && next build`.
 
 Required Vercel environment variables: everything in `.env.example` plus the Vercel-injected `BLOB_READ_WRITE_TOKEN`. All vars are validated at build time via `@t3-oss/env-nextjs` (`lib/env.js`).
+
+`KV_REST_API_URL` and `KV_REST_API_TOKEN` (from the Vercel Upstash/KV integration) are **required in
+production**: the app refuses to start without them, because the AI rate limiter would otherwise fall
+back to per-process memory and the ceiling would be per-instance rather than per-user
+([ADR-027](docs/adr/027-distributed-ai-rate-limiting.md)). Do **not** use
+`KV_REST_API_READ_ONLY_TOKEN` — the limiter only ever writes, and it fails closed, so a read-only
+token would present as every AI request being rate-limited.

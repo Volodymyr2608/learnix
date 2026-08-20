@@ -1,8 +1,7 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-	__resetWindowsForTest,
-	checkAiRateLimit,
+	createRateLimiter,
 	MAX_MSG_LENGTH,
 	validateMessageLength,
 } from "./checkAiRateLimit";
@@ -45,8 +44,15 @@ describe("checkAiRateLimit policy declarations", () => {
  * are not in the shared contract suite.
  */
 describe("memory adapter eviction", () => {
+	// Bound to the memory store EXPLICITLY, not to the exported singleton. That
+	// singleton is whatever selectStore() picked from the environment, so with
+	// KV_REST_API_URL set in .env.test these would drive 15 000 HTTP round trips
+	// against Redis — and assert on a Map that the production limiter no longer
+	// uses. A unit test must not change meaning based on an env var.
+	const { checkAiRateLimit, resetForTest } = createRateLimiter(memoryStore);
+
 	beforeEach(async () => {
-		await __resetWindowsForTest();
+		await resetForTest();
 	});
 
 	it("eviction frees space even when nothing has expired (AC 42)", async () => {

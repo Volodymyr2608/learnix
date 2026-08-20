@@ -16,7 +16,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | ai-tutor-guardrails | stable | ai-input-trust-boundary, ai-chat-route-authorization |
 | billing | stable | payments |
 | certificates | stable | enrollment |
-| distributed-ai-rate-limiter | in-progress | ai-defence-layers, ai-tutor-guardrails |
+| distributed-ai-rate-limiter | stable | ai-defence-layers, ai-tutor-guardrails |
 | instructor-mobile | stable | mobile-responsive |
 | messages | stable | auth |
 | mobile-responsive | planned | — |

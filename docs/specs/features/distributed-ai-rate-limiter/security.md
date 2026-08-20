@@ -85,9 +85,11 @@ This is a deliberate trade, taken because the limiter caps real money and prices
 limiter that fails open under load is not a limiter, since inducing that load is cheap. It is
 recorded here rather than discovered in an incident.
 
-**Bounded by** a short (~1 s) per-call timeout ([`spec.md`](./spec.md) AC 13). Without it an
-unreachable store does not merely reject — it holds an SSE route open until the 30 s model timeout,
-converting a dependency outage into resource exhaustion on our own side.
+**Bounded by** a short per-call timeout ([`spec.md`](./spec.md) AC 13): `STORE_TIMEOUT_MS = 1_000`,
+applied through the client's own `signal: () => AbortSignal.timeout(...)`, with `retry: { retries: 0 }`
+so a retry cannot multiply that budget on the hot path. Without it an unreachable store does not
+merely reject — it holds an SSE route open until the 30 s model timeout, converting a dependency
+outage into resource exhaustion on our own side.
 
 **Accepted.** Revisit only with a measured Upstash availability figure, and note that a hedge such as
 "fall back to memory when Redis is down" would reopen R3 on demand for any attacker who can degrade
@@ -132,6 +134,23 @@ kind of change that quietly drops one.
 
 The key builders therefore stay in `checkAiRateLimit.ts` and do **not** move behind the store port,
 which sees only opaque strings and cannot enforce any of the first three rows.
+
+## S7a. A dropped `await` is a silent bypass — found during implementation
+
+`checkAiRateLimit` now returns a Promise. `if (!promise)` is permanently false, so a call site that
+loses its `await` does not fail — the surface simply **stops being rate limited**, quietly.
+
+The severity is that nothing standard catches it. This was measured, not assumed: an `await` was
+removed from `app/api/chat/lesson/route.ts` and neither `pnpm typecheck` nor `pnpm check` reported
+anything. Tests are equally blind, because `await` over a non-Promise is a no-op — the identical
+assertions pass against the sync and async versions.
+
+**Control.** `aiLimits.contract.test.ts` scans every `checkAiRateLimit(` call outside the limiter's
+own module and fails unless it is immediately preceded by `await`, with a companion assertion that
+the scan finds at least the five known sites so it cannot pass vacuously. Verified by re-running it
+against the same deliberate omission and watching it fail. This is the same reasoning as AC 35 and
+ADR-026's wrapping scan: where the type system cannot express the invariant, the source text is the
+enforcement point.
 
 ## S8. Method gap
 

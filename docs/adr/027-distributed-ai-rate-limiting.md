@@ -1,6 +1,6 @@
 # ADR-027: Distributed AI Rate Limiting
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-08-20
 
 ## Context
@@ -103,9 +103,21 @@ key depends on a `courseId` that is only trustworthy after the enrollment lookup
 must never come from unverified input. Co-locate the Upstash region with the Vercel region.
 
 **`checkAiRateLimit` becomes async**, touching five call sites — the tRPC middleware, three
-`app/api/chat/**` route handlers, and `learningPathAI.service.ts`. All are already async, so
-`pnpm typecheck` catches any omission. The four source-scanning contract tests match on call
-expressions and must keep matching with `await` in front.
+`app/api/chat/**` route handlers, and `learningPathAI.service.ts`.
+
+**A dropped `await` is silent, and nothing off the shelf catches it.** `if (!promise)` is
+permanently false, so the surface simply stops being rate limited. This was checked rather than
+assumed: removing one `await` and running `pnpm typecheck` and `pnpm check` produces **no error from
+either** — tsc is content to negate a Promise, and Biome has no rule for it here. Tests do not catch
+it either, because `await` over a non-Promise is a no-op, so the same assertions pass against the
+sync and async versions alike.
+
+So completeness is a **source scan**, for the same reason AC 35 is one: every `checkAiRateLimit(`
+call outside its own module must be immediately preceded by `await`
+(`aiLimits.contract.test.ts`). The scan is verified non-vacuous by removing an `await` and watching
+it fail. The four pre-existing source-scanning contract tests were checked against the added
+`await` and need no changes — they match `checkAiRateLimit(` unanchored and `.use(aiRateLimit(` at
+router call sites, neither of which this touches.
 
 **The most likely failure mode of this work is that it is never enabled.** A missing production env
 var puts the platform back on the per-process Map with the whole suite, and the
