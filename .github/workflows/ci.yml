@@ -65,3 +65,46 @@ jobs:
       - run: pnpm generate
       - run: pnpm prisma migrate deploy
       - run: pnpm test:integration
+  # The tier that proves R3 is closed. Without it the ONLY adapter with
+  # behavioural coverage in CI is the one production never uses: the Lua script
+  # would be exercised by two indexOf assertions and a mocked eval, so a
+  # one-character error in the ARGV max lookup would pass every gate and either
+  # reject everything or grant an unbounded ceiling in production.
+  redis:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      srh:
+        # @upstash/redis speaks HTTP, not the Redis wire protocol.
+        image: hiett/serverless-redis-http:latest
+        ports:
+          - 8079:80
+        env:
+          SRH_MODE: env
+          SRH_TOKEN: test-token
+          SRH_CONNECTION_STRING: redis://redis:6379
+    env:
+      SKIP_ENV_VALIDATION: "true"
+      CERTIFICATE_SECRET: test-certificate-secret-at-least-32-chars-long
+      KV_REST_API_URL: http://localhost:8079
+      KV_REST_API_TOKEN: test-token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm generate
+      - run: pnpm test:redis

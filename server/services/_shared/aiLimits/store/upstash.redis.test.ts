@@ -11,12 +11,28 @@ const url = process.env.KV_REST_API_URL;
 const token = process.env.KV_REST_API_TOKEN;
 const configured = Boolean(url && token);
 
-const newStore = () => createUpstashStore(url as string, token as string);
+// describe.skipIf still EVALUATES the callback, so these are constructed even
+// when the tier skips. Placeholders keep @upstash/redis from warning about a
+// missing url on a fresh checkout; nothing is ever sent to them.
+const newStore = () =>
+	createUpstashStore(url ?? "http://localhost:0", token ?? "unused");
 
 /**
  * Skips rather than fails when the SRH container is not running, so a fresh
- * checkout and CI both stay green without Redis.
+ * checkout stays green without Redis — but NOT in CI, where skipping silently
+ * would mean the only adapter with behavioural coverage is the one production
+ * never uses.
  */
+describe("redis tier is actually configured in CI", () => {
+	it("has KV_REST_API_URL and KV_REST_API_TOKEN when CI is set", () => {
+		// Guards the guard: without this, deleting the `redis` job from ci.yml
+		// turns every test below into a silent skip and the suite still reports
+		// green, taking the evidence for R3's closure with it.
+		if (!process.env.CI) return;
+		expect(configured).toBe(true);
+	});
+});
+
 describe.skipIf(!configured)("upstash store against a real Redis", () => {
 	const store = newStore();
 
@@ -86,7 +102,10 @@ describe.skipIf(!configured)("upstash store against a real Redis", () => {
 	});
 
 	describe("fixed window (AC 11)", () => {
-		const redis = createRedisClient(url as string, token as string);
+		const redis = createRedisClient(
+			url ?? "http://localhost:0",
+			token ?? "unused",
+		);
 
 		beforeEach(async () => {
 			await store.resetForTest();
