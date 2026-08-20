@@ -19,3 +19,11 @@ process.env.CERTIFICATE_SECRET ||=
 process.env.INVOICE_SECRET ||= "test-invoice-secret-at-least-32-chars-long";
 process.env.UNSUBSCRIBE_SECRET ||=
 	"test-unsubscribe-secret-at-least-32-chars-long";
+
+// Same reasoning, different failure: appOrigin() does `new URL(env.NEXT_PUBLIC_APP_URL)`,
+// so an absent value throws "Invalid URL" inside every URL-policy check rather
+// than at boot — and the AI output validators catch that throw and report
+// `validator_error` instead of the rule that actually matched. Must stay
+// http://localhost:3000: the classify/urlPolicy tests hardcode that origin as
+// "ours" when asserting in-app vs. off-origin.
+process.env.NEXT_PUBLIC_APP_URL ||= "http://localhost:3000";
