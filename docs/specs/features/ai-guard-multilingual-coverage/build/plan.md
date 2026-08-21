@@ -1,5 +1,11 @@
 # AI Guard Multilingual Coverage — Implementation Plan
 
+> **Post-ship note:** Tasks 12–14 below (L2 `instructionOverride` intent reporting) were implemented,
+> found unsafe via live-eval evidence, and reverted — commit `3c1bf13`. This file is a point-in-time
+> plan and is left as-authored below; it does **not** reflect final shipped behavior. See
+> [`../spec.md`](../spec.md) (Functional scope, Acceptance criteria 11–17) and
+> [`../security.md`](../security.md) §S10 for what actually shipped and why.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development`
 > (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance criteria,
