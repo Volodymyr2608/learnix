@@ -26,7 +26,7 @@ export const ES_PATTERNS: InjectionPattern[] = [
 		lang: "es",
 		category: "instruction_override",
 		regex:
-			/\b(ignor|olvid|desestim|descart)\w*\b[^.\n]{0,40}\b(instruccion|indicacion|regl|prompt)\w*\b[^.\n]{0,20}\b(anterior|previ)\w*\b/i,
+			/\b(ignor|olvid|desestim|descart)\w*\b[^.\n]{0,40}\b(?:(instruccion|indicacion|regl|prompt)\w*\b[^.\n]{0,20}\b(anterior|previ)\w*|(anterior|previ)\w*\b[^.\n]{0,20}\b(instruccion|indicacion|regl|prompt)\w*)\b/i,
 		weight: 30,
 	},
 	{
@@ -63,7 +63,7 @@ export const ES_PATTERNS: InjectionPattern[] = [
 		lang: "es",
 		category: "prompt_leak",
 		regex:
-			/\b(cu[áa]l|qu[ée])\s+(es|son)\s+(tu|tus)\s+(prompt|instrucciones|reglas)\b/i,
+			/\b(cu[áa]l(?:es)?|qu[ée])\s+(es|son)\s+(tu|tus)\s+(prompt|instrucciones|reglas)\b/i,
 		weight: 35,
 	},
 ];

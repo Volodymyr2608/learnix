@@ -43,10 +43,18 @@ export const UNIVERSAL_PATTERNS: InjectionPattern[] = [
 		// and lives in en.ts. The regex also covers the localized "mode" word
 		// (modo/modus) in both word orders, so "DAN mode" survives translation
 		// as a whole phrase too, not just the bare token. See security.md S6.
+		//
+		// Case sensitivity: "DAN" must stay uppercase-only -- lowercase "dan" is
+		// ordinary Indonesian/Malay ("and") and Dutch ("then") prose, and this
+		// rule's weight equals BLOCK_THRESHOLD, so a case-insensitive match alone
+		// hard-blocks innocent sentences like "gaya dan mode terbaru" with no
+		// telemetry. The localized "mode" words stay case-insensitive via
+		// explicit character classes.
 		id: ID.jailbreakDanToken,
 		lang: "universal",
 		category: "jailbreak_template",
-		regex: /\bDAN[-\s]?(mode|modo|modus)\b|\b(mode|modo|modus)[-\s]DAN\b/i,
+		regex:
+			/\bDAN[-\s]?(?:[Mm]ode|[Mm]odo|[Mm]odus)\b|\b(?:[Mm]ode|[Mm]odo|[Mm]odus)[-\s]DAN\b/,
 		weight: 40,
 	},
 ];

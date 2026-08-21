@@ -25,7 +25,7 @@ export const FR_PATTERNS: InjectionPattern[] = [
 		lang: "fr",
 		category: "instruction_override",
 		regex:
-			/\b(ignor|oubli|n[ée]glig|[ée]cart)\w*\b[^.\n]{0,40}\b(instruction|consigne|r[èe]gle|prompt)\w*\b[^.\n]{0,20}\b(pr[ée]c[ée]dent\w*|ant[ée]rieur\w*|ci-dessus)\b/i,
+			/\b(ignor|oubli|n[ée]glig|[ée]cart)\w*\b[^.\n]{0,40}\b(?:(instruction|consigne|r[èe]gle|prompt)\w*\b[^.\n]{0,20}\b(pr[ée]c[ée]dent\w*|ant[ée]rieur\w*|ci-dessus)|(pr[ée]c[ée]dent\w*|ant[ée]rieur\w*)\b[^.\n]{0,20}\b(instruction|consigne|r[èe]gle|prompt)\w*)\b/i,
 		weight: 30,
 	},
 	{

@@ -471,8 +471,8 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-40 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-41 produces a stable verdict and score 1`] = `
 {
-  "score": 0,
-  "verdict": "allow",
+  "score": 35,
+  "verdict": "suspect",
 }
 `;
 

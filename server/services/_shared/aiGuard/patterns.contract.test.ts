@@ -117,3 +117,25 @@ describe("false-positive contract", () => {
 		).toEqual([]);
 	});
 });
+
+describe("jailbreak-dan-token does not collide with lowercase 'dan'/'mode' in ordinary prose (S6)", () => {
+	// Lowercase "dan" means "and" in Indonesian/Malay and "then" in Dutch, and
+	// collides with "mode"/"modo"/"modus" appearing nearby in completely
+	// ordinary sentences. Since this rule's weight equals BLOCK_THRESHOLD, a
+	// false match alone hard-blocks the message with no telemetry — a real
+	// availability/fairness problem for those language communities. "DAN"
+	// must stay uppercase-only to avoid this collision.
+	const benign = [
+		"Saya suka gaya dan mode terbaru di Jakarta.",
+		"Artikel tentang mode dan gaya hidup",
+		"Ini adalah tren dan modus operandi baru",
+		"De nieuwste mode dan ooit tevoren",
+		"Ellos dan modo a la clase",
+	];
+
+	it.each(benign)("does not match any pattern: %s", (text) => {
+		expect(
+			INJECTION_PATTERNS.filter((p) => p.regex.test(text)).map((p) => p.id),
+		).toEqual([]);
+	});
+});
