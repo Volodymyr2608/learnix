@@ -1,3 +1,4 @@
+import { DE_PATTERNS, DE_RULE_IDS } from "./de";
 import { EN_PATTERNS, EN_RULE_IDS } from "./en";
 import { ES_PATTERNS, ES_RULE_IDS } from "./es";
 import { FR_PATTERNS, FR_RULE_IDS } from "./fr";
@@ -25,6 +26,7 @@ export const RULE_ID_VOCABULARY = [
 	...EN_RULE_IDS,
 	...ES_RULE_IDS,
 	...FR_RULE_IDS,
+	...DE_RULE_IDS,
 	...UNIVERSAL_RULE_IDS,
 ] as const;
 
@@ -34,5 +36,6 @@ export const INJECTION_PATTERNS: readonly InjectionPattern[] = [
 	...EN_PATTERNS,
 	...ES_PATTERNS,
 	...FR_PATTERNS,
+	...DE_PATTERNS,
 	...UNIVERSAL_PATTERNS,
 ];
