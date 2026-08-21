@@ -30,13 +30,55 @@ describe("checkTopicRelevance", () => {
 		mockChatOpenAI.mockReset();
 	});
 
-	it("returns the classifier verdict", async () => {
+	it("returns the classifier verdict including the intent field", async () => {
 		mockInvoke.mockResolvedValue({
 			onTopic: false,
+			instructionOverride: false,
 			reason: "asks about cooking",
 		});
 		const result = await checkTopicRelevance("How do I bake bread?", domain);
-		expect(result).toEqual({ onTopic: false, reason: "asks about cooking" });
+		expect(result).toEqual({
+			onTopic: false,
+			instructionOverride: false,
+			reason: "asks about cooking",
+		});
+	});
+
+	it("asks for instructionOverride independently of topic", async () => {
+		mockInvoke.mockResolvedValue({
+			onTopic: true,
+			instructionOverride: false,
+			reason: "ok",
+		});
+		await checkTopicRelevance("What is recursion?", domain);
+		const prompt = JSON.stringify(mockInvoke.mock.calls[0]?.[0]);
+		expect(prompt).toMatch(/instructionOverride/);
+		expect(prompt).toMatch(/whether or not it is on topic/i);
+	});
+
+	it("keeps the subject-matter carve-out bound to onTopic only", async () => {
+		mockInvoke.mockResolvedValue({
+			onTopic: true,
+			instructionOverride: false,
+			reason: "ok",
+		});
+		await checkTopicRelevance("What is prompt injection?", domain);
+		const prompt = JSON.stringify(mockInvoke.mock.calls[0]?.[0]);
+		// The carve-out must not tell the model to suppress the intent flag.
+		expect(prompt).toMatch(/describing or teaching/i);
+		expect(prompt).toMatch(/still set instructionOverride/i);
+	});
+
+	it("pins the model id the multilingual claim was measured against", async () => {
+		mockInvoke.mockResolvedValue({
+			onTopic: true,
+			instructionOverride: false,
+			reason: "ok",
+		});
+		await checkTopicRelevance("what is recursion?", domain);
+		expect(mockChatOpenAI).toHaveBeenCalledWith(
+			expect.objectContaining({ model: "gpt-4o-mini" }),
+		);
 	});
 
 	it("wraps the classified text as untrusted data", async () => {
