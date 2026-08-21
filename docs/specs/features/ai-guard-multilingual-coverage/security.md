@@ -176,6 +176,18 @@ beside it; a comment at the model construction states that changing the id inval
    this feature. Recorded here because it was found here; it needs its own investigation as a
    separate, pre-existing classifier-reliability issue.
 
+9. **`jailbreak-dan-token` no longer matches a lowercased attack (`"enable dan mode now"`).** Found
+   in the `/qa` audit: the case-insensitive widening that added `modo`/`mode`/`modus` coverage
+   (weight 40, hard-blocks alone) collided with ordinary Indonesian/Malay text — "dan" means
+   "and"/"then" in both — and Dutch prose containing "mode" nearby, refusing innocent students with
+   no escalation path. Fixed by dropping case-insensitivity on the literal `DAN` token specifically,
+   since the real jailbreak template is conventionally typed uppercase, while keeping the localized
+   mode-word matching case-insensitive via explicit `[Mm]` classes. Accepted: a deliberate,
+   fairness-motivated tradeoff — an attacker who lowercases the phrase evades this one universal rule,
+   but the four-language prose families (all case-insensitive, unaffected) and L2 remain underneath.
+   Judged better than hard-blocking Indonesian, Malay, and Dutch students on an EU AI Act Annex III
+   high-risk surface for a narrow, easily-reformulated evasion.
+
 ### Baseline (captured 2026-08-21, before any change in this feature)
 
 - `aiGuard:adversarial` accuracy: 90.8% (59/65)
