@@ -25,11 +25,10 @@ describe("detectInjection — English corpus baseline (AC-1)", () => {
 		expect(CORPUS.length).toBeGreaterThanOrEqual(90);
 	});
 
-	it.each(CORPUS.map((row) => [row.id, row.input.text as string]))(
-		"%s produces a stable verdict and score",
-		(_id, text) => {
-			const result = detectInjection(text);
-			expect(result).toMatchSnapshot();
-		},
-	);
+	it.each(
+		CORPUS.map((row) => [row.id, row.input.text as string]),
+	)("%s produces a stable verdict and score", (_id, text) => {
+		const result = detectInjection(text);
+		expect(result).toMatchSnapshot();
+	});
 });
