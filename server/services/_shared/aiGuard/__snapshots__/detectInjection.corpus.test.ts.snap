@@ -70,6 +70,90 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-10 produces a 
 }
 `;
 
+exports[`detectInjection — English corpus baseline (AC-1) > inj-11 produces a stable verdict and score 1`] = `
+{
+  "score": 65,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-12 produces a stable verdict and score 1`] = `
+{
+  "score": 90,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-13 produces a stable verdict and score 1`] = `
+{
+  "score": 55,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-14 produces a stable verdict and score 1`] = `
+{
+  "score": 55,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-15 produces a stable verdict and score 1`] = `
+{
+  "score": 65,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-16 produces a stable verdict and score 1`] = `
+{
+  "score": 90,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-17 produces a stable verdict and score 1`] = `
+{
+  "score": 55,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-18 produces a stable verdict and score 1`] = `
+{
+  "score": 55,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-19 produces a stable verdict and score 1`] = `
+{
+  "score": 65,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-20 produces a stable verdict and score 1`] = `
+{
+  "score": 90,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-21 produces a stable verdict and score 1`] = `
+{
+  "score": 55,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > inj-22 produces a stable verdict and score 1`] = `
+{
+  "score": 55,
+  "verdict": "block",
+}
+`;
+
 exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-01 produces a stable verdict and score 1`] = `
 {
   "score": 65,
@@ -385,6 +469,174 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-40 produces 
 }
 `;
 
+exports[`detectInjection — English corpus baseline (AC-1) > legit-41 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-42 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-43 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-44 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-45 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-46 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-47 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-48 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-49 produces a stable verdict and score 1`] = `
+{
+  "score": 35,
+  "verdict": "suspect",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-50 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-51 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-52 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-53 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-54 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-55 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-56 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-57 produces a stable verdict and score 1`] = `
+{
+  "score": 35,
+  "verdict": "suspect",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-58 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-59 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-60 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-61 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-62 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-63 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-64 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
 exports[`detectInjection — English corpus baseline (AC-1) > off-01 produces a stable verdict and score 1`] = `
 {
   "score": 0,
@@ -546,7 +798,42 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-03 produces 
 }
 `;
 
+exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-de produces a stable verdict and score 1`] = `
+{
+  "score": 65,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-es produces a stable verdict and score 1`] = `
+{
+  "score": 65,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-fr produces a stable verdict and score 1`] = `
+{
+  "score": 65,
+  "verdict": "block",
+}
+`;
+
 exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-de produces a stable verdict and score 1`] = `
+{
+  "score": 65,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-es produces a stable verdict and score 1`] = `
+{
+  "score": 65,
+  "verdict": "block",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-fr produces a stable verdict and score 1`] = `
 {
   "score": 65,
   "verdict": "block",
@@ -613,6 +900,20 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-manyshot-01 pro
 {
   "score": 35,
   "verdict": "suspect",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > rt-residual-uk-02 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > rt-residual-zh produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
 }
 `;
 

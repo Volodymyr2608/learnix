@@ -81,9 +81,17 @@ export const guardUserInput = async (
 			};
 		}
 	} catch (err) {
-		// Fail open: L1 already ran deterministically. Blocking every user during
-		// an OpenAI outage is a worse failure than letting an off-topic question
-		// through. Acceptable ONLY because L1 sits underneath — see threat-model §7.
+		// Fail open: L1 already ran deterministically over the four catalogue
+		// languages plus the universal structural rules. Blocking every user
+		// during an OpenAI outage is a worse failure than letting an off-topic
+		// question through.
+		//
+		// The limit of that justification, stated plainly: for input in a
+		// language outside the catalogue, prose-phrased injection scores 0 at L1,
+		// so this branch allows it with no deterministic layer beneath it. That
+		// residual is recorded in security.md S9 and is knowingly accepted —
+		// refusing by script would penalise honest users while an attacker simply
+		// transliterates.
 		logSecurityEvent({
 			feature: context.feature,
 			userId: context.userId,
