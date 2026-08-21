@@ -2,9 +2,14 @@ import { EN_PATTERNS, EN_RULE_IDS } from "./en";
 import type { InjectionPattern } from "./types";
 import { UNIVERSAL_PATTERNS, UNIVERSAL_RULE_IDS } from "./universal";
 
-export type { InjectionPattern, PatternCategory, PatternLang, PatternScope } from "./types";
 export { ruleIdentity } from "./identity";
 export { scoreMatches } from "./scoring";
+export type {
+	InjectionPattern,
+	PatternCategory,
+	PatternLang,
+	PatternScope,
+} from "./types";
 
 /** Score at or above this blocks. Below it (and above 0) escalates to L2. */
 export const BLOCK_THRESHOLD = 40;
