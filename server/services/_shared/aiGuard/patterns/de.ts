@@ -56,7 +56,7 @@ export const DE_PATTERNS: InjectionPattern[] = [
 		lang: "de",
 		category: "prompt_leak",
 		regex:
-			/\b(wiederhole|zeige?|verrate|nenne)\b[^.\n]{0,20}\b(system-?prompt|deine anweisungen|deine regeln)\b/i,
+			/\b(wiederhole|zeige?|verrate|nenne)\b[^.\n]{0,20}\b(system-?prompt|deine anweisungen|deine regeln)\b|\bgib\w*\b[^.\n]{0,30}\b(system-?prompt|deine anweisungen|deine regeln)\b[^.\n]{0,10}\baus\b/i,
 		weight: 35,
 	},
 	{

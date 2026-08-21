@@ -548,8 +548,8 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-03 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-de produces a stable verdict and score 1`] = `
 {
-  "score": 30,
-  "verdict": "suspect",
+  "score": 65,
+  "verdict": "block",
 }
 `;
 
