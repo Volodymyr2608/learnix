@@ -92,7 +92,7 @@ A request must concern the current lesson, its course, or their direct prerequis
 
 Relevance is decided in two layers, in this order, and the order is a requirement:
 
-1. **L1 — deterministic patterns** (`patterns.ts` after `normalize.ts`). Runs first because it costs
+1. **L1 — deterministic patterns** (`patterns/` after `normalize.ts`). Runs first because it costs
    nothing and cannot itself be attacked by its input.
 2. **L2 — an LLM topic classifier** (`topicRelevance.ts`). Runs second because it *is* a model call
    and is vulnerable to the same class of attack it screens for. Its domain description is itself
@@ -562,7 +562,7 @@ above the ceiling) was **fixed**, not accepted — recorded in S7 and the S11 th
 The rest are named here as accepted or open.
 
 23. **L1 patterns are English-only, and this is a reviewed, accepted limitation** (F2). Every rule in
-    `patterns.ts` is an English verb+object; homoglyph folding only catches English disguised as
+    `patterns/` is an English verb+object; homoglyph folding only catches English disguised as
     Cyrillic, not a native-language injection ("Не зважай на попередні інструкції"). Non-English
     injection scores 0 at L1, so for those languages the deterministic layer S5 calls the foundation is
     *absent* — the defence falls to L2 (a fail-open model call) and L3 (measured weak, §3). The 92.6%

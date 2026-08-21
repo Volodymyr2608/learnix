@@ -92,6 +92,45 @@ describe("scoreMatches — two distinct rules of one category still sum (S2)", (
 	});
 });
 
+describe("scoreMatches — combined collapse and sum in one call", () => {
+	// The exact shape a naive refactor could break without either of the two
+	// tests above catching it: one identity's language variants must collapse
+	// to its max WHILE a separate distinct identity still sums on top, in the
+	// SAME scoreMatches call.
+	it("collapses one identity's language variants AND sums a separate distinct rule, in the same call", () => {
+		const mixed: InjectionPattern[] = [
+			pattern(
+				"en:override-ignore-prior",
+				"en",
+				"instruction_override",
+				30,
+				/ignore prior/i,
+			),
+			pattern(
+				"es:override-ignore-prior",
+				"es",
+				"instruction_override",
+				30,
+				/ignora previas/i,
+			),
+			pattern(
+				"en:override-new-instructions",
+				"en",
+				"instruction_override",
+				25,
+				/new instructions:/i,
+			),
+		];
+		const result = scoreMatches(
+			["ignore prior — ignora previas — new instructions: do this"],
+			mixed,
+		);
+		// override-ignore-prior collapses to 30 (its max, matched twice); override-new-instructions
+		// is a distinct identity and sums on top: 30 + 25 = 55.
+		expect(result.score).toBe(55);
+	});
+});
+
 describe("scoreMatches — mechanics", () => {
 	const rules: InjectionPattern[] = [
 		pattern(

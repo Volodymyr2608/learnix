@@ -48,7 +48,7 @@ export const guardUserInput = async (
 	}
 
 	if (l1.verdict === "suspect") {
-		// Escalates rather than blocks (see patterns.ts), but must stay visible:
+		// Escalates rather than blocks (see patterns/), but must stay visible:
 		// this is the signal for tuning BLOCK_THRESHOLD and the pattern weights,
 		// and a rising rate is the early sign of someone probing for a bypass.
 		logSecurityEvent({

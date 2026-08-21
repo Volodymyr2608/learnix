@@ -32,7 +32,8 @@ export const FR_PATTERNS: InjectionPattern[] = [
 		id: ID.overrideNewInstructions,
 		lang: "fr",
 		category: "instruction_override",
-		regex: /\b(nouvelles?|mises? à jour)\s+(instructions|consignes)\s*:/i,
+		regex:
+			/\bnouvelles?\s+(instructions|consignes)\s*:|\b(instructions|consignes)\s+mises?\s+à\s+jour\s*:/i,
 		weight: 25,
 	},
 	{

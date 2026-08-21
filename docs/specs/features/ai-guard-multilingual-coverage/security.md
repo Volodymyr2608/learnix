@@ -214,6 +214,10 @@ AC-19 requires the absolute count after this feature to be no greater than this 
   `allow` now that the reverted paragraph is gone — confirming, per the revert commit's own
   diagnostic, that this failure is independent of this feature. See accepted risk 8 above.
 
+AC-19 is met: on the original 65-row baseline corpus the absolute false-positive count is unchanged at
+6 (`legit-18/20/21/22/23/32`); the 24 figure is measured over the expanded 101-row corpus (which
+includes 36 new rows this feature added) and is not directly comparable to the baseline bar.
+
 ## S10. Why L2 intent reporting was reverted
 
 Tasks 12-14 added an `instructionOverride` boolean to `topicRelevance.ts`'s classifier, reported
@@ -245,3 +249,13 @@ prompt and output are entirely independent of `onTopic` — rather than sharing 
 existing topic-relevance check. L1's multilingual pattern union (Tasks 1-11) is entirely unaffected by
 any of this: it is fully deterministic regex matching, with zero evidence of interference and 100%
 attack-blocking recall throughout every eval run on this branch.
+
+**An additional constraint for any future redesign.** The three new asymmetric false positives found
+in this work (`legit-48`/`legit-56`/`legit-64` — the Spanish, French, and German translations of one
+English row, `legit-09`, that is *not itself* a baseline failure) are direct evidence that L2's
+`onTopic` classification is measurably weaker on non-English input than on English, independent of
+anything this feature added or reverted — `topicRelevance.ts` is byte-identical to its pre-feature
+state and was never given `instructionOverride`. This is not a curiosity to note in passing: any
+future isolated-model-call L2 redesign (the direction recommended above) inherits this gap and needs
+to account for it, since an isolated `instructionOverride` call built on the same underlying model and
+prompting approach has no reason to be immune to the same per-language accuracy skew.

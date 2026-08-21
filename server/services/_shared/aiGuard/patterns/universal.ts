@@ -38,13 +38,15 @@ export const UNIVERSAL_PATTERNS: InjectionPattern[] = [
 		weight: 30,
 	},
 	{
-		// The fixed-token half of the old `jailbreak-dan`. "DAN mode" is a proper
-		// noun that survives translation; the prose half ("do anything now") does
-		// not and lives in en.ts. See security.md S6.
+		// The fixed-token half of the old `jailbreak-dan`. "DAN" is a proper noun
+		// that survives translation; the prose half ("do anything now") does not
+		// and lives in en.ts. The regex also covers the localized "mode" word
+		// (modo/modus) in both word orders, so "DAN mode" survives translation
+		// as a whole phrase too, not just the bare token. See security.md S6.
 		id: ID.jailbreakDanToken,
 		lang: "universal",
 		category: "jailbreak_template",
-		regex: /\bDAN\s+mode\b/i,
+		regex: /\bDAN[-\s]?(mode|modo|modus)\b|\b(mode|modo|modus)[-\s]DAN\b/i,
 		weight: 40,
 	},
 ];

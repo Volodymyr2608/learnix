@@ -39,8 +39,24 @@ describe("scope partition is exhaustive (AC-8)", () => {
 		const scoped = INJECTION_PATTERNS.filter((p) => p.lang !== "universal");
 		const universal = INJECTION_PATTERNS.filter((p) => p.lang === "universal");
 
-		expect(scoped.length + universal.length).toBe(INJECTION_PATTERNS.length);
 		expect(scoped.filter((p) => universal.some((u) => u.id === p.id))).toEqual(
+			[],
+		);
+	});
+
+	it("a universal id never collides with a stripped language-scoped identity", () => {
+		// Guards against a real failure mode: if a language-scoped rule's stripped
+		// identity ever equals an existing universal id, scoreMatches would
+		// silently collapse them into one identity and the combined score would
+		// DROP instead of summing — exactly the failure class this scoring
+		// design exists to prevent.
+		const scopedIdentities = INJECTION_PATTERNS.filter(
+			(p) => p.lang !== "universal",
+		).map((p) => ruleIdentity(p.id));
+		const universalIds = INJECTION_PATTERNS.filter(
+			(p) => p.lang === "universal",
+		).map((p) => p.id);
+		expect(universalIds.filter((u) => scopedIdentities.includes(u))).toEqual(
 			[],
 		);
 	});
