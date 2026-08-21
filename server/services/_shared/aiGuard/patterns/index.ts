@@ -1,4 +1,5 @@
 import { EN_PATTERNS, EN_RULE_IDS } from "./en";
+import { ES_PATTERNS, ES_RULE_IDS } from "./es";
 import type { InjectionPattern } from "./types";
 import { UNIVERSAL_PATTERNS, UNIVERSAL_RULE_IDS } from "./universal";
 
@@ -21,6 +22,7 @@ export const BLOCK_THRESHOLD = 40;
  */
 export const RULE_ID_VOCABULARY = [
 	...EN_RULE_IDS,
+	...ES_RULE_IDS,
 	...UNIVERSAL_RULE_IDS,
 ] as const;
 
@@ -28,5 +30,6 @@ export type RuleId = (typeof RULE_ID_VOCABULARY)[number];
 
 export const INJECTION_PATTERNS: readonly InjectionPattern[] = [
 	...EN_PATTERNS,
+	...ES_PATTERNS,
 	...UNIVERSAL_PATTERNS,
 ];
