@@ -63,16 +63,25 @@ export const guardUserInput = async (
 
 	try {
 		const relevance = await checkTopicRelevance(text, context.domain);
-		if (!relevance.onTopic) {
+		if (relevance.instructionOverride || !relevance.onTopic) {
 			logSecurityEvent({
 				feature: context.feature,
 				userId: context.userId,
 				layer: "L2",
-				outcome: "guard_off_topic",
+				// Intent is checked FIRST so it wins when both fire. Evaluating
+				// !onTopic first would keep filing injections as off-topic — the
+				// exact under-reporting this branch exists to end.
+				outcome: relevance.instructionOverride
+					? "guard_instruction_override"
+					: "guard_off_topic",
 				ruleIds: l1.matchedRuleIds,
 				score: l1.score,
 			});
 			return {
+				// Deliberately the SAME outcome and message as a plain off-topic
+				// refusal. A user-visible difference would be a free multilingual
+				// oracle for tuning payloads against L2, and reusing this outcome
+				// means both routes keep their existing branches unchanged.
 				outcome: "off_topic",
 				layer: "L2",
 				matchedRuleIds: l1.matchedRuleIds,

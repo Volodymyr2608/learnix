@@ -72,6 +72,12 @@ export type SecurityLayer =
 export type SecurityOutcome =
 	| "guard_blocked"
 	| "guard_off_topic"
+	// L2 judged the message an attempt to override instructions, extract the
+	// prompt, or reassign the role — independently of topic. Its own value
+	// because filing it as guard_off_topic is what made injections invisible in
+	// the telemetry (security.md S3); the user-facing refusal is deliberately
+	// identical, so this field is the only place the distinction exists.
+	| "guard_instruction_override"
 	| "guard_suspect"
 	| "unsafe_tool_call"
 	| "output_validation_failed"
