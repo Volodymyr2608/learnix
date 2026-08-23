@@ -92,7 +92,7 @@ A request must concern the current lesson, its course, or their direct prerequis
 
 Relevance is decided in two layers, in this order, and the order is a requirement:
 
-1. **L1 — deterministic patterns** (`patterns.ts` after `normalize.ts`). Runs first because it costs
+1. **L1 — deterministic patterns** (`patterns/` after `normalize.ts`). Runs first because it costs
    nothing and cannot itself be attacked by its input.
 2. **L2 — an LLM topic classifier** (`topicRelevance.ts`). Runs second because it *is* a model call
    and is vulnerable to the same class of attack it screens for. Its domain description is itself
@@ -509,6 +509,20 @@ L2 is a model call, so these move between runs. Treat them as an order of magnit
 | Indirect payloads obeyed, raw | 6/12 | `aiGuard:indirect` |
 | Indirect payloads obeyed, wrapped | 5/12 | `aiGuard:indirect` |
 
+> **Note (2026-08-21):** the 92.6% figure above is **English-only** — it predates
+> `ai-guard-multilingual-coverage` and its `redteam.jsonl` corpus at the time. That feature's own
+> measurement, after L1 gained Spanish/French/German coverage and after the L2 `instructionOverride`
+> attempt was reverted, is per-technique, not a single aggregate: 34 attack rows, enforcement recall
+> 94.1% (32/34), detection recall 26.5% (9/34). The es/fr/de-specific rows (`multilingual_es`,
+> `multilingual_fr`, `l2_bypass_es/fr/de`, etc.) are enforced 1/1 and, unlike the English baseline,
+> mostly *detected* at L1 too (deterministic pattern match, not `onTopic` off-topic refusal). For
+> languages outside the four-language catalogue (`residual_out_of_catalogue`: Ukrainian, Polish,
+> Chinese), enforcement is currently 4/4 but detection is 0/4 — those rows are only ever stopped by
+> L2's `onTopic` field happening to read as off-topic, which is not a reliable injection detector (see
+> `ai-guard-multilingual-coverage/security.md` S3/S9/S10). No aggregate multilingual recall figure is
+> claimed here, because detection for non-catalogue languages varies by whether L2 happens to catch a
+> given row, which is not a stable property to average.
+
 18. **The defence holds; the telemetry does not.** Enforcement recall is 92.6%, but 24 of those 27
     attacks were stopped by **L2 as `off_topic`** — a product signal — rather than by L1 as
     `guard_blocked`. Anyone watching the security events for an attack campaign sees almost nothing,
@@ -548,11 +562,23 @@ above the ceiling) was **fixed**, not accepted — recorded in S7 and the S11 th
 The rest are named here as accepted or open.
 
 23. **L1 patterns are English-only, and this is a reviewed, accepted limitation** (F2). Every rule in
-    `patterns.ts` is an English verb+object; homoglyph folding only catches English disguised as
+    `patterns/` is an English verb+object; homoglyph folding only catches English disguised as
     Cyrillic, not a native-language injection ("Не зважай на попередні інструкції"). Non-English
     injection scores 0 at L1, so for those languages the deterministic layer S5 calls the foundation is
     *absent* — the defence falls to L2 (a fail-open model call) and L3 (measured weak, §3). The 92.6%
     enforcement recall in the table above is therefore an **English** number, not a general one.
+
+    **Update (2026-08-21) — the deferred trigger fired.** L1 coverage was extended to
+    Spanish/French/German in feature `ai-guard-multilingual-coverage` — deterministic, regex-based,
+    fully shipped (see that feature's `security.md`). "Non-English injection scores 0 at L1" above
+    should be read more precisely now: only **prose-phrased** injection scores 0 for a language
+    outside the catalogue. Four structural rules — `markup-fake-tokens`, `markup-injected-tags`,
+    `jailbreak-dan-token`, `role-system-marker` — are language-independent and always ran, in any
+    language, before this feature too. An L2-based multilingual *intent* classifier
+    (`instructionOverride`) was also attempted in that same feature and **reverted** after live-eval
+    evidence showed it degraded the existing `onTopic` classifier's accuracy on unrelated legitimate
+    input — see `ai-guard-multilingual-coverage/security.md` S10 for the full account. Non-catalogue
+    languages (everything outside en/es/fr/de) remain uncovered at L1, exactly as before.
 
     The gap is **already instrumented, not hidden**: `redteam.jsonl` carries `rt-lang-uk` (technique
     `multilingual_uk`, a Ukrainian prompt-leak injection) and the legitimate corpus carries Ukrainian
@@ -611,8 +637,14 @@ The rest are named here as accepted or open.
     open, and open for a long time" to "routinely open, and briefly so". That is a real widening and
     the acceptance stands — a hung student is worse and far more likely than a non-English injection
     arriving inside one of those windows — but it is the one place this work made a risk bigger, and
-    it is recorded as such. It raises the value of closing §23 (localised L1 patterns), not of
-    reverting the budget.
+    it is recorded as such.
+
+    **Update (2026-08-21).** The compound worst case has narrowed, but **only for the four catalogue
+    languages** (en/es/fr/de): `ai-guard-multilingual-coverage` gave L1 deterministic coverage in
+    those four, so for them this window closes regardless of L2 availability. For every other
+    language, this risk is **completely unchanged** from before that feature — L2 itself was not
+    improved (its intent classifier was reverted, §23), so a non-catalogue-language injection during
+    an L2 outage still meets no deterministic layer at all.
 29. **L1 decodes only base64, single-pass, and this is deliberate** (F4). `normalize.ts` locates and
     decodes base64 segments (with a printable-ratio guard) before matching, but does *not* decode
     ROT13, hex, URL-encoding, leetspeak, or nested/double encodings. L1 is a deterministic pre-filter,

@@ -28,7 +28,7 @@ const DOMAINS = {
  * behavioral half of AC-2). Calls the real `guardUserInput` — including the
  * real L2 OpenAI call — against a hand-built dataset of injection, off-topic,
  * and legitimate-AI-topic rows. Never run in PR CI; run manually before
- * changing `patterns.ts` or the L2 prompt (ADR-018).
+ * changing `patterns/` or the L2 prompt (ADR-018).
  *
  * Indirect injection is measured separately by `aiGuard:indirect` — the guard
  * never sees that payload, so scoring it here would be meaningless.

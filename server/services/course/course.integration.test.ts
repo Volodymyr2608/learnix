@@ -215,7 +215,7 @@ describe("CourseService.searchOwnCourses", () => {
 			instructorId: instructor.id,
 			title: "Rated",
 		});
-		const unrated = await makeCourse({
+		const _unrated = await makeCourse({
 			instructorId: instructor.id,
 			title: "Unrated",
 		});

@@ -46,7 +46,7 @@ describe("guardUserInput", () => {
 			userId: "user-1",
 			layer: "L1",
 			outcome: "guard_suspect",
-			ruleIds: ["role-you-are-now"],
+			ruleIds: ["en:role-you-are-now"],
 		});
 		expect(JSON.stringify({ fields, message })).not.toContain(text);
 	});
