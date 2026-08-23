@@ -38,7 +38,7 @@ export const reportError = (
 	// quota (AC 41).
 	if (isNodeAbort(error)) return;
 
-	if (context?.op) Sentry.getCurrentScope().setTag("operation", context.op);
+	if (context?.op) Sentry.getIsolationScope().setTag("operation", context.op);
 
 	if (isCaptured(error)) return;
 	markCaptured(error);
@@ -73,15 +73,27 @@ export const reportMessage = (
 /**
  * Attach context to the current request's scope WITHOUT capturing (AC 3).
  *
- * handleServiceError calls this; the tRPC middleware performs the one capture later
- * in the same continuation. getCurrentScope() rather than withScope(): the Node SDK
- * forks an isolation scope per request via AsyncLocalStorage, so what is set here
- * reaches that later capture, whereas withScope()'s scope would be discarded when its
- * callback returns — before the middleware ever runs.
+ * handleServiceError calls this; the tRPC middleware performs the one capture later,
+ * further up the same call stack.
+ *
+ * getIsolationScope(), not getCurrentScope() and not withScope(). Three reasons, in
+ * order of how easy they are to get wrong:
+ *
+ *  - withScope() would be actively broken here: its scope is discarded when its
+ *    callback returns, which is before the middleware ever runs.
+ *  - The isolation scope is the per-request one, and Sentry merges global +
+ *    isolation + current scope at capture time — so anything set here is included by
+ *    any capture during the request, even if something forks the current scope in
+ *    between.
+ *  - It matches what the SDK itself does: wrapServerComponentWithSentry reaches for
+ *    getIsolationScope() rather than forking its own, which is also the evidence
+ *    that the RSC path (createCaller, not a route handler) already has one — the
+ *    fork happens upstream in the per-request HTTP instrumentation. That is why
+ *    trpc/server.ts needs no wrapper of its own.
  */
 export const enrichScope = (
 	key: string,
 	context: Record<string, unknown>,
 ): void => {
-	Sentry.getCurrentScope().setContext(key, context);
+	Sentry.getIsolationScope().setContext(key, context);
 };

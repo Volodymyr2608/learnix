@@ -13,7 +13,7 @@ vi.mock("@sentry/nextjs", async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	captureException,
 	captureMessage,
-	getCurrentScope: () => ({ setTag, setContext }),
+	getIsolationScope: () => ({ setTag, setContext }),
 }));
 
 const { reportError, reportMessage, enrichScope } = await import(

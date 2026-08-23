@@ -70,10 +70,13 @@ export const createThrottle = (clock: Clock = Date.now) => {
 		return entry.count > SENTRY_MAX_PER_FINGERPRINT;
 	};
 
+	// No reset helper is exported. Tests construct their own instance via
+	// createThrottle(clock), so one is unnecessary — and the name `resetForTest` is
+	// banned in production code by aiLimits.contract.test.ts, because on the Upstash
+	// adapter that helper is KEYS + DEL across the whole key space.
 	return {
 		shouldThrottle,
 		sizeForTest: (): number => counts.size,
-		resetForTest: (): void => counts.clear(),
 	};
 };
 
