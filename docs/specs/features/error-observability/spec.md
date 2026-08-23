@@ -1,6 +1,6 @@
 ---
 feature: error-observability
-status: planned
+status: in-progress
 models: []
 depends-on: []
 ---
