@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import type { RevenueSummary } from "@/server/entities/payment/revenue";
 import { api } from "@/trpc/server";
 
@@ -9,12 +10,13 @@ const EMPTY: RevenueSummary = {
 };
 
 const getRevenueSummary = async (): Promise<RevenueSummary> => {
-	try {
-		return await api.payment.getRevenueSummary();
-	} catch (error) {
-		console.error("Error fetching revenue summary:", error);
-		return EMPTY;
-	}
+	return safeRequest(
+		"instructor.getRevenueSummary",
+		async () => {
+			return await api.payment.getRevenueSummary();
+		},
+		EMPTY,
+	);
 };
 
 export default getRevenueSummary;

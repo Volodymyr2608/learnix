@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import type {
 	GetReviewStatsInput,
 	ReviewStats,
@@ -19,12 +20,13 @@ const empty: ReviewStats = {
 const getReviewStats = async (
 	input: GetReviewStatsInput,
 ): Promise<ReviewStats> => {
-	try {
-		return (await api.instructor.getReviewStats(input)) ?? empty;
-	} catch (error) {
-		console.error("Error fetching review stats:", error);
-		return empty;
-	}
+	return safeRequest(
+		"instructor.getReviewStats",
+		async () => {
+			return (await api.instructor.getReviewStats(input)) ?? empty;
+		},
+		empty,
+	);
 };
 
 export default getReviewStats;

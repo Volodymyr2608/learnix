@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import { api } from "@/trpc/server";
 
 export type GetStudentEnrolledCoursesResult = Awaited<
@@ -9,12 +10,13 @@ const getStudentEnrolledCourses = async (params?: {
 	tab?: "all" | "in-progress" | "completed";
 	page?: number;
 }) => {
-	try {
-		return await api.course.getEnrolledCourses(params ?? {});
-	} catch (e) {
-		console.error(e);
-		return { courses: [], total: 0 };
-	}
+	return safeRequest(
+		"course.getStudentEnrolledCourses",
+		async () => {
+			return await api.course.getEnrolledCourses(params ?? {});
+		},
+		{ courses: [], total: 0 },
+	);
 };
 
 export default getStudentEnrolledCourses;
