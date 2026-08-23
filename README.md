@@ -13,6 +13,7 @@ Built on the T3 Stack: **Next.js 16** · **tRPC** · **Prisma** · **Better Auth
 | Framework | Next.js 16 (App Router, Turbopack) |
 | API | tRPC v11 + TanStack Query |
 | Database | PostgreSQL via Prisma ORM (v6) |
+| Rate limiting | Redis via Upstash REST (`@upstash/redis`) — distributed AI rate limiter ([ADR-027](docs/adr/027-distributed-ai-rate-limiting.md)) |
 | Auth | Better Auth v1 (email/password + GitHub + Google OAuth) |
 | AI | LangChain + LangGraph + OpenAI `gpt-4o-mini` |
 | AI tracing | LangSmith |
@@ -92,6 +93,12 @@ STRIPE_PLATFORM_FEE_PERCENT="20"   # optional, defaults to 20
 CERTIFICATE_SECRET=""
 INVOICE_SECRET=""
 UNSUBSCRIBE_SECRET=""
+
+# AI rate limiter store (Redis via Upstash REST). Optional locally — without
+# them the limiter falls back to an in-memory adapter. Required in production
+# (see Deployment below). Do NOT use KV_REST_API_READ_ONLY_TOKEN.
+KV_REST_API_URL=""
+KV_REST_API_TOKEN=""
 ```
 
 ### 3. Start the database
@@ -141,6 +148,10 @@ Open [http://localhost:3000](http://localhost:3000).
 | `pnpm db:studio` | Open Prisma Studio |
 | `pnpm generate` | Regenerate Prisma client |
 | `pnpm reindex` | Backfill all course/lesson/user embeddings |
+| `pnpm test` | Run all tests once (unit + integration) |
+| `pnpm test:unit` | Unit tests only (no DB, no Redis) |
+| `pnpm test:integration` | Integration tests (needs Postgres) |
+| `pnpm test:redis` | Redis-backed AI rate limiter tests (needs `redis` + `srh`, skips otherwise) |
 | `pnpm eval` | Run LangSmith offline evals |
 | `pnpm dev:n8n` | Start n8n via Docker Compose |
 | `pnpm dev:n8n:down` | Stop n8n containers |
