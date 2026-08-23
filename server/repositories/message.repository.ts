@@ -1,5 +1,4 @@
 import type { Message, Prisma } from "@/generated/prisma";
-import { db } from "@/server/db";
 import { BaseRepository } from "@/server/repositories/base/base.repository";
 
 export type MessageNotificationData = {
@@ -32,7 +31,7 @@ export default class MessageRepository extends BaseRepository<
 		senderId: string,
 		body: string,
 	): Promise<Message> {
-		return db.$transaction(async (tx) => {
+		return this.db.$transaction(async (tx) => {
 			const message = await tx.message.create({
 				data: { conversationId, senderId, body },
 			});

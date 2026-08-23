@@ -63,14 +63,14 @@ class EnrollmentRepository extends BaseRepository<
 	 * rather than throwing when the student is not enrolled.
 	 */
 	async touchLastAccessed(studentId: string, courseId: string): Promise<void> {
-		await this.db.enrollment.updateMany({
-			where: {
+		await this.updateMany(
+			{
 				studentId,
 				courseId,
 				status: { not: EnrollmentStatus.cancelled },
 			},
-			data: { lastAccessedAt: new Date() },
-		});
+			{ lastAccessedAt: new Date() },
+		);
 	}
 
 	findByIdWithRelations(enrollmentId: string) {
