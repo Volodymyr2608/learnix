@@ -18,6 +18,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | billing | stable | payments |
 | certificates | stable | enrollment |
 | distributed-ai-rate-limiter | stable | ai-defence-layers, ai-tutor-guardrails |
+| error-observability | planned | — |
 | instructor-mobile | stable | mobile-responsive |
 | messages | stable | auth |
 | mobile-responsive | planned | — |
