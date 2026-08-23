@@ -1,16 +1,25 @@
-import type { Payment, Prisma } from "@/generated/prisma";
+import type { Payment, Prisma, ProcessedStripeEvent } from "@/generated/prisma";
 import { getMonthWindows } from "@/lib/stats/monthWindows";
-import { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
 
-class ProcessedStripeEventRepository {
+class ProcessedStripeEventRepository extends BaseRepository<
+	"processedStripeEvent",
+	ProcessedStripeEvent,
+	Prisma.ProcessedStripeEventUncheckedCreateInput,
+	Prisma.ProcessedStripeEventUpdateInput,
+	Prisma.ProcessedStripeEventWhereInput,
+	never,
+	Prisma.ProcessedStripeEventSelect,
+	Prisma.ProcessedStripeEventOrderByWithRelationInput
+> {
+	protected readonly modelName = "processedStripeEvent" as const;
+
 	async exists(id: string): Promise<boolean> {
-		const count = await db.processedStripeEvent.count({ where: { id } });
-		return count > 0;
+		return (await this.count({ id })) > 0;
 	}
 
 	async record(id: string, type: string): Promise<void> {
-		await db.processedStripeEvent.create({ data: { id, type } });
+		await this.create({ id, type });
 	}
 }
 
@@ -96,7 +105,7 @@ class PaymentRepository extends BaseRepository<
 		since: Date,
 		bucket: "day" | "month",
 	): Promise<{ period: Date; grossCents: number; netCents: number }[]> {
-		const rows = await db.$queryRaw<
+		const rows = await this.db.$queryRaw<
 			{ period: Date; gross: bigint | null; net: bigint | null }[]
 		>`
 			SELECT date_trunc(${bucket}, created_at) AS period,
@@ -122,7 +131,7 @@ class PaymentRepository extends BaseRepository<
 		since: Date,
 		limit: number,
 	): Promise<{ courseId: string; grossCents: number }[]> {
-		const grouped = await db.payment.groupBy({
+		const grouped = await this.db.payment.groupBy({
 			by: ["courseId"],
 			where: {
 				instructorId,
@@ -144,7 +153,7 @@ class PaymentRepository extends BaseRepository<
 		courseIds: string[],
 	): Promise<Map<string, number>> {
 		if (courseIds.length === 0) return new Map();
-		const grouped = await db.payment.groupBy({
+		const grouped = await this.db.payment.groupBy({
 			by: ["courseId"],
 			where: {
 				courseId: { in: courseIds },
@@ -157,7 +166,7 @@ class PaymentRepository extends BaseRepository<
 	}
 
 	findPurchasesByStudent(studentId: string) {
-		return db.payment.findMany({
+		return this.findMany({
 			where: { studentId, status: { in: ["succeeded", "refunded"] } },
 			include: {
 				course: { select: { id: true, title: true } },
@@ -168,7 +177,7 @@ class PaymentRepository extends BaseRepository<
 	}
 
 	findInvoiceData(paymentId: string) {
-		return db.payment.findUnique({
+		return this.findFirst({
 			where: { id: paymentId },
 			include: {
 				course: { select: { title: true } },

@@ -1,11 +1,14 @@
 import { db } from "@/server/db";
+import { courseRepository } from "@/server/repositories/course.repository";
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
+import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 
 type Window = { gte: Date; lt: Date };
 
 class AnalyticsRepository {
 	/** The instructor's non-deleted course ids. */
 	async getInstructorCourseIds(instructorId: string): Promise<string[]> {
-		const rows = await db.course.findMany({
+		const rows = await courseRepository.findMany({
 			where: { instructorId, deletedAt: null },
 			select: { id: true },
 		});
@@ -17,11 +20,9 @@ class AnalyticsRepository {
 		window?: Window,
 	): Promise<number> {
 		if (courseIds.length === 0) return 0;
-		return db.enrollment.count({
-			where: {
-				courseId: { in: courseIds },
-				...(window ? { enrolledAt: { gte: window.gte, lt: window.lt } } : {}),
-			},
+		return enrollmentRepository.count({
+			courseId: { in: courseIds },
+			...(window ? { enrolledAt: { gte: window.gte, lt: window.lt } } : {}),
 		});
 	}
 
@@ -30,17 +31,15 @@ class AnalyticsRepository {
 		window: Window,
 	): Promise<number> {
 		if (courseIds.length === 0) return 0;
-		return db.enrollment.count({
-			where: {
-				courseId: { in: courseIds },
-				lastAccessedAt: { gte: window.gte, lt: window.lt },
-			},
+		return enrollmentRepository.count({
+			courseId: { in: courseIds },
+			lastAccessedAt: { gte: window.gte, lt: window.lt },
 		});
 	}
 
 	async getAvgProgress(courseIds: string[]): Promise<number> {
 		if (courseIds.length === 0) return 0;
-		const agg = await db.enrollment.aggregate({
+		const agg = await enrollmentRepository.aggregate({
 			where: { courseId: { in: courseIds } },
 			_avg: { progress: true },
 		});
@@ -57,8 +56,8 @@ class AnalyticsRepository {
 			...(window ? { createdAt: { gte: window.gte, lt: window.lt } } : {}),
 		};
 		const [attempts, correct] = await Promise.all([
-			db.quizAttempt.count({ where }),
-			db.quizAttempt.count({ where: { ...where, isCorrect: true } }),
+			quizAttemptRepository.count(where),
+			quizAttemptRepository.count({ ...where, isCorrect: true }),
 		]);
 		return { attempts, correct };
 	}
@@ -100,7 +99,7 @@ class AnalyticsRepository {
 			orderBy: { _count: { courseId: "desc" } },
 		});
 		if (grouped.length === 0) return [];
-		const courses = await db.course.findMany({
+		const courses = await courseRepository.findMany({
 			where: { id: { in: grouped.map((g) => g.courseId) } },
 			select: { id: true, title: true },
 		});

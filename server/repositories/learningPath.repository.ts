@@ -15,9 +15,7 @@ class LearningPathRepository extends BaseRepository<
 	protected readonly modelName = "learningPathCache" as const;
 
 	findByStudentCourse(studentId: string, courseId: string) {
-		return this.db.learningPathCache.findUnique({
-			where: { studentId_courseId: { studentId, courseId } },
-		});
+		return this.findFirst({ where: { studentId, courseId } });
 	}
 
 	upsertPath(input: {
@@ -54,10 +52,10 @@ class LearningPathRepository extends BaseRepository<
 	}
 
 	markStale(studentId: string, courseId: string) {
-		return this.db.learningPathCache.updateMany({
-			where: { studentId, courseId, staleAt: null },
-			data: { staleAt: new Date() },
-		});
+		return this.updateMany(
+			{ studentId, courseId, staleAt: null },
+			{ staleAt: new Date() },
+		);
 	}
 }
 

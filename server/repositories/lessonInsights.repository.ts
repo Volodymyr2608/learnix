@@ -32,9 +32,7 @@ class LessonInsightsRepository extends BaseRepository<
 	 * TypeError three call sites away.
 	 */
 	async findByLessonId(lessonId: string): Promise<LessonInsightsRow | null> {
-		const row = await this.db.lessonInsights.findUnique({
-			where: { lessonId },
-		});
+		const row = await this.findFirst({ where: { lessonId } });
 		if (!row) return null;
 
 		return {
