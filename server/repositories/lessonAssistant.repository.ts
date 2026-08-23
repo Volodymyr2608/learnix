@@ -1,4 +1,7 @@
-import { db } from "@/server/db";
+import type { LessonAssistantMessage, Prisma } from "@/generated/prisma";
+import { BaseRepository } from "@/server/repositories/base/base.repository";
+import type LessonAssistantConversationRepository from "@/server/repositories/lessonAssistantConversation.repository";
+import { lessonAssistantConversationRepository } from "@/server/repositories/lessonAssistantConversation.repository";
 
 /**
  * Most-recent turns sent to the model. Bounds cost and latency the student
@@ -17,20 +20,30 @@ const MODEL_CONTEXT_MESSAGE_LIMIT = 20;
  */
 const MODEL_CONTEXT_CHAR_BUDGET = 8_000;
 
-class LessonAssistantRepository {
-	private async getOrCreateConversation(lessonId: string, studentId: string) {
-		return db.lessonAssistantConversation.upsert({
-			where: { lessonId_studentId: { lessonId, studentId } },
-			create: { lessonId, studentId },
-			update: {},
-		});
+class LessonAssistantRepository extends BaseRepository<
+	"lessonAssistantMessage",
+	LessonAssistantMessage,
+	Prisma.LessonAssistantMessageUncheckedCreateInput,
+	Prisma.LessonAssistantMessageUpdateInput,
+	Prisma.LessonAssistantMessageWhereInput,
+	Prisma.LessonAssistantMessageInclude,
+	Prisma.LessonAssistantMessageSelect,
+	Prisma.LessonAssistantMessageOrderByWithRelationInput
+> {
+	protected readonly modelName = "lessonAssistantMessage";
+
+	private conversationRepository: LessonAssistantConversationRepository;
+
+	constructor() {
+		super();
+		this.conversationRepository = lessonAssistantConversationRepository;
 	}
 
 	async getMessages(lessonId: string, studentId: string) {
-		const convo = await db.lessonAssistantConversation.findUnique({
-			where: { lessonId_studentId: { lessonId, studentId } },
-			include: { messages: { orderBy: { createdAt: "asc" } } },
-		});
+		const convo = await this.conversationRepository.findWithMessages(
+			lessonId,
+			studentId,
+		);
 		return convo?.messages ?? [];
 	}
 
@@ -44,15 +57,15 @@ class LessonAssistantRepository {
 		studentId: string,
 		limit: number = MODEL_CONTEXT_MESSAGE_LIMIT,
 	) {
-		const convo = await db.lessonAssistantConversation.findUnique({
-			where: { lessonId_studentId: { lessonId, studentId } },
-			select: { id: true },
-		});
+		const convo = await this.conversationRepository.findByLessonAndStudent(
+			lessonId,
+			studentId,
+		);
 		if (!convo) return [];
 
 		// Newest-first with `take`, then reversed: `orderBy asc` + `take` would
 		// return the OLDEST N, which is the opposite of a recency window.
-		const rows = await db.lessonAssistantMessage.findMany({
+		const rows = await this.findMany({
 			where: { conversationId: convo.id, contextEligible: true },
 			// createdAt is timestamp(3), so two rows written in the same millisecond
 			// tie; without the id tiebreaker a user/assistant pair could invert or
@@ -89,18 +102,19 @@ class LessonAssistantRepository {
 			contextEligible?: boolean;
 		},
 	) {
-		const convo = await this.getOrCreateConversation(lessonId, studentId);
-		return db.lessonAssistantMessage.create({
-			data: {
-				conversationId: convo.id,
-				role: message.role,
-				content: message.content,
-				contextEligible: message.contextEligible ?? true,
-				toolCalls:
-					message.toolCalls !== undefined
-						? (message.toolCalls as object)
-						: undefined,
-			},
+		const convo = await this.conversationRepository.getOrCreate(
+			lessonId,
+			studentId,
+		);
+		return this.createRaw({
+			conversationId: convo.id,
+			role: message.role,
+			content: message.content,
+			contextEligible: message.contextEligible ?? true,
+			toolCalls:
+				message.toolCalls !== undefined
+					? (message.toolCalls as object)
+					: undefined,
 		});
 	}
 
@@ -121,20 +135,19 @@ class LessonAssistantRepository {
 		lessonId: string,
 		studentId: string,
 	) {
-		await db.lessonAssistantMessage.updateMany({
-			where: { id: messageId, conversation: { lessonId, studentId } },
-			data: { contextEligible: false },
-		});
+		await this.updateMany(
+			{ id: messageId, conversation: { lessonId, studentId } },
+			{ contextEligible: false },
+		);
 	}
 
 	async clearMessages(lessonId: string, studentId: string) {
-		const convo = await db.lessonAssistantConversation.findUnique({
-			where: { lessonId_studentId: { lessonId, studentId } },
-		});
+		const convo = await this.conversationRepository.findByLessonAndStudent(
+			lessonId,
+			studentId,
+		);
 		if (!convo) return;
-		await db.lessonAssistantMessage.deleteMany({
-			where: { conversationId: convo.id },
-		});
+		await this.deleteMany({ conversationId: convo.id });
 	}
 }
 
