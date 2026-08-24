@@ -220,7 +220,13 @@ output is not telemetry.
 
 23. Grouping is fixed server-side: each capture sets an explicit `fingerprint` from server-authored
     values only (tRPC `path` or route + error class), never from the message. Test: two same-class
-    errors with different embedded text group into one issue.
+    errors with different embedded text group into one issue. **AC 7's public path is the exception
+    that proves the rule**: there the route and the error class come from the caller, not the server,
+    so `fingerprintFor`'s generic rule does not apply to it. It reports through `reportMessage` with a
+    fixed root plus the class bucketed against a closed set
+    (`server/observability/clientErrorFingerprint.ts`), and does not group by route at all — otherwise
+    an anonymous script mints a fresh AC 24 throttle budget per call, and a dynamic segment like
+    `/dashboard/courses/<id>` fragments one real error across every course.
 24. `beforeSend` enforces a per-fingerprint throttle — at most `SENTRY_MAX_PER_FINGERPRINT = 10` per
     `SENTRY_THROTTLE_WINDOW_MS = 60_000`. The motivating path:
     `_shared/aiLimits/store/upstash.store.ts:118` fails closed and logs **once per AI request**, so an

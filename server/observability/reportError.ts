@@ -53,8 +53,13 @@ export const reportError = (
 };
 
 /**
- * Report a signal that is not an error — currently only aiGuard's zero-baseline
- * security outcomes (AC 36).
+ * Report a signal that is not an error: aiGuard's zero-baseline security outcomes
+ * (AC 36), and the client error-boundary report (AC 7), which has a class name and a
+ * route but no error object and no server-side stack.
+ *
+ * This is also the only funnel entry that takes an EXPLICIT fingerprint, which is what
+ * a caller needs when `fingerprintFor`'s generic `[path, class]` rule would be built
+ * from caller-supplied values — see clientErrorFingerprint.ts.
  *
  * `message` and `fingerprint` must be server-authored by the caller and never built
  * from user or model text. `context` goes through the same allowlist as reportError,

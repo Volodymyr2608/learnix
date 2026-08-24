@@ -1,30 +1,11 @@
 "use server";
 
 import { errorReportInput } from "@/server/entities/errorReport";
-import { reportError } from "@/server/observability/reportError";
-
-/**
- * The message is server-authored and fixed — never built from `input`, so this cannot
- * become the free-text relay S5 warns about even if the schema below were ever loosened.
- */
-const STATIC_MESSAGE = "client_reported_error";
-
-/**
- * `server/observability/fingerprint.ts` (frozen — Task 1-12) groups by
- * `error.constructor.name`, not `error.name`. A plain `new Error()` would therefore
- * always fingerprint as "Error" no matter what class the caller reports, so every
- * client-reported error on a route would collapse into one issue regardless of its
- * real type. AC 23 groups this action's reports by "route + error class" — so the
- * constructed error's *class itself* has to carry the caller-supplied name, not just
- * its `.name` property.
- */
-const namedClientError = (errorClass: string): Error => {
-	class ClientReportedError extends Error {}
-	Object.defineProperty(ClientReportedError, "name", { value: errorClass });
-	const error = new ClientReportedError();
-	error.name = errorClass;
-	return error;
-};
+import {
+	CLIENT_ERROR_FINGERPRINT_ROOT,
+	clientErrorFingerprint,
+} from "@/server/observability/clientErrorFingerprint";
+import { reportMessage } from "@/server/observability/reportError";
 
 /**
  * The one write path from the browser into the Sentry issue stream (spec.md AC 7,
@@ -46,6 +27,14 @@ const namedClientError = (errorClass: string): Error => {
  * it, and a per-occurrence digest would be actively wrong to fingerprint or tag by — it
  * is unique per error, so using it for grouping would give every occurrence its own
  * issue. Extending that allowlist is out of this task's scope.
+ *
+ * `reportMessage`, not `reportError`. There is no error object here and no stack worth
+ * transmitting — the report is a class name and a route — and `reportMessage` is the
+ * one funnel entry that takes an EXPLICIT server-chosen fingerprint. `reportError`
+ * would instead route through `fingerprintFor`'s generic `[path, class]`, and on this
+ * path both halves are caller-supplied, which is the AC 24 quota-enumeration hole
+ * `clientErrorFingerprint` exists to close. It also retires the `namedClientError`
+ * shim, which existed only to feed `error.constructor.name` into that generic rule.
  */
 export const reportClientError = async (input: unknown): Promise<void> => {
 	const parsed = errorReportInput.safeParse(input);
@@ -53,5 +42,9 @@ export const reportClientError = async (input: unknown): Promise<void> => {
 
 	const { errorClass, route } = parsed.data;
 
-	reportError(namedClientError(errorClass), STATIC_MESSAGE, { path: route });
+	reportMessage(
+		CLIENT_ERROR_FINGERPRINT_ROOT,
+		clientErrorFingerprint(errorClass),
+		{ path: route },
+	);
 };
