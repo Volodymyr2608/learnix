@@ -142,7 +142,9 @@ none of which changes a user-visible behaviour:
 (they have structured Zod output); a cross-instance rate limiter (R3 — item 11 changes the *key* and
 the per-request ceiling, it does not make the limiter distributed, and the per-process caveat stands;
 **R3 closed since, by ADR-027**);
-runtime enumeration in the contract tests (R4); LangSmith retention and redaction policy (R8); the
+runtime enumeration in the contract tests (R4); LangSmith **and Sentry** retention and redaction
+policy (R8 — scope widened by `error-observability` AC 36, which forwards the four zero-baseline
+outcomes to a second processor); the
 quiz answer key exposed to the client by `quiz.service.ts` (tracked as C4 in the supply-chain review,
 domain work, not this flow); sliding-window validation of the stream (S13 §2 stands — item 7 restores
 the event, it does not reduce the disclosure).

@@ -288,9 +288,16 @@ calling a Sentry user-deletion API — adds an external failure surface inside a
 `Restrict` relations already make it delicate (ADR-025), and a failing external call inside the
 deletion path is a worse risk than the one it closes.
 
-**Impact:** for up to Sentry's retention window (30 days on the Developer plan — confirm against the
-plan actually provisioned and record the number here at `/qa`), a deleted user's id remains linkable
-to their error events inside a US processor.
+**Impact:** for up to Sentry's retention window, a deleted user's id remains linkable to their error
+events inside a US processor.
+
+> **TODO — needs a human before the PR closes.** The retention window is **not confirmed**. Sentry's
+> published default for error events on the Developer plan is 30 days, but the number that governs
+> this residual is the one on the org actually provisioned (`learnix-fb` / `javascript-nextjs`), and
+> that cannot be read from a development environment — it needs someone signed in to Sentry, at
+> Settings → Security & Privacy / the plan's data-retention setting. **Record the observed number
+> here, replacing this block.** Do not treat "30 days" as verified: it is the documented default, not
+> an observation, and the residual's impact window is stated in terms of it.
 
 Worth stating plainly: this is **narrower than the existing R8**, not an addition to it. Unlike stdout,
 whose retention is undefined, and unlike LangSmith as currently configured, Sentry has a fixed

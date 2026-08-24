@@ -460,11 +460,25 @@ Written as facts after implementation, not as intentions before it.
     including `correct`. Not an AI surface; found while auditing the indexing channel.
 12. **No retention period is set for security events.** They carry `userId` and are retained under
     legitimate interest, but "indefinitely" is not a policy.
-13. **Nothing consumes the security events.** `logSecurityEvent` writes to stdout through `consola`;
-    there is no aggregation, query layer, or alerting sink. The taxonomy is well-formed, the
-    thresholds in S11 are defined, and the detection loop is still open — the events are emitted
-    into a place where no one is looking. This is the single cheapest thing left to fix, and it is
-    what makes the S13 §18 telemetry finding actionable rather than academic.
+13. **Nothing consumes the security events — partly closed 2026-08-24.** `logSecurityEvent` wrote to
+    stdout through `consola` with no aggregation, query layer, or alerting sink: the taxonomy was
+    well-formed, the S11 thresholds were defined, and the events were emitted into a place where no
+    one was looking.
+
+    **Closed for the four zero-baseline outcomes** — `unsafe_tool_call`, `fallback_triggered`,
+    `mastery_write_retained`, `content_revised_retained` — by `error-observability` AC 36. They are
+    forwarded to Sentry as `captureMessage` at `warning`, one fingerprint per outcome. Their normal
+    rate is zero, so any occurrence is the signal; no denominator or query layer is needed to read
+    them. See [`../error-observability/spec.md`](../error-observability/spec.md) AC 36 and
+    [ADR-029](../../../adr/029-error-reporting-projection-funnel.md).
+
+    **Still open for the other four** — `guard_blocked`, `guard_suspect`, `guard_off_topic`,
+    `output_validation_failed` — and deliberately so (AC 37). The first three are rate-based: S11
+    thresholds them per user and as ratios, which needs a denominator an error tracker does not have,
+    and they are attacker-triggerable, so forwarding them would hand out the event-quota lever.
+    `output_validation_failed` is report-only with a measured ~10% false-positive rate over every
+    persisted model-authored field. Those four still need an aggregation sink, and that is what
+    remains of this gap.
 14. **Distress escalation is not implemented** (S12). The cheapest path is a line in the system
     prompt, not a classifier — but that is a prompt change needing its own spec and eval cases.
 15. **The contract tests check registration, not completeness.** They fail when a module calls a

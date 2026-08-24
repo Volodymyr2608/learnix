@@ -1,6 +1,6 @@
 ---
 feature: error-observability
-status: in-progress
+status: stable
 models: []
 depends-on: []
 ---
@@ -72,7 +72,8 @@ two independent paths that share no handler:
 [ADR-010](../../../adr/010-domain-error-mapping.md):113 — which names `handleServiceError` as "the
 single place to add cross-cutting behaviour (Sentry, structured logging)" — into *enrich here,
 capture at the boundary*, because capturing in both places double-reports every service error and
-spends the free-tier quota twice. ADR-029 records the refinement.
+spends the free-tier quota twice.
+[ADR-029](../../../adr/029-error-reporting-projection-funnel.md) records the refinement.
 
 **3. What reaches Sentry is a projection, not an error object.** This is the load-bearing decision of
 the whole feature, and it is an **allowlist, not a scrubber**. Three LangChain constructors put
@@ -332,7 +333,8 @@ as an acceptance criterion above.
   That handler is only reached by `fetchRequestHandler`; every RSC call goes through `createCaller`
   (`trpc/server.ts:25`) and would report nothing. Both would still look correct in a browser test.
 - **Capture in exactly one place, or the quota halves.** ADR-010:113's "single place" line predates the
-  middleware and is refined, not contradicted, by ADR-029.
+  middleware and is refined, not contradicted, by
+  [ADR-029](../../../adr/029-error-reporting-projection-funnel.md).
 - **AC 4 is a quota control, not a taste preference.** `NOT_FOUND` and `UNAUTHORIZED` are the most
   frequent errors any web app throws and are almost always client-fault. Reporting them would exhaust
   the budget in normal browsing, after which Sentry *drops* rather than bills — so the real failures
@@ -432,7 +434,7 @@ as an acceptance criterion above.
   integration list explicitly rather than relying on defaults (residual S3).
 - **Docs that become wrong when this ships** — closing these is the `/qa` Gate Docs step:
   [ADR-010](../../../adr/010-domain-error-mapping.md):113 (the "in the future" line comes true, refined
-  by ADR-029); `ai-tutor-guardrails/security.md` S13 §13 (partly closed by AC 36) and its threat-model
+  by [ADR-029](../../../adr/029-error-reporting-projection-funnel.md)); `ai-tutor-guardrails/security.md` S13 §13 (partly closed by AC 36) and its threat-model
   **R8** (scope widens from LangSmith to "LangSmith and Sentry"); `docs/README.md`'s ADR table, stale
   since ADR-020. **Not** [`ai-hardening-plan.md`](../../ai-hardening-plan.md) §5 — its "No custom
   metrics dashboard" non-goal is about *metrics* and stays intact; this adds an error tracker, no
