@@ -1,7 +1,8 @@
 "use client";
 
 import { MessageSquare } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { reportClientError } from "@/app/_components/ErrorBoundary/actions";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { api } from "@/trpc/client";
 import type { MessageStudentButtonProps } from "./types";
@@ -11,10 +12,15 @@ export function MessageStudentButton({
 	studentId,
 }: MessageStudentButtonProps) {
 	const router = useRouter();
+	const route = usePathname();
 	const open = api.message.getOrCreateConversation.useMutation({
 		onSuccess: ({ conversationId }) =>
 			router.push(INSTRUCTOR_URLS.messageThread(conversationId)),
-		onError: (error) => console.error("Failed to open conversation:", error),
+		onError: (error) =>
+			void reportClientError({
+				errorClass: error.data?.code ?? "TRPCClientError",
+				route,
+			}),
 	});
 
 	return (
