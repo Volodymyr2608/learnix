@@ -74,4 +74,64 @@ describe("errorReportInput", () => {
 	it("rejects an empty-string route", () => {
 		expect(() => errorReportInput.parse({ ...valid, route: "" })).toThrow();
 	});
+
+	it("rejects an errorClass that is a readable free-text phrase within the length cap", () => {
+		expect(() =>
+			errorReportInput.parse({
+				...valid,
+				errorClass: "click here for free money",
+			}),
+		).toThrow();
+	});
+
+	it("rejects a route containing free-text content within the length cap", () => {
+		expect(() =>
+			errorReportInput.parse({
+				...valid,
+				route: "/click here for free money",
+			}),
+		).toThrow();
+	});
+
+	it("rejects an errorClass that doesn't start with a letter", () => {
+		expect(() =>
+			errorReportInput.parse({ ...valid, errorClass: "1TypeError" }),
+		).toThrow();
+	});
+
+	it("rejects a route that doesn't start with a slash", () => {
+		expect(() =>
+			errorReportInput.parse({ ...valid, route: "dashboard/courses" }),
+		).toThrow();
+	});
+
+	it("accepts a real JS built-in Error.name value", () => {
+		expect(() =>
+			errorReportInput.parse({ ...valid, errorClass: "TypeError" }),
+		).not.toThrow();
+	});
+
+	it("accepts a real tRPC TRPC_ERROR_CODE_KEY value", () => {
+		expect(() =>
+			errorReportInput.parse({ ...valid, errorClass: "UNAUTHORIZED" }),
+		).not.toThrow();
+	});
+
+	it("accepts the fallback errorClass used when a tRPC error carries no code", () => {
+		expect(() =>
+			errorReportInput.parse({ ...valid, errorClass: "TRPCClientError" }),
+		).not.toThrow();
+	});
+
+	it("accepts a real nested dynamic-segment route", () => {
+		expect(() =>
+			errorReportInput.parse({ ...valid, route: "/dashboard/courses/abc123" }),
+		).not.toThrow();
+	});
+
+	it("accepts the root route", () => {
+		expect(() =>
+			errorReportInput.parse({ ...valid, route: "/" }),
+		).not.toThrow();
+	});
 });

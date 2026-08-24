@@ -23,6 +23,25 @@ const MAX_ERROR_CLASS_LENGTH = 100;
 const MAX_ROUTE_LENGTH = 300;
 const MAX_DIGEST_LENGTH = 100;
 
+/**
+ * Identifier-shaped: starts with a letter, then only letters/digits/underscore/dot.
+ * Matches every real value this field receives — a JS built-in `Error.name`
+ * ("TypeError"), a custom error class name, or a tRPC `TRPC_ERROR_CODE_KEY`
+ * ("UNAUTHORIZED", "NOT_FOUND", ...) — while rejecting spaces or punctuation a
+ * free-text phrase would need. A length cap alone still lets a short readable phrase
+ * through (AC 7 / S5): this is the "no free text" control itself, not a formality.
+ */
+const ERROR_CLASS_SHAPE = /^[A-Za-z][A-Za-z0-9_.]*$/;
+
+/**
+ * Pathname-shaped: starts with "/", then only word characters, hyphens, and further
+ * slashes — matches every `usePathname()` / `window.location.pathname` value this app
+ * produces, including nested and dynamic-segment routes (e.g.
+ * "/dashboard/courses/abc123"), while rejecting spaces, query strings, or other
+ * free-text content a length cap alone would still admit.
+ */
+const ROUTE_SHAPE = /^\/[\w/-]*$/;
+
 export const errorReportInput = z.object({
 	/**
 	 * Next.js's error-boundary digest, correlating this report with the matching
@@ -30,8 +49,12 @@ export const errorReportInput = z.object({
 	 * app/global-error.tsx — a manually-caught client mutation failure has none.
 	 */
 	digest: z.string().max(MAX_DIGEST_LENGTH).optional(),
-	errorClass: z.string().min(1).max(MAX_ERROR_CLASS_LENGTH),
-	route: z.string().min(1).max(MAX_ROUTE_LENGTH),
+	errorClass: z
+		.string()
+		.min(1)
+		.max(MAX_ERROR_CLASS_LENGTH)
+		.regex(ERROR_CLASS_SHAPE),
+	route: z.string().min(1).max(MAX_ROUTE_LENGTH).regex(ROUTE_SHAPE),
 });
 
 export type ErrorReportInput = z.infer<typeof errorReportInput>;
