@@ -9,7 +9,7 @@ export class AuthService {
 		const existing = await userRepository.findFirst({ where: { email } });
 
 		if (existing) {
-			throw new AuthError("This email is already registered");
+			throw new AuthError("This email is already registered", "CONFLICT");
 		}
 
 		const userData = await auth.api.signUpEmail({
