@@ -237,11 +237,17 @@ export class LessonAIService {
 					}
 				}
 			}
-		} catch (_error) {
+		} catch (error) {
 			// A mid-stream provider error is the third exit that used to skip the
 			// output boundary with a partial reply already in the browser.
 			await finishWithoutDelivery();
 			if (signal?.aborted) return;
+			// Error-first, like guardUserInput.ts:103 — reportError (via the
+			// logger.error chokepoint) projects only the error's class, and never
+			// logs a client abort (AC 19 / AC 41). The `signal?.aborted` guard
+			// above already keeps this unreachable for an abort this service
+			// itself noticed.
+			logger.error(error, "[lessonAI] stream failed");
 			yield { type: "error" as const, message: "Something went wrong" };
 			return;
 		} finally {

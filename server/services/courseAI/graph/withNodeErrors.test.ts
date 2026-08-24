@@ -6,7 +6,7 @@ import {
 import { withNodeErrors } from "./withNodeErrors";
 
 const { mockLogger } = vi.hoisted(() => ({
-	mockLogger: { error: vi.fn() },
+	mockLogger: { error: vi.fn(), debug: vi.fn() },
 }));
 
 vi.mock("@/server/utils/logger", () => ({ logger: mockLogger }));
@@ -42,6 +42,7 @@ describe("withNodeErrors", () => {
 		// An instructor navigating away is not a failure — counting it would
 		// poison the failure-rate signal workstream D is built on.
 		mockLogger.error.mockClear();
+		mockLogger.debug.mockClear();
 		const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
 		const node = withNodeErrors("clarify", async () => {
 			throw abort;
@@ -49,12 +50,14 @@ describe("withNodeErrors", () => {
 
 		await expect(node(state)).rejects.toBe(abort);
 		expect(mockLogger.error).not.toHaveBeenCalled();
+		expect(mockLogger.debug).not.toHaveBeenCalled();
 	});
 
 	it("rethrows a LangChain ModelAbortError untouched and does not log it", async () => {
 		// streamEvents routes every .invoke() node through the streaming handler, so
 		// this — not a DOMException — is the shape a mid-turn abort actually takes.
 		mockLogger.error.mockClear();
+		mockLogger.debug.mockClear();
 		const abort = Object.assign(new Error("Model invocation was aborted."), {
 			name: "ModelAbortError",
 		});
@@ -64,10 +67,15 @@ describe("withNodeErrors", () => {
 
 		await expect(node(state)).rejects.toBe(abort);
 		expect(mockLogger.error).not.toHaveBeenCalled();
+		expect(mockLogger.debug).not.toHaveBeenCalled();
 	});
 
-	it("logs the node name and the error kind structurally", async () => {
+	// S9: app/api/chat/course/route.ts's outer catch is now the sole error-level
+	// report for a courseAI graph failure. Logging here too would double-capture
+	// every failure, halving the quota — so this site logs at `debug` only.
+	it("logs the node name and the error kind structurally, at debug — not error — level", async () => {
 		mockLogger.error.mockClear();
+		mockLogger.debug.mockClear();
 		const node = withNodeErrors("extract_step_data", async () => {
 			throw Object.assign(new Error("rate limited"), {
 				lc_error_code: "MODEL_RATE_LIMIT",
@@ -75,11 +83,13 @@ describe("withNodeErrors", () => {
 		});
 
 		await expect(node(state)).rejects.toBeInstanceOf(RetryableNodeError);
-		const [fields] = mockLogger.error.mock.calls[0] ?? [];
+		expect(mockLogger.error).not.toHaveBeenCalled();
+		const [fields] = mockLogger.debug.mock.calls[0] ?? [];
 		expect(fields).toMatchObject({
 			feature: "courseAI",
 			node: "extract_step_data",
 			kind: "retryable",
+			errorName: "Error",
 		});
 	});
 });

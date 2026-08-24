@@ -18,12 +18,20 @@ export const withNodeErrors = (name: string, fn: NodeFn): NodeFn => {
 			if (isNodeAbort(err)) throw err;
 
 			const classified = classifyNodeError(err, name);
-			logger.error(
+			// Downgraded off `error` (S9): app/api/chat/course/route.ts's outer catch
+			// re-logs this same failure at `error` level once `classified` propagates
+			// through the graph, so logging it here too would double-capture every
+			// node failure. `logger.error` is Task 8's only Sentry-reporting
+			// chokepoint (server/utils/logger.ts), so `debug` keeps this a local
+			// breadcrumb. Only a scalar class name travels — never the raw `err` —
+			// for the same "no free text, ever" reason the error-level sites in this
+			// feature follow.
+			logger.debug(
 				{
 					feature: "courseAI",
 					node: name,
 					kind: classified.retryable ? "retryable" : "fatal",
-					err,
+					errorName: err instanceof Error ? err.name : String(err),
 				},
 				"[courseAI.graph] node failed",
 			);
