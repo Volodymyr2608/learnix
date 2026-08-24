@@ -61,7 +61,7 @@ class EmailService {
 		if (error) {
 			logger.error("resend_failed", {
 				templateKey: input.templateKey,
-				toEmail: input.toEmail,
+				userId: input.userId,
 				error,
 			});
 			throw new ResendSendError(error.message);
