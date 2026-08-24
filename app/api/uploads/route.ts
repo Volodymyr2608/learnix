@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/server/better-auth/server";
 import VercelService from "@/server/services/vercel/vercel.service";
+import { logger } from "@/server/utils/logger";
 
 const ALLOWED_MIME_TYPES = new Set([
 	"image/jpeg",
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 
 		return NextResponse.json({ mediaUrl: res.url });
 	} catch (error) {
-		console.error("Upload file error:", error);
+		logger.error("Upload file error:", error);
 		return NextResponse.json({ error: "Upload failed." }, { status: 500 });
 	}
 }

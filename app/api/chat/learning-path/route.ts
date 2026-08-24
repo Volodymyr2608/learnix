@@ -3,6 +3,7 @@ import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { checkAiRateLimit } from "@/server/services/_shared/aiLimits";
 import { learningPathAIService } from "@/server/services/learningPathAI/learningPathAI.service";
+import { logger } from "@/server/utils/logger";
 
 export const runtime = "nodejs";
 
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
 				}
 			} catch (e) {
 				if (!abortSignal.aborted) {
-					console.error("[Learning path stream error]", e);
+					logger.error("[Learning path stream error]", e);
 					send({ type: "error", message: "Failed to generate learning path" });
 				}
 			} finally {
