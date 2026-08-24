@@ -116,22 +116,34 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 	 * protectedProcedure, and every role procedure builds on those — so it is the one
 	 * place that sees both.
 	 *
-	 * The try/catch also closes a gap that predates Sentry: without it a throwing
-	 * procedure skipped its own timing line entirely (AC 40).
+	 * next() resolves to a MiddlewareResult ({ ok: true, data } | { ok: false, error
+	 * }) — it does NOT reject when a downstream procedure throws; only the
+	 * outermost procedure() caller does that, by throwing result.error once every
+	 * middleware has already run and returned normally. A try/catch around next()
+	 * here would build cleanly (TypeScript has no way to know next() never rejects)
+	 * but never actually run for a real procedure failure, silently turning this
+	 * whole capture point into dead code — verified with a minimal
+	 * createCallerFactory repro against a deliberately throwing procedure (entered:
+	 * 1, caught: 0). Branching on result.ok is what the SDK's own internal
+	 * createOutputMiddleware does for the same reason.
+	 *
+	 * Checking result.ok also closes a gap that predates Sentry: without it a
+	 * throwing procedure skipped its own timing line entirely (AC 40).
 	 */
-	try {
-		const result = await next();
+	const result = await next();
+
+	if (result.ok) {
 		logger.info(`[TRPC] ${path} took ${Date.now() - start}ms to execute`);
 		return result;
-	} catch (error) {
-		logger.info(
-			`[TRPC] ${path} took ${Date.now() - start}ms to execute (failed)`,
-		);
-		if (shouldReport(error)) {
-			reportError(error, "trpc_procedure_failed", { path });
-		}
-		throw error;
 	}
+
+	logger.info(
+		`[TRPC] ${path} took ${Date.now() - start}ms to execute (failed)`,
+	);
+	if (shouldReport(result.error)) {
+		reportError(result.error, "trpc_procedure_failed", { path });
+	}
+	return result;
 });
 
 /**
