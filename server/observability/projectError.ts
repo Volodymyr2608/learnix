@@ -81,12 +81,24 @@ const scalarFieldsOf = (error: unknown, className: string) => {
 	};
 };
 
+/**
+ * Reduce any object to the allowlisted scalar keys (AC 10).
+ *
+ * The parameter is deliberately wider than `ProjectionContext`: `enrichScope` feeds it
+ * `DomainError.context`, which is `Record<string, unknown>` at the type level because a
+ * service may pass anything there — and several do pass whole DTOs
+ * (`instructor.service.ts:85` passes the signup DTO, plaintext password included). The
+ * function reads keys BY NAME and requires each surviving value to be a string, so a
+ * `dto`, a `query` or any other unlisted key cannot come through whatever its type.
+ * That runtime allowlist, not the caller's declared type, is the control.
+ */
 export const pickAllowlistedContext = (
-	context?: ProjectionContext,
+	context?: ProjectionContext | Readonly<Record<string, unknown>>,
 ): Record<string, string> => {
 	const picked: Record<string, string> = {};
+	const source = context as Record<string, unknown> | undefined;
 	for (const key of CONTEXT_KEYS) {
-		const value = context?.[key];
+		const value = source?.[key];
 		if (typeof value === "string" && value.length > 0) picked[key] = value;
 	}
 	return picked;

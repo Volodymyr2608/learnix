@@ -342,11 +342,31 @@ as an acceptance criterion above.
   `getStudentEnrolledCourses`, `search/getSemanticSearchResults`. `safeRequest` must take the
   operation name as a parameter rather than deriving it from the message, or those six all fingerprint
   together.
-- **`DomainError.context` is populated at far fewer sites than AC 3 implies.** Most `.errors.ts` files
-  are bare aliases (`lessonAI.errors.ts` is three lines and passes no context anywhere). Only four
-  real call sites pass the 4th constructor argument — `course.service.ts:109-111`, `:477`, `:514`, and
-  `enrollment.service.ts:39`. AC 3's test must use one of those as its fixture rather than a
-  hypothetical, and the enrichment must be a no-op when `context` is `undefined`.
+- **`DomainError.context` is populated at fewer sites than AC 3 implies, and it is NOT scalar-ids-only.**
+  Most `.errors.ts` files are bare aliases (`lessonAI.errors.ts` is three lines and passes no context
+  anywhere). **33** call sites pass the 4th constructor argument, in eight services:
+
+  | Site | Context passed | Shape |
+  |---|---|---|
+  | `instructor.service.ts:85` | `{ dto }` | **full `instructorSchema` input — includes the plaintext `password` and `email`**, on a `publicProcedure` |
+  | `course.service.ts:70`, `:328` | `{ dto }` | full course create/update payload |
+  | `course.service.ts:168`, `:198` | `{ dto: sections }`, `{ dto: sections.length }` | section payload / a count |
+  | `course.service.ts:406`, `:464` | `{ existingSections, newSections }`, `{ newSectionsCount, updatedSectionIds }` | arrays of section objects / ids |
+  | `search.service.ts:38` | `{ query: input.query }` | **the raw user search string** |
+  | `course.service.ts:109`, `:477`, `:494`, `:514`, `:531` | `{ courseId }` | scalar ids |
+  | `enrollment.service.ts:39`, `:49`, `:127`, `:233`, `:305`, `:372` | `{ courseId }`, `{ studentId }`, both | scalar ids |
+  | `lesson.service.ts:65`, `:108`, `:156`, `:182`, `:276` | `{ lessonId }` | scalar ids |
+  | `quiz.service.ts:93`, `:176`, `:238`, `:254` | `{ lessonId }`, `{ quizId }` | scalar ids |
+  | `review.service.ts:71`, `:85`, `:116`, `:125` | `{ studentId, courseId }` | scalar ids |
+  | `recommendations.service.ts:34` | `{ userId }` | scalar id |
+
+  So `handleServiceError` may **never** treat `error.context` as vetted. `enrichScope` runs AC 10's
+  allowlist itself — a `dto`, a `query`, or any other unlisted key produces an empty context and is
+  dropped, and nothing is set on the scope when nothing survives. This matters more than for
+  `reportError`, because scope context is merged into whatever the *next* `captureException` sends and
+  `beforeSend`'s redaction strips only emails and control characters — it would not touch `password`.
+  AC 3's test must use a real site as its fixture rather than a hypothetical, and the enrichment must
+  be a no-op when `context` is `undefined`.
 - **`vercel.service.ts` does not import the logger today.** It is the one server service on raw
   `console.*` throughout, so it is easy to miss in a grep that starts from logger importers.
 - **Do not "fix" `lessonAI.service.ts:240` by rethrowing.** The `catch (_error)` swallow is load-bearing

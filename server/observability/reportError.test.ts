@@ -126,12 +126,47 @@ describe("reportMessage", () => {
 });
 
 describe("enrichScope", () => {
-	it("sets context without capturing", () => {
+	beforeEach(() => {
 		captureException.mockClear();
+		setContext.mockClear();
+	});
 
+	it("sets context without capturing", () => {
 		enrichScope("domainError", { courseId: "c1" });
 
 		expect(setContext).toHaveBeenCalledWith("domainError", { courseId: "c1" });
 		expect(captureException).not.toHaveBeenCalled();
+	});
+
+	it("drops a whole DTO — a plaintext password never reaches the scope", () => {
+		// The live shape: instructor.service.ts:85 passes `{ dto }` — the full
+		// instructorSchema input, password included — as DomainError's 4th argument on
+		// a publicProcedure. handleServiceError forwards it here, and whatever lands on
+		// the isolation scope is merged into the NEXT captureException. `dto` is not an
+		// allowlisted key, so nothing survives (AC 10).
+		enrichScope("domainError", {
+			dto: {
+				password: "supersecret123",
+				email: "a@b.com",
+				fullName: "Ada Lovelace",
+			},
+		});
+
+		expect(JSON.stringify(setContext.mock.calls)).not.toContain(
+			"supersecret123",
+		);
+		expect(JSON.stringify(setContext.mock.calls)).not.toContain("a@b.com");
+		expect(setContext).not.toHaveBeenCalled();
+	});
+
+	it("keeps the allowlisted ids when they arrive alongside a payload", () => {
+		enrichScope("domainError", {
+			courseId: "c1",
+			dto: { title: "SECRET_DRAFT" },
+			query: "SECRET_QUERY",
+		});
+
+		expect(setContext).toHaveBeenCalledWith("domainError", { courseId: "c1" });
+		expect(JSON.stringify(setContext.mock.calls)).not.toContain("SECRET_");
 	});
 });

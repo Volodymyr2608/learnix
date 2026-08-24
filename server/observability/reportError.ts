@@ -76,6 +76,19 @@ export const reportMessage = (
  * handleServiceError calls this; the tRPC middleware performs the one capture later,
  * further up the same call stack.
  *
+ * It runs the SAME allowlist as reportError/reportMessage (AC 10), and that is
+ * load-bearing rather than tidiness: the only caller passes `DomainError.context`,
+ * which is `Record<string, unknown>` and is NOT scalar-ids-only in practice —
+ * `instructor.service.ts:85` passes `{ dto }` for a `publicProcedure` signup whose DTO
+ * contains the user's plaintext password, `course.service.ts:70`/`:328` pass course
+ * DTOs, and `search.service.ts:34` passes the raw search query. Anything set here is
+ * merged into the next captureException by the isolation scope, so without the
+ * allowlist those payloads would be transmitted; `beforeSend`'s redaction only strips
+ * emails and control characters and would not touch a password field.
+ *
+ * Nothing is set when no allowlisted key survives, so a dropped payload leaves no
+ * empty `contexts` entry behind.
+ *
  * getIsolationScope(), not getCurrentScope() and not withScope(). Three reasons, in
  * order of how easy they are to get wrong:
  *
@@ -93,7 +106,10 @@ export const reportMessage = (
  */
 export const enrichScope = (
 	key: string,
-	context: Record<string, unknown>,
+	context: ProjectionContext | Readonly<Record<string, unknown>>,
 ): void => {
-	Sentry.getIsolationScope().setContext(key, context);
+	const picked = pickAllowlistedContext(context);
+	if (Object.keys(picked).length === 0) return;
+
+	Sentry.getIsolationScope().setContext(key, picked);
 };

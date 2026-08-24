@@ -6,6 +6,7 @@ vi.mock("@/server/observability/reportError", () => ({ enrichScope }));
 
 const { handleServiceError } = await import("./handleServiceError");
 const { DomainError } = await import("@/server/services/base/base.errors");
+const { projectError } = await import("@/server/observability/projectError");
 
 class CourseError extends DomainError {}
 
@@ -76,12 +77,26 @@ describe("handleServiceError", () => {
 		}
 	});
 
-	it("records the class name of an unmapped error", () => {
+	it("does not enrich the scope for an unmapped error — the class name rides the projection", () => {
+		// `name` is not one of AC 10's eight allowlisted context keys, so enriching it
+		// would be dropped. It is not needed: the original travels as `cause`, and the
+		// projection names every link of that chain.
 		class WeirdError extends Error {}
+
 		expect(() => handleServiceError(new WeirdError("x"))).toThrow();
-		expect(enrichScope).toHaveBeenCalledWith("errorClass", {
-			name: "WeirdError",
-		});
+		expect(enrichScope).not.toHaveBeenCalled();
+	});
+
+	it("leaves the class name recoverable from the projected chain", () => {
+		class WeirdError extends Error {}
+
+		try {
+			handleServiceError(new WeirdError("x"));
+			expect.unreachable("should have thrown");
+		} catch (thrown) {
+			const { root } = projectError(thrown, "trpc_procedure_failed");
+			expect((root.cause as Error).message).toBe("caused by WeirdError");
+		}
 	});
 
 	it("handles a non-Error throw", () => {

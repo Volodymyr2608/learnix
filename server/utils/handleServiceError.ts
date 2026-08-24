@@ -16,8 +16,15 @@ export function handleServiceError(error: unknown): never {
 	if (error instanceof TRPCError) throw error;
 
 	if (error instanceof DomainError) {
-		// Only four call sites populate context today (course.service.ts:109, :477,
-		// :514 and enrollment.service.ts:39), so this is a no-op for most errors.
+		/**
+		 * 33 call sites populate `context` today and they are NOT all scalar ids:
+		 * `instructor.service.ts:85` passes `{ dto }` — the signup DTO, plaintext
+		 * password included — on a `publicProcedure`, `course.service.ts:70`/`:328`
+		 * pass course DTOs, and `search.service.ts:34` passes the raw search query.
+		 *
+		 * `enrichScope` therefore runs the AC 10 allowlist itself; it is not a
+		 * pass-through. Nothing here may assume the caller vetted the object.
+		 */
 		if (error.context) enrichScope("domainError", error.context);
 
 		throw new TRPCError({
@@ -38,11 +45,14 @@ export function handleServiceError(error: unknown): never {
 	 *
 	 * The original is preserved as `cause` for server-side telemetry; the projection
 	 * in server/observability/projectError.ts is what keeps it from being transmitted.
+	 *
+	 * The class name is NOT enriched onto the scope here. It does not need to be: the
+	 * original travels as `cause`, and projectError walks that chain and names each
+	 * link — the unmapped error becomes its own `exception.values[]` entry with the
+	 * server-authored message `caused by <ClassName>`. An `enrichScope` call would
+	 * additionally have to invent an allowlist key (AC 10 pins the eight that exist,
+	 * and `name` is not one), so it would be dropped rather than transmitted.
 	 */
-	enrichScope("errorClass", {
-		name: (error as { constructor?: { name?: string } })?.constructor?.name,
-	});
-
 	throw new TRPCError({
 		code: "INTERNAL_SERVER_ERROR",
 		message: "An unexpected error occurred",
