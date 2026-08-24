@@ -12,7 +12,9 @@ import {
  * The ONLY module in the application that calls the Sentry SDK's capture APIs.
  *
  * Two other files may import @sentry/nextjs — sentry.server.config.ts (init) and
- * instrumentation.ts (onRequestError) — and a contract test enforces that boundary.
+ * next.config.ts (withSentryConfig, build-time only) — and a contract test enforces
+ * that boundary. instrumentation.ts used to be a third: its onRequestError re-exported
+ * Sentry.captureRequestError, which captured the raw error. It now calls reportError.
  * It is not a style rule: projectError is the enforcement point for AC 10/11, so a
  * module that calls Sentry.captureException directly hands Sentry the real error, and
  * OutputParserException.message is the entire model output, which becomes the issue
@@ -99,10 +101,16 @@ export const reportMessage = (
  *    any capture during the request, even if something forks the current scope in
  *    between.
  *  - It matches what the SDK itself does: wrapServerComponentWithSentry reaches for
- *    getIsolationScope() rather than forking its own, which is also the evidence
- *    that the RSC path (createCaller, not a route handler) already has one — the
- *    fork happens upstream in the per-request HTTP instrumentation. That is why
- *    trpc/server.ts needs no wrapper of its own.
+ *    getIsolationScope() rather than forking its own, so trpc/server.ts needs no
+ *    wrapper of its own either.
+ *
+ * Where the fork actually comes from, read off @sentry/nextjs@10.70.0 rather than
+ * assumed: only `withIsolationScope()` sets the OTel fork key
+ * (@sentry/opentelemetry asyncContextStrategy:1814-1819), and on this app's surfaces
+ * `wrapRouteHandlerWithSentry` is the caller. The RSC path has no such wrapper, so
+ * there `getIsolationScope()` can be the process-wide default scope — which is a
+ * second, independent reason the allowlist above matters: only ids can persist there,
+ * never a payload.
  */
 export const enrichScope = (
 	key: string,

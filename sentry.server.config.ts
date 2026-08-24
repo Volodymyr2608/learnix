@@ -19,7 +19,21 @@ import { throttle } from "@/server/observability/throttle";
  * NODE_ENV=production and no SENTRY_DSN now throws at boot. That is AC 30 working,
  * not a regression.
  */
-Sentry.initWithoutDefaultIntegrations({
+
+/**
+ * The one default integration we keep, selected BY NAME rather than by letting the
+ * default list through (see the `integrations` note below).
+ *
+ * `DistDirRewriteFrames` is added only by `@sentry/nextjs`'s own `init()`. It rewrites
+ * every stack frame's `.next/...` absolute path to `app:///_next/...`, which is the
+ * path the uploaded artifacts are keyed by — without it the source maps `next.config.ts`
+ * uploads resolve against nothing and the whole upload apparatus (AC 35) is silently
+ * inert. The SDK does not export the integration, so it cannot be constructed here; it
+ * can only be picked out of the defaults.
+ */
+const KEPT_DEFAULT_INTEGRATIONS = new Set(["DistDirRewriteFrames"]);
+
+Sentry.init({
 	dsn: resolveSentryDsn(process.env.NODE_ENV ?? "", process.env.SENTRY_DSN),
 
 	// Preview deployments must not merge into production's issue stream (AC 32).
@@ -40,19 +54,32 @@ Sentry.initWithoutDefaultIntegrations({
 	shutdownTimeout: 2,
 
 	/**
-	 * initWithoutDefaultIntegrations, then name what we want.
+	 * Construct the list ourselves, then re-admit defaults by NAME allowlist.
 	 *
-	 * Filtering the default list would mitigate SDK default drift by vigilance — you
-	 * have to notice a new entry. Starting from nothing closes it structurally: a
+	 * `integrations` as a function REPLACES the resolved list outright
+	 * (`@sentry/core/integration.js:29-31`) — it is not merged with the defaults. So a
 	 * future release adding captureConsoleIntegration or extraErrorDataIntegration
-	 * cannot reintroduce raw error objects into `extra`, because it cannot appear in
-	 * a list we construct ourselves. This is security.md S14's residual, closed.
+	 * cannot reintroduce raw error objects into `extra`: it would have to be named
+	 * here first. That is security.md S14's residual, closed structurally rather than
+	 * by vigilance.
+	 *
+	 * This used to be `initWithoutDefaultIntegrations` with a plain array. That
+	 * function is `@sentry/node`'s, merely re-exported by `@sentry/nextjs` through its
+	 * `Object.keys(node)` sweep (`build/cjs/index.server.js:67-69`) — so it skipped
+	 * everything `@sentry/nextjs`'s own `init()` does: the `isBuild()` and
+	 * already-initialised guards, `applySdkMetadata(opts, "nextjs")`, the injected
+	 * release name, the processor that drops React postpone/Suspense control-flow
+	 * throws (they are not errors, and each one would cost quota), and
+	 * `DistDirRewriteFrames`. See build/sdk-defaults.md for the full comparison.
 	 */
-	integrations: [
+	integrations: (defaults) => [
 		// Pinned to the same constant projectError walks to, so the two cannot drift.
 		Sentry.linkedErrorsIntegration({ limit: LINKED_ERROR_DEPTH }),
 		Sentry.dedupeIntegration(),
 		Sentry.inboundFiltersIntegration(),
+		...defaults.filter((integration) =>
+			KEPT_DEFAULT_INTEGRATIONS.has(integration.name),
+		),
 	],
 
 	beforeSend: (event) => {
