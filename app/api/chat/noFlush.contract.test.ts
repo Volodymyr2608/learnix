@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -14,21 +15,38 @@ import { describe, expect, it } from "vitest";
  * (bounded, `SENTRY_FLUSH_TIMEOUT_MS <= 2_000`) — just never inside the stream body
  * — so this scans only that body, not the whole file.
  *
- * Each of the three chat routes wraps exactly one
- * `new ReadableStream<Uint8Array>({ ... })` literal, immediately followed by the
- * `return new Response(stream, {` that ships it — slicing the source between those
- * two markers isolates the stream body precisely (verified by the walk below,
- * which throws if a route's shape ever stops matching that pattern, rather than
- * silently scanning nothing).
+ * Routes are discovered by walking `app/api/chat` (same `walk()` technique as
+ * bodyValidation.contract.test.ts in this directory) rather than a hardcoded
+ * list, so a newly added `route.ts` is picked up automatically. A discovered
+ * route is only "in scope" for this check if it actually contains a
+ * `ReadableStream<Uint8Array>({` literal — a future chat route with no SSE
+ * body has nothing for `Sentry.flush()` to block, so it's skipped rather than
+ * forced into this shape. Each in-scope route wraps exactly one such literal,
+ * immediately followed by the `return new Response(stream, {` that ships it —
+ * slicing the source between those two markers isolates the stream body
+ * precisely, and throws if a route's shape ever stops matching that pattern
+ * (started the literal but never returned it), rather than silently scanning
+ * nothing.
  */
-const ROUTES = [
-	"app/api/chat/course/route.ts",
-	"app/api/chat/lesson/route.ts",
-	"app/api/chat/learning-path/route.ts",
-];
+const ROOT = "app/api/chat";
+
+const walk = (dir: string): string[] =>
+	readdirSync(dir).flatMap((entry) => {
+		const full = join(dir, entry);
+		if (statSync(full).isDirectory()) return walk(full);
+		return full.endsWith(".ts") && !full.endsWith(".test.ts") ? [full] : [];
+	});
+
+const ROUTES = walk(join(process.cwd(), ROOT))
+	.map((abs) => abs.slice(process.cwd().length + 1))
+	.filter((rel) => rel.endsWith("/route.ts"))
+	.sort();
 
 const STREAM_START = "new ReadableStream<Uint8Array>({";
 const STREAM_END = "return new Response(stream,";
+
+const hasStreamBody = (file: string): boolean =>
+	readFileSync(file, "utf-8").includes(STREAM_START);
 
 const streamBody = (file: string): string => {
 	const source = readFileSync(file, "utf-8");
@@ -46,16 +64,25 @@ const streamBody = (file: string): string => {
 };
 
 describe("no Sentry.flush() inside an SSE stream body (AC 38)", () => {
+	it("discovers the chat SSE routes by walking app/api/chat — the walk is not vacuous", () => {
+		expect(ROUTES).toEqual([
+			"app/api/chat/course/route.ts",
+			"app/api/chat/learning-path/route.ts",
+			"app/api/chat/lesson/route.ts",
+		]);
+		expect(ROUTES.filter(hasStreamBody).length).toBe(3);
+	});
+
 	it("no chat route calls Sentry.flush() from within its ReadableStream body", () => {
-		const offenders = ROUTES.filter((file) =>
+		const offenders = ROUTES.filter(hasStreamBody).filter((file) =>
 			/Sentry\.flush\(/.test(streamBody(file)),
 		);
 
 		expect(offenders, offenders.join("\n")).toEqual([]);
 	});
 
-	it("isolates a non-empty body from every route — the slice itself is not vacuous", () => {
-		for (const file of ROUTES) {
+	it("isolates a non-empty body from every in-scope route — the slice itself is not vacuous", () => {
+		for (const file of ROUTES.filter(hasStreamBody)) {
 			expect(streamBody(file).length).toBeGreaterThan(0);
 		}
 	});
