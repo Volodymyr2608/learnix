@@ -72,9 +72,12 @@ describe("AC 33: no manual span/transaction call can consume the zero trace budg
 	const SPAN_ROOTS = ["server", "app", "lib", "trpc"];
 
 	const spanScanTargets = (): string[] =>
-		SPAN_ROOTS.filter((root) => existsSync(root))
-			.flatMap((root) => walk(root))
-			.filter((f) => !f.endsWith(".test.ts"));
+		[
+			...SPAN_ROOTS.filter((root) => existsSync(root)).flatMap((root) =>
+				walk(root),
+			),
+			...ROOT_FILES.filter((f) => existsSync(f)),
+		].filter((f) => !f.endsWith(".test.ts"));
 
 	it("no Sentry.startSpan or Sentry.startTransaction call exists", () => {
 		const offenders = spanScanTargets().filter((f) =>
@@ -86,6 +89,33 @@ describe("AC 33: no manual span/transaction call can consume the zero trace budg
 
 	it("finds files at all — the scan is not vacuous", () => {
 		expect(spanScanTargets().length).toBeGreaterThan(0);
+	});
+
+	it("scans the Sentry-owner root files, not just the directory roots", () => {
+		// instrumentation.ts and sentry.server.config.ts are two of the only three
+		// files in the codebase allowed to import @sentry/nextjs at all (see the
+		// import-boundary scan elsewhere in this task) — exactly where a future
+		// engineer touching Sentry config would most plausibly add a manual span.
+		// Prove they are in the walked set, not just the "server"/"app"/"lib"/"trpc"
+		// directories, so a violation placed there cannot slip past this scan.
+		const targets = spanScanTargets();
+
+		expect(targets).toContain("instrumentation.ts");
+		expect(targets).toContain("sentry.server.config.ts");
+	});
+
+	it("would flag a stray Sentry.startSpan call if one were added to a root file — non-vacuity proof", () => {
+		// Simulates the violation this scan exists to catch, without mutating the
+		// real source file: take instrumentation.ts's actual content, append a
+		// stray span call, and confirm the same regex the assertion above runs
+		// against every scanned file would flag it.
+		const withViolation = `${code(
+			"instrumentation.ts",
+		)}\nSentry.startSpan({ name: "leak" }, () => {});`;
+
+		expect(
+			/Sentry\.(startSpan|startTransaction)\s*\(/.test(withViolation),
+		).toBe(true);
 	});
 });
 
