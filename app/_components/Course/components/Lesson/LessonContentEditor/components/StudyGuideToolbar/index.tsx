@@ -19,11 +19,13 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { Separator } from "@/app/_components/_shared/ui/separator";
+import { StudyGuideResults } from "./components/StudyGuideResults";
 import { useStudyGuideToolbar } from "./hooks/useStudyGuideToolbar";
 import type {
 	GenerateButtonContentProps,
 	StudyGuideToolbarProps,
 } from "./types";
+import { lastGeneratedLabel } from "./utils";
 
 const GenerateButtonContent = ({
 	isGenerating,
@@ -59,9 +61,11 @@ export const StudyGuideToolbar = ({
 }: StudyGuideToolbarProps) => {
 	const {
 		insights,
+		isLoading,
 		isStale,
-		conceptCount,
-		glossaryCount,
+		concepts,
+		glossary,
+		canRegenerate,
 		isGenerating,
 		handleGenerate,
 	} = useStudyGuideToolbar(lessonId, lastSavedAt);
@@ -78,14 +82,7 @@ export const StudyGuideToolbar = ({
 					{insights && !isStale && (
 						<span className="flex items-center gap-1 text-muted-foreground text-xs">
 							<CheckCircle2 className="h-3 w-3 text-green-500" />
-							Last generated{" "}
-							{new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
-								Math.round(
-									(new Date(insights.generatedAt).getTime() - Date.now()) /
-										60000,
-								),
-								"minute",
-							)}
+							Last generated {lastGeneratedLabel(insights.generatedAt)}
 						</span>
 					)}
 
@@ -97,7 +94,7 @@ export const StudyGuideToolbar = ({
 					)}
 				</div>
 
-				{!insights && (
+				{!isLoading && !insights && (
 					<CardDescription className="flex items-start gap-2 pt-1">
 						<Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
 						Generates a summary, key concepts, and glossary from your lesson
@@ -108,45 +105,53 @@ export const StudyGuideToolbar = ({
 			</CardHeader>
 
 			<CardContent className="space-y-4">
-				{insights ? (
-					<>
-						<p className="text-muted-foreground text-sm leading-relaxed">
-							{insights.summary.length > 180
-								? `${insights.summary.slice(0, 180)}…`
-								: insights.summary}
-						</p>
+				{isLoading && (
+					<p className="flex items-center gap-2 text-muted-foreground text-sm">
+						<Loader2 className="h-3.5 w-3.5 animate-spin" />
+						Loading study guide…
+					</p>
+				)}
 
-						<div className="flex flex-wrap items-center gap-2">
-							<Badge className="gap-1.5" variant="secondary">
-								<Sparkles className="h-3 w-3" />
-								{conceptCount} key concept{conceptCount !== 1 ? "s" : ""}
-							</Badge>
-							{glossaryCount > 0 && (
-								<Badge className="gap-1.5" variant="secondary">
-									{glossaryCount} glossary term{glossaryCount !== 1 ? "s" : ""}
-								</Badge>
-							)}
-						</div>
+				{!isLoading && insights && (
+					<>
+						<StudyGuideResults
+							concepts={concepts}
+							glossary={glossary}
+							summary={insights.summary}
+						/>
 
 						<Separator />
 					</>
-				) : (
+				)}
+
+				{!isLoading && !insights && (
 					<p className="text-muted-foreground text-sm italic">
 						No study guide generated yet.
 					</p>
 				)}
 
-				<Button
-					disabled={isGenerating}
-					onClick={handleGenerate}
-					size="sm"
-					variant="outline"
-				>
-					<GenerateButtonContent
-						hasInsights={Boolean(insights)}
-						isGenerating={isGenerating}
-					/>
-				</Button>
+				<div className="flex flex-wrap items-center gap-3">
+					<Button
+						disabled={isGenerating || !canRegenerate}
+						onClick={handleGenerate}
+						size="sm"
+						variant="outline"
+					>
+						<GenerateButtonContent
+							hasInsights={Boolean(insights)}
+							isGenerating={isGenerating}
+						/>
+					</Button>
+
+					{/* Why the button is disabled, said where the button is. A control
+					    that greys out without explanation reads as a broken control. */}
+					{!isLoading && !canRegenerate && (
+						<span className="text-muted-foreground text-xs">
+							Up to date with the current lesson content. Edit and save the
+							lesson to regenerate.
+						</span>
+					)}
+				</div>
 			</CardContent>
 		</Card>
 	);

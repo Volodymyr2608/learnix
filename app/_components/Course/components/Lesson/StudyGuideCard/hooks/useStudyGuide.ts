@@ -1,5 +1,5 @@
+import { parseGlossary } from "@/lib/parse/parseGlossary";
 import { api } from "@/trpc/client";
-import type { Concept, GlossaryItem } from "../types";
 
 export const useStudyGuide = (lessonId: string) => {
 	const { data: insights } =
@@ -9,7 +9,9 @@ export const useStudyGuide = (lessonId: string) => {
 
 	return {
 		summary: insights.summary,
-		concepts: insights.concepts as Concept[],
-		glossary: insights.glossary as GlossaryItem[],
+		// `concepts` is already parsed by the repository read boundary;
+		// `glossary` is not, so it gets parsed here rather than cast.
+		concepts: insights.concepts,
+		glossary: parseGlossary(insights.glossary),
 	};
 };

@@ -8,6 +8,8 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { Separator } from "@/app/_components/_shared/ui/separator";
+import { ConceptList } from "@/app/_components/Course/components/Lesson/ConceptList";
+import { GlossaryList } from "@/app/_components/Course/components/Lesson/GlossaryList";
 import type { StudyGuideCardProps } from "@/app/_components/Course/components/Lesson/StudyGuideCard/types";
 import { CollapsibleSection } from "./components/CollapsibleSection";
 import { useStudyGuide } from "./hooks/useStudyGuide";
@@ -37,30 +39,14 @@ export const StudyGuideCard = ({ lessonId }: StudyGuideCardProps) => {
 				<Separator />
 
 				<CollapsibleSection title={`Key Concepts (${concepts.length})`}>
-					<ul className="space-y-3">
-						{concepts.map((c) => (
-							<li key={c.name}>
-								<p className="font-medium text-sm">{c.name}</p>
-								<p className="text-muted-foreground text-xs">{c.explanation}</p>
-							</li>
-						))}
-					</ul>
+					<ConceptList concepts={concepts} />
 				</CollapsibleSection>
 
 				{glossary.length > 0 && (
 					<>
 						<Separator />
 						<CollapsibleSection title={`Glossary (${glossary.length})`}>
-							<dl className="space-y-3">
-								{glossary.map((g) => (
-									<div key={g.term}>
-										<dt className="font-medium text-sm">{g.term}</dt>
-										<dd className="text-muted-foreground text-xs">
-											{g.definition}
-										</dd>
-									</div>
-								))}
-							</dl>
+							<GlossaryList glossary={glossary} />
 						</CollapsibleSection>
 					</>
 				)}

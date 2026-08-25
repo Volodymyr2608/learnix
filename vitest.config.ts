@@ -4,7 +4,12 @@ export default defineConfig({
 	test: {
 		coverage: {
 			provider: "v8",
-			include: ["server/services/**", "lib/utils/**", "lib/guards/**"],
+			include: [
+				"server/services/**",
+				"lib/utils/**",
+				"lib/guards/**",
+				"lib/parse/**",
+			],
 			reporter: ["text", "html"],
 		},
 		projects: [

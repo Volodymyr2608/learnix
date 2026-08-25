@@ -26,4 +26,5 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | quiz-answer-key | planned | ai-tutor-guardrails, ai-defence-layers |
 | semantic-search-recommendations | stable | course, enrollment |
 | skill-progress | stable | progress |
+| study-guide | stable | ai-defence-layers, ai-input-trust-boundary |
 <!-- AUTO-GENERATED:END -->
