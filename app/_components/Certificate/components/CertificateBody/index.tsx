@@ -1,11 +1,6 @@
 import { Text, View } from "@react-pdf/renderer";
 import { styles } from "../../styles";
-
-type CertificateBodyProps = {
-	studentName: string;
-	courseTitle: string;
-	instructorName: string;
-};
+import type { CertificateBodyProps } from "./types";
 
 export const CertificateBody = ({
 	studentName,

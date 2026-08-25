@@ -16,20 +16,14 @@ import {
 import { Input } from "@/app/_components/_shared/ui/input";
 import { Label } from "@/app/_components/_shared/ui/label";
 import { api } from "@/trpc/client";
+import type { DeleteCourseDialogProps } from "./types";
 
-interface DeleteCourseDialogProps {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	courseTitle: string;
-	courseId: string;
-}
-
-export function DeleteCourseDialog({
+export const DeleteCourseDialog = ({
 	open,
 	onOpenChange,
 	courseTitle,
 	courseId,
-}: DeleteCourseDialogProps) {
+}: DeleteCourseDialogProps) => {
 	const router = useRouter();
 	const [confirmText, setConfirmText] = useState("");
 	const deleteCourse = api.course.delete.useMutation({
@@ -109,4 +103,4 @@ export function DeleteCourseDialog({
 			</DialogContent>
 		</Dialog>
 	);
-}
+};

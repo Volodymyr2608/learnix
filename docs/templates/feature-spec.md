@@ -17,7 +17,28 @@ git history covers that.
 
 ## Acceptance criteria
 
+Applies: [`docs/constitution.md`](../constitution.md) — the standing constraints (structure, style,
+error handling, security, testing) are inherited, not retyped here — plus the feature-specific
+criteria below.
+
 The definition of done. For AI features, phrase each line so it could become an eval case directly.
+
+## Inputs / Outputs
+
+Trusted vs untrusted inputs and where the boundary is enforced; the output's shape and who consumes
+it. Required for any AI surface: an untrusted input and a probabilistic output have a contract that
+does not follow from the types, the way an ordinary function's does. Delete for a feature with
+neither.
+
+## Edge cases
+
+The cases a reader would otherwise have to discover from the code. Delete if there are none worth
+naming — an empty heading is worse than no heading.
+
+## Non-functional requirements
+
+Latency budget (p95), token/cost ceiling, rate limits. Delete if the feature makes no model call and
+adds no external I/O.
 
 ## Security
 

@@ -11,19 +11,14 @@ import {
 	DialogTitle,
 } from "@/app/_components/_shared/ui/dialog";
 
-interface ChooseChatDialogProps {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	onContinueHandler: () => void;
-	onNewChatHandler: () => void;
-}
+import type { ChooseChatDialogProps } from "./types";
 
-export function ChooseChatDialog({
+export const ChooseChatDialog = ({
 	open,
 	onOpenChange,
 	onNewChatHandler,
 	onContinueHandler,
-}: ChooseChatDialogProps) {
+}: ChooseChatDialogProps) => {
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent className="sm:max-w-[425px]">
@@ -52,4 +47,4 @@ export function ChooseChatDialog({
 			</DialogContent>
 		</Dialog>
 	);
-}
+};

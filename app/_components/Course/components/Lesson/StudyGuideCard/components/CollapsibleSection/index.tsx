@@ -2,12 +2,7 @@
 
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
-
-interface CollapsibleSectionProps {
-	title: string;
-	children: React.ReactNode;
-	defaultOpen?: boolean;
-}
+import type { CollapsibleSectionProps } from "./types";
 
 export const CollapsibleSection = ({
 	title,

@@ -20,22 +20,30 @@ Do not invent a spec to get past this gate.
 
 1. Read the approved `spec.md` and `docs/constitution.md` (the plan must honor every standing
    constraint — component-folder architecture, OWASP rules, testing strategy).
-2. **Ground the plan in real code before writing it** (this is what makes the plan cite true
-   file:line anchors instead of guesses):
-   - Dispatch the **`feature-dev:code-explorer`** agent to trace the existing execution paths,
-     layers, and patterns the feature will touch (routers/services/repositories, related components).
-   - Dispatch the **`feature-dev:code-architect`** agent to produce an implementation blueprint from
-     those patterns — files to create/modify, data flow, build sequence.
-   - Feed both results into the plan as the verified "Codebase anchors" the template asks for.
+2. **Ground the plan in real code before writing it** — this is what makes it cite true `file:line`
+   anchors instead of guesses. **One** reconnaissance dispatch, not two:
+   - Dispatch **`feature-dev:code-explorer`**, scoped to the surfaces `spec.md` names, and ask it
+     for exactly the `Codebase anchors` the template wants: the real signatures, patterns and paths
+     the tasks will reuse, each with `file:line`.
+   - Write the implementation blueprint **yourself** from those anchors. You already hold the spec,
+     the constitution and now the anchors; a second cold agent re-reads the codebase to reach the
+     same place. `feature-dev:code-architect` has the highest median cost of any dispatch in this
+     repo (ADR-030) — reach for it only for genuinely new architecture (a new layer, a new external
+     service, a risky migration), and say in the plan why.
 3. Run `superpowers:writing-plans` against the spec to produce
-   `docs/specs/features/<slug>/build/plan.md` from `docs/templates/plan.md`: bite-sized TDD tasks,
-   **real code** (no placeholders like "add error handling"), exact file paths, exact commands +
-   expected output, and a per-task commit. Include the `## Self-review` mapping every acceptance
-   criterion to a task and the `## Final verification` section.
-4. **Carry the threat pass into tasks.** If `/spec` produced a `## Security` section, a `security.md`,
-   or security-derived acceptance criteria, every control there becomes a **task with its own test** —
-   not a line in a "harden later" task, and not an assertion bolted onto an unrelated task. In
-   particular:
+   `docs/specs/features/<slug>/build/plan.md` from `docs/templates/plan.md`. The plan is **thin**:
+   each task states a contract, the test that proves it, the files it touches, and the acceptance
+   criterion it satisfies — **not** the implementation. Do not paste implementation code into the
+   plan; the executor is the same model that wrote it, so code in the plan means generating the
+   feature twice and letting the two drift. The narrow exception is when the exact form of the code
+   *is* what is being approved (a non-trivial migration, the money or crypto path, a guard regex) —
+   then mark the task `code included: <reason>`. Include the `## Self-review` mapping every
+   acceptance criterion to a task and the `## Final verification` section.
+4. **Carry the threat pass into tasks.** Record the `pnpm classify` verdict in the plan's **Track**
+   field. If `/spec` produced a `## Security` section, a `security.md`, or security-derived
+   acceptance criteria, every control there becomes a **task with its own test** — not a line in a
+   "harden later" task, and not an assertion bolted onto an unrelated task. A control the classifier
+   named and the plan does not cover is a gap here, not at `/qa`. In particular:
    - An authorization control names the query that enforces it and the test that proves the
      unauthorized caller gets nothing (ADR-017 Rule 2, ADR-023 binding).
    - A new AI surface includes its `GUARDED_ENTRY_POINTS` registration in the same task that adds the

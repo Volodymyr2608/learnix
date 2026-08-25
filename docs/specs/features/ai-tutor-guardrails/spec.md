@@ -36,6 +36,11 @@ one visible instead of silent.
 
 ## Functional scope
 
+> Step-by-step: [`flow-contract.md`](flow-contract.md) documents every station of one turn — inputs,
+> outputs, validation, failure — plus where an AI result may be persisted and why three of the
+> brief's sixteen flow steps are absent from a ReAct chain. It is enforced by
+> `flowContract.contract.test.ts`.
+
 **1. A single authorization point for tool calls.** `server/services/lessonAI/toolPolicy.ts` decides
 whether a tool call may proceed. Tools call it before any side effect; Zod schemas keep validating
 *shape*, never *authority*. A call is refused when:

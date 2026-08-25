@@ -10,21 +10,31 @@ Target feature: <feature>$ARGUMENTS</feature> (if empty, infer from the current 
 
 ## Steps
 
-1. **Code review.** Run `superpowers:requesting-code-review` over the branch. Resolve real findings
+1. **One code review, with a mandate.** Run `superpowers:requesting-code-review` over the branch —
+   its scope is **correctness, conventions and readability, not security**. Resolve real findings
    before proceeding (use `superpowers:receiving-code-review` for technical rigor on the feedback).
+   Do **not** also run `/code-review` or `find-bugs` over the same diff: a second reviewer with the
+   same mandate re-reads the same code for the same cost and mostly restates the first.
 
-2. **Security audit.** Triggered by surface, not by tier — standard-tier work adds most of the
-   routes. Dispatch in parallel, each in `audit` mode:
-   - **`security-auditor`** — if the branch touched authentication, authorization, roles, money,
-     personal data, file upload, an external service, raw SQL, or added/changed any `app/api/**`
-     route or tRPC procedure. Enforces ADR-017.
-   - **`llm-security-auditor`** — if the branch touched a prompt, a model call, an agent tool, a
-     RAG/embedding path, or a component rendering model-authored text. Enforces ADR-022/023/024.
+2. **Security audit — on the classifier's verdict, scoped.** Run `pnpm classify` over the branch
+   (`documentation-process.md` §3d):
+   - **New authority** → both agents in `audit` mode, in parallel:
+     **`security-auditor`** (ADR-017) and **`llm-security-auditor`** (ADR-022/023/024).
+   - **Modified control, no new authority** → **one** auditor, the one that owns that control.
+   - **Neither** → no audit; say so in one line.
 
-   **Close the loop with the design pass:** give each agent the feature's `## Security` section or
-   `security.md` from `/spec` and require it to report, per control, *implemented / missing /
-   changed*. A control that was specified at `/spec` and is absent in the code is a blocking finding
-   regardless of severity — that is the whole point of designing it up front.
+   Every dispatch carries three things, and this is what keeps it cheap and sharp:
+   - **The scope** — the classifier's file list. An auditor that has to find its own targets reads
+     two hundred files shallowly instead of six deeply.
+   - **The design-time controls** — the feature's `## Security` section or `security.md`, with the
+     requirement to report each one *implemented / missing / changed*. A control specified at
+     `/spec` and absent in the code is a blocking finding regardless of severity.
+   - **The invariants already enforced** — the relevant `*.contract.test.ts` files, with an
+     instruction not to re-derive them. Ask an auditor only about what cannot be tested.
+
+   **Whatever it finds that *can* be tested becomes a contract test in the fixing task**
+   (`docs/constitution.md` §Agent economics). That is what makes the next feature cheaper instead of
+   the same price forever.
 
    Resolve Critical/High before the PR. For Medium/Low, either fix or record them explicitly as
    accepted risks in the feature's `security.md` (the `ai-tutor-guardrails` S13 register is the shape)
@@ -32,7 +42,9 @@ Target feature: <feature>$ARGUMENTS</feature> (if empty, infer from the current 
    applies, say so in one line.
 
 3. **Gate Docs (DoD)** — from `documentation-process.md` §7, a PR doesn't close without all three.
-   Dispatch the **`docs-updater`** agent to do this pass so it isn't skipped:
+   Do this inline when the branch touched one or two documented surfaces; dispatch the
+   **`docs-updater`** agent only when the docs footprint is wide enough that finding every stale
+   reference is itself the work:
    - `spec.md` updated: flip `status → stable` and refresh any Acceptance Criteria that changed during
      implementation. The spec must describe what was *actually* built, not the original guess.
    - `pnpm spec:sync` run, the regenerated `docs/specs/features/_index.md` diff committed.
