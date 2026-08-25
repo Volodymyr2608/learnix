@@ -12,8 +12,7 @@ import { ALLOWED_TOOL_NAMES } from "./toolPolicy";
  * set and the tool directory, plus the modules each station names.
  */
 
-const CONTRACT_DOC =
-	"docs/specs/features/ai-tutor-guardrails/flow-contract.md";
+const CONTRACT_DOC = "docs/specs/features/ai-tutor-guardrails/flow-contract.md";
 const TOOLS_DIR = "server/services/lessonAI/tools";
 
 /**
