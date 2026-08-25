@@ -63,7 +63,7 @@ const SPEC_FOR: Record<AiFeature, SpecBinding> = {
 	lessonAI: { slug: "ai-tutor-guardrails" },
 	lessonInsightsAI: { slug: "study-guide" },
 	quizAI: { slug: "quiz-generation" },
-	learningPathAI: { slug: "learning-path", missingFile: true },
+	learningPathAI: { slug: "learning-path" },
 };
 
 /**
@@ -77,8 +77,9 @@ const SPEC_FOR: Record<AiFeature, SpecBinding> = {
  * mid-migration has somewhere honest to sit — but a new entry here needs the
  * same justification a skipped test would.
  *
- * The remaining gap on this surface is not a section: `learningPathAI` has no
- * spec at all, pinned in SPEC_FOR above.
+ * `missingFile` in SPEC_FOR is likewise unused now: `learningPathAI` was the
+ * last surface without a spec, and writing one forced its pin out — which is the
+ * behaviour the "pins the surfaces that have no spec at all" test asserts.
  */
 const PENDING: Record<string, string[]> = {};
 
