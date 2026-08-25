@@ -30,7 +30,11 @@ The intent: <intent>$ARGUMENTS</intent>
      `brainstorming` (the spec is the design) — read it and confirm scope with the user instead.
    - Otherwise run `superpowers:brainstorming` to pin scope (boundaries, what's explicitly out).
    - Create `docs/specs/features/<slug>/spec.md` from `docs/templates/feature-spec.md` with
-     `status: planned`. Fill Purpose / Functional scope / Acceptance criteria / Agent notes per §4. For
+     `status: planned`. Fill the six required sections per §4 (Description / Business goal /
+     Supported use cases / Acceptance criteria / Source of truth / Agent notes), plus every
+     conditional section that applies — on an **AI surface** all nine conditionals are mandatory
+     (Inputs, Outputs, Validation, Edge cases, Failure & fallback, Security, Performance,
+     Observability, Test & eval scenarios), and deleting one is not an option the tier allows. For
      AI features, phrase each acceptance criterion so it could become an eval case directly.
    - For **complex** work (money / auth / new external service / risky migration) note that an ADR will
      be required at the `/qa` gate.
