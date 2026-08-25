@@ -53,6 +53,12 @@ This feature makes both graphs self-describing and their failures distinguishabl
 - A contract test (`graph-contract.test.ts`, unit) enforces the document against the code: every node
   registered in `graph.ts` has a row, every route predicate has a row, and every node module has a
   JSDoc block with all four labels. A node added without documentation fails CI.
+- [`chain-contract.md`](chain-contract.md) is the same document for the two surfaces that are neither
+  graphs nor the tutor: `quizAI` (15 stations) and `lessonInsightsAI` (15 stations), each with a
+  persistence rule and a failure matrix, plus one shared table mapping the brief's sixteen flow steps
+  onto both. Enforced by `chainContract.contract.test.ts`: a tool module, a chain module, a
+  model-facing tool name, or a step module without a row fails CI, as does dropping either
+  persistence section or a row from the sixteen-step table.
 
 ## Acceptance criteria
 
@@ -131,7 +137,11 @@ This feature makes both graphs self-describing and their failures distinguishabl
 - Retry logic in nodes, and tool-call timeouts — `ai-hardening-plan.md` §5 defers both until
   workstream D shows what actually flaps.
 - AI metrics, latency budgets, cost and failure-rate tracking — workstream D.
-- `lessonAI`, `quizAI`, `lessonInsightsAI` — chains, not graphs, with no node contract to document.
+- `lessonAI` — a chain, not a graph, so it has no *node* contract to document here. It got its own
+  station contract instead: [`../ai-tutor-guardrails/flow-contract.md`](../ai-tutor-guardrails/flow-contract.md).
+  (`quizAI` and `lessonInsightsAI` were listed here for the same reason and are now covered by
+  [`chain-contract.md`](chain-contract.md) below — "no node contract" was never the same claim as
+  "nothing to document", and reading it that way left two surfaces undocumented for a month.)
 - Rewriting ADR-016's flow diagram; `graph-contract.md` is the detailed view, the ADR keeps the
   decision-level one.
 - Typed node errors for `learningPathAI`.
