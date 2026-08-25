@@ -24,6 +24,7 @@ import type {
 	GenerateButtonContentProps,
 	StudyGuideToolbarProps,
 } from "./types";
+import { lastGeneratedLabel } from "./utils";
 
 const GenerateButtonContent = ({
 	isGenerating,
@@ -78,14 +79,7 @@ export const StudyGuideToolbar = ({
 					{insights && !isStale && (
 						<span className="flex items-center gap-1 text-muted-foreground text-xs">
 							<CheckCircle2 className="h-3 w-3 text-green-500" />
-							Last generated{" "}
-							{new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
-								Math.round(
-									(new Date(insights.generatedAt).getTime() - Date.now()) /
-										60000,
-								),
-								"minute",
-							)}
+							Last generated {lastGeneratedLabel(insights.generatedAt)}
 						</span>
 					)}
 
