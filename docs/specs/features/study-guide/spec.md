@@ -40,9 +40,10 @@ Video / Text / Resources / Quiz tabs, showing:
   for the elapsed distance — minutes, hours, days, months;
 - when the lesson has been saved more recently than the guide was generated, a
   "Content changed — regenerate to update" badge in place of that stamp;
-- the full generated guide, always expanded: the complete summary (never truncated), every concept
-  with its explanation, and every glossary term with its definition, with counts in the section
-  headings;
+- the full generated guide, always expanded and never scrolled inside the card: the complete summary
+  (never truncated) leading at full width, then Key concepts as its own row and Glossary as its own
+  row, each splitting into two columns on a wide viewport and stacking on a narrow one. Counts sit
+  beside the section labels;
 - a hint pointing at the Text Content tab when no guide exists yet;
 - a Generate / Regenerate button, disabled while a generation is in flight.
 
@@ -75,7 +76,10 @@ style, error handling, security, testing) are inherited, not retyped here — pl
 10. Model-authored text (summary, concept names and explanations, glossary terms and definitions)
     renders as plain text in both views. It is not passed through the markdown renderer, which is
     the standing assumption behind the `off_origin_link: n/a` entry for this surface in
-    `aiSurfaces.ts`.
+    `aiSurfaces.ts`. Already enforced repo-wide by
+    `app/_components/_shared/markdown/renderers.contract.test.ts`, which asserts set-equality
+    between the files importing `react-markdown` and `RENDERER_POLICY` — a study-guide component
+    that started rendering markdown fails that test by name.
 11. `getLessonInsights` keeps its existing authorization: the lesson's instructor or a non-cancelled
     enrollee, and `null` for anyone else. No new procedure is added.
 12. `pnpm typecheck` and `pnpm check` pass; the new parse helper has unit tests covering the
@@ -107,6 +111,14 @@ The one inherited control this change could break is the `off_origin_link` rule,
 change adds a second render path — hence acceptance criterion 10.
 
 ## Agent notes
+
+- **`ConceptList` and `GlossaryList` are shared by both views**, and they look deliberately unlike
+  each other: a concept is something the lesson teaches, so it is a filled tile with a left accent
+  rule and prose; a glossary term is something you look up, so it carries no fill and is ruled off
+  beneath, like a dictionary. Collapsing them into one generic list component would erase a
+  distinction the reader uses to tell the two sections apart at a glance. Column count is a prop the
+  *caller* sets — the instructor's row-width sections pass `columns={2}`, the student's narrower
+  indented card takes the default of 1.
 
 - `LessonInsights.concepts` is parsed at the repository boundary by
   `parseStoredConcepts`; `glossary` is **not** — it reaches every consumer as raw

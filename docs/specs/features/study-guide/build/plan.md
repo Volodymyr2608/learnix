@@ -167,27 +167,23 @@ colocated `*.test.ts`; integration tests `*.integration.test.ts`.
 
 ---
 
-## Task 5 — The new render path cannot quietly become a markdown path
+## Task 5 — ~~The new render path cannot quietly become a markdown path~~ DROPPED
 
-- **Contract:** a contract test asserts that no component on the study-guide render path imports the
-  markdown renderer. The path is enumerated by walking the two view folders
-  (`Lesson/StudyGuideCard`, `Lesson/LessonContentEditor/components/StudyGuideToolbar`) plus
-  `Lesson/ConceptList` and `Lesson/GlossaryList`, and checking each file for an import of
-  `_shared/markdown`. This is the mechanical form of `aiSurfaces.ts`'s
-  `off_origin_link: NOT_RENDERED_AS_MARKDOWN` claim for `lessonInsightsAI`, which until now was
-  prose nobody could check — and this change is exactly the kind that invalidates it, since it puts
-  model-authored text on a second surface.
-- **Test:** `app/_components/Course/components/Lesson/studyGuideRendering.contract.test.ts` — the
-  walker finds a non-zero set of files (guarding the walker itself, the way
-  `componentConventions.contract.test.ts:43` does); no file in that set imports the markdown
-  renderer. Verified by temporarily adding such an import and seeing it go red.
-- **Files:** `app/_components/Course/components/Lesson/studyGuideRendering.contract.test.ts`
-- **AC:** spec.md #10
-- **Commit:** `test(study-guide): pin model-authored text to the plain-text render path`
+**Dropped during execution: the coverage already exists, and is stronger than what this task would
+have added.** The plan asserted that `aiSurfaces.ts`'s `off_origin_link: NOT_RENDERED_AS_MARKDOWN`
+claim was "prose nobody could check". That was wrong.
+`app/_components/_shared/markdown/renderers.contract.test.ts:36` walks **all** of `app/`, collects
+every file that imports `react-markdown` *and* renders it, and asserts set-equality against
+`RENDERER_POLICY` — in both directions.
 
-- [ ] Write the test · [ ] Run it, see it PASS · [ ] Add a throwaway markdown import to one study
-      guide component, run it, **see it FAIL** · [ ] Revert the throwaway import, see it PASS
-- [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+Verified rather than assumed: a `<Markdown>` was temporarily added to `ConceptList`, and the
+existing test failed naming
+`app/_components/Course/components/Lesson/ConceptList/index.tsx` as an undeclared renderer; it went
+green again on revert.
+
+A study-guide-scoped test would therefore be duplicate coverage over a strict subset of the same
+files, with a second walker to maintain. AC 10 is satisfied by the existing contract test, and
+`spec.md` #10 now names it.
 
 ---
 

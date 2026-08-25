@@ -9,4 +9,6 @@ export type GlossaryItem = ParsedGlossaryItem;
 
 export type GlossaryListProps = {
 	glossary: GlossaryItem[];
+	/** See `ConceptListProps.columns` — the caller owns the decision. */
+	columns?: 1 | 2;
 };
