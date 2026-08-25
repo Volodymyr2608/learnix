@@ -56,30 +56,61 @@ retired dated spec folders were removed from the tree on 2026-07-30 (recoverable
 
 ## 3. Tiers — how much process a change gets
 
-| Tier | Trigger | Artifacts | Real example |
-|---|---|---|---|
-| **trivial/fix** | no change to any feature's documented behavior — bug fix, refactor, internal correctness | none — TDD against harness only | fixing a race in `EnrollmentService.enrollInCourse`'s idempotency check |
-| **standard** | adds or changes a feature's user-visible behavior (Functional Scope / Acceptance Criteria), built from existing patterns — *may include a new model or table* | `features/<slug>/spec.md` + `build/plan.md` | the messages feature (inbox/thread/composer) merged 2026-06-23 |
-| **complex** | touches money, the auth/security model, a new external service, or a data migration that's risky/expensive to reverse on existing production data | same `spec.md` + `build/plan.md` as standard, **plus an ADR** | the Stripe Connect payments rework (→ ADR-019) |
+A tier is a **shape of pipeline**, not a set of documents. The three differ in what actually runs —
+that is the point, and it is what the measured baseline forced (ADR-030): before it, standard and
+complex differed only by "plus an ADR", so nearly every change paid the maximal process.
+
+| Tier | Trigger | Pipeline | Subagents | Real example |
+|---|---|---|---|---|
+| **trivial/fix** | no change to any feature's documented behavior — bug fix, refactor, internal correctness | TDD against the harness; no spec, no plan | none | fixing a race in `EnrollmentService.enrollInCourse`'s idempotency check |
+| **standard** | adds or changes a feature's user-visible behavior (Functional Scope / Acceptance Criteria), built from existing patterns — *may include a new model or table* | `spec.md` + a thin `build/plan.md`; executed inline; reviewed as a diff against the contract tests | **none by default** | the messages feature (inbox/thread/composer) merged 2026-06-23 |
+| **complex** (the *guarded* track) | `pnpm classify` reports **new authority** or a **modified control** — see §3a | the above **plus** a threat pass, scoped auditors at `/qa`, and an ADR | 1–2, scoped to the named files | the Stripe Connect payments rework (→ ADR-019) |
 
 The tier decides the *ceremony*, not the rigor of the harness — trivial-tier work still needs tests,
 it just skips the design-doc round-trip because the harness already catches regressions in
 well-covered zones (repositories, lib, core services).
 
+`pnpm classify` prints its verdict as `GUARDED` / `STANDARD-OR-DIRECT`. **`GUARDED` is the complex
+trigger** — same decision, two names, because the tier vocabulary predates the classifier and is
+baked into shipped specs.
+
 ### 3a. Deciding the tier
 
-Run these three questions in order, stop at the first "yes":
+**Question 1 is not a judgement call — run it.**
 
-1. **Does it touch money, the auth/security model, a new external service, or a data migration
-   that's risky/expensive to undo on existing data?** → **complex**, full stop, regardless of how
-   small the code diff looks. This is deliberately narrower than "any new schema" — a new Prisma
-   model by itself (a join table, a simple new entity) does **not** trigger this on its own; see the
-   wishlist example below.
+```bash
+pnpm classify            # working tree against origin/main
+```
+
+`GUARDED` → **complex**, full stop, regardless of how small the diff looks. The script reports which
+signal fired and in which files, and that list is the audit scope for `/qa`. It fires on two
+distinct things, because they need different audits:
+
+- **New authority** — the change hands the system a power it did not have: a new agent tool, graph
+  node, AI entry point, tRPC procedure, route handler, Prisma model, migration, environment
+  variable, or any touch of the money path. → full threat pass at `/spec`.
+- **Modified control** — the change alters a boundary that already exists: the shared AI guard,
+  an output boundary, a tool authority check, procedure-level authorization. No new power, so
+  **skip the design pass** — point one auditor at the modified control and require a
+  false-positive check on legitimate input, not only a recall check.
+
+Two consequences worth stating plainly. A change *inside* an already-guarded surface — editing a
+prompt in a registered entry point, tuning a threshold — is neither: it inherits its controls by
+reference, in one line naming the `security.md` they come from. And a new Prisma model on its own
+*is* now a guarded signal, which is stricter than the old wording (see the wishlist note below —
+that example predates the classifier).
+
+Then, for anything the classifier did not call guarded:
+
 2. **Does it add or change a line in some feature's Functional Scope or Acceptance Criteria** — i.e.
    would a user or instructor notice the behavior is new or different? → **standard**, even if it
    needs a new model/table to get there.
 3. **Neither** — same documented behavior as before, just fixed, refactored, or made faster/safer
    internally → **trivial**.
+
+The classifier reports hints for questions 2 and 3 (did source change, did any spec change, are the
+changed files all tests) but does not decide them: whether *documented behavior* moved is not
+visible in a diff.
 
 **Why "new schema" alone isn't the complex trigger:** the wishlist example in §8 adds two new models
 (`Wishlist`, `WishlistItem`) and is still standard tier — nothing about it is risky to reverse (drop
@@ -156,11 +187,18 @@ Standard and complex work runs through a gated slash-command chain (ADR-021,
 it's the answer to "why did specs keep getting written after the code": they no longer can.
 
 ```
-/spec <intent>   → infer tier (§3a); brainstorm; scaffold spec.md (status: planned); STOP for approval
-/plan            → require an approved spec; writing-plans → build/plan.md;            STOP for approval
-/implement       → REFUSE without an approved build/plan.md; execute continuously (TDD, subagents)
-/qa              → requesting-code-review + Gate Docs (§7): status→stable, spec:sync, ADR if 3-month; PR
+/spec <intent>   → pnpm classify → tier (§3a); scaffold spec.md (status: planned); STOP for approval
+/plan            → require an approved spec; thin build/plan.md (contracts + tests); STOP for approval
+/implement       → REFUSE without an approved build/plan.md; execute inline, continuously (TDD)
+/qa              → one code review + Gate Docs (§7): status→stable, spec:sync, ADR if 3-month; PR
 ```
+
+**Guarded work adds to that chain, standard work does not.** The threat pass at `/spec` and the
+scoped auditors at `/qa` run only on the classifier's verdict; on standard work the review of record
+is the diff plus the contract tests. Execution is **inline** — the same session, warm context —
+because a subagent is bought for context isolation, not intelligence, and re-executing a task whose
+context the caller already holds pays for it twice (ADR-030, `docs/constitution.md` §Agent
+economics).
 
 **The hard, no-backfill gate:** `/implement` refuses to run without an approved `build/plan.md`, which
 itself requires an approved `spec.md`. Code only ever flows out of `/implement`, so a spec or plan
@@ -191,9 +229,27 @@ The split into two agents is deliberate. The two threat models need different re
 "who is allowed to call this", the other "what does this text make the model do" — and one agent
 holding both reliably does the familiar half well and the other half shallowly.
 
-Triggers are by **surface, not tier**: standard-tier work adds most of the routes and most of the
-prompts. Tier still decides where the output lives (a `## Security` section for standard, a sibling
-`security.md` for complex).
+**Triggered by `pnpm classify`, not by surface.** The old rule fired on any touch of a prompt or a
+procedure, which meant editing one line inside an already-guarded entry point bought the same two
+opus passes as building a new one. What earns a pass is *new authority* or a *modified control*
+(§3a). Three rules follow from that:
+
+- **New authority** → the design pass at `/spec`, and both agents in `audit` at `/qa`, each scoped
+  to the files the classifier named.
+- **Modified control** → no design pass. One auditor, pointed at that control, with a
+  false-positive check on legitimate input alongside the recall check.
+- **Neither** → no pass. Write the one line that inherits the controls by reference, naming the
+  `security.md` they come from. Saying "inherited from `ai-tutor-guardrails/security.md` C1–C7" is
+  a decision on the record; running nothing and saying nothing is not.
+
+Every audit dispatch carries its scope — the classifier's file list — plus the list of invariants
+already enforced by `*.contract.test.ts`, with an instruction not to re-derive them. An auditor
+should only be asked about what cannot be tested; whatever it finds that *can* be tested becomes a
+contract test in the fixing task, and leaves the agent's job permanently
+(`docs/constitution.md` §Agent economics).
+
+Tier still decides where the output lives: a `## Security` section for standard, a sibling
+`security.md` for complex.
 
 ---
 

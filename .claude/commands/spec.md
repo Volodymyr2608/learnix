@@ -11,8 +11,10 @@ The intent: <intent>$ARGUMENTS</intent>
 
 ## Steps
 
-1. **Infer the tier** using the §3a checklist (complex → standard → trivial, stop at first yes). The
-   developer never declares a tier; you infer it from what the change actually touches.
+1. **Classify, don't judge.** Run `pnpm classify` and quote its verdict. `GUARDED` is the complex
+   tier — the script names the signal and the files, and that list becomes the audit scope later.
+   For anything it does not call guarded, apply §3a questions 2 and 3 (documented behavior changed →
+   standard; otherwise trivial). The developer never declares a tier.
 
 2. **If trivial/fix** (no change to any feature's documented behavior — bug fix, refactor, internal
    correctness): say so explicitly, do **not** create a spec or folder, and route straight to
@@ -33,16 +35,22 @@ The intent: <intent>$ARGUMENTS</intent>
    - For **complex** work (money / auth / new external service / risky migration) note that an ADR will
      be required at the `/qa` gate.
 
-4. **Threat pass — design time, before the plan exists.** A control is cheap here and expensive at
-   `/qa`. Decide from what the drafted spec actually touches, and dispatch in parallel:
-   - **`security-auditor`** in `design` mode — when the feature touches authentication, authorization,
-     roles, money, personal data, file upload, an external service, or adds any new `app/api/**` route
-     or tRPC procedure.
-   - **`llm-security-auditor`** in `design` mode — when the feature adds or changes a model call, a
-     prompt, an agent tool, a RAG/embedding path, or renders model-authored text.
+4. **Threat pass — only on the classifier's verdict.** A control is cheap here and expensive at
+   `/qa`, but a pass that re-derives controls the codebase already enforces is pure cost. Read
+   `pnpm classify` from step 1 (`documentation-process.md` §3d):
 
-   Pass each agent the spec path and the mode explicitly. Both return controls already phrased as
-   testable lines:
+   - **New authority** → dispatch in parallel, each given the spec path, the mode, and the
+     classifier's file list as scope:
+     - **`security-auditor`** in `design` mode — for a new procedure, route, model, migration,
+       environment variable, or anything on the money path.
+     - **`llm-security-auditor`** in `design` mode — for a new agent tool, graph node, AI entry
+       point, or a new path that renders model-authored text.
+   - **Modified control, no new authority** → **no design pass.** Note the control and which auditor
+     will check it at `/qa`; the audit happens once, against real code, not twice.
+   - **Neither** → **no pass.** Write one line inheriting the controls by reference, naming the
+     `security.md` and the control ids they come from.
+
+   Both return controls already phrased as testable lines:
    - Fold them into **Acceptance criteria** — that is what makes `/plan` unable to omit them and
      `/qa` able to check them. For AI surfaces, phrase them so they can become eval rows.
    - For **standard** tier, keep any longer reasoning in a `## Security` section of `spec.md`.
@@ -52,13 +60,13 @@ The intent: <intent>$ARGUMENTS</intent>
    - Surface each agent's "Decisions needed from the developer" to the user **in this turn**; they are
      scope questions, and answering them after the plan is written is a rewrite.
 
-   If neither trigger applies, say so in one line — "no security or AI surface, threat pass skipped" —
-   rather than silently not running it.
+   Whichever branch you took, say so in one line rather than silently not running it — a skip on the
+   record can be argued with, a silent one cannot.
 
 ## Gate
 
-End by telling the user the tier, the spec path, which threat agents ran (or why neither did), any
-decisions they surfaced, and:
+End by telling the user the classifier's verdict, the tier, the spec path, which threat agents ran
+(or the one-line reason none did), any decisions they surfaced, and:
 
 > **STOP — review and approve `spec.md` before running `/plan`.** Do not write a plan or any code in
 > this turn.

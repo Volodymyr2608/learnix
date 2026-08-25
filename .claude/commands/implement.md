@@ -32,10 +32,20 @@ explicitly ("quick fix, skip the spec") so it's a conscious choice, not a silent
    that is the structural enforcement of "no code before an approved plan." Do **not** create the
    marker to bypass the precondition; create it only because the precondition is genuinely met.
 1. Flip the spec frontmatter `status: planned → in-progress`.
-2. Execute the plan with `superpowers:subagent-driven-development` (or `executing-plans`)
+2. Execute the plan with `superpowers:executing-plans` **inline, in this session** and
    **continuously** — run every task end to end via its TDD loop (failing test → run → implement →
    pass → commit). Do **not** pause between tasks to ask "should I continue?" or to make the user check
    status. Stop only for a genuine blocker you cannot resolve yourself, or when all tasks are done.
+
+   **Inline is the default, and it is a cost decision** (ADR-030). The main session is 71% of all
+   spend and its context is already warm; a subagent starts cold and is bought for context
+   isolation, not intelligence. Executing a task whose context you already hold pays for that
+   context twice and loses detail at the summarisation boundary. Dispatch one only for work that
+   *reads a lot and returns little* — locating a pattern across the codebase, inventorying usages —
+   and send that to **`Explore`**, not `general-purpose` (half the median cost for the same job).
+
+   Batch independent tool calls into one turn. Every call is a round-trip that re-sends the whole
+   context, and in the measured baseline only 1 turn in 4,900 ever batched anything.
 3. Honor `docs/constitution.md` throughout (component-folder architecture, arrow-function components,
    no nested ternaries, types in `types.ts`, OWASP rules).
 
