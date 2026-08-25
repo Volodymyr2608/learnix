@@ -327,6 +327,15 @@ heading. `features/ai-tutor-guardrails/spec.md` is the filled reference. Older s
 backfilled: they pick the sections up when they are next reopened, which is also when
 `Purpose` / `Functional scope` split into `Description` + `Business goal` / `Supported use cases`.
 
+**The `AI` rows are enforced, not requested.**
+`server/services/_shared/conformance/specSections.contract.test.ts` reads the section list from the
+template itself, takes the set of AI surfaces from the `AI_SURFACES` registry (which its own contract
+test re-derives from the source, so a surface cannot dodge the check by staying undeclared), and
+fails when the spec that owns a surface is missing a mandatory section. `Security` is satisfied by a
+sibling `security.md`, as complex tier does. Specs still carrying the debt are pinned by name in that
+file's `PENDING` map — the list can shrink and never grow, and a spec that gains one section while
+dropping another does not net out to green.
+
 ---
 
 ## 5. ADRs
