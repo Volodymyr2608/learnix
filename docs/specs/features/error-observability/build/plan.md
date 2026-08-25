@@ -106,11 +106,11 @@ its non-vacuity sibling. Arrow-function consts everywhere; component prop types 
 
 This task is a scaffold-then-strip; it ends green, not mid-break.
 
-- [ ] **Step 1: Run the wizard.** The pnpm store prerequisite is already resolved (`storeDir` is
+- [x] **Step 1: Run the wizard.** The pnpm store prerequisite is already resolved (`storeDir` is
       `~/.local/share/pnpm/store/v3/v10`). Accept source-map upload; **decline** the example page if
       prompted, decline Session Replay, decline Tracing.
 
-- [ ] **Step 2: Record the installed SDK's real defaults** — S14 requires these read off the package,
+- [x] **Step 2: Record the installed SDK's real defaults** — S14 requires these read off the package,
       not assumed. Write `build/sdk-defaults.md` with the version and the four values AC 14/24/35
       depend on:
       ```bash
@@ -122,14 +122,14 @@ This task is a scaffold-then-strip; it ends green, not mid-break.
       present in the export list. **If the observed limit is not 5, `LINKED_ERROR_DEPTH` in Task 3
       takes the observed value and this plan's AC 14 test fixture depth changes with it.**
 
-- [ ] **Step 3: Strip the six defaults.** Delete `instrumentation-client.ts` and every
+- [x] **Step 3: Strip the six defaults.** Delete `instrumentation-client.ts` and every
       `NEXT_PUBLIC_SENTRY_DSN` reference; delete the example page and example API route; in
       `next.config.ts` set `tracesSampleRate` handling aside (it lives in `sentry.server.config.ts`,
       Task 3), remove `tunnelRoute`, set `widenClientFileUpload: false`, and set
       `sourcemaps: { deleteSourcemapsAfterUpload: true }` explicitly even though it is the default —
       AC 35 asserts the literal.
 
-- [ ] **Step 4: Declare the env var** in `lib/env.js`, mirroring the `KV_REST_API_*` block's comment
+- [x] **Step 4: Declare the env var** in `lib/env.js`, mirroring the `KV_REST_API_*` block's comment
       style (`lib/env.js:53-72`):
       ```js
       // server:
@@ -149,13 +149,13 @@ This task is a scaffold-then-strip; it ends green, not mid-break.
       plus `SENTRY_DSN: process.env.SENTRY_DSN` in `runtimeEnv`. **Do not add `NEXT_PUBLIC_SENTRY_DSN`
       or `SENTRY_AUTH_TOKEN` to either block** (AC 28, AC 29).
 
-- [ ] **Step 5: `.gitignore`** — add `.env.sentry-build-plugin` and `.sentryclirc` if the wizard
+- [x] **Step 5: `.gitignore`** — add `.env.sentry-build-plugin` and `.sentryclirc` if the wizard
       created either. Neither is currently ignored, so a slipped task order could commit a secret.
 
-- [ ] **Step 6: Verify green.** `pnpm typecheck && pnpm check && pnpm build` — the build must succeed
+- [x] **Step 6: Verify green.** `pnpm typecheck && pnpm check && pnpm build` — the build must succeed
       **with `SENTRY_DSN` unset** (AC 28).
 
-- [ ] **Step 7: Commit** — `chore(observability): scaffold Sentry and strip wizard defaults`
+- [x] **Step 7: Commit** — `chore(observability): scaffold Sentry and strip wizard defaults`
 
 ---
 
@@ -169,7 +169,7 @@ This task is a scaffold-then-strip; it ends green, not mid-break.
 denylist, throttle, fingerprint, marker), not a single helper, so it does not belong in
 `server/utils/`. It imports nothing from `logger.ts`; `logger.ts` will import from it (Task 8).
 
-- [ ] **Step 1: Write the failing tests.** The three LangChain shapes are the fixtures AC 13 names.
+- [x] **Step 1: Write the failing tests.** The three LangChain shapes are the fixtures AC 13 names.
 
 ```ts
 // server/observability/projectError.test.ts
@@ -233,10 +233,10 @@ const flatten = (e: Error): Error[] => {
 };
 ```
 
-- [ ] **Step 2: Run it, expect FAIL** — `pnpm vitest run --project unit server/observability/projectError.test.ts`
+- [x] **Step 2: Run it, expect FAIL** — `pnpm vitest run --project unit server/observability/projectError.test.ts`
       Expected: FAIL — "Cannot find module './projectError'".
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 ```ts
 // server/observability/denylist.ts
@@ -353,9 +353,9 @@ export const projectError = (
 };
 ```
 
-- [ ] **Step 4: Run it, expect PASS** — plus `pnpm typecheck` and `pnpm check` clean.
+- [x] **Step 4: Run it, expect PASS** — plus `pnpm typecheck` and `pnpm check` clean.
 
-- [ ] **Step 5: Commit** — `feat(observability): add allowlist error projection`
+- [x] **Step 5: Commit** — `feat(observability): add allowlist error projection`
 
 ---
 
@@ -365,7 +365,7 @@ export const projectError = (
 - Create: `server/observability/redact.ts`, `fingerprint.ts`, `throttle.ts`, `capturedMarker.ts`
 - Test: one `.test.ts` per file
 
-- [ ] **Step 1: Write the failing tests.** Key ones, abbreviated — the full set covers AC 16, 22, 23,
+- [x] **Step 1: Write the failing tests.** Key ones, abbreviated — the full set covers AC 16, 22, 23,
       24, 25.
 
 ```ts
@@ -405,9 +405,9 @@ it("strips addresses from every string leaf", () => {
 });
 ```
 
-- [ ] **Step 2: Run them, expect FAIL** (modules not found).
+- [x] **Step 2: Run them, expect FAIL** (modules not found).
 
-- [ ] **Step 3: Implement.** `capturedMarker.ts` is the AC 2 mechanism and must use
+- [x] **Step 3: Implement.** `capturedMarker.ts` is the AC 2 mechanism and must use
       `Object.defineProperty` with `enumerable: false` — a bare assignment would leak into every
       `JSON.stringify` of the error:
 
@@ -431,9 +431,9 @@ pinning) but takes an **injectable clock** so no test touches `vi.useFakeTimers(
 `fingerprint.ts` builds from server-authored values only — tRPC `path` or route, plus error class.
 Never from a message (AC 23).
 
-- [ ] **Step 4: Run, expect PASS** — plus `pnpm typecheck`, `pnpm check`.
+- [x] **Step 4: Run, expect PASS** — plus `pnpm typecheck`, `pnpm check`.
 
-- [ ] **Step 5: Commit** — `feat(observability): add redaction, fingerprint, throttle, marker`
+- [x] **Step 5: Commit** — `feat(observability): add redaction, fingerprint, throttle, marker`
 
 ---
 
@@ -445,7 +445,7 @@ Never from a message (AC 23).
 Exported as a pure function precisely so the assertion is testable — `aiLimits/store/index.ts:23-25`
 records the same reasoning ("a throw at module load is not testable").
 
-- [ ] **Step 1: Write the failing test.**
+- [x] **Step 1: Write the failing test.**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -475,11 +475,11 @@ describe("resolveSentryDsn", () => {
 });
 ```
 
-- [ ] **Step 2: Run it, expect FAIL.**
-- [ ] **Step 3: Implement**, mirroring `selectStore` (`aiLimits/store/index.ts:34-53`) including the
+- [x] **Step 2: Run it, expect FAIL.**
+- [x] **Step 3: Implement**, mirroring `selectStore` (`aiLimits/store/index.ts:34-53`) including the
       explanatory throw message.
-- [ ] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
-- [ ] **Step 5: Commit** — `feat(observability): assert SENTRY_DSN outside dev and test`
+- [x] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
+- [x] **Step 5: Commit** — `feat(observability): assert SENTRY_DSN outside dev and test`
 
 ---
 
@@ -490,7 +490,7 @@ describe("resolveSentryDsn", () => {
   `instrumentation.ts`
 - Test: `server/observability/reportError.test.ts`
 
-- [ ] **Step 1: Write the failing test** — AC 11 requires asserting against events produced by
+- [x] **Step 1: Write the failing test** — AC 11 requires asserting against events produced by
       Sentry's **own** `eventFromException()`, not hand-built objects, because the live leak path puts
       text in `exception.values[0].value` (the issue title).
 
@@ -511,9 +511,9 @@ it("captures once per error instance and only tags on the second call", async ()
 });
 ```
 
-- [ ] **Step 2: Run, expect FAIL.**
+- [x] **Step 2: Run, expect FAIL.**
 
-- [ ] **Step 3: Implement `reportError`** — the single funnel. It is **idempotent per error instance**:
+- [x] **Step 3: Implement `reportError`** — the single funnel. It is **idempotent per error instance**:
       it checks `isCaptured(error)` itself, so `safeRequest` needs no special-casing.
 
       This module is one of only three files permitted to import `@sentry/nextjs`. It exports **two**
@@ -574,7 +574,7 @@ export const enrichScope = (key: string, context: ProjectionContext): void => {
 };
 ```
 
-- [ ] **Step 4: Implement `sentry.server.config.ts`.** Use `initWithoutDefaultIntegrations` and pin
+- [x] **Step 4: Implement `sentry.server.config.ts`.** Use `initWithoutDefaultIntegrations` and pin
       the list — this closes residual **S14** structurally rather than by vigilance:
 
 ```ts
@@ -605,12 +605,12 @@ Sentry.initWithoutDefaultIntegrations({
 **not** during `next build`'s page-data collection. So the assertion may fire eagerly at module top
 level — no lazy memo needed. Verify in Step 5 that `pnpm build` still succeeds with `SENTRY_DSN` unset.
 
-- [ ] **Step 5: Verify.** `pnpm vitest run --project unit server/observability`, then
+- [x] **Step 5: Verify.** `pnpm vitest run --project unit server/observability`, then
       `SENTRY_DSN= pnpm build` (must succeed), then `NODE_ENV=production pnpm start` without a DSN
       (must throw the AC 30 error). Note in the README that `pnpm preview` without a DSN now throws
       by design.
 
-- [ ] **Step 6: Commit** — `feat(observability): initialise Sentry with a pinned integration list`
+- [x] **Step 6: Commit** — `feat(observability): initialise Sentry with a pinned integration list`
 
 ---
 
@@ -623,7 +623,7 @@ level — no lazy memo needed. Verify in Step 5 that `pnpm build` still succeeds
 These land together: AC 12's regression test (an unmapped message no longer reaching the browser) is
 untestable if the two are split.
 
-- [ ] **Step 1: Write the failing tests.** Mirror
+- [x] **Step 1: Write the failing tests.** Mirror
       `aiRateLimit.middleware.integration.test.ts` — including `Object.assign(process.env, { NODE_ENV: "production" })`
       at line 1, before imports, and `createCallerFactory` against a single router.
 
@@ -653,9 +653,9 @@ it("attaches DomainError.context", () => {                        // AC 3
 });
 ```
 
-- [ ] **Step 2: Run, expect FAIL.**
+- [x] **Step 2: Run, expect FAIL.**
 
-- [ ] **Step 3: Implement.** `timingMiddleware` must be edited **in place** — it is a private `const`,
+- [x] **Step 3: Implement.** `timingMiddleware` must be edited **in place** — it is a private `const`,
       so composing around it cannot close AC 40's "no timing line when the procedure throws" gap:
 
 ```ts
@@ -706,7 +706,7 @@ export function handleServiceError(error: unknown): never {
 Note the two `Error`/non-`Error` branches collapse into one — once the message is no longer copied,
 they produce an identical `TRPCError`.
 
-- [ ] **Step 4: Spike to verify, before relying on it.** Confirm the RSC path (`createCaller`, not a
+- [x] **Step 4: Spike to verify, before relying on it.** Confirm the RSC path (`createCaller`, not a
       route handler) is inside a Sentry-forked isolation scope. If it is **not**, wrap
       `trpc/server.ts:15-22`'s `createContext` in `Sentry.withIsolationScope()`. Do **not** add this
       defensively — an unnecessary fork drops context set before it. **If the spike says it is needed,
@@ -714,8 +714,8 @@ they produce an identical `TRPCError`.
       from `trpc/server.ts`** — do not import the SDK there, or the Task 14 boundary scan fails and the
       three-owner rule becomes four.
 
-- [ ] **Step 5: Run, expect PASS**; `pnpm typecheck`, `pnpm check`, `pnpm test:integration`.
-- [ ] **Step 6: Commit** — `feat(observability): capture tRPC errors once, enrich with domain context`
+- [x] **Step 5: Run, expect PASS**; `pnpm typecheck`, `pnpm check`, `pnpm test:integration`.
+- [x] **Step 6: Commit** — `feat(observability): capture tRPC errors once, enrich with domain context`
 
 ---
 
@@ -726,9 +726,9 @@ they produce an identical `TRPCError`.
   `lib/requests/_shared/noConsole.contract.test.ts`
 - Modify: all 34 files under `lib/requests/**`
 
-- [ ] **Step 1: Write the failing tests**, including the AC 8 scan and its non-vacuity sibling.
-- [ ] **Step 2: Run, expect FAIL.**
-- [ ] **Step 3: Implement**, generic over the fallback because it is **not** uniformly `null`:
+- [x] **Step 1: Write the failing tests**, including the AC 8 scan and its non-vacuity sibling.
+- [x] **Step 2: Run, expect FAIL.**
+- [x] **Step 3: Implement**, generic over the fallback because it is **not** uniformly `null`:
 
 ```ts
 // lib/requests/_shared/safeRequest.ts
@@ -745,7 +745,7 @@ export const safeRequest = async <T>(op: string, fn: () => Promise<T>, fallback:
 };
 ```
 
-- [ ] **Step 4: Convert all 34 files.** Representative — `lib/requests/course/getEnrollmentStatus.ts`
+- [x] **Step 4: Convert all 34 files.** Representative — `lib/requests/course/getEnrollmentStatus.ts`
       (the bare sub-shape, note the non-null fallback):
 
 ```ts
@@ -758,10 +758,10 @@ const getEnrollmentStatus = async (courseId: string) =>
 
       **Every fallback must be byte-identical to what the file returns today.** Diff each one.
 
-- [ ] **Step 5: Prove the scan non-vacuous** — reintroduce one `console.error`, run the scan, watch it
+- [x] **Step 5: Prove the scan non-vacuous** — reintroduce one `console.error`, run the scan, watch it
       fail, revert.
-- [ ] **Step 6: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
-- [ ] **Step 7: Commit** — `refactor(requests): route all 34 RSC fetchers through safeRequest`
+- [x] **Step 6: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
+- [x] **Step 7: Commit** — `refactor(requests): route all 34 RSC fetchers through safeRequest`
 
 ---
 
@@ -777,16 +777,16 @@ const getEnrollmentStatus = async (courseId: string) =>
 **Order matters:** the conversions land *before* the reporter. If the reporter went first, every
 conversion in this task would start forwarding un-audited payloads mid-refactor.
 
-- [ ] **Step 1: Convert the `console.*` sites**, then add the AC 9 scan (`ROOTS` + `OWNERS` shape from
+- [x] **Step 1: Convert the `console.*` sites**, then add the AC 9 scan (`ROOTS` + `OWNERS` shape from
       `aiLimits.contract.test.ts:210-232`, `OWNERS` = `scripts/**`).
-- [ ] **Step 2: Prove it non-vacuous**, then revert.
-- [ ] **Step 3: Write the failing reporter test** — the reporter must normalise the three
+- [x] **Step 2: Prove it non-vacuous**, then revert.
+- [x] **Step 3: Write the failing reporter test** — the reporter must normalise the three
       call-site argument shapes already in the codebase (message-first `user.service.ts:12`,
       error-first `guardUserInput.ts:103`, object-first `email.service.ts:62-66`) into
       `reportError(error, staticMessage, context)`, and must forward **only** `error` level (AC 5).
-- [ ] **Step 4: Implement the consola reporter** in `server/utils/logger.ts`.
-- [ ] **Step 5: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
-- [ ] **Step 6: Commit** — `feat(observability): forward logger.error to Sentry`
+- [x] **Step 4: Implement the consola reporter** in `server/utils/logger.ts`.
+- [x] **Step 5: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
+- [x] **Step 6: Commit** — `feat(observability): forward logger.error to Sentry`
 
 ---
 
@@ -798,16 +798,16 @@ conversion in this task would start forwarding un-audited payloads mid-refactor.
   `app/api/chat/course/route.ts:216`
 - Create: `server/observability/aiLogShape.contract.test.ts`
 
-- [ ] **Step 1: Write the failing tests** — AC 19 (class-only at every AI catch site), AC 20 (no model
+- [x] **Step 1: Write the failing tests** — AC 19 (class-only at every AI catch site), AC 20 (no model
       client or graph state passed to `logger.*`), AC 41 (aborts never reported, reusing the
       `expect(mockLogger.error).not.toHaveBeenCalled()` idiom from `withNodeErrors.test.ts:41-52`).
-- [ ] **Step 2: Run, expect FAIL.**
-- [ ] **Step 3: Implement.** `lessonAI.service.ts:240` logs `_error`'s class and **keeps swallowing** —
+- [x] **Step 2: Run, expect FAIL.**
+- [x] **Step 3: Implement.** `lessonAI.service.ts:240` logs `_error`'s class and **keeps swallowing** —
       the `finally` depends on it for `generator.return()` on abort. Resolve **S9's double-capture**:
       downgrade `withNodeErrors.ts:21` to a breadcrumb/`debug` so the courseAI SSE path reports once,
       not at 2× its failure rate.
-- [ ] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
-- [ ] **Step 5: Commit** — `fix(ai): log error classes only on AI failure paths`
+- [x] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
+- [x] **Step 5: Commit** — `fix(ai): log error classes only on AI failure paths`
 
 ---
 
@@ -817,12 +817,12 @@ conversion in this task would start forwarding un-audited payloads mid-refactor.
 - Modify: `server/services/email/email.service.ts:62-66`
 - Create: `server/observability/noPiiKeys.contract.test.ts`
 
-- [ ] **Step 1: Failing test** — the scan bans `email`/`toEmail`/`fromEmail`/`replyTo` as `logger.*`
+- [x] **Step 1: Failing test** — the scan bans `email`/`toEmail`/`fromEmail`/`replyTo` as `logger.*`
       keys across `server/**` (AC 17), plus its non-vacuity sibling.
-- [ ] **Step 2: Run, expect FAIL** (the live site at `:63-64` is the offender).
-- [ ] **Step 3: Implement** — replace `toEmail` with `userId`, already present on `SendInput:16`.
-- [ ] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
-- [ ] **Step 5: Commit** — `fix(email): stop logging recipient addresses`
+- [x] **Step 2: Run, expect FAIL** (the live site at `:63-64` is the offender).
+- [x] **Step 3: Implement** — replace `toEmail` with `userId`, already present on `SendInput:16`.
+- [x] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
+- [x] **Step 5: Commit** — `fix(email): stop logging recipient addresses`
 
 ---
 
@@ -835,15 +835,15 @@ conversion in this task would start forwarding un-audited payloads mid-refactor.
 One fix covers both AC 26 sites — `instructorService.createInstructor` calls the same
 `authService.signUp`.
 
-- [ ] **Step 1: Failing test** — calling `user.signUp` twice with the same email yields `CONFLICT` and
+- [x] **Step 1: Failing test** — calling `user.signUp` twice with the same email yields `CONFLICT` and
       **zero** Sentry events; same for `instructor.create`.
-- [ ] **Step 2: Run, expect FAIL** (currently `INTERNAL_SERVER_ERROR`, because `AuthError` passes no
+- [x] **Step 2: Run, expect FAIL** (currently `INTERNAL_SERVER_ERROR`, because `AuthError` passes no
       code and `DomainError` defaults to it).
-- [ ] **Step 3: Implement** — `throw new AuthError("This email is already registered", "CONFLICT")`.
-- [ ] **Step 4: Add the AC 27 defence-in-depth test** — 1 000 anonymous collisions produce at most
+- [x] **Step 3: Implement** — `throw new AuthError("This email is already registered", "CONFLICT")`.
+- [x] **Step 4: Add the AC 27 defence-in-depth test** — 1 000 anonymous collisions produce at most
       `SENTRY_MAX_PER_FINGERPRINT` events even if the mapping regresses.
-- [ ] **Step 5: Run, expect PASS**; `pnpm typecheck`, `pnpm check`, `pnpm test:integration`.
-- [ ] **Step 6: Commit** — `fix(auth): map duplicate-email signup to CONFLICT`
+- [x] **Step 5: Run, expect PASS**; `pnpm typecheck`, `pnpm check`, `pnpm test:integration`.
+- [x] **Step 6: Commit** — `fix(auth): map duplicate-email signup to CONFLICT`
 
 ---
 
@@ -853,13 +853,13 @@ One fix covers both AC 26 sites — `instructorService.createInstructor` calls t
 - Modify: `server/services/_shared/aiGuard/securityLog.ts:11-24`
 - Test: extend `server/services/_shared/aiGuard/securityLog.test.ts`
 
-- [ ] **Step 1: Failing tests** — the four zero-baseline outcomes call `reportMessage` with one
+- [x] **Step 1: Failing tests** — the four zero-baseline outcomes call `reportMessage` with one
       fingerprint per outcome (AC 36); the other four produce **none** (AC 37); and the existing
       "never carries free text" test at `securityLog.test.ts:100-114` still passes against the new
       call. Mock `@/server/observability/reportError`, **not** `@sentry/nextjs` — if the test needs to
       mock the SDK here, the import boundary has already been broken.
-- [ ] **Step 2: Run, expect FAIL.**
-- [ ] **Step 3: Implement** via `reportMessage` (this file does **not** import `@sentry/nextjs`), with
+- [x] **Step 2: Run, expect FAIL.**
+- [x] **Step 3: Implement** via `reportMessage` (this file does **not** import `@sentry/nextjs`), with
       a **total record** so a ninth `SecurityOutcome` fails to compile (AC 37a):
 
 ```ts
@@ -887,8 +887,8 @@ const FORWARD_TO_SENTRY: Record<SecurityOutcome, boolean> = {
 };
 ```
 
-- [ ] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
-- [ ] **Step 5: Commit** — `feat(aiGuard): forward zero-baseline security events to Sentry`
+- [x] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
+- [x] **Step 5: Commit** — `feat(aiGuard): forward zero-baseline security events to Sentry`
 
 ---
 
@@ -900,16 +900,16 @@ const FORWARD_TO_SENTRY: Record<SecurityOutcome, boolean> = {
   `app/global-error.tsx`
 - Test: `server/entities/errorReport.test.ts`
 
-- [ ] **Step 1: Failing test** — the schema accepts `{ digest?, errorClass, route }` and **rejects**
+- [x] **Step 1: Failing test** — the schema accepts `{ digest?, errorClass, route }` and **rejects**
       free text; oversized and extra fields are stripped. This schema *is* the control that stops a
       public write path becoming an arbitrary-text relay into the issue stream (AC 7, S5).
-- [ ] **Step 2: Run, expect FAIL.**
-- [ ] **Step 3: Implement.** ADR-011 conventions: one component per folder, colocated `types.ts`,
+- [x] **Step 2: Run, expect FAIL.**
+- [x] **Step 3: Implement.** ADR-011 conventions: one component per folder, colocated `types.ts`,
       arrow functions, and the mutation owned by `ErrorFallback` (not hoisted to `error.tsx`).
       `global-error.tsx` carries its own `<html><body>` per Next's convention. Throttle coverage is
       free — the action goes through `reportError`.
-- [ ] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
-- [ ] **Step 5: Commit** — `feat(app): add error boundaries reporting through a closed server action`
+- [x] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
+- [x] **Step 5: Commit** — `feat(app): add error boundaries reporting through a closed server action`
 
 ---
 
@@ -919,7 +919,7 @@ const FORWARD_TO_SENTRY: Record<SecurityOutcome, boolean> = {
 - Create: `server/observability/buildConfig.contract.test.ts`
 - Create: `scripts/check-build-artifacts.ts`
 
-- [ ] **Step 1: Failing tests** — AC 29 (`SENTRY_AUTH_TOKEN` appears only in `next.config.ts`), AC 33
+- [x] **Step 1: Failing tests** — AC 29 (`SENTRY_AUTH_TOKEN` appears only in `next.config.ts`), AC 33
       (no `Sentry.startSpan` / `startTransaction` anywhere), AC 34 (`tunnelRoute` absent), AC 35
       (`deleteSourcemapsAfterUpload: true` and `widenClientFileUpload: false` present verbatim), and
       **the import boundary**:
@@ -950,12 +950,12 @@ it("finds the owners at all — the scan is not vacuous", () => {
 	expect(OWNERS.filter((f) => /@sentry\/nextjs/.test(code(f))).length).toBe(3);
 });
 ```
-- [ ] **Step 2: Run, expect FAIL** if any wizard default survived Task 1 — which is the point of
+- [x] **Step 2: Run, expect FAIL** if any wizard default survived Task 1 — which is the point of
       running these last.
-- [ ] **Step 3: Implement** the scans plus `scripts/check-build-artifacts.ts`: after `pnpm build`,
+- [x] **Step 3: Implement** the scans plus `scripts/check-build-artifacts.ts`: after `pnpm build`,
       assert no `.map` under `.next/static` and that the auth-token string appears nowhere in `.next/`.
-- [ ] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
-- [ ] **Step 5: Commit** — `test(observability): pin build-time Sentry configuration`
+- [x] **Step 4: Run, expect PASS**; `pnpm typecheck`, `pnpm check`.
+- [x] **Step 5: Commit** — `test(observability): pin build-time Sentry configuration`
 
 ---
 
@@ -964,13 +964,13 @@ it("finds the owners at all — the scan is not vacuous", () => {
 **Files:**
 - Test: `server/observability/availability.integration.test.ts`
 
-- [ ] **Step 1: Write the test** (AC 38/39) — stub the transport to hang indefinitely, then assert a
+- [x] **Step 1: Write the test** (AC 38/39) — stub the transport to hang indefinitely, then assert a
       tRPC procedure and one SSE turn complete with unchanged latency and unchanged output. This is
       what turns "reporting is best-effort" from a claim into a fact.
-- [ ] **Step 2: Run.** If it fails, the fix is in `reportError`/config, not the test.
-- [ ] **Step 3: Assert no `Sentry.flush()` appears inside any `ReadableStream` body** —
+- [x] **Step 2: Run.** If it fails, the fix is in `reportError`/config, not the test.
+- [x] **Step 3: Assert no `Sentry.flush()` appears inside any `ReadableStream` body** —
       a source scan over `app/api/chat/**`.
-- [ ] **Step 4: Commit** — `test(observability): prove reporting cannot stall a request`
+- [x] **Step 4: Commit** — `test(observability): prove reporting cannot stall a request`
 
 ---
 
