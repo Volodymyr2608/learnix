@@ -294,12 +294,27 @@ Sections, in order:
 - **Purpose** — why the feature exists, in business terms.
 - **Functional scope** — what it does *right now*. No "previously / now" diffing — that's what git
   history is for.
-- **Acceptance criteria** — the DoD. For AI features, phrase each one so it could become an eval case
-  directly (mirrors the `evals/` pyramid in `CLAUDE.md`).
+- **Acceptance criteria** — the DoD, inheriting `docs/constitution.md` rather than restating it. For
+  AI features, phrase each one so it could become an eval case directly (mirrors the `evals/` pyramid
+  in `CLAUDE.md`).
+- **Inputs / Outputs** — *conditional.* Trusted vs untrusted inputs and where each boundary is
+  enforced; the output's shape and its consumer.
+- **Edge cases** — *conditional.* The cases a reader would otherwise have to find in the code.
+- **Non-functional requirements** — *conditional.* Latency budget, token/cost ceiling, rate limits.
+- **Observability** — *conditional.* What the feature emits, what reaches an alerting destination,
+  and what is structurally excluded from an event rather than redacted.
 - **Security** — *conditional.* Present only when the feature has a security or AI surface; holds the
   `/spec` threat-pass output (see §3d). Complex tier moves it to a sibling `security.md`.
 - **Agent notes** — anything an agent needs that isn't visible from reading the code (e.g. "tool_router
   routes are order-sensitive," "confidence_score ≥0.8 auto-advances").
+
+**The conditional four are mandatory for an AI surface**, and delete-if-not-applicable everywhere
+else — an empty heading is worse than no heading. The reason they are not optional there: an
+untrusted input and a probabilistic output have a contract that does not follow from the types the
+way an ordinary function's does, a model call has a cost nothing else in the codebase has, and a
+control nobody can see firing is indistinguishable from one that stopped working.
+`features/ai-tutor-guardrails/spec.md` is the filled reference. Older specs are **not** backfilled:
+they pick the sections up when they are next reopened.
 
 ---
 

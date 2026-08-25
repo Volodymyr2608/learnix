@@ -277,6 +277,118 @@ the event, it does not reduce the disclosure).
 - `markContextIneligible` is scoped by conversation ownership and is a no-op — not an error — when
   the row is gone or belongs to another student.
 
+## Inputs / Outputs
+
+Station numbers below refer to [`flow-contract.md`](flow-contract.md), which holds the per-step
+detail; this section is the contract that does not follow from the types.
+
+**Trusted inputs — server-derived, never read from the request body.**
+
+- `session.user.id`, from the cookie session (station 1). Every ownership query and the rate-limit
+  key derive from it. A limiter key built from request input is the defect `checkAiRateLimit` is
+  written to prevent, which is why the scope cannot travel through the middleware.
+- `lessonId` arrives in the URL but is only usable *after* the enrollment check (station 5) returns
+  the enrollment together with its course and lesson — the query that authorizes is the query that
+  acts. `courseId` comes from that row, never from the caller.
+
+**Untrusted inputs — five channels, all of which end up in the same prompt.** The count matters:
+closing one and leaving the others open is the failure mode this feature exists to prevent.
+
+| Channel | Enters at | Boundary |
+|---|---|---|
+| Student message | body, `LessonChatBodySchema` | Zod shape → 2,000-char cap → guard L1 patterns + L2 relevance (stations 3, 4, 6) |
+| Replayed history | `getContextMessages` (station 8) | rows flipped to `contextEligible: false` never return; window of 20 messages / 8,000 characters, trimmed by **whole message** — a truncated turn is a new injection primitive, not a saving |
+| Tool results | stations 15–17 | text is untrusted on the way back; it lands in `retrievedContent` so the verbatim-echo rule at station 19 can see it |
+| Lesson and course titles | instructor-authored | `wrapUntrustedContent` + `UNTRUSTED_DATA_CLAUSE`, injected through **function** replacers (station 11) — a title containing `$'` would otherwise expand past the wrapper into system-prompt position |
+| `lessonInsights.concepts` | LLM-generated JSON with no schema behind it | filtered to strings before it becomes the tool allowlist (station 10) |
+
+**Outputs.**
+
+- **SSE stream to the browser** — zero or more `token` frames, then exactly one terminal frame:
+  `done`, `error`, or `retract`. Guard exits are one-shot (`guard_blocked` / `off_topic` + `done`)
+  and never reach the model.
+- **`ConceptMastery` upsert** — the only write of *authority*. Gated by
+  `authorizeMarkConceptUnderstood` (station 18), not by the reply, and therefore not undone by a
+  retraction; `mastery_write_retained` correlates the two instead.
+- **`LessonAssistantMessage` row** — the only write of *model text*, reached only when the output
+  boundary (station 19) returns valid.
+- **Security events** — emitted on every layer's decision, carrying rule ids and scores and never the
+  message text.
+
+The two writes have deliberately different rules, and `flow-contract.md` §"Where an AI result may be
+persisted" is the statement of why.
+
+## Edge cases
+
+Each one is a path an adversary picks *instead of* the happy path, and each is pinned by a test.
+
+- **L2 provider outage → fails open** to `allowed`; L1 patterns still apply. Accepted risk, recorded
+  in [`security.md`](security.md) §S13. **A slow L2 is not an outage** — hence the 3 s budget, or the
+  fail-open never fires and the guard simply waits.
+- **Rate-limit store unavailable → fails closed** (`429`). The opposite default to L2, because the
+  cost of a wrong answer runs the other way: an open limiter is unbounded model spend.
+- **Client abandons the stream.** Validation and telemetry run from the `finally`, so a disconnect
+  after the last token cannot deliver an unvalidated reply with no event behind it.
+- **`validateReply` throws.** A validator that raises is treated as a *rejection*, logged as
+  `validator_error` — never as a pass.
+- **A mastery write survives a retracted reply.** It passed its own authorization before the reply
+  existed; `mastery_write_retained` fires so a human can review a turn adversarial enough to be
+  retracted that still touched a mastery record.
+- **The eligibility flip fails** (`clearHistory` can delete the row mid-turn). It is bookkeeping and
+  is never allowed to abort the turn — the security event is emitted before it, and the `retract`
+  still reaches the client.
+- **A non-string entry in `concepts`.** Without the filter it throws inside the policy's `trim()`,
+  turning a denial into an unhandled error.
+- **Recursion limit exceeded.** Bounded error, standard neutral message; the SSE `error` frame must
+  render, or the student sees their own question with no reply and no explanation.
+
+## Non-functional requirements
+
+**Enforced today, with the value in code:**
+
+- Rate limits (ADR-027, Redis-backed, fail-closed): `lessonAI` **20 requests/min per user**, with a
+  cross-feature aggregate of **30/min** deliberately below the sum of the per-feature ceilings — the
+  aggregate is the budget.
+- Input ceiling: `MAX_MSG_LENGTH` **2,000 characters**.
+- Model-context window: **20 messages / 8,000 characters**, whichever binds first.
+- Agent loop: `recursionLimit` **12**.
+- L2 relevance call: **3 s** timeout.
+- Model: `gpt-4o-mini`, temperature 0.4, streaming.
+
+**Not measured, and this is a stated gap rather than an omission.** There is no p95 latency budget,
+no per-turn token ceiling and no cost ceiling for this feature, because nothing measures them:
+LangSmith is tracing-only and off by default, and there is no metrics module. Owner is workstream D
+of [`ai-hardening-plan.md`](../../ai-hardening-plan.md) §3. Until it exists, the ceilings above bound
+*volume and prompt size*, not spend per turn — the two are only loosely related, and a change that
+lengthens the system prompt or adds a tool round-trip moves cost without touching any number here.
+
+## Observability
+
+The register and its thresholds live in [`security.md`](security.md) §S11/§S13; this is the contract
+in one place.
+
+**One writer, and a field set that is exhaustive by type.** `logSecurityEvent` is the only place a
+security event is written, and its type carries `feature`, `userId`, `layer`, `outcome`, `ruleIds`,
+`score` and an optional `subject` — and nothing else. There is no field to pass message text, reply
+text or a concept name through. That is what enforces "no event carries free text": a structural
+absence, not a redaction step someone can forget to call.
+
+**Two destinations, split on whether the normal rate is zero.** `unsafe_tool_call`,
+`fallback_triggered`, `mastery_write_retained` and `content_revised_retained` forward to Sentry
+(ADR-029) because any occurrence is the signal and no denominator is needed to read it. The other
+four stay in the log deliberately: `guard_blocked`, `guard_suspect` and `guard_off_topic` are
+rate-based *and* attacker-triggerable, so forwarding them hands out the event-quota lever, and
+`output_validation_failed` is report-only with a measured ~10% false-positive rate — forwarding it is
+a flood. The split is a total `Record<SecurityOutcome, boolean>`, so a ninth outcome fails to
+type-check until someone classifies it.
+
+**The known gap, stated rather than implied.** Enforcement recall is 92.6% but detection recall is
+11.1% (`security.md` §S13 §18): 24 of 27 red-team attacks are stopped by L2 as `off_topic`, which is
+one of the four log-only outcomes. So the defence holds while the telemetry of an active campaign is
+close to invisible — the four rate-based outcomes still need an aggregation sink with a denominator,
+which an error tracker is the wrong shape for. The fix is L1 pattern coverage plus that sink, not
+more enforcement.
+
 ## Security
 
 **Threat pass provenance.** The `security-auditor` / `llm-security-auditor` design pass was **not**

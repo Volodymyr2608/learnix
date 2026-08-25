@@ -7,7 +7,7 @@ depends-on: [ai-course-builder, ai-input-trust-boundary]
 
 ## Purpose
 
-The two LangGraph AI flows — `courseAI` (11 nodes, 6 route predicates) and `learningPathAI` (7 nodes
+The two LangGraph AI flows — `courseAI` (13 nodes, 7 route predicates) and `learningPathAI` (7 nodes
 plus the `decideStrategy` predicate) — carry no record of their own contract. Nothing states what a node reads from state, what it writes,
 how it fails, or what the instructor sees when it does; `graph.ts` has one comment, and the feature
 spec covers the flow in a paragraph. Anyone changing a node reverse-engineers the state shape from ten
