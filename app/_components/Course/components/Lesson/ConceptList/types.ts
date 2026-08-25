@@ -1,15 +1,22 @@
+import type { StoredConcept } from "@/server/repositories/lessonInsights.conceptsSchema";
+
 /**
- * Mirrors `StoredConcept` (`server/repositories/lessonInsights.conceptsSchema.ts`)
- * as the client sees it after the repository's read boundary has parsed it —
- * `explanation` is optional there, so it is optional here.
+ * A concept as the *client* receives it — the stored shape, after the
+ * repository read boundary has parsed it. Derived rather than restated: a
+ * hand-written `{ name: string; explanation?: string }` would silently stop
+ * matching if the stored schema changed.
+ *
+ * Deliberately not named `Concept`: `lessonInsightsAI/schemas/lessonInsights.schema.ts`
+ * already exports that name for the *generation-time* shape, where `explanation`
+ * is required and the array is bounded 3–7. Two different types under one name
+ * is an auto-import trap.
+ *
+ * Type-only import, so nothing from the server module reaches the client bundle.
  */
-export type Concept = {
-	name: string;
-	explanation?: string;
-};
+export type StudyGuideConcept = StoredConcept;
 
 export type ConceptListProps = {
-	concepts: Concept[];
+	concepts: StudyGuideConcept[];
 	/**
 	 * How many columns the entries flow into on a wide viewport. The caller
 	 * decides, not the list: the instructor's editor gives it a full-width row,

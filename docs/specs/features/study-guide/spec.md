@@ -1,6 +1,6 @@
 ---
 feature: study-guide
-status: in-progress
+status: stable
 models: [LessonInsights]
 depends-on: [ai-defence-layers, ai-input-trust-boundary]
 ---
@@ -65,6 +65,11 @@ style, error handling, security, testing) are inherited, not retyped here — pl
 4. Every stored concept appears in the instructor's card with its name and, when present, its
    explanation. A concept whose `explanation` is absent renders its name without an empty paragraph.
 5. Every stored glossary entry appears in the instructor's card with its term and definition.
+5a. Two concepts sharing a name — or two glossary entries sharing a term — both render. Names and
+    terms are model-authored and no schema in the pipeline constrains them to be distinct, so they
+    cannot be React keys on their own; `keyedByLabel` suffixes repeats (`Closure`, `Closure#2`).
+    Without it React drops the colliding sibling while the count beside the heading still counts it,
+    breaking 4, 5 and 6 at once.
 6. The concept and glossary counts shown to the instructor equal the number of entries actually
    rendered — one source, not a separately computed badge that can disagree with the list.
 7. The glossary section is omitted (not rendered empty) when the lesson has no glossary terms; the
@@ -84,6 +89,10 @@ style, error handling, security, testing) are inherited, not retyped here — pl
     enrollee, and `null` for anyone else. No new procedure is added.
 12. `pnpm typecheck` and `pnpm check` pass; the new parse helper has unit tests covering the
     well-formed, partially-malformed, and non-array cases.
+13. The relative stamp never throws. `formatDistanceToNow` raises `RangeError` on an invalid date
+    and this runs inside a React render, so an unparseable `generatedAt` degrades to a plain label
+    rather than blanking the lesson editor. The stamp is also clamped to now, so a browser clock
+    trailing the server does not render a just-generated guide in the future tense.
 
 ## Edge cases
 
@@ -127,6 +136,21 @@ change adds a second render path — hence acceptance criterion 10.
   node sees. The client-side parse keeps this change out of the AI services; a later move to the
   repository boundary is the better home for it and should be done deliberately, not as a
   side effect.
+
+  **What the interim position costs, stated plainly:** `parseStoredConcepts` emits a
+  `stored_concepts_malformed` security event when it drops a value. `parseGlossary` runs in the
+  browser and therefore cannot — a corrupted `glossary` column degrades silently in both views, on
+  a feature whose sibling column is instrumented precisely to populate that channel. This is
+  accepted rather than overlooked: the alternative was a repository-boundary change reaching into
+  `learningPathAI` on a branch whose classifier verdict was "no control touched". The signal comes
+  back when the parse moves to the boundary, and that move is the trigger for adding it.
+
+- **The `columns` prop is the pragmatic seam, not the ideal one.** It resolves to `md:grid-cols-2`,
+  a *viewport* breakpoint, while the real constraint is how wide the list's container is — the
+  student's card is narrow because it sits in an indented section, not because the window is small.
+  A `@container` query (this repo already uses them, e.g. `ui/card.tsx`) would delete the prop and
+  make both call sites correct by construction. It was not done here because it would also change
+  the student card's layout, which this change deliberately left alone.
 - Three other consumers read this row — the lesson tutor (`lessonAI.service`), the quiz service
   (concept mastery seeding), and `learningPathAI`. A change to the stored shape is never local to
   the study guide.

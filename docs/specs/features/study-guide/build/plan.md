@@ -234,7 +234,7 @@ here meets it.
 | 7 — glossary omitted when empty, concepts not | 4 | `StudyGuideResults` guard; manual |
 | 8 — malformed glossary degrades | 1 | `parseGlossary.test.ts` mixed-validity case |
 | 9 — no raw Json `.map` in either view | 1, 3, 4 | both hooks return parsed arrays; the cast is deleted |
-| 10 — plain text, never markdown | 5 | `studyGuideRendering.contract.test.ts`, verified by breaking it |
+| 10 — plain text, never markdown | — (Task 5 dropped) | the pre-existing `renderers.contract.test.ts`, verified by breaking it |
 | 11 — authorization unchanged | 6 | integration denial cases, verified by breaking the `OR` |
 | 12 — typecheck/check/unit tests | 1–6 | per-task gate + Final verification |
 

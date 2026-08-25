@@ -16,6 +16,11 @@ import type { StudyGuideResultsProps } from "./types";
  *
  * The card this replaced showed a 180-character slice of the summary and two
  * count badges: how much had been written, but never what.
+ *
+ * The empty-concepts message lives here rather than in `ConceptList` because it
+ * tells the reader to regenerate, and only an instructor can. The glossary has
+ * no equivalent: a guide legitimately has no terms, so that section is omitted
+ * rather than explained.
  */
 export const StudyGuideResults = ({
 	summary,
@@ -29,7 +34,12 @@ export const StudyGuideResults = ({
 
 		<section>
 			<SectionHeading count={concepts.length} label="Key concepts" />
-			<ConceptList columns={2} concepts={concepts} />
+			{concepts.length === 0 && (
+				<p className="text-muted-foreground text-xs italic">
+					No concepts in this guide. Regenerate to try again.
+				</p>
+			)}
+			{concepts.length > 0 && <ConceptList columns={2} concepts={concepts} />}
 		</section>
 
 		{glossary.length > 0 && (

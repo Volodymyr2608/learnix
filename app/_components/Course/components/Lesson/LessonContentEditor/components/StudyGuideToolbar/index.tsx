@@ -61,6 +61,7 @@ export const StudyGuideToolbar = ({
 }: StudyGuideToolbarProps) => {
 	const {
 		insights,
+		isLoading,
 		isStale,
 		concepts,
 		glossary,
@@ -92,7 +93,7 @@ export const StudyGuideToolbar = ({
 					)}
 				</div>
 
-				{!insights && (
+				{!isLoading && !insights && (
 					<CardDescription className="flex items-start gap-2 pt-1">
 						<Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
 						Generates a summary, key concepts, and glossary from your lesson
@@ -103,7 +104,14 @@ export const StudyGuideToolbar = ({
 			</CardHeader>
 
 			<CardContent className="space-y-4">
-				{insights && (
+				{isLoading && (
+					<p className="flex items-center gap-2 text-muted-foreground text-sm">
+						<Loader2 className="h-3.5 w-3.5 animate-spin" />
+						Loading study guide…
+					</p>
+				)}
+
+				{!isLoading && insights && (
 					<>
 						<StudyGuideResults
 							concepts={concepts}
@@ -115,7 +123,7 @@ export const StudyGuideToolbar = ({
 					</>
 				)}
 
-				{!insights && (
+				{!isLoading && !insights && (
 					<p className="text-muted-foreground text-sm italic">
 						No study guide generated yet.
 					</p>

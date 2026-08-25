@@ -8,7 +8,7 @@ export const useStudyGuideToolbar = (
 ) => {
 	const utils = api.useUtils();
 
-	const { data: insights } =
+	const { data: insights, isPending: isLoading } =
 		api.lessonInsightsAI.getLessonInsights.useQuery(lessonId);
 
 	const generate = api.lessonInsightsAI.generateLessonInsights.useMutation({
@@ -39,6 +39,7 @@ export const useStudyGuideToolbar = (
 
 	return {
 		insights,
+		isLoading,
 		isStale,
 		concepts,
 		glossary,
