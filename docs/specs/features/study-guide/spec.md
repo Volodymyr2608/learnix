@@ -5,21 +5,29 @@ models: [LessonInsights]
 depends-on: [ai-defence-layers, ai-input-trust-boundary]
 ---
 
-## Purpose
+## Description
 
-An instructor writes a lesson and asks the platform to distil it into a study guide — a summary, the
-key concepts, and a glossary — which students then read alongside the lesson. The generation half
-has shipped; the *seeing* half has not. An instructor who clicks "Generate study guide" is told only
-that "5 key concepts" and "7 glossary terms" exist, plus a 180-character slice of the summary. They
-cannot read what was written under their name, cannot judge whether it is right, and therefore
-cannot make an informed decision to regenerate. The one signal they do get — "Last generated
-129,188 minutes ago" — is unreadable.
+A study guide is a generated companion to a lesson: one paragraph of summary, 3–7 key concepts with
+one-sentence explanations, and a glossary of terms. An instructor generates it from the lesson
+editor; students read it beside the lesson on the learn page. One `LessonInsights` row per lesson,
+regenerated rather than edited.
 
 This spec covers the study guide as a whole: how it is generated, what the student sees, and what
-the instructor sees. It exists because the instructor-facing half is being completed; the generation
-pipeline and the student card are documented here as current behavior, not as new work.
+the instructor sees. The generation pipeline and the student card are documented here as current
+behavior, not as new work.
 
-## Functional scope
+## Business goal
+
+An instructor writes a lesson and asks the platform to distil it into a study guide, which students
+then read alongside the lesson. The generation half shipped first; the *seeing* half did not. An
+instructor who clicked "Generate study guide" was told only that "5 key concepts" and "7 glossary
+terms" existed, plus a 180-character slice of the summary. They could not read what was written
+under their name, could not judge whether it was right, and therefore could not make an informed
+decision to regenerate. The one signal they did get — "Last generated 129,188 minutes ago" — was
+unreadable. Model-authored text published under an instructor's name that the instructor cannot read
+is the problem this closes.
+
+## Supported use cases
 
 **Generation (instructor).** `lessonInsightsAI.generateLessonInsights` takes a lesson id, runs three
 parallel chains (`summary`, `concepts`, `glossary`) over the lesson's text content wrapped as
@@ -52,6 +60,80 @@ Video / Text / Resources / Quiz tabs, showing:
 
 The instructor's view is **read-only**. The only way to change a study guide is to regenerate it;
 there is no editing of model-authored text, and no procedure that would accept such an edit.
+
+## Unsupported use cases
+
+- **Editing the generated text.** There is no procedure that accepts an edit to a summary, a concept
+  or a glossary entry; the only way to change a guide is to regenerate it. A stored guide is
+  therefore always exactly what the model wrote from a known `contentHash`, which is what makes the
+  staleness signal meaningful.
+- **Regenerating one section.** The three chains run as a unit and the row is upserted whole; there
+  is no "just redo the glossary".
+- **Rendering model text as markdown.** Deliberate, and load-bearing: the `off_origin_link` rule is
+  recorded `n/a` for this surface in `aiSurfaces.ts` precisely because both views render plain text
+  nodes (criterion 10).
+- **Generating from anything but the lesson's own text.** No video transcript, no attached resource,
+  no other lesson — a lesson with no text content is refused rather than assembled from neighbours.
+
+## Inputs
+
+Station numbers refer to [`../ai-flow-contracts/chain-contract.md`](../ai-flow-contracts/chain-contract.md)
+§lessonInsightsAI, which holds the per-step detail.
+
+**Trusted — server-derived, never read from request input.**
+
+- `instructorId` / `userId` from the session (stations 1, 15). Both the ownership filter and the
+  rate-limit key derive from it.
+- `lessonId` arrives as tRPC input but is only usable *after* the ownership query at station 4 — the
+  query that authorizes is the query that fetches.
+
+**Untrusted — three channels.**
+
+| Channel | Enters at | Boundary |
+|---|---|---|
+| Lesson text content | instructor-authored, station 7 | `wrapUntrustedContent(…, "lesson_content")`; each of the three system prompts carries `UNTRUSTED_DATA_CLAUSE` |
+| Stored `concepts` read back | model-authored JSON, station 14 | `parseStoredConcepts` at the repository boundary — element lengths bounded, malformed value → `[]` + one telemetry event, never a throw |
+| Stored `glossary` read back | model-authored JSON | parsed **in the browser** by `lib/parse/parseGlossary`; malformed entries are dropped. See Observability for what this position costs |
+
+## Outputs
+
+- **One `LessonInsights` row per lesson** (station 13) — `summary`, `concepts` and `glossary` as
+  Json, the model id, the sha256 `contentHash` of the text it was generated from, and `generatedAt`.
+  Upserted, never appended to.
+- **`getLessonInsights`** returns that row plus `matchesCurrentContent` — the server's answer to
+  "would regenerating do anything", which the client cannot compute because it never sees the lesson
+  text the hash was taken over.
+- **Two rendered views**, both plain text: `StudyGuideCard` (student, collapsible, hidden entirely
+  when there is no row) and `StudyGuideToolbar` (instructor, always expanded, read-only).
+- **Three downstream consumers that are not the study guide**: the lesson tutor builds its
+  `mark_concept_understood` allowlist from `concepts`, the quiz service seeds concept mastery from
+  it, and `learningPathAI` reads the row. A change to the stored shape is never local to this
+  feature.
+
+## Validation
+
+**1. Input** (stations 1–4): `instructorProcedure` → `aiRateLimit("lessonInsightsAI")` → Zod on the
+lesson id → the ownership query itself. A lesson with no text content is refused `BAD_REQUEST`
+rather than sent to the model.
+
+**2. Generation** (stations 8–10) — one schema per chain, and the bounds are the contract:
+`SummarySchema` 40–800 characters; `ConceptsSchema` 3–7 entries, name ≤ 80, explanation 10–300;
+`GlossarySchema` **0**–15 entries, so an empty glossary is valid output rather than a failure.
+
+**3. Model output** (station 12): `validateModelText` over every field about to be persisted —
+summary, each concept name and explanation, each glossary term and definition. **Report-only**
+(decision D-M, measured 9.5% false positives on this surface, almost all `untrusted_data_echo` from
+lessons that legitimately discuss the wrapper tag). It emits an event and does not stop the write.
+
+**4. Read** (station 14): `parseStoredConcepts` is the boundary every consumer inherits — the
+repository returns a parsed array, so no caller can `.map` over raw Json. It bounds element length
+but deliberately **not** cardinality: 3–7 is a generation-time rule, and enforcing it on a read would
+make a row written under a different rule unreadable. `null` is absence, not corruption, and emits
+nothing.
+
+**5. Cache** (station 6): a stored row is served only when `contentHash` matches **and** the parsed
+concepts are non-empty. The second half is not redundant — without it a row whose concepts failed
+the read boundary would short-circuit its own replacement forever, since the hash still matches.
 
 ## Acceptance criteria
 
@@ -126,6 +208,33 @@ style, error handling, security, testing) are inherited, not retyped here — pl
 - **No insights row.** The instructor sees the "no study guide generated yet" state and the hint;
   the student sees nothing at all.
 
+## Failure & fallback
+
+The per-scenario matrix is
+[`../ai-flow-contracts/chain-contract.md`](../ai-flow-contracts/chain-contract.md)
+§"lessonInsightsAI — failure matrix", nine rows, and is not duplicated here. The decisions behind it:
+
+**Generation is all-or-nothing.** The three chains run under `RunnableParallel` with
+`withRetry({ stopAfterAttempt: 2 })`; if any one of them fails or returns output its schema rejects,
+the whole generation fails and **no row is written**. There is no partial guide — a summary without
+concepts would satisfy the read path and quietly become the tutor's empty allowlist.
+
+**The rate limiter fails closed** (`TOO_MANY_REQUESTS`, ADR-027); the output boundary is
+**report-only** and cannot fail the write. Those two directions are chosen per dependency: an open
+limiter is unbounded model spend, while a blocked generation produces no error an instructor could
+act on — it simply yields no study guide, at a measured 9.5% false-positive rate.
+
+**Corruption degrades, never throws.** A malformed stored `concepts` becomes `[]` at the repository
+boundary, which is the safe direction for every consumer: the tutor's allowlist goes empty and
+`toolPolicy` denies every mastery write, the quiz service under-grants rather than over-grants, and
+the guide renders degraded. It also reads as a cache *miss*, so regenerating heals the row — which
+is why `matchesCurrentContent` must not report such a row as up to date, or the one action that
+heals it would be the one disabled.
+
+**A malformed `glossary` degrades silently**, in the browser, with no event. That is the one
+fallback here that is worse than its sibling, and it is a stated cost rather than an oversight — see
+Observability.
+
 ## Security
 
 No new authority and no control touched — `pnpm classify` reports `STANDARD-OR-DIRECT`, so no design
@@ -139,6 +248,90 @@ inherited by reference from [`../ai-defence-layers/spec.md`](../ai-defence-layer
 The one inherited control this change could break is the `off_origin_link` rule, recorded as
 `NOT_RENDERED_AS_MARKDOWN` for this surface. That entry is a claim about the *render* path, and this
 change adds a second render path — hence acceptance criterion 10.
+
+## Performance
+
+**Enforced today, with the value in code:**
+
+- Rate limit (ADR-027, Redis-backed, fail-closed): `lessonInsightsAI` **10 requests/min per user**,
+  inside the cross-feature aggregate of **30/min**.
+- Model: `gpt-4o-mini`, temperature **0**, `MODEL_TIMEOUT_MS` **30 s** per call, `MODEL_MAX_RETRIES`
+  **2**.
+- **Three model calls per generation**, run in parallel, plus `withRetry({ stopAfterAttempt: 2 })`
+  around the trio — so the worst case for one accepted request is six calls, and the wall-clock
+  worst case is bounded by the slowest chain rather than their sum.
+- Output bounds double as cost bounds: summary ≤ 800 characters, ≤ 7 concepts, ≤ 15 glossary
+  entries.
+- The `contentHash` cache is the real saving: regenerating an unchanged lesson costs **zero** model
+  calls.
+
+**Not measured**, the same stated gap the other AI surfaces carry: no p95 latency budget, no
+per-generation token or cost ceiling, because nothing measures them. Owner is workstream D of
+[`../../ai-hardening-plan.md`](../../ai-hardening-plan.md) §3. The input side is unbounded in a way
+the others are not — a lesson body has no length cap before it reaches the prompt, so the cost of one
+generation scales with how much an instructor wrote.
+
+## Observability
+
+- **Output boundary** (station 12) — `validateModelText` emits through the shared taxonomy with
+  `feature: "lessonInsightsAI"`, `subject: { kind: "lesson", id }`. One event per turn, not per
+  field: the first hit is the signal and the rest are the same finding repeated. Report-only, so the
+  event is the *only* effect.
+- **`stored_concepts_malformed`** — emitted by `parseStoredConcepts` when a stored value fails the
+  read boundary. Baseline zero, so any occurrence is the signal. A `null` column emits nothing:
+  absence is the default state for most lessons, and one bogus event per lesson per listing would
+  bury the real signal in the channel this feature exists to populate.
+- **No event carries lesson text, summary text, or a concept name** — the shared event type has no
+  field to put them in.
+- **The trace label and the security label disagree, deliberately-by-accident.** `traced()` tags this
+  span `feature: "summary"` while security events use `lessonInsightsAI`. Anyone joining LangSmith
+  traces to security events has to know that; it is recorded here rather than fixed on this branch.
+
+**The gap, named.** `glossary` is parsed in the browser, so a corrupted glossary column degrades
+silently — `parseGlossary` cannot emit a security event from there. Its sibling column is
+instrumented precisely to populate that channel. The signal comes back when the parse moves to the
+repository boundary, and that move is the trigger for adding it (see Agent notes for why it was not
+done here).
+
+## Test & eval scenarios
+
+Tests run in PR CI; **evals never do** — they are the manual gate before a prompt changes.
+
+| Group | Level | File |
+|---|---|---|
+| Authorization on both procedures (instructor-only generate; instructor-or-enrollee read) | integration | `lessonInsightsAI.authz.integration.test.ts` |
+| Cache miss and the self-healing empty-concepts row | integration | `cacheMiss.integration.test.ts` |
+| `matchesCurrentContent` — the up-to-date signal behind the disabled button | integration | `upToDate.integration.test.ts` |
+| Output boundary runs over every persisted field, report-only | integration | `outputBoundary.integration.test.ts` |
+| Lesson content is wrapped before it reaches a prompt | unit | `lessonInsightsAI.wrap.test.ts` |
+| Hash agreement between the write and read paths | unit | `contentHash.test.ts` |
+| Read boundary: well-formed, partially malformed, non-array | unit | `lib/parse/parseGlossary.test.ts`, and `parseStoredConcepts` via its own suite |
+| Toolbar staleness, relative stamp, duplicate-label keys | unit | `StudyGuideToolbar/utils.test.ts` |
+| Model text never reaches the markdown renderer | contract | `app/_components/_shared/markdown/renderers.contract.test.ts` |
+| Every station, tool and chain documented | contract | `chainContract.contract.test.ts` |
+
+**Evals**: `pnpm eval lessonInsightsAI:lessonInsights` (`evals/datasets/lessonInsights.jsonl`) —
+generation quality against sample lessons. The adversarial side is covered by the shared
+`aiOutput:falsePositive` set, which is where this surface's 9.5% figure comes from; there is no
+study-guide-specific injection set, and a prompt change to one of the three chains has no eval that
+would catch a regression in the other two.
+
+## Source of truth
+
+`documentation-process.md` §1a is the standing rule; for this feature:
+
+- **Behaviour now** — this file.
+- **Step-by-step contract** —
+  [`../ai-flow-contracts/chain-contract.md`](../ai-flow-contracts/chain-contract.md)
+  §lessonInsightsAI, 15 stations, enforced by `chainContract.contract.test.ts`.
+- **Controls** — inherited by reference from [`../ai-defence-layers/`](../ai-defence-layers/spec.md)
+  and its `security.md`; the per-surface claim register is
+  `server/services/_shared/conformance/aiSurfaces.ts`, re-derived from source by its own contract
+  test.
+- **Decisions** — ADR-026 (shared defence layers), ADR-027 (distributed rate limiter). No ADR is
+  owned by this feature: nothing here cleared the three-month test.
+- **Correctness** — the tests and eval above.
+- **Build history, frozen** — `build/plan.md`.
 
 ## Agent notes
 
