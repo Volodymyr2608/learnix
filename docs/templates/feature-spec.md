@@ -40,6 +40,14 @@ naming — an empty heading is worse than no heading.
 Latency budget (p95), token/cost ceiling, rate limits. Delete if the feature makes no model call and
 adds no external I/O.
 
+## Observability
+
+What this feature emits, and what it deliberately does not. Name the events or metrics, the fields
+they carry, which of them reach an alerting destination rather than only the log, and — for any AI
+surface — the fields that are *structurally* excluded rather than redacted. Required whenever the
+feature has an AI surface or a security control: a control nobody can see firing is indistinguishable
+from one that stopped working. Delete for a feature with neither.
+
 ## Security
 
 Only when the feature has a security or AI surface — otherwise delete this section. Holds the output

@@ -362,6 +362,33 @@ of [`ai-hardening-plan.md`](../../ai-hardening-plan.md) §3. Until it exists, th
 *volume and prompt size*, not spend per turn — the two are only loosely related, and a change that
 lengthens the system prompt or adds a tool round-trip moves cost without touching any number here.
 
+## Observability
+
+The register and its thresholds live in [`security.md`](security.md) §S11/§S13; this is the contract
+in one place.
+
+**One writer, and a field set that is exhaustive by type.** `logSecurityEvent` is the only place a
+security event is written, and its type carries `feature`, `userId`, `layer`, `outcome`, `ruleIds`,
+`score` and an optional `subject` — and nothing else. There is no field to pass message text, reply
+text or a concept name through. That is what enforces "no event carries free text": a structural
+absence, not a redaction step someone can forget to call.
+
+**Two destinations, split on whether the normal rate is zero.** `unsafe_tool_call`,
+`fallback_triggered`, `mastery_write_retained` and `content_revised_retained` forward to Sentry
+(ADR-029) because any occurrence is the signal and no denominator is needed to read it. The other
+four stay in the log deliberately: `guard_blocked`, `guard_suspect` and `guard_off_topic` are
+rate-based *and* attacker-triggerable, so forwarding them hands out the event-quota lever, and
+`output_validation_failed` is report-only with a measured ~10% false-positive rate — forwarding it is
+a flood. The split is a total `Record<SecurityOutcome, boolean>`, so a ninth outcome fails to
+type-check until someone classifies it.
+
+**The known gap, stated rather than implied.** Enforcement recall is 92.6% but detection recall is
+11.1% (`security.md` §S13 §18): 24 of 27 red-team attacks are stopped by L2 as `off_topic`, which is
+one of the four log-only outcomes. So the defence holds while the telemetry of an active campaign is
+close to invisible — the four rate-based outcomes still need an aggregation sink with a denominator,
+which an error tracker is the wrong shape for. The fix is L1 pattern coverage plus that sink, not
+more enforcement.
+
 ## Security
 
 **Threat pass provenance.** The `security-auditor` / `llm-security-auditor` design pass was **not**
