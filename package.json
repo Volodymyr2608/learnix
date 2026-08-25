@@ -32,6 +32,7 @@
 		"seed:skills": "tsx --env-file=.env.local scripts/seed-skills.ts",
 		"spec:sync": "tsx scripts/spec-sync.ts",
 		"agent-cost": "tsx scripts/agent-cost.ts",
+		"classify": "tsx scripts/classify-change.ts",
 		"check:build-artifacts": "tsx scripts/check-build-artifacts.ts",
 		"dev:n8n": "docker compose --env-file .env.local -f docker-compose.n8n.yml up -d",
 		"dev:n8n:down": "docker compose --env-file .env.local -f docker-compose.n8n.yml down",
