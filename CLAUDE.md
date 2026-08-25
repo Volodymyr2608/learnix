@@ -84,13 +84,13 @@ Shared UI primitives in `app/_components/_shared/ui/` (Radix UI + Tailwind). Con
 
 **Component conventions (enforced across all features):**
 
-- **`types.ts` always.** Every component folder must have a colocated `types.ts`. All prop types — including internal sub-component props — live there, never inline in `index.tsx`. No `Record<string, never>` placeholder types; omit the type entirely if a component takes no props.
+- **Prop types live in `types.ts`.** *(enforced — `componentConventions.contract.test.ts`)* All prop types, including internal sub-component props, go in the folder's colocated `types.ts`, never inline in `index.tsx`. A component with no props needs no type and no `types.ts` — never a `Record<string, never>` placeholder.
 
 - **One component per folder; helpers in `utils.ts`.** Decompose every non-trivial component into separate sub-components — never leave several components stacked in one `index.tsx`. Each sub-component gets its own folder under `components/` with a colocated `index.tsx` and `types.ts` (mirroring `Messaging/MessagesView/components/Inbox` and `…/Thread`). Pure, non-JSX helpers (formatters, label builders, grouping logic) move out of `index.tsx` into a colocated `utils.ts`. This applies whenever you write or plan code — when producing a `build/plan.md`, the tasks must already reflect this folder layout, not bundle everything into one file to split later.
 
-- **Arrow functions everywhere.** All components and helpers are arrow-function consts (`export const Thread = (props: ThreadProps) => { … }`, `export const dateSeparatorLabel = (date: Date): string => { … }`), including inner event handlers (`const handleSent = () => { … }`). Do not use `function` declarations for components or helpers.
+- **Arrow functions everywhere.** *(ratcheted — `componentConventions.contract.test.ts`)* All components and helpers are arrow-function consts (`export const Thread = (props: ThreadProps) => { … }`, `export const dateSeparatorLabel = (date: Date): string => { … }`), including inner event handlers. 66 components still use `export function`; the test pins that count so it cannot grow, and every conversion lowers it. Biome cannot check this — `useArrowFunction` deliberately skips top-level declarations.
 
-- **No nested ternaries.** Enforced by Biome (`style/noNestedTernary`, error). Two or more conditions branching on the same state must be expressed as early-return functions, a lookup map, or separate named components, not chained `? ... : ... : ...`. The one allowed ternary is a single binary branch (e.g., loading spinner vs. content).
+- **No nested ternaries.** *(enforced — Biome `style/noNestedTernary`, error)* Two or more conditions branching on the same state must be expressed as early-return functions, a lookup map, or separate named components, not chained `? ... : ... : ...`. The one allowed ternary is a single binary branch (e.g., loading spinner vs. content).
 
   ```tsx
   // ❌ nested ternary

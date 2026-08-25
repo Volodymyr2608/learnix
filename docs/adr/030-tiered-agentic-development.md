@@ -125,6 +125,13 @@ the only mechanism here that makes the cost of quality fall over time rather tha
 component conventions moved out of CLAUDE.md prose into `componentConventions.contract.test.ts` as
 the first instance.
 
+**A lint rule would have been better, and is not available.** The intent was to express "components
+are arrow consts" as a Biome rule, since a rule beats a test for a purely syntactic constraint.
+Biome 2.4.6 cannot: `useArrowFunction` explicitly excludes top-level function declarations
+([biomejs/biome#7108](https://github.com/biomejs/biome/discussions/7108)), and Biome has no
+`noRestrictedSyntax` escape hatch to write one by hand. The contract test is the fallback, and if
+that rule gains top-level support the check should move there and the test should go.
+
 ## Consequences
 
 - **The classifier can be wrong, and that is visible.** It prints the signal and the files, so a
