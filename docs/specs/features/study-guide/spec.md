@@ -38,14 +38,17 @@ Video / Text / Resources / Quiz tabs, showing:
 
 - a header with a "Last generated <relative time>" stamp, expressed in whatever unit reads naturally
   for the elapsed distance — minutes, hours, days, months;
-- when the lesson has been saved more recently than the guide was generated, a
-  "Content changed — regenerate to update" badge in place of that stamp;
+- when the guide is stale — the stored hash no longer matches the lesson text, or the lesson was
+  saved after the guide was generated — a "Content changed — regenerate to update" badge in place of
+  that stamp;
 - the full generated guide, always expanded and never scrolled inside the card: the complete summary
   (never truncated) leading at full width, then Key concepts as its own row and Glossary as its own
   row, each splitting into two columns on a wide viewport and stacking on a narrow one. Counts sit
   beside the section labels;
 - a hint pointing at the Text Content tab when no guide exists yet;
-- a Generate / Regenerate button, disabled while a generation is in flight.
+- a Generate / Regenerate button, disabled while a generation is in flight **and** whenever
+  regenerating would do nothing — i.e. the stored `contentHash` still matches the lesson's current
+  text — with a line beside it saying why.
 
 The instructor's view is **read-only**. The only way to change a study guide is to regenerate it;
 there is no editing of model-authored text, and no procedure that would accept such an edit.
@@ -93,15 +96,33 @@ style, error handling, security, testing) are inherited, not retyped here — pl
     and this runs inside a React render, so an unparseable `generatedAt` degrades to a plain label
     rather than blanking the lesson editor. The stamp is also clamped to now, so a browser clock
     trailing the server does not render a just-generated guide in the future tense.
+14. `getLessonInsights` returns `matchesCurrentContent`: true when the stored `contentHash` equals a
+    fresh hash of the lesson's current text **and** the stored concepts survived the read boundary.
+    The second half mirrors `generateForLesson`'s cache condition exactly — a row whose concepts
+    parse to `[]` is a cache *miss* there, so it must not read as up to date here, or the one action
+    that heals the row would be the one disabled.
+15. Both call sites hash through the same `lessonContentHash` function. A second inline
+    `createHash` is a silent drift: the write side and the read side would disagree about the same
+    lesson, and the button would lie in one direction or the other.
+16. The Regenerate button is disabled exactly when a guide exists and is not stale, with the reason
+    rendered beside it. Staleness is the *union* of the server's `matchesCurrentContent` and the
+    client's `lastSavedAt` comparison: the first is authoritative and survives a page reload, the
+    second covers the window after a save where the query has not yet refetched.
+17. Glossary rules separate entries and do not close the block: no rule sits under the last row, in
+    either one or two columns. `:last-child` cannot express this — with an even number of terms the
+    bottom-left entry is not the last child and would draw half a line across the card.
 
 ## Edge cases
 
 - **Stale guide.** When the lesson was saved after the guide was generated, the header shows the
   "Content changed" badge *instead of* the timestamp, but the guide's content still renders — the
   instructor needs to see the stale text to judge whether regenerating is worth it.
-- **Cache hit on regenerate.** Clicking Regenerate when the content hash is unchanged returns the
-  cached row and leaves `generatedAt` untouched, so the timestamp legitimately does not move. This
-  looks like a no-op to the instructor and is the existing, intended behavior.
+- **Cache hit on regenerate.** `generateForLesson` short-circuits on a matching `contentHash` and
+  returns the stored row without calling the model — no new text, and `generatedAt` untouched. The
+  button previously stayed enabled through all of that and reported "Study guide generated.", so it
+  claimed work it had not done; the guide's own author had to read the service to find out why
+  nothing changed. The button is now disabled on that state instead, which is why
+  `getLessonInsights` carries `matchesCurrentContent`.
 - **No insights row.** The instructor sees the "no study guide generated yet" state and the hint;
   the student sees nothing at all.
 

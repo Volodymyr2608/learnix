@@ -65,6 +65,7 @@ export const StudyGuideToolbar = ({
 		isStale,
 		concepts,
 		glossary,
+		canRegenerate,
 		isGenerating,
 		handleGenerate,
 	} = useStudyGuideToolbar(lessonId, lastSavedAt);
@@ -129,17 +130,28 @@ export const StudyGuideToolbar = ({
 					</p>
 				)}
 
-				<Button
-					disabled={isGenerating}
-					onClick={handleGenerate}
-					size="sm"
-					variant="outline"
-				>
-					<GenerateButtonContent
-						hasInsights={Boolean(insights)}
-						isGenerating={isGenerating}
-					/>
-				</Button>
+				<div className="flex flex-wrap items-center gap-3">
+					<Button
+						disabled={isGenerating || !canRegenerate}
+						onClick={handleGenerate}
+						size="sm"
+						variant="outline"
+					>
+						<GenerateButtonContent
+							hasInsights={Boolean(insights)}
+							isGenerating={isGenerating}
+						/>
+					</Button>
+
+					{/* Why the button is disabled, said where the button is. A control
+					    that greys out without explanation reads as a broken control. */}
+					{!isLoading && !canRegenerate && (
+						<span className="text-muted-foreground text-xs">
+							Up to date with the current lesson content. Edit and save the
+							lesson to regenerate.
+						</span>
+					)}
+				</div>
 			</CardContent>
 		</Card>
 	);

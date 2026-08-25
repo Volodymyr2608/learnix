@@ -209,6 +209,46 @@ files, with a second walker to maintain. AC 10 is satisfied by the existing cont
 
 ---
 
+## Tasks 7–9 — added after the branch was reviewed, from a defect found in use
+
+The Regenerate button reported "Study guide generated." and changed nothing. Root cause:
+`generateForLesson` short-circuits on a matching `contentHash` and returns the stored row without
+calling the model, so on unchanged lesson text the button had never been able to do anything. It was
+found by using the feature, not by a test — the spec had recorded the short-circuit under Edge cases
+as *intended*, which was the wrong call: a control that claims work it did not do is a defect.
+
+## Task 7 — One hash, so the two sides cannot drift
+
+- **Contract:** `lessonContentHash(content)` is the single definition of a lesson's fingerprint.
+  `generateForLesson` (which writes it) and `getForLesson` (which now recompares it) both call it.
+- **Test:** `server/services/lessonInsightsAI/contentHash.test.ts` — stability, sensitivity, no
+  normalisation, plus a source-text assertion that no inline `createHash(` survives in the service.
+- **AC:** spec.md #15 · **Commit:** `refactor(study-guide): one lesson content hash, two call sites`
+
+## Task 8 — The read path says whether regenerating would do anything
+
+- **Contract:** `getForLesson` returns `matchesCurrentContent` — the stored hash equals a fresh hash
+  of the current lesson text **and** the stored concepts survived the read boundary. The second
+  condition mirrors the generate side's cache check exactly.
+- **Test:** `server/services/lessonInsightsAI/upToDate.integration.test.ts` — up to date on a match;
+  not up to date after the text changes; **not** up to date when the hash matches but the concepts
+  are malformed (the case that would otherwise disable the only button that heals the row); `null`
+  when no guide exists.
+- **AC:** spec.md #14 · **Commit:** `feat(study-guide): report whether a guide is current`
+
+## Task 9 — The button stops lying
+
+- **Contract:** Regenerate is disabled when a guide exists and is not stale, with the reason beside
+  it. Staleness is the union of the server flag and the client's `lastSavedAt` comparison — the
+  server flag survives a reload, the client one covers the un-refetched window after a save. The
+  glossary's rules also stop closing the block: `isInLastRow` removes the rule under the last row,
+  which `:last-child` cannot do in two columns.
+- **Test:** `lib/utils/isInLastRow.test.ts` (the even/odd column arithmetic `:last-child` gets
+  wrong). The disabled state itself has no rendering test, for the reason given in Tasks 3 and 4.
+- **AC:** spec.md #16, #17 · **Commit:** `fix(study-guide): disable regenerate when it would do nothing`
+
+---
+
 ## Why the plan is thin
 
 A plan carrying full implementation code only pays for itself when a *cheaper* model executes it.
@@ -236,7 +276,12 @@ here meets it.
 | 9 — no raw Json `.map` in either view | 1, 3, 4 | both hooks return parsed arrays; the cast is deleted |
 | 10 — plain text, never markdown | — (Task 5 dropped) | the pre-existing `renderers.contract.test.ts`, verified by breaking it |
 | 11 — authorization unchanged | 6 | integration denial cases, verified by breaking the `OR` |
-| 12 — typecheck/check/unit tests | 1–6 | per-task gate + Final verification |
+| 12 — typecheck/check/unit tests | 1–9 | per-task gate + Final verification |
+| 13 — stamp never throws, no future tense | review fixes | `utils.test.ts` invalid-value and clock-skew cases |
+| 14 — `matchesCurrentContent` | 8 | `upToDate.integration.test.ts`, incl. the malformed-concepts case |
+| 15 — one hash function | 7 | `contentHash.test.ts`, incl. a no-inline-`createHash` assertion |
+| 16 — Regenerate disabled when it would no-op | 9 | typecheck + manual; the flag itself is covered by 14 |
+| 17 — no rule under the glossary's last row | 9 | `isInLastRow.test.ts` even/odd column arithmetic |
 
 - **Guarded coverage:** n/a — `pnpm classify` named no authority and no control. The single inherited
   control at risk (`off_origin_link`) has its own task with its own test (Task 5), not an assertion

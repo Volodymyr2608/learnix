@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { Prisma } from "@/generated/prisma";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
@@ -6,6 +5,7 @@ import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntr
 import { validateModelText } from "@/server/services/_shared/aiOutput";
 import { traced } from "@/server/services/_shared/tracing";
 import { insightsChain } from "./chains/parallel.chain";
+import { lessonContentHash } from "./contentHash";
 import {
 	LessonHasNoContentError,
 	NotInstructorError,
@@ -78,9 +78,7 @@ class LessonInsightsAIService {
 				if (!lesson) throw new NotInstructorError(lId);
 				if (!lesson.content?.trim()) throw new LessonHasNoContentError(lId);
 
-				const contentHash = createHash("sha256")
-					.update(lesson.content)
-					.digest("hex");
+				const contentHash = lessonContentHash(lesson.content);
 
 				const existing = await lessonInsightsRepository.findByLessonId(lId);
 				// A matching hash alone is not enough to serve the cached row: the
@@ -133,12 +131,35 @@ class LessonInsightsAIService {
 					},
 				],
 			},
-			select: { id: true },
+			select: { id: true, content: true },
 		});
 
 		if (!lesson) return null;
 
-		return lessonInsightsRepository.findByLessonId(lessonId);
+		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
+		if (!insights) return null;
+
+		/**
+		 * Whether regenerating would actually do anything. `generateForLesson`
+		 * short-circuits on a matching hash and returns the stored row without
+		 * calling the model, so on unchanged content the Regenerate button was
+		 * reporting success for work it never did.
+		 *
+		 * The comparison belongs here rather than in the client: the client cannot
+		 * see the lesson text the hash was taken over, and the toolbar's
+		 * `lastSavedAt` heuristic only knows about saves in the current session —
+		 * it is blind to a lesson edited yesterday and reloaded today.
+		 *
+		 * The empty-concepts case mirrors the generate side exactly: a row whose
+		 * concepts did not survive the read boundary is a cache MISS there, so it
+		 * must not read as up to date here, or the one button that could heal the
+		 * row would be the one disabled.
+		 */
+		const matchesCurrentContent =
+			insights.contentHash === lessonContentHash(lesson.content ?? "") &&
+			insights.concepts.length > 0;
+
+		return { ...insights, matchesCurrentContent };
 	}
 }
 

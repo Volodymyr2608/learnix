@@ -25,11 +25,25 @@ export const useStudyGuideToolbar = (
 		},
 	});
 
-	const isStale =
-		insights !== null &&
-		insights !== undefined &&
+	/**
+	 * Two signals, because neither covers the other.
+	 *
+	 * `matchesCurrentContent` is the server comparing the stored hash to the
+	 * lesson text as it is in the database — authoritative, and the only one that
+	 * knows about an edit made in a previous session.
+	 *
+	 * `lastSavedAt` covers the window the server signal cannot: right after a save
+	 * this query has not been refetched, so its flag still describes the content
+	 * from before the save.
+	 */
+	const savedSinceGenerated =
+		insights != null &&
 		lastSavedAt !== null &&
 		new Date(insights.generatedAt) < lastSavedAt;
+
+	const isStale =
+		insights != null &&
+		(savedSinceGenerated || !insights.matchesCurrentContent);
 
 	// The arrays themselves, not counts of them: the view renders these and
 	// derives its own headings from `.length`, so a count can never disagree with
@@ -43,6 +57,11 @@ export const useStudyGuideToolbar = (
 		isStale,
 		concepts,
 		glossary,
+		// A guide that matches the current content cannot be regenerated: the
+		// service short-circuits on the hash and returns the stored row without
+		// calling the model. The button reported success for work it never did, so
+		// it is disabled rather than left to lie.
+		canRegenerate: !insights || isStale,
 		isGenerating: generate.isPending,
 		handleGenerate: () => generate.mutate(lessonId),
 	};
