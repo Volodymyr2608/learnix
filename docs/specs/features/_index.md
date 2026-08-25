@@ -24,6 +24,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | mobile-responsive | planned | — |
 | payments | stable | auth, course |
 | quiz-answer-key | planned | ai-tutor-guardrails, ai-defence-layers |
+| quiz-generation | stable | ai-defence-layers, ai-input-trust-boundary |
 | semantic-search-recommendations | stable | course, enrollment |
 | skill-progress | stable | progress |
 | study-guide | stable | ai-defence-layers, ai-input-trust-boundary |

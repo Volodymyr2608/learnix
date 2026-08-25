@@ -38,8 +38,7 @@ const OPTIONAL_ON_AI_SURFACE = "Unsupported use cases";
 
 /**
  * Satisfied by a sibling `security.md` instead of a section, which is what
- * complex tier does (§4) — `ai-tutor-guardrails` and `quiz-answer-key` both
- * carry one.
+ * complex tier does (§4) — `ai-tutor-guardrails` carries one.
  */
 const SECURITY = "Security";
 
@@ -55,13 +54,15 @@ type SpecBinding =
 /**
  * One spec per surface — the document a reader is sent to for *this* flow, not
  * every spec that mentions it. `ai-defence-layers` and `ai-input-trust-boundary`
- * describe layers shared across surfaces and own none of them.
+ * describe layers shared across surfaces and own none of them, and
+ * `quiz-answer-key` owns the student read path and attempt caps rather than
+ * generation, which is why `quiz-generation` exists as its own document.
  */
 const SPEC_FOR: Record<AiFeature, SpecBinding> = {
 	courseAI: { slug: "ai-course-builder" },
 	lessonAI: { slug: "ai-tutor-guardrails" },
 	lessonInsightsAI: { slug: "study-guide" },
-	quizAI: { slug: "quiz-answer-key" },
+	quizAI: { slug: "quiz-generation" },
 	learningPathAI: { slug: "learning-path", missingFile: true },
 };
 
@@ -84,20 +85,6 @@ const PENDING: Record<string, string[]> = {
 		"Edge cases",
 		"Failure & fallback",
 		"Security",
-		"Performance",
-		"Observability",
-		"Test & eval scenarios",
-		"Source of truth",
-	],
-	"quiz-answer-key": [
-		"Description",
-		"Business goal",
-		"Supported use cases",
-		"Inputs",
-		"Outputs",
-		"Validation",
-		"Edge cases",
-		"Failure & fallback",
 		"Performance",
 		"Observability",
 		"Test & eval scenarios",
