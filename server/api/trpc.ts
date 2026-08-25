@@ -11,6 +11,9 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import { Role } from "@/generated/prisma";
+import { reportError } from "@/server/observability/reportError";
+import { shouldReport } from "@/server/observability/shouldReport";
+import { logger } from "@/server/utils/logger";
 import { auth } from "../better-auth";
 import { db } from "../db";
 
@@ -103,11 +106,43 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 		await new Promise((resolve) => setTimeout(resolve, waitMs));
 	}
 
+	/**
+	 * The single capture point for the whole API (spec.md AC 1).
+	 *
+	 * tRPC is reached by two paths that share no handler: client components go
+	 * through fetchRequestHandler (app/api/trpc/[trpc]/route.ts, which has onError),
+	 * and server components go through createCaller (trpc/server.ts:25), which never
+	 * touches that route. This middleware is chained onto publicProcedure and
+	 * protectedProcedure, and every role procedure builds on those — so it is the one
+	 * place that sees both.
+	 *
+	 * next() resolves to a MiddlewareResult ({ ok: true, data } | { ok: false, error
+	 * }) — it does NOT reject when a downstream procedure throws; only the
+	 * outermost procedure() caller does that, by throwing result.error once every
+	 * middleware has already run and returned normally. A try/catch around next()
+	 * here would build cleanly (TypeScript has no way to know next() never rejects)
+	 * but never actually run for a real procedure failure, silently turning this
+	 * whole capture point into dead code — verified with a minimal
+	 * createCallerFactory repro against a deliberately throwing procedure (entered:
+	 * 1, caught: 0). Branching on result.ok is what the SDK's own internal
+	 * createOutputMiddleware does for the same reason.
+	 *
+	 * Checking result.ok also closes a gap that predates Sentry: without it a
+	 * throwing procedure skipped its own timing line entirely (AC 40).
+	 */
 	const result = await next();
 
-	const end = Date.now();
-	console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
+	if (result.ok) {
+		logger.info(`[TRPC] ${path} took ${Date.now() - start}ms to execute`);
+		return result;
+	}
 
+	logger.info(
+		`[TRPC] ${path} took ${Date.now() - start}ms to execute (failed)`,
+	);
+	if (shouldReport(result.error)) {
+		reportError(result.error, "trpc_procedure_failed", { path });
+	}
 	return result;
 });
 

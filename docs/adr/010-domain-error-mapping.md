@@ -110,7 +110,7 @@ Every catch block in all four routers (`course`, `ai`, `instructor`, `user`) was
 - Domain error code is set at the service layer (closest to the reason), not guessed in the router.
 - Router handlers shrink from ~10 lines of catch boilerplate to one call.
 - `NOT_FOUND`, `CONFLICT`, `FORBIDDEN`, and other semantic codes are now expressible by any service.
-- `handleServiceError` is the single place to add cross-cutting behaviour (Sentry, structured logging) in the future.
+- `handleServiceError` is the single place to add cross-cutting behaviour (Sentry, structured logging). This has since happened, and [ADR-029](029-error-reporting-projection-funnel.md) refines it into *enrich here, capture at the boundary*: `handleServiceError` attaches `DomainError.context` to the Sentry scope and rethrows, while the one `captureException` lives in `timingMiddleware` — the only construct on 100% of procedures on both the `fetchRequestHandler` and `createCaller` paths, exactly once. Capturing here as well would double-report every service error.
 - No more `// @ts-expect-error` on error access.
 
 **Negative / Trade-offs**

@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import { api } from "@/trpc/server";
 
 export type GetOwnCourseDetailResponse = Awaited<
@@ -10,10 +11,11 @@ export type GetOwnCourseDetailResponse = Awaited<
  * instructor's own drafts too.
  */
 export const getOwnCourseDetail = (courseId: string) => {
-	try {
-		return api.course.getOwnCourseDetail(courseId);
-	} catch (error) {
-		console.error(error);
-		return null;
-	}
+	return safeRequest(
+		"course.getOwnCourseDetail",
+		async () => {
+			return api.course.getOwnCourseDetail(courseId);
+		},
+		null,
+	);
 };

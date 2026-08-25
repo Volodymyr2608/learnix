@@ -1,16 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { reportClientError } from "@/app/_components/ErrorBoundary/actions";
 import { api } from "@/trpc/client";
 
 export function MarkReviewsViewed() {
 	const router = useRouter();
+	const route = usePathname();
 	const hasRun = useRef(false);
 	const markViewed = api.instructor.markReviewsViewed.useMutation({
 		onSuccess: () => router.refresh(),
 		onError: (error) => {
-			console.error("Failed to mark reviews viewed:", error);
+			void reportClientError({
+				errorClass: error.data?.code ?? "TRPCClientError",
+				route,
+			});
 		},
 	});
 

@@ -2,6 +2,7 @@ import type {
 	GetOwnCoursesInput,
 	PaginatedOwnCourses,
 } from "@/server/entities/course/ownCourses";
+import { logger } from "@/server/utils/logger";
 import { api } from "@/trpc/server";
 
 export type OwnCourse = PaginatedOwnCourses["data"][number];
@@ -20,7 +21,7 @@ export const searchOwnCourses = async (
 	try {
 		return await api.course.searchOwnCourses(input);
 	} catch (error) {
-		console.error(error);
+		logger.error("searchOwnCourses failed", error);
 		return EMPTY;
 	}
 };

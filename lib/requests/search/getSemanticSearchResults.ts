@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import type { PublishedCourse } from "@/lib/requests/course/getPublishedCourses";
 import { api } from "@/trpc/server";
 
@@ -8,15 +9,12 @@ export const getSemanticSearchResults = async (params: {
 	category?: string;
 	level?: string;
 }): Promise<SemanticSearchResult[]> => {
-	try {
+	return safeRequest("search.getSemanticSearchResults", async () => {
 		const results = await api.search.semantic({
 			query: params.query,
 			category: params.category,
 			level: params.level,
 		});
 		return results ?? [];
-	} catch (error) {
-		console.error(error);
-		return [];
-	}
+	}, []);
 };

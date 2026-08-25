@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import type {
 	GetReviewsInput,
 	PaginatedReviews,
@@ -15,12 +16,13 @@ const empty = (page: number): PaginatedReviews => ({
 const getReviews = async (
 	input: GetReviewsInput,
 ): Promise<PaginatedReviews> => {
-	try {
-		return (await api.instructor.getReviews(input)) ?? empty(input.page);
-	} catch (error) {
-		console.error("Error fetching instructor reviews:", error);
-		return empty(input.page);
-	}
+	return safeRequest(
+		"instructor.getReviews",
+		async () => {
+			return (await api.instructor.getReviews(input)) ?? empty(input.page);
+		},
+		empty(input.page),
+	);
 };
 
 export default getReviews;

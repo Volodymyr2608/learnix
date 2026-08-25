@@ -39,18 +39,29 @@ const STUDENTS_PER_PAGE = 10;
 
 class InstructorService {
 	async createInstructor(dto: InstructorSchemaInput) {
-		let userId: string | undefined;
+		const { email, fullName, password } = dto;
+
+		/**
+		 * Deliberately OUTSIDE instructorRepository.transaction() below.
+		 *
+		 * BaseRepository.transaction's catch (handleError) unconditionally rethrows
+		 * a generic Error built from `error.message`, discarding the original
+		 * error's type and .code. Left inside, a duplicate-email AuthError (CONFLICT,
+		 * AC 26) would lose that code there, then get rewrapped again by this
+		 * method's own catch into InstructorError(..., "INTERNAL_SERVER_ERROR") —
+		 * defeating AC 26 for this procedure specifically. Nothing atomicity-wise is
+		 * lost by moving it out: the calls inside transaction() below never used its
+		 * tx client either, so it was already sequencing, not real atomicity.
+		 */
+		const result = await authService.signUp({
+			email,
+			name: fullName,
+			password,
+		});
+		const userId = result.userId;
 
 		try {
 			await instructorRepository.transaction(async () => {
-				const { email, fullName, password } = dto;
-				const result = await authService.signUp({
-					email,
-					name: fullName,
-					password,
-				});
-				userId = result.userId;
-
 				await userService.setRole(userId, Role.INSTRUCTOR);
 
 				return await instructorRepository.create({
@@ -75,25 +86,23 @@ class InstructorService {
 			);
 		}
 
-		if (userId) {
-			void (async () => {
-				try {
-					const token = await signUnsubscribeToken(userId);
-					await emailService.send({
-						templateKey: "instructor.welcome",
-						toEmail: dto.email,
-						userId,
-						payload: {
-							name: dto.fullName,
-							portalUrl: `${env.BASE_URL}/instructor`,
-							unsubscribeUrl: `${env.BASE_URL}/unsubscribe?token=${token}`,
-						},
-					});
-				} catch (err) {
-					logger.error("instructor welcome email failed", { error: err });
-				}
-			})();
-		}
+		void (async () => {
+			try {
+				const token = await signUnsubscribeToken(userId);
+				await emailService.send({
+					templateKey: "instructor.welcome",
+					toEmail: dto.email,
+					userId,
+					payload: {
+						name: dto.fullName,
+						portalUrl: `${env.BASE_URL}/instructor`,
+						unsubscribeUrl: `${env.BASE_URL}/unsubscribe?token=${token}`,
+					},
+				});
+			} catch (err) {
+				logger.error("instructor welcome email failed", { error: err });
+			}
+		})();
 	}
 
 	async getDashboardStats(instructorId: string): Promise<DashboardStats> {

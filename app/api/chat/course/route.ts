@@ -213,10 +213,13 @@ export async function POST(req: Request) {
 					// as non-retryable. That is deliberate: an unknown shape is more likely
 					// a bug than a transient fault.
 					const retryable = e instanceof RetryableNodeError;
-					logger.error(
-						{ feature: "courseAI", retryable, err: e },
-						"[courseAI] stream failed",
-					);
+					// Error-first, like guardUserInput.ts:103 — this is now the sole
+					// error-level report for a courseAI graph failure (withNodeErrors.ts
+					// logs its own copy at `debug` only, to avoid the S9 double-capture).
+					// `retryable` still drives the client payload below; it is not
+					// re-encoded into the log, which would mean wrapping the real error
+					// and losing its class to projectError's "Object" fallback.
+					logger.error(e, "[courseAI] stream failed");
 					send({
 						type: "error",
 						retryable,

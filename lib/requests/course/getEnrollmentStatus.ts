@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import { api } from "@/trpc/server";
 
 /**
@@ -6,12 +7,13 @@ import { api } from "@/trpc/server";
  * course detail page. Falls back to "not enrolled" on any error.
  */
 const getEnrollmentStatus = async (courseId: string) => {
-	try {
-		return await api.course.getEnrollmentStatus(courseId);
-	} catch (error) {
-		console.error(error);
-		return { isEnrolled: false, nextLessonId: null };
-	}
+	return safeRequest(
+		"course.getEnrollmentStatus",
+		async () => {
+			return await api.course.getEnrollmentStatus(courseId);
+		},
+		{ isEnrolled: false, nextLessonId: null },
+	);
 };
 
 export default getEnrollmentStatus;

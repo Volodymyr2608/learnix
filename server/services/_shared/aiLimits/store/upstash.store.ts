@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { env } from "@/lib/env";
+import { logger } from "@/server/utils/logger";
 import type { LimitWindow, RateLimitStore } from "./types";
 
 /**
@@ -115,7 +116,7 @@ export const createUpstashStore = (
 				// stdout for EVERY AI request during an outage or a bad token, outside
 				// logSecurityEvent and under no retention policy. (The token itself is
 				// never at risk: it travels in the authorization header, not the body.)
-				console.error(
+				logger.error(
 					"[aiLimits] rate-limit store unavailable — failing closed",
 					{ name: error instanceof Error ? error.name : "unknown" },
 				);

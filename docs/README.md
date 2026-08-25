@@ -43,6 +43,15 @@ for why it's structured this way.
 | [ADR-018](adr/018-testing-strategy-ci.md) | Testing strategy and CI gating | Accepted |
 | [ADR-019](adr/019-payments.md) | Payments (paid enrollment, commission & instructor payouts) | Accepted |
 | [ADR-020](adr/020-hybrid-documentation-model.md) | Hybrid Intent + ADR + Harness documentation model | Accepted |
+| [ADR-021](adr/021-spec-gated-command-workflow.md) | Spec-gated command workflow | Accepted |
+| [ADR-022](adr/022-ai-input-trust-boundary.md) | AI input trust boundary | Accepted |
+| [ADR-023](adr/023-chat-route-authorization-binding.md) | Chat-route authorization binds the checked identifier to the acted-on one | Accepted |
+| [ADR-024](adr/024-lesson-tutor-authority-boundaries.md) | Lesson tutor authority boundaries | Accepted |
+| [ADR-025](adr/025-account-deletion-and-anonymisation.md) | Account deletion and in-place anonymisation | Accepted |
+| [ADR-026](adr/026-shared-ai-defence-layers.md) | Shared AI defence layers | Accepted |
+| [ADR-027](adr/027-distributed-ai-rate-limiting.md) | Distributed AI rate limiting | Accepted |
+| [ADR-028](adr/028-multilingual-ai-guard-coverage.md) | Multilingual AI guard coverage | Accepted |
+| [ADR-029](adr/029-error-reporting-projection-funnel.md) | Enrich at the service boundary, capture once through an allowlist projection | Accepted |
 
 ## Specs
 

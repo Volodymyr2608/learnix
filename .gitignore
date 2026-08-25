@@ -59,3 +59,6 @@ evals/courseAI/_smoke/
 
 # spec-gated workflow: local, branch-scoped plan-gate marker (ADR-021) — never committed
 .claude/.active-plan
+# sentry
+.env.sentry-build-plugin
+.sentryclirc

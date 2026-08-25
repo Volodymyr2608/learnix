@@ -1,13 +1,14 @@
 "use client";
 
 import { Mail } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
 	DropdownMenuItem,
 	DropdownMenuSub,
 	DropdownMenuSubContent,
 	DropdownMenuSubTrigger,
 } from "@/app/_components/_shared/ui/dropdown-menu";
+import { reportClientError } from "@/app/_components/ErrorBoundary/actions";
 import INSTRUCTOR_URLS from "@/lib/constants/urls/instructorUrls";
 import { api } from "@/trpc/client";
 import { truncateTitle } from "../../helpers/truncateTitle";
@@ -18,10 +19,15 @@ export function SendMessageMenuItem({
 	courses,
 }: SendMessageMenuItemProps) {
 	const router = useRouter();
+	const route = usePathname();
 	const open = api.message.getOrCreateConversation.useMutation({
 		onSuccess: ({ conversationId }) =>
 			router.push(INSTRUCTOR_URLS.messageThread(conversationId)),
-		onError: (error) => console.error("Failed to open conversation:", error),
+		onError: (error) =>
+			void reportClientError({
+				errorClass: error.data?.code ?? "TRPCClientError",
+				route,
+			}),
 	});
 
 	const message = (courseId: string) => open.mutate({ courseId, studentId });

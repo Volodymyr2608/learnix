@@ -1,15 +1,17 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import type { AchievementView } from "@/server/entities/student/achievements";
 import { api } from "@/trpc/server";
 
 const EMPTY: AchievementView[] = [];
 
 const getAchievements = async (): Promise<AchievementView[]> => {
-	try {
-		return await api.student.getAchievements();
-	} catch (error) {
-		console.error("Error fetching student achievements:", error);
-		return EMPTY;
-	}
+	return safeRequest(
+		"student.getAchievements",
+		async () => {
+			return await api.student.getAchievements();
+		},
+		EMPTY,
+	);
 };
 
 export default getAchievements;

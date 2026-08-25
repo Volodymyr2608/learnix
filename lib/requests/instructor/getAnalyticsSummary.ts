@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import type { AnalyticsSummary } from "@/server/entities/analytics/analytics";
 import { api } from "@/trpc/server";
 
@@ -9,12 +10,13 @@ const EMPTY: AnalyticsSummary = {
 };
 
 const getAnalyticsSummary = async (): Promise<AnalyticsSummary> => {
-	try {
-		return await api.analytics.getOverviewSummary();
-	} catch (error) {
-		console.error("Error fetching analytics summary:", error);
-		return EMPTY;
-	}
+	return safeRequest(
+		"instructor.getAnalyticsSummary",
+		async () => {
+			return await api.analytics.getOverviewSummary();
+		},
+		EMPTY,
+	);
 };
 
 export default getAnalyticsSummary;

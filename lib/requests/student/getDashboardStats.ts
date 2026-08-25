@@ -1,3 +1,4 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import type { StudentDashboardStats } from "@/server/entities/student/dashboard";
 import { api } from "@/trpc/server";
 
@@ -9,12 +10,13 @@ const EMPTY: StudentDashboardStats = {
 };
 
 const getDashboardStats = async (): Promise<StudentDashboardStats> => {
-	try {
-		return await api.student.getDashboardStats();
-	} catch (error) {
-		console.error("Error fetching student dashboard stats:", error);
-		return EMPTY;
-	}
+	return safeRequest(
+		"student.getDashboardStats",
+		async () => {
+			return await api.student.getDashboardStats();
+		},
+		EMPTY,
+	);
 };
 
 export default getDashboardStats;

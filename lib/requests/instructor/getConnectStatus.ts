@@ -1,4 +1,5 @@
 import type { ConnectStatus } from "@/lib/connectStatus";
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import { api } from "@/trpc/server";
 
 export type ConnectData = {
@@ -14,12 +15,13 @@ const FALLBACK: ConnectData = {
 };
 
 const getConnectStatus = async (): Promise<ConnectData> => {
-	try {
-		return await api.payment.getConnectStatus();
-	} catch (error) {
-		console.error("Error fetching connect status:", error);
-		return FALLBACK;
-	}
+	return safeRequest(
+		"instructor.getConnectStatus",
+		async () => {
+			return await api.payment.getConnectStatus();
+		},
+		FALLBACK,
+	);
 };
 
 export default getConnectStatus;

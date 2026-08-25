@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { del, put } from "@vercel/blob";
 import mime from "mime";
+import { logger } from "@/server/utils/logger";
 
 export default class VercelService {
 	private generateFileName(fileExt?: string) {
@@ -21,7 +22,7 @@ export default class VercelService {
 				url: blob.url,
 			};
 		} catch (error) {
-			console.error("Vercel upload blob", error);
+			logger.error("Vercel upload blob", error);
 			return {
 				url: null,
 			};
@@ -33,7 +34,7 @@ export default class VercelService {
 			await del(url);
 			return { success: true };
 		} catch (error) {
-			console.error("Vercel delete blob", error);
+			logger.error("Vercel delete blob", error);
 			return { success: false };
 		}
 	}
@@ -54,7 +55,7 @@ export default class VercelService {
 				url: blob.url,
 			};
 		} catch (error) {
-			console.error("S3 Upload Error:", error);
+			logger.error("S3 Upload Error:", error);
 			throw new Error("Failed to upload file to S3");
 		}
 	}

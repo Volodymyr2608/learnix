@@ -6,6 +6,7 @@ import { processedStripeEventRepository } from "@/server/repositories/payment.re
 import { connectService } from "@/server/services/payments/connect.service";
 import { paymentService } from "@/server/services/payments/payment.service";
 import { stripe } from "@/server/services/payments/stripe.client";
+import { logger } from "@/server/utils/logger";
 
 export const runtime = "nodejs";
 
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
 			}
 		}
 	} catch (err) {
-		console.error("Webhook handler error:", err);
+		logger.error("Webhook handler error:", err);
 		return new Response("webhook handler failed", { status: 500 });
 	}
 

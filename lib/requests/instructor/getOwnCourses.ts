@@ -1,12 +1,10 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import { api } from "@/trpc/server";
 
 const getOwnCourses = async () => {
-	try {
+	return safeRequest("instructor.getOwnCourses", async () => {
 		return await api.course.getOwnCourses();
-	} catch (error) {
-		console.error("Error fetching own courses:", error);
-		return [];
-	}
+	}, []);
 };
 
 export default getOwnCourses;

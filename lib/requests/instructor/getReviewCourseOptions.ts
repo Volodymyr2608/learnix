@@ -1,13 +1,11 @@
+import { safeRequest } from "@/lib/requests/_shared/safeRequest";
 import type { ReviewCourseOption } from "@/server/entities/instructor/reviews";
 import { api } from "@/trpc/server";
 
 const getReviewCourseOptions = async (): Promise<ReviewCourseOption[]> => {
-	try {
+	return safeRequest("instructor.getReviewCourseOptions", async () => {
 		return (await api.instructor.getReviewCourseOptions()) ?? [];
-	} catch (error) {
-		console.error("Error fetching review course options:", error);
-		return [];
-	}
+	}, []);
 };
 
 export default getReviewCourseOptions;

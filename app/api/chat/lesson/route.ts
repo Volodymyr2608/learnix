@@ -9,6 +9,7 @@ import {
 	validateMessageLength,
 } from "@/server/services/_shared/aiLimits";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
+import { logger } from "@/server/utils/logger";
 
 export const runtime = "nodejs";
 
@@ -170,7 +171,7 @@ export async function POST(req: Request) {
 				if (!aborted) send({ type: "done" });
 			} catch (e) {
 				if (!abortSignal.aborted) {
-					console.error("[Lesson AI stream error]", e);
+					logger.error("[Lesson AI stream error]", e);
 					send({ type: "error", message: "Failed to generate AI response" });
 				}
 			} finally {
