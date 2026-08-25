@@ -2,13 +2,9 @@ import Link from "next/link";
 import CATEGORIES from "@/app/_components/Course/constants/categories";
 import { cn } from "@/lib/utils/cn";
 import { buildCategoryHref, toSlug } from "../../helpers/categoryHelpers";
+import type { CategoryFilterProps } from "./types";
 
-type Props = {
-	category: string;
-	search: string;
-};
-
-export const CategoryFilter = ({ category, search }: Props) => (
+export const CategoryFilter = ({ category, search }: CategoryFilterProps) => (
 	<div className="flex gap-2 overflow-x-auto pb-2">
 		{CATEGORIES.map((cat) => {
 			const isActive =

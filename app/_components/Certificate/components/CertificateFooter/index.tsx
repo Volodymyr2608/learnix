@@ -1,10 +1,6 @@
 import { Text, View } from "@react-pdf/renderer";
 import { styles } from "../../styles";
-
-type CertificateFooterProps = {
-	completedAt: Date;
-	enrollmentId: string;
-};
+import type { CertificateFooterProps } from "./types";
 
 export const CertificateFooter = ({
 	completedAt,
