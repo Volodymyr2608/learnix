@@ -44,6 +44,26 @@ plan is not allowed to violate.
 - **Accepted risk is written down.** A known gap that is not fixed goes in the feature's `security.md`
   register with its residual impact (`features/ai-tutor-guardrails/security.md` §S13 is the shape).
 
+## Agent economics
+
+Measured, not assumed — `pnpm agent-cost` (`scripts/agent-cost.ts`) reports the numbers behind each
+rule below. Baseline taken 2026-08-25 over 43 sessions and 145 dispatches. — ADR-030.
+
+- **Batch independent tool calls into one turn.** Every tool call is a round-trip that re-sends the
+  whole context, and the main session is **71%** of all spend. In the baseline, 61% of tool calls sat
+  inside runs of two or more consecutive read-only calls, while exactly **1 turn out of 4,900**
+  batched anything. Collapsing genuinely independent calls is the single largest lever in this file.
+- **Reconnaissance is `Explore`, not `general-purpose`.** Same job, half the cost: median 345k
+  weighted units against 545k, across 48 `general-purpose` dispatches. Reach for `general-purpose`
+  only when the task also has to write.
+- **A subagent is bought for context isolation, not intelligence.** Dispatch one only when it *reads
+  a lot and returns little*. Executing a task whose context the caller already holds pays for that
+  context twice and loses detail at the summarisation boundary.
+- **A repeated check becomes a contract test.** When a review or audit finds a problem whose *class*
+  is mechanically checkable, the fixing task also adds a `*.contract.test.ts`. The next feature is
+  then entitled not to ask about that class again — this is the only mechanism here that makes the
+  cost of quality fall over time rather than rise.
+
 ## Tooling
 
 - **Biome**, not ESLint/Prettier (`biome.jsonc`); auto-sorted imports and Tailwind classes.

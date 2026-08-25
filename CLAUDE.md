@@ -122,6 +122,17 @@ file is the source of truth for what's required vs. optional. Add new vars there
 ### Linting / formatting
 Biome (not ESLint/Prettier). Config in `biome.jsonc`. Auto-sorts imports and Tailwind classes (`useSortedClasses` for `clsx`/`cva`/`cn` calls).
 
+## Agent economics
+
+Four measured rules in [`docs/constitution.md`](docs/constitution.md) (§Agent economics), from
+`pnpm agent-cost`. The two that bind every turn:
+
+- **Batch independent tool calls into one turn.** The main session is 71% of all spend and each call
+  is a round-trip. In the baseline only 1 turn in 4,900 batched anything, while 61% of calls sat in
+  runs of consecutive read-only calls.
+- **Reconnaissance dispatches as `Explore`, not `general-purpose`** — half the median cost for the
+  same job.
+
 ## Development Workflow
 
 Hybrid Intent + ADR + Harness model. Rationale and alternatives considered:
