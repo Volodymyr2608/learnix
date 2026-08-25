@@ -19,6 +19,7 @@ import {
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
 import { Separator } from "@/app/_components/_shared/ui/separator";
+import { StudyGuideResults } from "./components/StudyGuideResults";
 import { useStudyGuideToolbar } from "./hooks/useStudyGuideToolbar";
 import type {
 	GenerateButtonContentProps,
@@ -61,8 +62,8 @@ export const StudyGuideToolbar = ({
 	const {
 		insights,
 		isStale,
-		conceptCount,
-		glossaryCount,
+		concepts,
+		glossary,
 		isGenerating,
 		handleGenerate,
 	} = useStudyGuideToolbar(lessonId, lastSavedAt);
@@ -102,29 +103,19 @@ export const StudyGuideToolbar = ({
 			</CardHeader>
 
 			<CardContent className="space-y-4">
-				{insights ? (
+				{insights && (
 					<>
-						<p className="text-muted-foreground text-sm leading-relaxed">
-							{insights.summary.length > 180
-								? `${insights.summary.slice(0, 180)}…`
-								: insights.summary}
-						</p>
-
-						<div className="flex flex-wrap items-center gap-2">
-							<Badge className="gap-1.5" variant="secondary">
-								<Sparkles className="h-3 w-3" />
-								{conceptCount} key concept{conceptCount !== 1 ? "s" : ""}
-							</Badge>
-							{glossaryCount > 0 && (
-								<Badge className="gap-1.5" variant="secondary">
-									{glossaryCount} glossary term{glossaryCount !== 1 ? "s" : ""}
-								</Badge>
-							)}
-						</div>
+						<StudyGuideResults
+							concepts={concepts}
+							glossary={glossary}
+							summary={insights.summary}
+						/>
 
 						<Separator />
 					</>
-				) : (
+				)}
+
+				{!insights && (
 					<p className="text-muted-foreground text-sm italic">
 						No study guide generated yet.
 					</p>

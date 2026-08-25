@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { parseGlossary } from "@/lib/parse/parseGlossary";
 import { api } from "@/trpc/client";
 
 export const useStudyGuideToolbar = (
@@ -30,18 +31,17 @@ export const useStudyGuideToolbar = (
 		lastSavedAt !== null &&
 		new Date(insights.generatedAt) < lastSavedAt;
 
-	const conceptCount = Array.isArray(insights?.concepts)
-		? insights.concepts.length
-		: 0;
-	const glossaryCount = Array.isArray(insights?.glossary)
-		? insights.glossary.length
-		: 0;
+	// The arrays themselves, not counts of them: the view renders these and
+	// derives its own headings from `.length`, so a count can never disagree with
+	// the list beneath it.
+	const concepts = insights?.concepts ?? [];
+	const glossary = parseGlossary(insights?.glossary);
 
 	return {
 		insights,
 		isStale,
-		conceptCount,
-		glossaryCount,
+		concepts,
+		glossary,
 		isGenerating: generate.isPending,
 		handleGenerate: () => generate.mutate(lessonId),
 	};
