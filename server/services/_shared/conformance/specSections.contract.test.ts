@@ -67,30 +67,20 @@ const SPEC_FOR: Record<AiFeature, SpecBinding> = {
 };
 
 /**
- * The doc debt as it stands, per surface, by section name rather than by count:
- * a swap — one section written while another is dropped — must not net out to
- * green. It cannot grow, and every migration empties one entry.
+ * Doc debt, per spec, by section name rather than by count: a swap — one section
+ * written while another is dropped — must not net out to green.
  *
- * `ai-tutor-guardrails` is absent because it is complete; that is what a spec
- * leaving this list looks like.
+ * **Empty, and that is the assertion.** It held 36 missing sections across three
+ * specs when this test was written; each migration deleted an entry until there
+ * was nothing left, which is the only ending a ratchet is allowed to have. It
+ * stays as a typed map rather than being deleted so that a spec reopened
+ * mid-migration has somewhere honest to sit — but a new entry here needs the
+ * same justification a skipped test would.
+ *
+ * The remaining gap on this surface is not a section: `learningPathAI` has no
+ * spec at all, pinned in SPEC_FOR above.
  */
-const PENDING: Record<string, string[]> = {
-	"ai-course-builder": [
-		"Description",
-		"Business goal",
-		"Supported use cases",
-		"Inputs",
-		"Outputs",
-		"Validation",
-		"Edge cases",
-		"Failure & fallback",
-		"Security",
-		"Performance",
-		"Observability",
-		"Test & eval scenarios",
-		"Source of truth",
-	],
-};
+const PENDING: Record<string, string[]> = {};
 
 const headings = (markdown: string): string[] =>
 	[...markdown.matchAll(/^## (.+)$/gm)].map((match) => (match[1] ?? "").trim());
