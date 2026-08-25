@@ -19,35 +19,47 @@ not equally open.
 |---|---|---|
 | **A** | Prompt injection, jailbreak, topic relevance | ✅ **Shipped** — [`features/ai-input-trust-boundary/spec.md`](features/ai-input-trust-boundary/spec.md), [ADR-022](../adr/022-ai-input-trust-boundary.md) |
 | **B** | AI flow documentation (nodes, I/O, failure cases) | ✅ **Shipped** — [`features/ai-flow-contracts/spec.md`](features/ai-flow-contracts/spec.md) |
-| **C** | Spec process, source of truth | ⬜ **Open** — §2. Mostly solved by ADR-020/021 already; two real gaps left |
+| **C** | Spec process, source of truth | ✅ **Shipped** — §2. All three gaps closed 2026-08-25; ceremony model replaced by [ADR-030](../adr/030-tiered-agentic-development.md) |
 | **D** | Latency, tokens, cost, failure rate | ⬜ **Open** — §3. LangSmith is wired but tracing-only and off by default; no metrics |
 
-**Why C ranks lowest.** Commit `25f225f` (spec-gated command chain, ADR-021) and ADR-020 already close
-most of that recommendation — the feature-spec template, change tiering, and the "no plan, no code"
-gate. The reviewer most likely assessed the state *before* those commits. What remains is two specific
-omissions, not a workstream. The work is not to rebuild what stands, but to be able to show that it
-stands.
+**Why C ranked lowest, and what that missed.** Commit `25f225f` (spec-gated command chain, ADR-021)
+and ADR-020 already closed most of the recommendation — the feature-spec template, change tiering,
+and the "no plan, no code" gate — so what remained looked like two omissions rather than a
+workstream. That reading was right about the gaps and wrong about the risk: the chain those ADRs
+built was correct and unbounded in cost, and nobody had measured it. Closing C therefore also meant
+tiering the pipeline and instrumenting it (ADR-030). Also worth noting for D: the workstream below
+asks "what does one generated course cost", and the same blindness applied to the development
+process itself until `pnpm agent-cost` existed.
 
 ---
 
-## 2. Workstream C — spec process (P2, half-day)
+## 2. Workstream C — spec process ✅ **Closed 2026-08-25**
 
-Not a workstream; one focused PR. Already in place: ADR-020, ADR-021,
-`docs/templates/feature-spec.md`, `_index.md`, `pnpm spec:sync`.
+All three gaps are closed, and one of them turned out to have been closed already by something
+written after this section.
 
-**Gap 1 — shared acceptance criteria.** Create `docs/specs/common-acceptance-criteria.md` holding the
-criteria that apply to *every* feature and should therefore stop being retyped into each spec: project
-structure (ADR-011), style (Biome), error handling (ADR-010), security (ADR-016 and ADR-022), tests
-(ADR-018). The template then carries one line: "Applies: common AC + the feature-specific ones below."
+**Gap 1 — shared acceptance criteria. Closed by `docs/constitution.md`, not by a new document.**
+This section asked for `common-acceptance-criteria.md` on the premise that every spec retypes the
+same criteria. Checked before building it: across all twenty specs, boilerplate acceptance criteria
+appear in exactly **one** (`error-observability`). Meanwhile `docs/constitution.md` — created with
+ADR-021, after this section was written — is already that document: pointer-only, listing structure
+(ADR-011), style (Biome), error handling (ADR-010), security (ADR-016/017/022), tests (ADR-018), and
+read by every gate of the chain. Building a second one would have been a duplicate that drifts.
+`feature-spec.md` now carries the pointer line instead.
 
-**Gap 2 — source of truth after release.** Add an explicit section to
-[`documentation-process.md`](documentation-process.md): once merged, the source of truth is `spec.md`
-(current behavior) plus the ADR (why it is that way). `build/plan.md` becomes history and is not
-updated. The code is the truth about implementation, `spec.md` about intent — and a divergence between
-them is a bug in the spec, not in the code.
+**Gap 2 — source of truth after release. Closed** — [`documentation-process.md`](documentation-process.md)
+§1a. Mostly true before it was written (ADR-020/021 already established the three-way split and the
+no-backfill gate); §1a states the post-merge rule explicitly, including that `build/plan.md` becomes
+history and is not updated.
 
-**Gap 3 — template extension.** Add `Inputs / Outputs`, `Edge cases`, and `Non-functional
-requirements` (latency, cost, limits) to `docs/templates/feature-spec.md`.
+**Gap 3 — template extension. Closed** — `docs/templates/feature-spec.md` has `Inputs / Outputs`,
+`Edge cases` and `Non-functional requirements`, each marked delete-if-not-applicable so that
+extending the template did not make the process more expensive.
+
+**Beyond the three gaps**, the same pass replaced the ceremony model the workstream assumed. The
+tiers were nominal — standard and complex differed only by "plus an ADR" — so ADR-030 made them three
+different pipelines, moved the guarded trigger into `pnpm classify`, and added `pnpm agent-cost` so
+the process can be measured rather than argued about.
 
 ---
 

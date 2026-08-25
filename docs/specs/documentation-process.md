@@ -21,6 +21,22 @@ Correctness → tests/evals/CI    (does it actually work, right now)
 Each artifact stays thin and pointed at the one thing only it is good at: a passing test suite
 doesn't tell you *why* a feature exists, and a spec doesn't guarantee the code matches it.
 
+### 1a. Source of truth after the merge
+
+The split above describes a feature being built. Once it ships, the question changes to "which of
+these do I believe when they disagree", and the answer is fixed:
+
+- **`spec.md` is the living document** and describes current behavior — not the behavior originally
+  planned. `/qa` flips it to `stable` and updates any Acceptance Criteria that moved during
+  implementation.
+- **The ADR says why it is that way.** It is a dated decision record and is never edited to match a
+  later change; a reversal gets a new ADR that supersedes it.
+- **`build/plan.md` becomes history the moment the branch merges.** It is kept, not deleted, and it
+  is **not updated** — reading it tells you how the feature was built, never how it behaves now.
+- **The code is the truth about implementation; `spec.md` is the truth about intent.** A divergence
+  between them is a bug in the spec, not in the code — with one exception: when the code violates a
+  control the spec records, the code is wrong, because that control was the point.
+
 ---
 
 ## 2. Directory structure
@@ -94,11 +110,9 @@ distinct things, because they need different audits:
   **skip the design pass** — point one auditor at the modified control and require a
   false-positive check on legitimate input, not only a recall check.
 
-Two consequences worth stating plainly. A change *inside* an already-guarded surface — editing a
-prompt in a registered entry point, tuning a threshold — is neither: it inherits its controls by
-reference, in one line naming the `security.md` they come from. And a new Prisma model on its own
-*is* now a guarded signal, which is stricter than the old wording (see the wishlist note below —
-that example predates the classifier).
+A change *inside* an already-guarded surface — editing a prompt in a registered entry point, tuning a
+threshold — is neither, and inherits its controls by reference in one line naming the `security.md`
+they come from.
 
 Then, for anything the classifier did not call guarded:
 
@@ -112,12 +126,18 @@ The classifier reports hints for questions 2 and 3 (did source change, did any s
 changed files all tests) but does not decide them: whether *documented behavior* moved is not
 visible in a diff.
 
-**Why "new schema" alone isn't the complex trigger:** the wishlist example in §8 adds two new models
-(`Wishlist`, `WishlistItem`) and is still standard tier — nothing about it is risky to reverse (drop
-the tables, no data loss anyone cares about) or touches money/auth/an external service. Contrast with
-the subscriptions example, where the schema change is risky precisely because it reshapes how money
-already in flight (the existing `transferStatus: pending` sweep) gets reconciled — that's what earns
-the complex tier and the ADR, not the row count of `prisma/schema/`.
+**A new model now does trigger guarded, and that is a deliberate tightening.** The wishlist example
+in §8 predates the classifier and was called standard on the reasoning that dropping two tables costs
+nobody anything. The classifier calls it guarded, because "is this data risky to reverse" is a
+judgement and "does this diff add a model" is not — and the judgement was being made by whoever was
+in a hurry.
+
+The cost of the tightening is small and the guarded pipeline absorbs it: a new model with no
+authority question attached produces a short threat pass that finds nothing, which is the correct
+outcome to have on the record. Contrast the subscriptions example, where the schema change is risky
+precisely because it reshapes how money already in flight (the existing `transferStatus: pending`
+sweep) gets reconciled — there the pass has something to find. What earns the ADR is still the
+three-month test, not the row count of `prisma/schema/`.
 
 ### 3b. How a developer talks to the agent
 
