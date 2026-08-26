@@ -173,9 +173,14 @@ const checkRow = (
 export const runTutorEval = async (): Promise<boolean> => {
 	const rows = loadTutorDataset();
 
-	// Same model production uses for the tutor. Temperature stays 0 here —
-	// prod runs 0.4 — until sampling lands (area-2 З10): a single run at 0.4
-	// would be flaky with nothing yet in place to average it out.
+	// Same model production uses; prod runs 0.4, this runs 0 to keep the noise
+	// down until sampling lands (area-2 З10).
+	//
+	// Note that 0 is not determinism, which two consecutive runs of this eval
+	// demonstrated: identical dataset, identical prompt hash, and `ambiguous`
+	// still moved 50% -> 25%. Greedy decoding is not a pure function — tie
+	// breaking and provider-side batching move it. Read any single-sample
+	// number here, baselines included, as one draw rather than as the value.
 	const llm = new ChatOpenAI({
 		model: MODEL,
 		temperature: 0,

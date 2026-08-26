@@ -13,6 +13,11 @@ import { dirname, resolve } from "node:path";
  *
  * Not a gate. Scores drift for reasons a threshold cannot judge, so this prints
  * what moved and leaves the call to the reader.
+ *
+ * A single-sample baseline carries run-to-run noise, and more of it than one
+ * would guess: two consecutive tutor runs at temperature 0, same prompt hash,
+ * disagreed by a category. Until an eval samples each row several times, treat
+ * a one-row delta here as a draw rather than a regression.
  */
 
 export type CategoryCount = {
