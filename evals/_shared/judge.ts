@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { env } from "@/lib/env";
@@ -29,6 +31,36 @@ import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntr
 
 /** The default judge. Different from the tutor's gpt-4o-mini on purpose. */
 export const DEFAULT_JUDGE_MODEL = "gpt-4o";
+
+/**
+ * The scoring anchors live in a document a human maintains, and the judge reads
+ * them at run time. Copying them into TypeScript would make the copy the thing
+ * that runs while the document quietly became decoration — the defect the
+ * prompt-fidelity work removed from the evals themselves.
+ */
+export const RUBRIC_PATH = "docs/specs/ai-eval-rubric.md";
+
+export const loadRubric = (): string =>
+	readFileSync(resolve(process.cwd(), RUBRIC_PATH), "utf-8");
+
+/**
+ * The axes the rubric documents, lowercased to match the schema's field names.
+ *
+ * A `##` heading alone is not an axis — the document also carries prose
+ * sections. What distinguishes an axis is the 1-5 anchor table underneath it,
+ * which is the thing that makes a score reproducible between runs. Anchoring on
+ * the table rather than the heading text mirrors `flowContract.contract.test.ts`,
+ * which anchors to a table cell so a name mentioned only in prose does not count
+ * as documented.
+ */
+export const rubricAxes = (markdown: string): string[] => {
+	const sections = markdown.split(/^## /m).slice(1);
+
+	return sections
+		.filter((section) => /^\|\s*\*\*5\*\*\s*\|/m.test(section))
+		.map((section) => (section.split("\n")[0] ?? "").trim().toLowerCase())
+		.sort();
+};
 
 const AXIS = z.number().int().min(1).max(5);
 
@@ -127,7 +159,7 @@ export const buildJudgePrompt = (params: {
 }): { systemPrompt: string; userPrompt: string } => {
 	const systemPrompt = `You are grading one reply from an AI tutor against a rubric.
 
-${params.rubric ?? ""}
+${params.rubric ?? loadRubric()}
 
 Score every axis as an integer from 1 to 5 using the anchors above. Judge the reply only against the lesson content provided — not against your own knowledge of the subject, and not against how confident the reply sounds. In rationale, give one sentence for each axis you scored below 4.
 
