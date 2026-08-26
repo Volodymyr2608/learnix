@@ -6,8 +6,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { createAgent } from "langchain";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
-import { SYSTEM_PROMPT } from "@/server/services/lessonAI/lessonAI.agent";
+import { buildTutorSystemPrompt } from "@/server/services/lessonAI/lessonAI.agent";
 import { accuracyGate } from "../_shared/score";
 
 type Row = {
@@ -107,34 +106,16 @@ export async function runTutorEval(): Promise<boolean> {
 
 	const results = await Promise.all(
 		rows.map(async (r, i) => {
-			const concepts = r.input.concepts ?? [];
-
-			// Mirrors createLessonAgent (lessonAI.agent.ts) exactly, so the
-			// prompt this eval sends is the prompt production sends.
-			const conceptConstraint =
-				concepts.length > 0
-					? `\n   When calling mark_concept_understood, use ONLY the concept names listed under "Concepts" in the untrusted_data block below. Do not use any other names.`
-					: "";
-			const untrustedContext = wrapUntrustedContent(
-				[
-					`Lesson title: ${r.input.lessonTitle}`,
-					`Course title: ${r.input.courseTitle ?? "Demo Course"}`,
-					concepts.length > 0 ? `Concepts: ${concepts.join(", ")}` : null,
-				]
-					.filter((line): line is string => line !== null)
-					.join("\n"),
-				"lesson_content",
-			);
-
 			const agent = createAgent({
 				model: llm,
 				tools: stubTools,
-				// Function replacers, not plain strings — see lessonAI.agent.ts for
-				// why (a title containing $' could otherwise escape the wrapper).
-				systemPrompt: SYSTEM_PROMPT.replace(
-					"{conceptConstraint}",
-					() => conceptConstraint,
-				).replace("{untrustedContext}", () => untrustedContext),
+				// The real builder, not a reconstruction of it: a field added to
+				// the untrusted block in production reaches this eval for free.
+				systemPrompt: buildTutorSystemPrompt({
+					lessonTitle: r.input.lessonTitle,
+					courseTitle: r.input.courseTitle ?? "Demo Course",
+					lessonConcepts: r.input.concepts,
+				}),
 			});
 			const result = await agent.invoke({
 				messages: [{ role: "human", content: r.input.question }],

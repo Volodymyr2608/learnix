@@ -30,23 +30,21 @@ Answer rules:
 
 ${UNTRUSTED_DATA_CLAUSE}`;
 
-export function createLessonAgent(params: {
-	lessonId: string;
+/**
+ * Assembles the tutor's system prompt.
+ *
+ * Exported because `evals/lessonAI/tutor.eval.ts` must send the prompt this
+ * function produces, not a reconstruction of it. Importing SYSTEM_PROMPT alone
+ * left the eval hand-copying the interpolation below, which put it one edit to
+ * the untrusted block away from measuring a fiction again — the same drift that
+ * made the eval's own prompt copy worthless. `lessonAI.agent.test.ts` pins the
+ * two callers equal.
+ */
+export function buildTutorSystemPrompt(params: {
 	lessonTitle: string;
 	courseTitle: string;
-	studentId: string;
-	courseId: string;
 	lessonConcepts?: string[];
-}): ReactAgent {
-	const llm = new ChatOpenAI({
-		model: "gpt-4o-mini",
-		temperature: 0.4,
-		streaming: true,
-		apiKey: env.OPENAI_API_KEY,
-		timeout: MODEL_TIMEOUT_MS,
-		maxRetries: MODEL_MAX_RETRIES,
-	});
-
+}): string {
 	const concepts = params.lessonConcepts ?? [];
 
 	const conceptConstraint =
@@ -69,6 +67,36 @@ export function createLessonAgent(params: {
 		"lesson_content",
 	);
 
+	// Function replacers, not plain strings: String.replace treats $&, $` and
+	// $' as substitution patterns *in the replacement*, so a title containing
+	// $' would expand to the text after the match — which includes the
+	// clause's own literal </untrusted_data> — and escape the wrapper into
+	// system-prompt position. A function replacer disables that entirely.
+	return SYSTEM_PROMPT.replace(
+		"{conceptConstraint}",
+		() => conceptConstraint,
+	).replace("{untrustedContext}", () => untrustedContext);
+}
+
+export function createLessonAgent(params: {
+	lessonId: string;
+	lessonTitle: string;
+	courseTitle: string;
+	studentId: string;
+	courseId: string;
+	lessonConcepts?: string[];
+}): ReactAgent {
+	const llm = new ChatOpenAI({
+		model: "gpt-4o-mini",
+		temperature: 0.4,
+		streaming: true,
+		apiKey: env.OPENAI_API_KEY,
+		timeout: MODEL_TIMEOUT_MS,
+		maxRetries: MODEL_MAX_RETRIES,
+	});
+
+	const concepts = params.lessonConcepts ?? [];
+
 	return createAgent({
 		model: llm,
 		tools: [
@@ -81,14 +109,6 @@ export function createLessonAgent(params: {
 				concepts,
 			),
 		],
-		// Function replacers, not plain strings: String.replace treats $&, $` and
-		// $' as substitution patterns *in the replacement*, so a title containing
-		// $' would expand to the text after the match — which includes the
-		// clause's own literal </untrusted_data> — and escape the wrapper into
-		// system-prompt position. A function replacer disables that entirely.
-		systemPrompt: SYSTEM_PROMPT.replace(
-			"{conceptConstraint}",
-			() => conceptConstraint,
-		).replace("{untrustedContext}", () => untrustedContext),
+		systemPrompt: buildTutorSystemPrompt(params),
 	});
 }
