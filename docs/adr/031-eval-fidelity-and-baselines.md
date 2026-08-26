@@ -76,10 +76,26 @@ ADR-013 §5 asked each structured-output feature to own; none existed until now.
 - A green eval now means something about the deployed system. Before, two of the evals could be green
   about code that was never shipped.
 - The question "did this change make anything worse" is answerable from the diff, by anyone, later.
-- Judge scores made visible what the deterministic suite could not: the tutor's `valid` category gates
-  at 100% while the judge scores those same replies ~3.9 out of 5.
+- Judge scores made visible what the deterministic suite could not. `low-confidence` and
+  `hallucination-bait` both gate at 100%, and the judge scores their faithfulness and groundedness at
+  3.0 and 4.0 — replies that pick the right tool and avoid every forbidden phrase while being only
+  partly grounded in what retrieval returned. No assertion in the suite can express that.
+- It also quantifies *how* badly a failing category fails: `missing-info` gates at 0% and scores 1.0
+  on both faithfulness and groundedness, which says the tutor invents an answer rather than asking
+  for the input it needs — a different defect from answering the wrong question.
 - Three checks that used to require a careful reader are now contract tests, so the next feature does
   not pay for them again (`docs/constitution.md` §Agent economics).
+
+**A number this ADR originally asserted, and why it was wrong**
+
+The first version of this ADR reported that `valid` gates at 100% while the judge scored those same
+replies ~3.9 — presented as the headline case for having a judge at all. It was an artifact. The judge
+was being handed content reconstructed from the dataset row rather than the text the tutor's tools
+actually served, and for 9 of 24 judged rows the two differed; cross-lesson rows in particular were
+graded against "No relevant content found" while their content sat in a field the reconstruction never
+read. With the judge given the served text, `valid` scores 4.9 and the gap closes. The lesson kept
+rather than the number: a judge is a measuring instrument, and an instrument fed the wrong input
+produces a confident reading that looks exactly like a finding.
 
 **Negative / Trade-offs**
 - A judged run is rate-limited. The judge prompt carries the rubric, so judging every sample of every
