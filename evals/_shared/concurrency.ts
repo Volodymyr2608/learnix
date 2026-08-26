@@ -11,6 +11,11 @@
  *
  * Results come back in input order, so a caller can zip them against the rows
  * they came from.
+ *
+ * Note the failure mode: if `fn` rejects, every result is lost, because the
+ * whole pool rejects with it. That is fine for the judge, whose only caller
+ * returns failures rather than throwing, but a caller that can throw should
+ * catch inside `fn` rather than around this.
  */
 export const mapWithConcurrency = async <In, Out>(
 	items: readonly In[],

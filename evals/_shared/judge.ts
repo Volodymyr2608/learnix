@@ -145,16 +145,18 @@ export const judgeReply = async (params: {
 
 	const { systemPrompt, userPrompt } = buildJudgePrompt(params);
 
-	const raw = await call(systemPrompt, userPrompt, model).catch(
-		(error: unknown) => {
-			// Returned rather than thrown: one unreachable judge should cost one
-			// row's score, not the whole run's deterministic results.
-			return new Error(error instanceof Error ? error.message : String(error));
-		},
-	);
-
-	if (raw instanceof Error)
-		return { ok: false, reason: `judge call failed: ${raw.message}` };
+	// Caught rather than propagated: one unreachable judge should cost one row's
+	// score, not the whole run's deterministic results. try/catch rather than a
+	// sentinel return value, so a model that resolves to an Error-shaped answer
+	// is reported as an unscorable answer instead of as a failed call — the
+	// reason string is the thing a reader diagnoses from, so it has to be true.
+	let raw: unknown;
+	try {
+		raw = await call(systemPrompt, userPrompt, model);
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		return { ok: false, reason: `judge call failed: ${message}` };
+	}
 
 	const parsed = JudgeScoresSchema.safeParse(raw);
 	if (!parsed.success)

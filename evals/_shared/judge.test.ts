@@ -255,3 +255,30 @@ describe("summariseJudgeScores", () => {
 		).toBe(5);
 	});
 });
+
+/**
+ * A model that resolves to an Error-shaped value has answered, badly — it has
+ * not failed to answer. The distinction only shows up in the reason string, and
+ * the reason string is what a reader diagnoses from: the first judged run's
+ * "13 unscorable" turned out to be rate limits, and only the message said so.
+ */
+describe("judge failure reasons say what actually happened", () => {
+	it("reports a resolved Error as an unscorable answer, not a failed call", async () => {
+		const result = await judge(answering(new Error("not a score")));
+
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.reason).toContain("unscorable");
+		expect(result.reason).not.toContain("judge call failed");
+	});
+
+	it("reports a thrown error as a failed call", async () => {
+		const result = await judge(async () => {
+			throw new Error("connection reset");
+		});
+
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.reason).toContain("judge call failed");
+	});
+});
