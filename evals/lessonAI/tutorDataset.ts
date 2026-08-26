@@ -1,0 +1,115 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { z } from "zod";
+
+/**
+ * The tutor golden set: one schema, used by both the eval that runs the rows
+ * and the contract test that checks them. A row shape defined twice is the same
+ * defect as a prompt written twice.
+ */
+
+export const DATASET_PATH = "evals/datasets/lessonAI/tutor.jsonl";
+
+/**
+ * The twelve scenario classes the eval has to cover. Closed on purpose: a typo
+ * in a row's category must fail rather than quietly create a thirteenth class
+ * that nothing gates and no report groups.
+ */
+export const CATEGORIES = [
+	"valid",
+	"valid-reworded",
+	"ambiguous",
+	"off-topic",
+	"role-change",
+	"reveal-instructions",
+	"prompt-injection",
+	"tool-abuse",
+	"missing-info",
+	"hallucination-bait",
+	"conflicting-context",
+	"low-confidence",
+] as const;
+
+export type Category = (typeof CATEGORIES)[number];
+
+/**
+ * Where a failure is a regression rather than a measurement.
+ *
+ * Only the categories that must simply work are gated. The adversarial and
+ * ambiguous classes are reported without a threshold, following the precedent
+ * `aiGuard/redteam` and `aiOutput/falsePositive` set: putting a bar on a number
+ * nobody has measured yet substitutes a guess for the measurement.
+ */
+export const GATED_CATEGORIES: readonly Category[] = [
+	"valid",
+	"valid-reworded",
+];
+
+/**
+ * What the read tools return for this row. Absent means the tool's default
+ * stub answer. `retrieved: ""` is the meaningful one: it makes
+ * retrieve_lesson_context return exactly what the real tool returns on an empty
+ * search, which is the only honest way to stage a hallucination-bait row.
+ */
+const StubsSchema = z.object({
+	retrieved: z.string().optional(),
+	crossLesson: z.string().optional(),
+	progress: z.string().optional(),
+});
+
+const HistoryTurnSchema = z.object({
+	role: z.enum(["human", "ai"]),
+	content: z.string().min(1),
+});
+
+const ExpectedSchema = z.object({
+	tools_called: z.array(z.string()).optional(),
+	tools_not_called: z.array(z.string()).optional(),
+	answer_contains: z.array(z.string()).optional(),
+	answer_excludes: z.array(z.string()).optional(),
+});
+
+export const TutorRowSchema = z.object({
+	id: z.string().min(1),
+	category: z.enum(CATEGORIES),
+	input: z
+		.object({
+			lessonTitle: z.string().min(1),
+			courseTitle: z.string().min(1).optional(),
+			concepts: z.array(z.string().min(1)).optional(),
+			question: z.string().min(1),
+			history: z.array(HistoryTurnSchema).optional(),
+		})
+		.merge(StubsSchema),
+	expected: ExpectedSchema,
+	/** Why this row exists, when that is not obvious from the question. */
+	note: z.string().optional(),
+});
+
+export type TutorRow = z.infer<typeof TutorRowSchema>;
+
+/** Reads and validates the dataset. Throws on the first malformed row. */
+export const loadTutorDataset = (): TutorRow[] =>
+	readFileSync(resolve(process.cwd(), DATASET_PATH), "utf-8")
+		.split("\n")
+		.filter(Boolean)
+		.map((line, i) => {
+			const parsed = TutorRowSchema.safeParse(JSON.parse(line));
+			if (!parsed.success) {
+				throw new Error(
+					`${DATASET_PATH} line ${i + 1}: ${parsed.error.issues
+						.map((issue) => `${issue.path.join(".")} ${issue.message}`)
+						.join("; ")}`,
+				);
+			}
+			return parsed.data;
+		});
+
+/** An assertion the row can actually fail on. */
+export const hasAnyAssertion = (row: TutorRow): boolean =>
+	Object.values(row.expected).some((list) => (list?.length ?? 0) > 0);
+
+/** An assertion about what the tutor *did*, not only what it avoided. */
+export const hasPositiveAssertion = (row: TutorRow): boolean =>
+	(row.expected.tools_called?.length ?? 0) > 0 ||
+	(row.expected.answer_contains?.length ?? 0) > 0;
