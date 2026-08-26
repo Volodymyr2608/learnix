@@ -30,6 +30,8 @@ export type RunMetrics = {
 	model: string;
 	/** Identifies the prompt the numbers were produced under. */
 	promptHash: string;
+	/** Draws per row. One means the numbers carry a coin flip's worth of noise. */
+	samples: number;
 	categories: CategoryCount[];
 };
 
@@ -38,6 +40,7 @@ export type Baseline = RunMetrics & { recordedAt: string };
 export type BaselineReport = {
 	changed: boolean;
 	promptChanged: boolean;
+	samplesChanged: boolean;
 	lines: string[];
 };
 
@@ -87,6 +90,16 @@ export const compareToBaseline = (
 				"the two runs are different systems, not a regression",
 		);
 
+	// Baselines recorded before sampling existed carry no count; they were one
+	// draw per row, which is what they should read as.
+	const beforeSamples = before.samples ?? 1;
+	const samplesChanged = beforeSamples !== after.samples;
+	if (samplesChanged)
+		lines.push(
+			`samples per row changed (${beforeSamples} → ${after.samples}) — ` +
+				"a mean over more draws is not the same measurement as a single one",
+		);
+
 	if (before.model !== after.model)
 		lines.push(`model changed: ${before.model} → ${after.model}`);
 
@@ -122,6 +135,7 @@ export const compareToBaseline = (
 	return {
 		changed: lines.length > 0,
 		promptChanged,
+		samplesChanged,
 		lines,
 	};
 };

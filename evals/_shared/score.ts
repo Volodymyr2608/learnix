@@ -2,6 +2,49 @@ export type EvalResult = { id: string; ok: boolean };
 
 export type CategoryEvalResult = EvalResult & { category: string };
 
+export type RowStability = {
+	id: string;
+	category: string;
+	passed: number;
+	samples: number;
+};
+
+/**
+ * Collapses repeated samples of the same row into how often it passed.
+ *
+ * With one sample a row is a boolean, which is the shape that makes an eval
+ * look deterministic when it is not. With several it is a rate, and the rate is
+ * the honest answer.
+ */
+export const rowStability = (results: CategoryEvalResult[]): RowStability[] => {
+	const byRow = new Map<string, RowStability>();
+
+	for (const result of results) {
+		const existing = byRow.get(result.id);
+		if (existing) {
+			existing.samples += 1;
+			if (result.ok) existing.passed += 1;
+			continue;
+		}
+		byRow.set(result.id, {
+			id: result.id,
+			category: result.category,
+			passed: result.ok ? 1 : 0,
+			samples: 1,
+		});
+	}
+
+	return [...byRow.values()];
+};
+
+/**
+ * Rows that neither always pass nor always fail — the ones a single-sample run
+ * reports as a confident boolean while the truth is a coin weighted somewhere
+ * in between.
+ */
+export const flakyRows = (stability: RowStability[]): RowStability[] =>
+	stability.filter((row) => row.passed > 0 && row.passed < row.samples);
+
 /**
  * Scores per category and gates only the categories given a threshold.
  *

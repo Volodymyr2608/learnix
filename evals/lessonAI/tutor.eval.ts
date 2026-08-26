@@ -9,7 +9,7 @@ import {
 	SYSTEM_PROMPT,
 } from "@/server/services/lessonAI/lessonAI.agent";
 import { promptHash, reportRun } from "../_shared/baseline";
-import { categoryGate } from "../_shared/score";
+import { categoryGate, flakyRows, rowStability } from "../_shared/score";
 import {
 	CATEGORIES,
 	GATED_THRESHOLDS,
@@ -48,8 +48,15 @@ import {
  * end-to-end test can never show.
  */
 
-/** The model production uses for the tutor. */
+/** The model, temperature and sampling production uses for the tutor. */
 const MODEL = "gpt-4o-mini";
+const TEMPERATURE = 0.4;
+
+/**
+ * Draws per row. Three is the smallest number that can tell "always", "never"
+ * and "sometimes" apart, and matches what `aiOutput/*.eval.ts` already samples.
+ */
+const SAMPLES = 3;
 
 /** What the real tools return when they find nothing. */
 const NO_LESSON_CONTENT = "No relevant content found for this lesson.";
@@ -173,22 +180,26 @@ const checkRow = (
 export const runTutorEval = async (): Promise<boolean> => {
 	const rows = loadTutorDataset();
 
-	// Same model production uses; prod runs 0.4, this runs 0 to keep the noise
-	// down until sampling lands (area-2 З10).
+	// The model, temperature and sampling production actually runs.
 	//
-	// Note that 0 is not determinism, which two consecutive runs of this eval
-	// demonstrated: identical dataset, identical prompt hash, and `ambiguous`
-	// still moved 50% -> 25%. Greedy decoding is not a pure function — tie
-	// breaking and provider-side batching move it. Read any single-sample
-	// number here, baselines included, as one draw rather than as the value.
+	// This used to run at temperature 0 on the theory that it removed the
+	// variance. It does not: two consecutive runs at 0, identical dataset and
+	// prompt hash, still disagreed by a category. Greedy decoding is not a pure
+	// function — tie-breaking and provider-side batching move it. Since a single
+	// draw was never trustworthy, the honest choice is to measure the system as
+	// shipped and say how often each row passes.
 	const llm = new ChatOpenAI({
 		model: MODEL,
-		temperature: 0,
+		temperature: TEMPERATURE,
 		apiKey: env.OPENAI_API_KEY,
 	});
 
+	const attempts = rows.flatMap((row) =>
+		Array.from({ length: SAMPLES }, () => row),
+	);
+
 	const results = await Promise.all(
-		rows.map(async (row) => {
+		attempts.map(async (row) => {
 			const agent = createAgent({
 				model: llm,
 				tools: buildStubTools(row),
@@ -226,14 +237,31 @@ export const runTutorEval = async (): Promise<boolean> => {
 	);
 
 	console.log(
-		`\ntutor — ${rows.length} rows across ${CATEGORIES.length} categories`,
+		`\ntutor — ${rows.length} rows x ${SAMPLES} samples at temperature ${TEMPERATURE}`,
 	);
 
-	const failures = results.filter((r) => !r.ok);
-	if (failures.length > 0) {
-		console.log("\nFailures:");
-		for (const f of failures)
-			console.log(`  ${f.id.padEnd(16)} ${f.failed.join("; ")}`);
+	const stability = rowStability(results);
+	const flaky = flakyRows(stability);
+	const alwaysFailing = stability.filter((row) => row.passed === 0);
+
+	if (alwaysFailing.length > 0) {
+		console.log(`\nFails every sample (${alwaysFailing.length} rows):`);
+		for (const row of alwaysFailing) {
+			const why = results.find((r) => r.id === row.id && !r.ok)?.failed ?? [];
+			console.log(`  ${row.id.padEnd(16)} ${why.join("; ")}`);
+		}
+	}
+
+	/**
+	 * The number a single-sample run could not produce. These rows are neither
+	 * passing nor failing — reporting either for them is reporting one draw.
+	 */
+	if (flaky.length > 0) {
+		console.log(`\nFlaky — passes sometimes (${flaky.length} rows):`);
+		for (const row of flaky)
+			console.log(
+				`  ${row.id.padEnd(16)} ${row.passed}/${row.samples} samples passed`,
+			);
 	}
 
 	reportRun("lessonAI:tutor", {
@@ -241,6 +269,7 @@ export const runTutorEval = async (): Promise<boolean> => {
 		// Ties the numbers to the prompt that produced them: a baseline taken
 		// under a different prompt is a different system, not a regression.
 		promptHash: promptHash(SYSTEM_PROMPT),
+		samples: SAMPLES,
 		categories: CATEGORIES.map((category) => {
 			const mine = results.filter((r) => r.category === category);
 			return {
@@ -252,9 +281,12 @@ export const runTutorEval = async (): Promise<boolean> => {
 	});
 
 	console.log(
-		"\nUngated categories are a measurement, not a bar. Read answer quality\n" +
-			"with the judge and the rubric, not from these counts.",
+		`\n${flaky.length} of ${rows.length} rows are flaky. Ungated categories are a\n` +
+			"measurement, not a bar. Read answer quality with the judge and the\n" +
+			"rubric, not from these counts.",
 	);
 
+	// Over samples, not rows: a category's rate is now how often it passes,
+	// which is the quantity a threshold can honestly be set against.
 	return categoryGate("tutor", results, GATED_THRESHOLDS);
 };

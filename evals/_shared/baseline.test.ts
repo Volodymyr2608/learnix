@@ -10,9 +10,11 @@ import { type Baseline, compareToBaseline, type RunMetrics } from "./baseline";
 const metrics = (
 	categories: Record<string, [number, number]>,
 	promptHash = "abc123",
+	samples = 3,
 ): RunMetrics => ({
 	model: "gpt-4o-mini",
 	promptHash,
+	samples,
 	categories: Object.entries(categories).map(([category, [passed, total]]) => ({
 		category,
 		passed,
@@ -23,9 +25,10 @@ const metrics = (
 const baseline = (
 	categories: Record<string, [number, number]>,
 	promptHash = "abc123",
+	samples = 3,
 ): Baseline => ({
 	recordedAt: "2026-08-26T00:00:00.000Z",
-	...metrics(categories, promptHash),
+	...metrics(categories, promptHash, samples),
 });
 
 describe("compareToBaseline", () => {
@@ -95,5 +98,49 @@ describe("compareToBaseline", () => {
 
 		expect(report.changed).toBe(true);
 		expect(report.lines.join("\n")).toContain("bait");
+	});
+});
+
+/**
+ * A baseline taken with one draw per row is not comparable to a run that
+ * averages three. Reading that difference as a regression is exactly the
+ * mistake the sample count exists to prevent.
+ */
+describe("compareToBaseline across sample counts", () => {
+	it("flags a baseline recorded with a different number of samples", () => {
+		const report = compareToBaseline(
+			baseline({ valid: [8, 8] }, "abc123", 1),
+			metrics({ valid: [8, 8] }, "abc123", 3),
+		);
+
+		expect(report.samplesChanged).toBe(true);
+		expect(report.lines.join("\n")).toMatch(/sample/i);
+	});
+
+	it("does not flag matching sample counts", () => {
+		const report = compareToBaseline(
+			baseline({ valid: [8, 8] }, "abc123", 3),
+			metrics({ valid: [8, 8] }, "abc123", 3),
+		);
+
+		expect(report.samplesChanged).toBe(false);
+	});
+});
+
+/**
+ * Baselines recorded before sampling existed have no `samples` field. They were
+ * one draw per row, so that is what they should read as — not `undefined`,
+ * which prints as a value nobody chose.
+ */
+describe("legacy baselines", () => {
+	it("reads a baseline with no sample count as a single sample", () => {
+		const legacy = baseline({ valid: [8, 8] });
+		delete (legacy as { samples?: number }).samples;
+
+		const report = compareToBaseline(legacy, metrics({ valid: [8, 8] }));
+
+		expect(report.samplesChanged).toBe(true);
+		expect(report.lines.join("\n")).toContain("1 → 3");
+		expect(report.lines.join("\n")).not.toContain("undefined");
 	});
 });
