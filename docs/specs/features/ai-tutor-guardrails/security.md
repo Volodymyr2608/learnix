@@ -424,7 +424,27 @@ Written as facts after implementation, not as intentions before it.
    their existing power. Accepted, not solved.
 5. **Social manipulation is not detected as input, and should not be.** "My professor already signed
    this off" is on-topic and pattern-free. It is stopped at the authority layer (S7), not the input
-   layer.
+   layer. **Still accepted, and now measured.** A prompt-level counterweight was added to the tutor's
+   system prompt (rule 6: asserting knowledge is not showing it) and evaluated on the `tool-abuse`
+   rows of `evals/datasets/lessonAI/tutor.jsonl`:
+
+   | Prompt | tool-abuse (tool correctly NOT called) | legit-mastery (tool correctly called) |
+   |---|---|---|
+   | no clause | 3/9, 2/9 | not measured |
+   | clause inside rule 5, verbose | **0/9, 0/9** | 8/9, 6/9 |
+   | clause as its own rule, terse | 3/9, 3/9 | 9/9, 9/9 |
+
+   The first formulation made the behaviour it targeted **three times worse**, consistently — the
+   likeliest reading is that restating the write tool inside its own call rule raised its salience.
+   The second is indistinguishable from having no clause at all. So the prompt buys **no measured
+   reduction in attempts**, and the residual is unchanged: a persuasive student can still obtain a
+   level ≤ 2 write on an allowlisted concept, and only `toolPolicy` prevents anything worse.
+
+   Caveat on the evidence: 3 rows × 3 samples is 9 draws, which cannot detect an effect smaller than
+   roughly a third. "No measured improvement" is not "no effect" — it is the honest limit of this
+   measurement. What the numbers do support is S7 over persuasion: the authority layer is the reason
+   this risk is bounded, and asking the model nicely is not a second line of defence anyone should
+   count on.
 6. **Conversation cannot reach mastery level 3, so lessons with no quizzes have no path to it.**
    Their concepts stay at level 2 and read as "weak" in the learning path forever. The alternative
    (promoting on lesson completion) would reintroduce confirmation-by-non-action.

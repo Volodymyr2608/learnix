@@ -155,8 +155,10 @@ describe("lessonAI system prompt", () => {
 	it("says that claiming understanding is not demonstrating it", () => {
 		const prompt = build();
 
-		expect(prompt).toMatch(/claim|assert|say(s|ing)? they (already )?under/i);
-		expect(prompt).toMatch(/not (a |on its own )?(demonstrat|evidence|proof)/i);
+		expect(prompt).toMatch(/assert|claim|says? they (already )?(know|under)/i);
+		expect(prompt).toMatch(
+			/is not showing it|not (a |on its own )?(demonstrat|evidence|proof)|has shown you nothing/i,
+		);
 	});
 
 	/** The positive trigger must survive: refusing everything is the other failure. */
