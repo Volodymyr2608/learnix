@@ -42,7 +42,7 @@ inputs in production, `:47-51`). Client-side render errors are still reported, t
 closed-shape server action (AC 7). Browser reporting is a later decision, not a deferred task.
 
 **What this feature is not.** AI observability is a separate, later feature (`ai-observability`,
-[`ai-hardening-plan.md`](../../ai-hardening-plan.md) §3, Workstream D). LangSmith is already the
+`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3, Workstream D). LangSmith is already the
 accepted single observability and evaluation system for AI features
 ([ADR-013](../../../adr/013-langsmith-tracing-evals.md)); it is wired but disabled, and **this
 feature does not turn it on**. Out of scope: `LANGSMITH_TRACING` in production, `aiMetrics.ts`,
@@ -436,6 +436,6 @@ as an acceptance criterion above.
   [ADR-010](../../../adr/010-domain-error-mapping.md):113 (the "in the future" line comes true, refined
   by [ADR-029](../../../adr/029-error-reporting-projection-funnel.md)); `ai-tutor-guardrails/security.md` S13 §13 (partly closed by AC 36) and its threat-model
   **R8** (scope widens from LangSmith to "LangSmith and Sentry"); `docs/README.md`'s ADR table, stale
-  since ADR-020. **Not** [`ai-hardening-plan.md`](../../ai-hardening-plan.md) §5 — its "No custom
+  since ADR-020. **Not** `ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §5 — its "No custom
   metrics dashboard" non-goal is about *metrics* and stays intact; this adds an error tracker, no
   dashboard.

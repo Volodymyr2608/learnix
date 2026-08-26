@@ -142,7 +142,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ planned
   with the node name and kind, and surfaced to the instructor as retryable or not — the precondition
   for failure-rate metrics
 - Remaining hardening workstreams (observability, spec-process polish) are tracked in
-  [`ai-hardening-plan.md`](ai-hardening-plan.md)
+  `ai-hardening-plan.md` *(removed 2026-08-26; in git history)*
 
 ---
 

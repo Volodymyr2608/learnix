@@ -22,6 +22,12 @@ export const mapWithConcurrency = async <In, Out>(
 	limit: number,
 	fn: (item: In, index: number) => Promise<Out>,
 ): Promise<Out[]> => {
+	// A limit below 1 would spawn no workers and return a sparse array of
+	// undefined with the right length — the caller then throws somewhere else
+	// entirely, on a value it had no reason to doubt.
+	if (limit < 1)
+		throw new RangeError(`concurrency limit must be >= 1, got ${limit}`);
+
 	const results = new Array<Out>(items.length);
 	let next = 0;
 

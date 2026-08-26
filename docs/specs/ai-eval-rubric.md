@@ -1,9 +1,10 @@
 # AI eval rubric — scoring the lesson tutor's replies
 
-**Status:** living document · **Owner:** `evals/lessonAI/tutor.eval.ts` · **Intended consumer:**
-`evals/_shared/judge.ts` — **not built yet**, so nothing reads this file today. Once it exists, this
-becomes machine-readable input: a wording change here changes what the judge scores, the same
-discipline as
+**Status:** living document · **Owner:** `evals/lessonAI/tutor.eval.ts` · **Consumer:**
+`evals/_shared/judge.ts`, which reads this file at run time — `rubricAnchors` sends the four axis
+tables below to the judge on every scored reply. This is machine-readable input: a wording change
+here changes what the judge scores, and `judgeRubric.contract.test.ts` fails if these axes and the
+judge's schema disagree. Same discipline as
 [`ai-tutor-guardrails/flow-contract.md`](features/ai-tutor-guardrails/flow-contract.md).
 
 This is the rubric an LLM judge uses to score one tutor reply. It exists because a threshold
@@ -102,10 +103,10 @@ the whole transcript.
 
 ## Known limits
 
-**No model has ever applied these anchors.** They were written against the real system prompt and the
-tutor's actual retrieval behaviour, but the judge that consumes them does not exist yet, so their
-discriminating power is unmeasured. Two boundaries are the ones to watch first, because they are the
-subtlest to state and the easiest for a judge to score inconsistently:
+**These anchors have been applied once**, by `gpt-4o` over 24 tutor replies (2026-08-26). One run is
+not a distribution, so their discriminating power is still largely unmeasured. Two boundaries are the
+ones to watch first, because they are the subtlest to state and the easiest for a judge to score
+inconsistently:
 
 - **Faithfulness 5 vs 4** — "every claim traces to a sentence" against "light rephrasing/synthesis
   that stays within what the source supports." The system prompt *requires* synthesis (it forbids
@@ -114,5 +115,10 @@ subtlest to state and the easiest for a judge to score inconsistently:
 - **Groundedness 4 vs 3** — whether a generalization counts as "appropriately hedged" is a judgement
   about register, and register is exactly where LLM judges are known to be least stable run to run.
 
-Anything found once a judge exists — disagreements against hand-scoring, drift between runs, anchors
-that turn out not to discriminate — belongs here, and is the deliverable of the judge-limits task.
+**What the first run showed.** `hallucination-bait` scored 5.0 on every axis, and `valid` scored
+~3.9 while gating at 100% deterministically — the gap the harness exists to expose. Note that run
+also graded 9 of 24 rows against content the tutor never received (a plumbing defect, since fixed),
+so those figures are indicative rather than a baseline to reason from.
+
+Still open, and the deliverable of the judge-limits task: disagreement against hand-scoring, drift
+between runs of the same reply, and anchors that turn out not to discriminate.

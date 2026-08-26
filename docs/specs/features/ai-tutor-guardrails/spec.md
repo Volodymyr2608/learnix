@@ -515,7 +515,7 @@ amendments to ADR-022 and ADR-024, not a new ADR: no decision is being reversed,
 **Not measured, and this is a stated gap rather than an omission.** There is no p95 latency budget,
 no per-turn token ceiling and no cost ceiling for this feature, because nothing measures them:
 LangSmith is tracing-only and off by default, and there is no metrics module. Owner is workstream D
-of [`ai-hardening-plan.md`](../../ai-hardening-plan.md) §3. Until it exists, the ceilings above bound
+of `ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3. Until it exists, the ceilings above bound
 *volume and prompt size*, not spend per turn — the two are only loosely related, and a change that
 lengthens the system prompt or adds a tool round-trip moves cost without touching any number here.
 
@@ -568,7 +568,7 @@ this feature's evidence is in a suite CI will never fail on.
 
 **Evals** (`pnpm eval <name>`)
 
-- `lessonAI:tutor` — tool choice and answer content on ordinary questions (`evals/datasets/tutor.jsonl`).
+- `lessonAI:tutor` — tool choice and answer content on ordinary questions (`evals/datasets/lessonAI/tutor.jsonl`).
 - `aiGuard:redteam`, `aiGuard:adversarial`, `aiGuard:indirect` — the attack sets behind the 92.6%
   enforcement / 11.1% detection figures in `security.md` §S13 §18. Shared with `courseAI`, because
   `guardUserInput` is shared.

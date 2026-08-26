@@ -227,7 +227,7 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Rubric axes match the judge's schema, in both directions | `evals/_shared/judgeRubric.contract.test.ts` |
 | A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
 
-Online, `pnpm eval`, never in CI: `lessonAI:tutor` (42 rows × 3 samples, 12 categories),
+Online, `pnpm eval`, never in CI: `lessonAI:tutor` (43 rows × 3 samples, 12 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
 `courseAI:*`, `aiGuard:*`, `aiOutput:*`.
 

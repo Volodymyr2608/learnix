@@ -84,13 +84,28 @@ const NO_PROGRESS = "Student has not completed any lessons yet.";
  * `server/services/lessonAI/tools/*.tool.ts`. Built per row so a row can stage
  * what retrieval returns — an empty result included.
  */
-const buildStubTools = (row: TutorRow) => {
+export const buildStubTools = (row: TutorRow) => {
 	const retrieved = row.input.retrieved ?? "Relevant lesson content returned.";
 	const crossLesson = row.input.crossLesson ?? NO_COURSE_CONTENT;
 	const progress = row.input.progress ?? NO_PROGRESS;
 
-	return [
-		tool(async () => (retrieved === "" ? NO_LESSON_CONTENT : retrieved), {
+	/**
+	 * What the retrieval tools actually handed the model this attempt.
+	 *
+	 * The judge scores faithfulness *against the content the tutor was given*,
+	 * so it has to be given the same text — not a second guess at what that text
+	 * probably was. Reconstructing it from the row is how the judge ended up
+	 * grading cross-lesson answers against "No relevant content found": the row's
+	 * content lived in `crossLesson`, which the reconstruction never read.
+	 */
+	const served: string[] = [];
+	const serve = (content: string): string => {
+		served.push(content);
+		return content;
+	};
+
+	const tools = [
+		tool(async () => serve(retrieved === "" ? NO_LESSON_CONTENT : retrieved), {
 			name: "retrieve_lesson_context",
 			description:
 				"Returns the most relevant excerpts from the current lesson. Use for questions about this lesson's content. Do NOT use for questions asking which lesson or where in the course something was covered — use search_across_course for those.",
@@ -108,7 +123,7 @@ const buildStubTools = (row: TutorRow) => {
 					.describe("Number of chunks to retrieve (default 4)"),
 			}),
 		}),
-		tool(async () => crossLesson, {
+		tool(async () => serve(crossLesson), {
 			name: "search_across_course",
 			description:
 				"Searches all lessons in this course for relevant excerpts. Use for questions like 'where did we cover X' or to surface prerequisite material.",
@@ -155,6 +170,8 @@ const buildStubTools = (row: TutorRow) => {
 			},
 		),
 	];
+
+	return { tools, served };
 };
 
 type RowResult = {
@@ -216,9 +233,10 @@ export const runTutorEval = async (): Promise<boolean> => {
 
 	const results = await Promise.all(
 		attempts.map(async (row) => {
+			const { tools, served } = buildStubTools(row);
 			const agent = createAgent({
 				model: llm,
-				tools: buildStubTools(row),
+				tools,
 				// The real builder, not a reconstruction of it: a field added to
 				// the untrusted block in production reaches this eval for free.
 				systemPrompt: buildTutorSystemPrompt({
@@ -248,7 +266,15 @@ export const runTutorEval = async (): Promise<boolean> => {
 			const answer =
 				typeof lastAiMsg?.content === "string" ? lastAiMsg.content : "";
 
-			return { ...checkRow(row, toolsCalled, answer), row, answer };
+			return {
+				...checkRow(row, toolsCalled, answer),
+				row,
+				answer,
+				// Exactly what retrieval returned this attempt, in call order.
+				servedContent: served.length
+					? served.join("\n\n---\n\n")
+					: NO_LESSON_CONTENT,
+			};
 		}),
 	);
 
@@ -281,8 +307,7 @@ export const runTutorEval = async (): Promise<boolean> => {
 			category: r.category as string,
 			result: await judgeReply({
 				question: r.row.input.question,
-				retrievedContent:
-					r.row.input.retrieved ?? "No relevant content found for this lesson.",
+				retrievedContent: r.servedContent,
 				reply: r.answer,
 				rubric,
 				model: JUDGE_MODEL,

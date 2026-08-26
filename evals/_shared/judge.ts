@@ -132,6 +132,27 @@ export const openAIJudgeCall: JudgeModelCall = async (
 	]);
 };
 
+/**
+ * Which kind of failure a thrown judge error is.
+ *
+ * `withStructuredOutput` validates inside the call and throws, so a score
+ * outside 1-5 never reaches the local `safeParse` — it arrives as an exception
+ * next to genuine transport failures. Only the message separates them, and the
+ * separation is the whole diagnostic value: the first judged run reported 13
+ * unscorable replies that were all HTTP 429, and a baseline was nearly recorded
+ * on the belief that the judge could not score the surface.
+ *
+ * Transport failures are the closed set worth naming; anything else is the
+ * model having answered badly. Erring toward "output" is the safer default —
+ * it points a reader at the reply and the rubric rather than at the network.
+ */
+export const classifyJudgeError = (error: Error): "call" | "output" =>
+	/\b429\b|\b5\d\d\b|rate limit|timed? ?out|connection|ECONN|ETIMEDOUT|socket|fetch failed|network/i.test(
+		error.message,
+	)
+		? "call"
+		: "output";
+
 export const judgeReply = async (params: {
 	question: string;
 	retrievedContent: string;
@@ -154,8 +175,12 @@ export const judgeReply = async (params: {
 	try {
 		raw = await call(systemPrompt, userPrompt, model);
 	} catch (error: unknown) {
-		const message = error instanceof Error ? error.message : String(error);
-		return { ok: false, reason: `judge call failed: ${message}` };
+		const thrown = error instanceof Error ? error : new Error(String(error));
+		const prefix =
+			classifyJudgeError(thrown) === "call"
+				? "judge call failed"
+				: "judge returned an unscorable answer";
+		return { ok: false, reason: `${prefix}: ${thrown.message}` };
 	}
 
 	const parsed = JudgeScoresSchema.safeParse(raw);

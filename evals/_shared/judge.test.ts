@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	buildJudgePrompt,
+	classifyJudgeError,
 	type JudgeModelCall,
 	type JudgeResult,
 	judgeReply,
@@ -280,5 +281,33 @@ describe("judge failure reasons say what actually happened", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.reason).toContain("judge call failed");
+	});
+});
+
+/**
+ * On the real path `withStructuredOutput` validates inside the call and throws,
+ * so a bad score never reaches the local safeParse — it arrives as a thrown
+ * error alongside genuine transport failures. The reason string is the only
+ * thing that tells a reader which one happened, and getting that wrong is what
+ * made 13 rate limits look like a judge that could not score.
+ */
+describe("classifyJudgeError", () => {
+	it.each([
+		["429 Rate limit reached for gpt-4o on tokens per min (TPM)", "call"],
+		["Request timed out after 60000ms", "call"],
+		["ECONNRESET", "call"],
+		["connection reset by peer", "call"],
+		["503 Service Unavailable", "call"],
+		["fetch failed", "call"],
+	])("treats %s as a transport failure", (message, kind) => {
+		expect(classifyJudgeError(new Error(message))).toBe(kind);
+	});
+
+	it.each([
+		["Received tool input did not match expected schema", "output"],
+		['Too big: expected number to be <=5 → at "relevance"', "output"],
+		["Failed to parse structured output", "output"],
+	])("treats %s as an unscorable answer", (message, kind) => {
+		expect(classifyJudgeError(new Error(message))).toBe(kind);
 	});
 });

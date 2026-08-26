@@ -11,8 +11,7 @@ import {
 } from "./tutorDataset";
 
 /**
- * The golden set is a deliverable, not scratch data: the judge (not built yet)
- * will score these same rows, so a malformed or unassertable row costs twice.
+ * The golden set is a deliverable, not scratch data: the judge scores these same rows, so a malformed or unassertable row costs twice.
  * Everything here is deterministic and offline — the eval that spends money on
  * the model is a separate thing entirely.
  */

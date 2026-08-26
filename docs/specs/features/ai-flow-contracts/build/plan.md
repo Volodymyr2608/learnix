@@ -1146,8 +1146,8 @@ column layout, sourced from each node's JSDoc):
 
 The node-by-node contract for the two LangGraph flows. `graphContract.contract.test.ts` fails CI if a
 node or named route predicate registered in either graph is missing here, so this file cannot silently
-fall behind the code. See [`spec.md`](spec.md) for scope and
-[ADR-016](../../../adr/016-langgraph-course-builder.md) for the decision-level view.
+fall behind the code. See [`spec.md`](../spec.md) for scope and
+[ADR-016](../../../../adr/016-langgraph-course-builder.md) for the decision-level view.
 
 ## courseAI — nodes
 
@@ -1206,7 +1206,7 @@ flowchart TD
 | Validation failure | `validate` writes `validationErrors`; `routeAfterValidate` sends `fail` to `clarify` | a clarifying question naming what is missing — not an error | nothing |
 | Tool call never returns | no timeout exists anywhere on this path; the SSE stream stays open until the client aborts | an indefinite in-progress indicator | nothing (the abort path skips the assistant save) |
 | Invalid structured output | `withStructuredOutput` throws `OUTPUT_PARSING_FAILURE`; `withNodeErrors` classifies it `FatalNodeError` | "Failed to generate AI response" | the user message only, saved in the route's `finally` |
-| Guard block | the route returns before the graph is entered — see [`../ai-input-trust-boundary/spec.md`](../ai-input-trust-boundary/spec.md) | a neutral refusal | nothing |
+| Guard block | the route returns before the graph is entered — see [`../ai-input-trust-boundary/spec.md`](../../ai-input-trust-boundary/spec.md) | a neutral refusal | nothing |
 
 A retryable failure (provider timeout, rate limit, 5xx) is the sixth case and behaves as the fourth
 except that the instructor is told to try again and `retryable: true` rides on the `error` event.
@@ -1258,7 +1258,7 @@ git commit -m "docs(ai-flow): add the node contract, flow diagram and failure ma
 
 ```markdown
 - The node-by-node state contract, the flow diagram and the failure matrix live in
-  [`../ai-flow-contracts/graph-contract.md`](../ai-flow-contracts/graph-contract.md); a contract test
+  [`../ai-flow-contracts/graph-contract.md`](../graph-contract.md); a contract test
   fails CI if a node is added without a row there.
 ```
 

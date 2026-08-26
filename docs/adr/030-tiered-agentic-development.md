@@ -12,7 +12,7 @@ nothing to run. What neither did was bound the cost of the ceremony they introdu
 complaint that prompted this ADR was that developing one feature had become slow and expensive.
 
 The first thing done was to measure, because the process had no answer to "what does one feature
-cost" — the same blindness [`ai-hardening-plan.md`](../specs/ai-hardening-plan.md) §3 records about
+cost" — the same blindness `ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3 records about
 generated courses, turned on the development process itself. `pnpm agent-cost` reads this project's
 Claude Code transcripts. Over 43 sessions and 145 subagent dispatches, in cache-weighted units
 (a cache read at 0.1x, a cache write at 1.25x, so a warm session and a cold subagent are comparable):

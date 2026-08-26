@@ -124,12 +124,29 @@ export type TutorRow = z.infer<typeof TutorRowSchema>;
 export const loadTutorDataset = (): TutorRow[] =>
 	readFileSync(resolve(process.cwd(), DATASET_PATH), "utf-8")
 		.split("\n")
-		.filter(Boolean)
-		.map((line, i) => {
-			const parsed = TutorRowSchema.safeParse(JSON.parse(line));
+		// Numbered before blanks are dropped: `i` has to be the line a reader can
+		// open, not the index among surviving lines, or one stray blank line makes
+		// every reported number wrong.
+		.map((line, i) => ({ line, lineNumber: i + 1 }))
+		.filter((entry) => entry.line.trim())
+		.map(({ line, lineNumber }) => {
+			const where = `${DATASET_PATH}:${lineNumber}`;
+
+			// Inside the handling, not outside it: malformed JSON is the likeliest
+			// way this file breaks, and a bare SyntaxError names neither the file
+			// nor the line.
+			let json: unknown;
+			try {
+				json = JSON.parse(line);
+			} catch (error: unknown) {
+				const message = error instanceof Error ? error.message : String(error);
+				throw new Error(`${where} is not valid JSON: ${message}`);
+			}
+
+			const parsed = TutorRowSchema.safeParse(json);
 			if (!parsed.success) {
 				throw new Error(
-					`${DATASET_PATH} line ${i + 1}: ${parsed.error.issues
+					`${where}: ${parsed.error.issues
 						.map((issue) => `${issue.path.join(".")} ${issue.message}`)
 						.join("; ")}`,
 				);

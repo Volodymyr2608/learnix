@@ -116,7 +116,7 @@ mid-stream provider error, which are exactly the two exits where tokens already 
 
 ## Acceptance criteria
 
-Applies: [`docs/constitution.md`](../../constitution.md) — the standing constraints are inherited,
+Applies: [`docs/constitution.md`](../../../constitution.md) — the standing constraints are inherited,
 not retyped — plus:
 
 - An instructor can complete all four steps via chat alone and land on a valid, publishable course
@@ -213,7 +213,7 @@ code:**
 **Not bounded, and it is the one gap on this surface with a user-visible failure mode:** no tool call
 has a timeout. A tool that hangs holds the stream open until the client aborts, and the turn deadline
 does not cover it. **Not measured:** no p95, no per-turn token or cost ceiling — workstream D of
-[`../../ai-hardening-plan.md`](../../ai-hardening-plan.md) §3, which §5 deliberately sequences after
+`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3, which §5 deliberately sequences after
 metrics exist.
 
 ## Observability

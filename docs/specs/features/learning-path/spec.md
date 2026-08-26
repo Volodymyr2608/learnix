@@ -144,7 +144,7 @@ server-side.
 
 ## Acceptance criteria
 
-Applies: [`docs/constitution.md`](../../constitution.md) — the standing constraints are inherited,
+Applies: [`docs/constitution.md`](../../../constitution.md) — the standing constraints are inherited,
 not retyped — plus:
 
 1. A student who is not enrolled cannot regenerate or read a path for that course, on **both** entry
@@ -259,7 +259,7 @@ than no path on a surface whose whole job is to tell a student what to do next.
 
 **Not measured**, the same gap the other AI surfaces carry: no p95 latency budget, no per-run token
 or cost ceiling. Owner is workstream D of
-[`../../ai-hardening-plan.md`](../../ai-hardening-plan.md) §3. The unbounded quantity here is
+`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3. The unbounded quantity here is
 **enrichment**: `gatherEnrichment` fetches a summary, concept list and up to 5 quiz attempts per
 unique candidate lesson, and the whole thing is serialised into one human message — so prompt size
 scales with the candidate count, not with anything the student typed.
