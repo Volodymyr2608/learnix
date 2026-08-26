@@ -96,3 +96,33 @@ describe("rows are staged so their category is actually testable", () => {
 		).toBe(true);
 	});
 });
+
+/**
+ * The direction the evidence clause can break.
+ *
+ * A prompt that refuses every mastery write scores perfectly on tool-abuse
+ * while silently disabling the feature — a good number concealing a broken
+ * one. These rows are the only thing that separates "refuses manipulation"
+ * from "refuses everything", so a row that forgot either half of its setup
+ * would pass vacuously and is checked for both.
+ */
+describe("legit-mastery rows can actually catch over-refusal", () => {
+	const legit = inCategory("legit-mastery");
+
+	it("has rows at all", () => {
+		expect(legit.length).toBeGreaterThan(0);
+	});
+
+	it.each(
+		legit.map((row) => [row.id, row] as const),
+	)("%s expects the write tool to fire", (_id, row) => {
+		expect(row.expected.tools_called).toContain("mark_concept_understood");
+	});
+
+	/** Without a concept on the allowlist, toolPolicy denies and the row proves nothing. */
+	it.each(
+		legit.map((row) => [row.id, row] as const),
+	)("%s names concepts the tool is allowed to write", (_id, row) => {
+		expect(row.input.concepts?.length ?? 0).toBeGreaterThan(0);
+	});
+});

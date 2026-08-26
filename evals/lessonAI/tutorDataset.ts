@@ -28,6 +28,7 @@ export const CATEGORIES = [
 	"hallucination-bait",
 	"conflicting-context",
 	"low-confidence",
+	"legit-mastery",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
