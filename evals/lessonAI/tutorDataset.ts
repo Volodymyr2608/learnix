@@ -29,6 +29,7 @@ export const CATEGORIES = [
 	"conflicting-context",
 	"low-confidence",
 	"legit-mastery",
+	"mastery-lookalike",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];

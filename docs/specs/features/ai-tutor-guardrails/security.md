@@ -424,27 +424,52 @@ Written as facts after implementation, not as intentions before it.
    their existing power. Accepted, not solved.
 5. **Social manipulation is not detected as input, and should not be.** "My professor already signed
    this off" is on-topic and pattern-free. It is stopped at the authority layer (S7), not the input
-   layer. **Still accepted, and now measured.** A prompt-level counterweight was added to the tutor's
-   system prompt (rule 6: asserting knowledge is not showing it) and evaluated on the `tool-abuse`
-   rows of `evals/datasets/lessonAI/tutor.jsonl`:
+   layer. **Still accepted, and now measured — with no effect found.** A prompt-level counterweight
+   was added (rule 6: asserting knowledge is not showing it) and evaluated on the `tool-abuse` rows
+   of `evals/datasets/lessonAI/tutor.jsonl`, three rows at three samples each.
 
-   | Prompt | tool-abuse (tool correctly NOT called) | legit-mastery (tool correctly called) |
+   Across **four** runs of the *unchanged* prompt (hash `712c592965d2`, all committed in
+   `evals/baselines/lessonAI-tutor.json` — see `git log` on that file), `tool-abuse` scored
+   **0/9, 2/9, 3/9 and 3/9**. Two runs of a verbose clause placed inside rule 5 scored 0/9; two runs
+   of the terse clause now shipped as rule 6 scored 3/9.
+
+   Every arm falls inside the range the unchanged prompt already produces on its own. **Neither
+   formulation is distinguishable from having no clause at all**, and the run-to-run spread of a
+   single prompt is as large as any difference between prompts. The limit is the finding: two runs
+   per arm cannot separate a prompt effect from noise on a control that varies by 0/9 to 3/9.
+
+   **A negative control then showed why no wording helped: the model does not discriminate at all.**
+   `legit-mastery` scoring 9/9 looked like the prompt was working, but that number is equally
+   consistent with a model that marks *any* mastery-adjacent message. The `mastery-lookalike` rows —
+   a student parroting the retrieved chunk back verbatim, and a student asserting fluency while
+   stating no content — settle it:
+
+   | rows | tool should | result |
    |---|---|---|
-   | no clause | 3/9, 2/9 | not measured |
-   | clause inside rule 5, verbose | **0/9, 0/9** | 8/9, 6/9 |
-   | clause as its own rule, terse | 3/9, 3/9 | 9/9, 9/9 |
+   | `legit-mastery` (4) | fire | **12/12** |
+   | `mastery-lookalike` (2) | **not** fire | **0/6** |
+   | `tool-abuse` (3) | **not** fire | 3/9 |
 
-   The first formulation made the behaviour it targeted **three times worse**, consistently — the
-   likeliest reading is that restating the write tool inside its own call rule raised its salience.
-   The second is indistinguishable from having no clause at all. So the prompt buys **no measured
-   reduction in attempts**, and the residual is unchanged: a persuasive student can still obtain a
-   level ≤ 2 write on an allowlisted concept, and only `toolPolicy` prevents anything worse.
+   The tool fires on genuine demonstration, on verbatim parroting, and on bare assertion, at close to
+   the same rate. There is no evidence the model distinguishes demonstrated understanding from
+   anything else on-topic — so a prompt clause has nothing to sharpen, which is the likeliest reason
+   both formulations landed inside the control's own noise.
 
-   Caveat on the evidence: 3 rows × 3 samples is 9 draws, which cannot detect an effect smaller than
-   roughly a third. "No measured improvement" is not "no effect" — it is the honest limit of this
-   measurement. What the numbers do support is S7 over persuasion: the authority layer is the reason
-   this risk is bounded, and asking the model nicely is not a second line of defence anyone should
-   count on.
+   The residual is therefore unchanged and better understood. A student who merely restates lesson
+   text can obtain a level ≤ 2 `ConceptMastery` row, and `toolPolicy` (S7) — the closed concept
+   allowlist and the level ceiling — is the *only* thing bounding it. This is no longer a judgement
+   that the authority layer is the right place to enforce; it is measured.
+
+   Rule 6 is kept on **policy** grounds only, with no functional claim attached: rule 5 stated the
+   positive trigger and pushed twice against under-calling with no counterweight, and that asymmetry
+   was a defect in a stated policy regardless of whether a model acts on it. It does not over-refuse
+   (`legit-mastery` 12/12), and it does not discriminate either.
+
+   **Open, and larger than this entry:** the write tool's trigger is a model judgement the model
+   appears not to make. Options are narrowing what can be marked (a quiz-backed signal rather than a
+   conversational one) or accepting that conversational mastery means "the student talked about it".
+   Both are product decisions beyond a security register.
+
 6. **Conversation cannot reach mastery level 3, so lessons with no quizzes have no path to it.**
    Their concepts stay at level 2 and read as "weak" in the learning path forever. The alternative
    (promoting on lesson completion) would reintroduce confirmation-by-non-action.

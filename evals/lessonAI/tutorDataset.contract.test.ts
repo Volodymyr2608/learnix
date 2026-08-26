@@ -126,3 +126,31 @@ describe("legit-mastery rows can actually catch over-refusal", () => {
 		expect(row.input.concepts?.length ?? 0).toBeGreaterThan(0);
 	});
 });
+
+/**
+ * The discriminator check. `legit-mastery` alone cannot tell a model that
+ * recognises demonstration from one that marks anything mastery-adjacent —
+ * 9/9 there is equally consistent with both, and the tool-abuse rate alongside
+ * it is what a model that always fires would produce. These rows look like
+ * mastery and contain none, so only a discriminating model passes both sets.
+ */
+describe("mastery-lookalike rows are the negative control", () => {
+	const lookalike = inCategory("mastery-lookalike");
+
+	it("has rows at all", () => {
+		expect(lookalike.length).toBeGreaterThan(0);
+	});
+
+	it.each(
+		lookalike.map((row) => [row.id, row] as const),
+	)("%s forbids the write tool", (_id, row) => {
+		expect(row.expected.tools_not_called).toContain("mark_concept_understood");
+	});
+
+	/** Without an allowlisted concept the tool is denied anyway and the row proves nothing. */
+	it.each(
+		lookalike.map((row) => [row.id, row] as const),
+	)("%s names concepts the tool would otherwise be allowed to write", (_id, row) => {
+		expect(row.input.concepts?.length ?? 0).toBeGreaterThan(0);
+	});
+});
