@@ -184,20 +184,26 @@ complex-tier change with its own ADR.
 
 ## Performance
 
-- **Cost per tutor run:** 43 rows × 3 samples = 129 generator calls on `gpt-4o-mini`, plus **24 judge
-  calls** on `gpt-4o` — one per row of the six judged categories.
+- **Cost per tutor run: $0.14 and 54 seconds**, measured, printed by the runner and recorded per
+  model. Of that, `gpt-4o-mini` is 265 calls / 251k tokens / **$0.044** and the `gpt-4o` judge is
+  24 calls / 31k tokens / **$0.093**.
+- **The judge is 9% of the calls and 67% of the cost**, which is why a call count was the wrong unit
+  to reason about — it inverts the ranking. Note also that 49 rows × 3 samples is 147 *attempts* but
+  265 *model calls*: a ReAct turn is one completion per tool round trip, so attempts and calls are
+  not interchangeable either.
 - **The judge is rate-limited, not merely expensive.** Its prompt carries the rubric, so each call is
-  an order of magnitude larger than a generator call. Judging all three samples of every judged row is
-  ~71k tokens of prompt against this account's **30k tokens-per-minute** ceiling for `gpt-4o`: no
+  an order of magnitude larger than a generator call. Judging all three samples of every judged row
+  is ~71k tokens of prompt against this account's **30k tokens-per-minute** ceiling for `gpt-4o`: no
   ordering fits that inside a minute. Two things make it fit — `rubricAnchors` sends the axis tables
   only and not the document's prose (**58% smaller**), and `mapWithConcurrency` caps calls in flight.
   Judging one sample per row costs ~29k tokens, which does fit.
-- **Wall clock:** the tutor run completes in roughly a minute with all rows in flight concurrently.
+- **What this decides:** at $0.14 a run, the suite is cheap enough to run on every prompt change, and
+  the binding constraint is the per-minute token ceiling rather than money.
 - **No *server-side* rate limiting.** `aiLimits` governs production surfaces and does not apply to a
   harness run by hand; the client-side cap described above is a separate thing.
-- **Not yet measured:** token counts per run, and therefore cost in currency. Owner: the cost and
-  latency task in the area-2 plan; until then, "129 generator + 24 judge calls" is the honest unit
-  rather than a dollar figure invented for the document.
+- **Prices go stale.** `evals/_shared/cost.ts` carries USD-per-million-token rates as a documented
+  constant checked 2026-08-26, and a model with no recorded price reports as *unpriced* rather than
+  free — a run that silently totals $0.00 is worse than one that admits it does not know.
 
 ## Observability
 

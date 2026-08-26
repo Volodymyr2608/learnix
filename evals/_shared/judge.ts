@@ -5,6 +5,7 @@ import { z } from "zod";
 import { env } from "@/lib/env";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import { recordUsage, usageOfMessage } from "./cost";
 
 /**
  * An LLM judge for the questions no assertion can answer: is this reply
@@ -124,12 +125,18 @@ export const openAIJudgeCall: JudgeModelCall = async (
 		// waiting on a reply is the wrong bound here.
 		timeout: 60_000,
 		maxRetries: 2,
-	}).withStructuredOutput(JudgeScoresSchema);
+	}).withStructuredOutput(JudgeScoresSchema, { includeRaw: true });
 
-	return llm.invoke([
+	// includeRaw keeps the message, and with it usage_metadata — the judge is
+	// the expensive half of a run and reporting its cost as a call count hides
+	// that a judge call is an order of magnitude larger than a generator one.
+	const result = await llm.invoke([
 		{ role: "system", content: systemPrompt },
 		{ role: "human", content: userPrompt },
 	]);
+	recordUsage(model, usageOfMessage(result.raw));
+
+	return result.parsed;
 };
 
 /**

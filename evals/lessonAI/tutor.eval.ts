@@ -11,6 +11,12 @@ import {
 import { promptHash, reportRun } from "../_shared/baseline";
 import { mapWithConcurrency } from "../_shared/concurrency";
 import {
+	formatRunCost,
+	recordUsage,
+	takeRecordedUsage,
+	usageOfMessage,
+} from "../_shared/cost";
+import {
 	DEFAULT_JUDGE_MODEL as JUDGE_MODEL,
 	judgeReply,
 	loadRubric,
@@ -214,6 +220,9 @@ const checkRow = (
 };
 
 export const runTutorEval = async (): Promise<boolean> => {
+	const startedAt = Date.now();
+	const elapsedSeconds = () => ((Date.now() - startedAt) / 1000).toFixed(0);
+
 	const rows = loadTutorDataset();
 
 	// The model, temperature and sampling production actually runs.
@@ -258,14 +267,19 @@ export const runTutorEval = async (): Promise<boolean> => {
 				messages: [...history, { role: "human", content: row.input.question }],
 			});
 
-			const toolsCalled = result.messages
-				.filter((m): m is AIMessage => m instanceof AIMessage)
+			const aiMessages = result.messages.filter(
+				(m): m is AIMessage => m instanceof AIMessage,
+			);
+			// A ReAct turn is several model calls, not one: each tool round trip
+			// is another completion, and cost is the sum of all of them.
+			for (const message of aiMessages)
+				recordUsage(MODEL, usageOfMessage(message));
+
+			const toolsCalled = aiMessages
 				.flatMap((m) => m.tool_calls ?? [])
 				.map((tc) => tc.name);
 
-			const lastAiMsg = [...result.messages]
-				.reverse()
-				.find((m): m is AIMessage => m instanceof AIMessage);
+			const lastAiMsg = [...aiMessages].reverse()[0];
 			const answer =
 				typeof lastAiMsg?.content === "string" ? lastAiMsg.content : "";
 
@@ -401,6 +415,10 @@ export const runTutorEval = async (): Promise<boolean> => {
 				(summary.failures > 0 ? `  (${summary.failures} unscorable)` : ""),
 		);
 	}
+
+	const usage = takeRecordedUsage();
+	console.log(`\nCost of this run (${elapsedSeconds()}s wall clock):`);
+	console.log(formatRunCost(usage));
 
 	console.log(
 		`\n${flaky.length} of ${rows.length} rows are flaky. Ungated categories are a\n` +
