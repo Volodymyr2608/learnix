@@ -144,3 +144,50 @@ describe("legacy baselines", () => {
 		expect(report.lines.join("\n")).not.toContain("undefined");
 	});
 });
+
+/**
+ * Scores from two different judges are not a quality delta, they are two
+ * instruments. Reading one against the other as a regression is the same error
+ * as comparing a one-sample baseline to a three-sample run.
+ */
+describe("compareToBaseline across judges", () => {
+	const judged = (judgeModel: string): RunMetrics => ({
+		...metrics({ valid: [8, 8] }),
+		judgeModel,
+	});
+
+	it("flags a baseline judged by a different model", () => {
+		const before: Baseline = {
+			recordedAt: "2026-08-26T00:00:00.000Z",
+			...judged("gpt-4o"),
+		};
+
+		const report = compareToBaseline(before, judged("gpt-4o-mini"));
+
+		expect(report.judgeChanged).toBe(true);
+		expect(report.lines.join("\n")).toMatch(/judge/i);
+	});
+
+	it("does not flag the same judge", () => {
+		const before: Baseline = {
+			recordedAt: "2026-08-26T00:00:00.000Z",
+			...judged("gpt-4o"),
+		};
+
+		expect(compareToBaseline(before, judged("gpt-4o")).judgeChanged).toBe(
+			false,
+		);
+	});
+
+	it("does not flag a baseline that predates judging", () => {
+		const before: Baseline = {
+			recordedAt: "2026-08-26T00:00:00.000Z",
+			...metrics({ valid: [8, 8] }),
+		};
+
+		const report = compareToBaseline(before, metrics({ valid: [8, 8] }));
+
+		expect(report.judgeChanged).toBe(false);
+		expect(report.lines.join("\n")).not.toContain("undefined");
+	});
+});

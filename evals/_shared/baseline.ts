@@ -32,6 +32,8 @@ export type RunMetrics = {
 	promptHash: string;
 	/** Draws per row. One means the numbers carry a coin flip's worth of noise. */
 	samples: number;
+	/** The model that produced the judge scores, when a run was judged. */
+	judgeModel?: string;
 	categories: CategoryCount[];
 };
 
@@ -41,6 +43,7 @@ export type BaselineReport = {
 	changed: boolean;
 	promptChanged: boolean;
 	samplesChanged: boolean;
+	judgeChanged: boolean;
 	lines: string[];
 };
 
@@ -100,6 +103,15 @@ export const compareToBaseline = (
 				"a mean over more draws is not the same measurement as a single one",
 		);
 
+	// Absent on both sides means neither run was judged — not a change.
+	const judgeChanged =
+		(before.judgeModel ?? null) !== (after.judgeModel ?? null);
+	if (judgeChanged)
+		lines.push(
+			`judge changed (${before.judgeModel ?? "none"} → ${after.judgeModel ?? "none"}) — ` +
+				"two judges are two instruments, so the scores are not a quality delta",
+		);
+
 	if (before.model !== after.model)
 		lines.push(`model changed: ${before.model} → ${after.model}`);
 
@@ -136,6 +148,7 @@ export const compareToBaseline = (
 		changed: lines.length > 0,
 		promptChanged,
 		samplesChanged,
+		judgeChanged,
 		lines,
 	};
 };

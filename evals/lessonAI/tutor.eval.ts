@@ -298,6 +298,7 @@ export const runTutorEval = async (): Promise<boolean> => {
 		// under a different prompt is a different system, not a regression.
 		promptHash: promptHash(SYSTEM_PROMPT),
 		samples: SAMPLES,
+		judgeModel: JUDGE_MODEL,
 		categories: CATEGORIES.map((category) => {
 			const mine = results.filter((r) => r.category === category);
 			return {
