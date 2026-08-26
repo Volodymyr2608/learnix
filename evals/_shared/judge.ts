@@ -179,3 +179,62 @@ ${wrapUntrustedContent(params.reply, "model_output")}`;
 
 	return { systemPrompt, userPrompt };
 };
+
+export type CategoryJudgeSummary = {
+	category: string;
+	/** Replies that produced a usable score. */
+	judged: number;
+	/** Replies the judge could not score. Never folded into the means. */
+	failures: number;
+	means: {
+		relevance: number;
+		faithfulness: number;
+		completeness: number;
+		groundedness: number;
+	} | null;
+};
+
+const AXES = [
+	"relevance",
+	"faithfulness",
+	"completeness",
+	"groundedness",
+] as const;
+
+/**
+ * Mean score per axis per category, with judge failures counted separately.
+ *
+ * A failure is not a zero. Averaging one in would make an unscorable judge
+ * answer look like a failing tutor reply, which is the single confusion this
+ * layer exists to prevent — the judge is a measuring instrument, and a broken
+ * instrument reads as broken, not as a bad result.
+ */
+export const summariseJudgeScores = (
+	entries: Array<{ category: string; result: JudgeResult }>,
+): CategoryJudgeSummary[] => {
+	const categories = [...new Set(entries.map((entry) => entry.category))];
+
+	return categories.map((category) => {
+		const mine = entries.filter((entry) => entry.category === category);
+		const scored = mine.flatMap((entry) =>
+			entry.result.ok ? [entry.result.scores] : [],
+		);
+
+		const mean = (axis: (typeof AXES)[number]): number =>
+			scored.reduce((total, score) => total + score[axis], 0) / scored.length;
+
+		return {
+			category,
+			judged: scored.length,
+			failures: mine.length - scored.length,
+			means: scored.length
+				? {
+						relevance: mean("relevance"),
+						faithfulness: mean("faithfulness"),
+						completeness: mean("completeness"),
+						groundedness: mean("groundedness"),
+					}
+				: null,
+		};
+	});
+};

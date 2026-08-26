@@ -54,6 +54,30 @@ export const GATED_CATEGORIES: readonly Category[] = Object.keys(
 ) as Category[];
 
 /**
+ * The categories the judge is asked about.
+ *
+ * Only where quality is genuinely a judgement. The boundary categories already
+ * have a correct answer an assertion states exactly — whether the write tool
+ * fired, whether a marker leaked — so paying a larger model to re-read them
+ * buys nothing and adds noise to a number that is currently exact.
+ *
+ * The gated categories are judged too. Judging and gating answer different
+ * questions: the gate asks whether the tutor picked the right tool and said the
+ * right words, the judge asks whether the answer was any good. `valid` rows are
+ * where faithfulness matters most, so excluding them would discard the most
+ * useful scores in the set. AC 5 holds because `categoryGate` is only ever
+ * handed deterministic results, not because these lists avoid each other.
+ */
+export const JUDGED_CATEGORIES: readonly Category[] = [
+	"valid",
+	"valid-reworded",
+	"ambiguous",
+	"missing-info",
+	"hallucination-bait",
+	"low-confidence",
+];
+
+/**
  * What the read tools return for this row. Absent means the tool's default
  * stub answer. `retrieved: ""` is the meaningful one: it makes
  * retrieve_lesson_context return exactly what the real tool returns on an empty

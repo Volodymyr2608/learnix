@@ -9,10 +9,17 @@ import {
 	SYSTEM_PROMPT,
 } from "@/server/services/lessonAI/lessonAI.agent";
 import { promptHash, reportRun } from "../_shared/baseline";
+import {
+	DEFAULT_JUDGE_MODEL as JUDGE_MODEL,
+	judgeReply,
+	loadRubric,
+	summariseJudgeScores,
+} from "../_shared/judge";
 import { categoryGate, flakyRows, rowStability } from "../_shared/score";
 import {
 	CATEGORIES,
 	GATED_THRESHOLDS,
+	JUDGED_CATEGORIES,
 	loadTutorDataset,
 	type TutorRow,
 } from "./tutorDataset";
@@ -232,8 +239,29 @@ export const runTutorEval = async (): Promise<boolean> => {
 			const answer =
 				typeof lastAiMsg?.content === "string" ? lastAiMsg.content : "";
 
-			return checkRow(row, toolsCalled, answer);
+			return { ...checkRow(row, toolsCalled, answer), row, answer };
 		}),
+	);
+
+	// Judge only where quality is a judgement. The boundary categories already
+	// have an exact answer above, so a second, larger model re-reading them adds
+	// cost and noise to a number that is currently precise.
+	const judgeable = results.filter((r) =>
+		JUDGED_CATEGORIES.includes(r.category),
+	);
+	const rubric = loadRubric();
+	const judged = await Promise.all(
+		judgeable.map(async (r) => ({
+			category: r.category as string,
+			result: await judgeReply({
+				question: r.row.input.question,
+				retrievedContent:
+					r.row.input.retrieved ?? "No relevant content found for this lesson.",
+				reply: r.answer,
+				rubric,
+				model: JUDGE_MODEL,
+			}),
+		})),
 	);
 
 	console.log(
@@ -280,6 +308,19 @@ export const runTutorEval = async (): Promise<boolean> => {
 		}).filter((c) => c.total > 0),
 	});
 
+	console.log(`\nJudge (${JUDGE_MODEL}) — mean score per axis, 1-5:`);
+	console.log(
+		`  ${"category".padEnd(20)} ${"rel".padStart(4)} ${"fai".padStart(4)} ${"com".padStart(4)} ${"gro".padStart(4)}  n`,
+	);
+	for (const summary of summariseJudgeScores(judged)) {
+		const cell = (value: number | undefined) =>
+			(value === undefined ? "—" : value.toFixed(1)).padStart(4);
+		console.log(
+			`  ${summary.category.padEnd(20)} ${cell(summary.means?.relevance)} ${cell(summary.means?.faithfulness)} ${cell(summary.means?.completeness)} ${cell(summary.means?.groundedness)}  ${summary.judged}` +
+				(summary.failures > 0 ? `  (${summary.failures} unscorable)` : ""),
+		);
+	}
+
 	console.log(
 		`\n${flaky.length} of ${rows.length} rows are flaky. Ungated categories are a\n` +
 			"measurement, not a bar. Read answer quality with the judge and the\n" +
@@ -288,5 +329,8 @@ export const runTutorEval = async (): Promise<boolean> => {
 
 	// Over samples, not rows: a category's rate is now how often it passes,
 	// which is the quantity a threshold can honestly be set against.
+	// Deterministic results only. A judge score has never entered this call and
+	// must not: scoring is a measurement, and a bar on a distribution nobody has
+	// seen yet is a guess wearing the costume of a standard.
 	return categoryGate("tutor", results, GATED_THRESHOLDS);
 };

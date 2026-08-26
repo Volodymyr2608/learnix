@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildJudgePrompt, type JudgeModelCall, judgeReply } from "./judge";
+import {
+	buildJudgePrompt,
+	type JudgeModelCall,
+	type JudgeResult,
+	judgeReply,
+	summariseJudgeScores,
+} from "./judge";
 
 /**
  * Everything here runs offline against an injected model. No test asserts a
@@ -174,5 +180,78 @@ describe("the judged reply cannot instruct the judge", () => {
 		});
 
 		expect(result.ok).toBe(true);
+	});
+});
+
+/**
+ * Judge failures are counted, never averaged in. Treating an unscorable answer
+ * as a zero would make a broken judge look like a failing tutor, which is the
+ * one confusion this whole layer exists to prevent.
+ */
+describe("summariseJudgeScores", () => {
+	const scored = (relevance: number): JudgeResult => ({
+		ok: true,
+		scores: {
+			relevance,
+			faithfulness: relevance,
+			completeness: relevance,
+			groundedness: relevance,
+			rationale: "",
+		},
+	});
+	const failed: JudgeResult = { ok: false, reason: "unparseable" };
+
+	it("averages each axis per category", () => {
+		const summary = summariseJudgeScores([
+			{ category: "valid", result: scored(4) },
+			{ category: "valid", result: scored(2) },
+		]);
+
+		expect(summary).toEqual([
+			{
+				category: "valid",
+				judged: 2,
+				failures: 0,
+				means: {
+					relevance: 3,
+					faithfulness: 3,
+					completeness: 3,
+					groundedness: 3,
+				},
+			},
+		]);
+	});
+
+	it("counts a judge failure without dragging the mean down", () => {
+		const summary = summariseJudgeScores([
+			{ category: "valid", result: scored(4) },
+			{ category: "valid", result: failed },
+		]);
+
+		expect(summary[0]?.failures).toBe(1);
+		expect(summary[0]?.judged).toBe(1);
+		expect(summary[0]?.means?.relevance).toBe(4);
+	});
+
+	it("reports a category whose every score failed, with no mean", () => {
+		const summary = summariseJudgeScores([
+			{ category: "ambiguous", result: failed },
+		]);
+
+		expect(summary[0]?.judged).toBe(0);
+		expect(summary[0]?.failures).toBe(1);
+		expect(summary[0]?.means).toBeNull();
+	});
+
+	it("keeps categories apart", () => {
+		const summary = summariseJudgeScores([
+			{ category: "valid", result: scored(5) },
+			{ category: "ambiguous", result: scored(1) },
+		]);
+
+		expect(summary).toHaveLength(2);
+		expect(
+			summary.find((entry) => entry.category === "valid")?.means?.relevance,
+		).toBe(5);
 	});
 });
