@@ -26,7 +26,8 @@ Input: `docs/specs/features/<slug>/spec.md` (status `planned`), plus whatever co
 touch. **No code exists yet.** Your job is not to find bugs; it is to make the plan unable to omit a
 control.
 
-1. Read the spec's Purpose and Functional scope. Restate the feature as **actors × assets ×
+1. Read the spec's Description, Business goal and Supported use cases (older specs: Purpose and
+   Functional scope). Restate the feature as **actors × assets ×
    entry points** — who can call it, what data or money it reaches, through which surface.
 2. Walk the STRIDE categories against that restatement. Discard the ones with no plausible instance
    here; a threat model that lists all six for every feature is noise.

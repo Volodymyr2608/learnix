@@ -20,10 +20,12 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | distributed-ai-rate-limiter | stable | ai-defence-layers, ai-tutor-guardrails |
 | error-observability | stable | — |
 | instructor-mobile | stable | mobile-responsive |
+| learning-path | stable | ai-defence-layers, progress, quiz-generation |
 | messages | stable | auth |
 | mobile-responsive | planned | — |
 | payments | stable | auth, course |
 | quiz-answer-key | planned | ai-tutor-guardrails, ai-defence-layers |
+| quiz-generation | stable | ai-defence-layers, ai-input-trust-boundary |
 | semantic-search-recommendations | stable | course, enrollment |
 | skill-progress | stable | progress |
 | study-guide | stable | ai-defence-layers, ai-input-trust-boundary |
