@@ -1,9 +1,10 @@
 # AI eval rubric — scoring the lesson tutor's replies
 
-**Status:** living document · **Owner:** `evals/lessonAI/tutor.eval.ts`, `evals/_shared/judge.ts`
-(area-2 З3, not yet built) · **Read by:** the judge's prompt (machine-readable — a wording change
-here changes what the judge scores, same discipline as
-[`ai-tutor-guardrails/flow-contract.md`](specs/features/ai-tutor-guardrails/flow-contract.md))
+**Status:** living document · **Owner:** `evals/lessonAI/tutor.eval.ts` · **Intended consumer:**
+`evals/_shared/judge.ts` — **not built yet**, so nothing reads this file today. Once it exists, this
+becomes machine-readable input: a wording change here changes what the judge scores, the same
+discipline as
+[`ai-tutor-guardrails/flow-contract.md`](features/ai-tutor-guardrails/flow-contract.md).
 
 This is the rubric an LLM judge uses to score one tutor reply. It exists because a threshold
 (`accuracyGate`) can tell you whether a reply contains a substring — it cannot tell you whether the
@@ -99,8 +100,19 @@ to translate:
 sub-5 score is the one a human re-scoring the row (area-2 З4) needs to understand without re-reading
 the whole transcript.
 
-## Known limits (fill in as area-2 З4 finds them)
+## Known limits
 
-Left for the eval-report task — this rubric will drift from what the judge actually does in practice
-until at least one round of judge-vs-human disagreement has been logged. See `ai-eval-strategy.md`
-§"Відомі межі" once written.
+**No model has ever applied these anchors.** They were written against the real system prompt and the
+tutor's actual retrieval behaviour, but the judge that consumes them does not exist yet, so their
+discriminating power is unmeasured. Two boundaries are the ones to watch first, because they are the
+subtlest to state and the easiest for a judge to score inconsistently:
+
+- **Faithfulness 5 vs 4** — "every claim traces to a sentence" against "light rephrasing/synthesis
+  that stays within what the source supports." The system prompt *requires* synthesis (it forbids
+  pasting content verbatim), so almost every good reply lands in this band, and a judge that reads 5
+  too literally will compress the whole scale.
+- **Groundedness 4 vs 3** — whether a generalization counts as "appropriately hedged" is a judgement
+  about register, and register is exactly where LLM judges are known to be least stable run to run.
+
+Anything found once a judge exists — disagreements against hand-scoring, drift between runs, anchors
+that turn out not to discriminate — belongs here, and is the deliverable of the judge-limits task.
