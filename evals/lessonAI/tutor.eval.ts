@@ -4,11 +4,15 @@ import { ChatOpenAI } from "@langchain/openai";
 import { createAgent } from "langchain";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { buildTutorSystemPrompt } from "@/server/services/lessonAI/lessonAI.agent";
-import { accuracyGate } from "../_shared/score";
+import {
+	buildTutorSystemPrompt,
+	SYSTEM_PROMPT,
+} from "@/server/services/lessonAI/lessonAI.agent";
+import { promptHash, reportRun } from "../_shared/baseline";
+import { categoryGate } from "../_shared/score";
 import {
 	CATEGORIES,
-	GATED_CATEGORIES,
+	GATED_THRESHOLDS,
 	loadTutorDataset,
 	type TutorRow,
 } from "./tutorDataset";
@@ -43,6 +47,9 @@ import {
  * the deterministic layers are doing, which is the one thing a green
  * end-to-end test can never show.
  */
+
+/** The model production uses for the tutor. */
+const MODEL = "gpt-4o-mini";
 
 /** What the real tools return when they find nothing. */
 const NO_LESSON_CONTENT = "No relevant content found for this lesson.";
@@ -163,9 +170,6 @@ const checkRow = (
 	};
 };
 
-const percent = (part: number, whole: number): string =>
-	whole === 0 ? "n/a" : `${((part / whole) * 100).toFixed(1)}%`;
-
 export const runTutorEval = async (): Promise<boolean> => {
 	const rows = loadTutorDataset();
 
@@ -173,7 +177,7 @@ export const runTutorEval = async (): Promise<boolean> => {
 	// prod runs 0.4 — until sampling lands (area-2 З10): a single run at 0.4
 	// would be flaky with nothing yet in place to average it out.
 	const llm = new ChatOpenAI({
-		model: "gpt-4o-mini",
+		model: MODEL,
 		temperature: 0,
 		apiKey: env.OPENAI_API_KEY,
 	});
@@ -217,18 +221,8 @@ export const runTutorEval = async (): Promise<boolean> => {
 	);
 
 	console.log(
-		`\ntutor — ${rows.length} rows across ${CATEGORIES.length} categories\n`,
+		`\ntutor — ${rows.length} rows across ${CATEGORIES.length} categories`,
 	);
-	console.log("Per category:");
-	for (const category of CATEGORIES) {
-		const mine = results.filter((r) => r.category === category);
-		if (mine.length === 0) continue;
-		const passed = mine.filter((r) => r.ok).length;
-		const marker = GATED_CATEGORIES.includes(category) ? "gated " : "      ";
-		console.log(
-			`  ${marker}${category.padEnd(20)} ${String(passed).padStart(2)}/${String(mine.length).padEnd(2)}  ${percent(passed, mine.length)}`,
-		);
-	}
 
 	const failures = results.filter((r) => !r.ok);
 	if (failures.length > 0) {
@@ -237,12 +231,25 @@ export const runTutorEval = async (): Promise<boolean> => {
 			console.log(`  ${f.id.padEnd(16)} ${f.failed.join("; ")}`);
 	}
 
+	reportRun("lessonAI:tutor", {
+		model: MODEL,
+		// Ties the numbers to the prompt that produced them: a baseline taken
+		// under a different prompt is a different system, not a regression.
+		promptHash: promptHash(SYSTEM_PROMPT),
+		categories: CATEGORIES.map((category) => {
+			const mine = results.filter((r) => r.category === category);
+			return {
+				category,
+				passed: mine.filter((r) => r.ok).length,
+				total: mine.length,
+			};
+		}).filter((c) => c.total > 0),
+	});
+
 	console.log(
-		"\nUngated categories are a measurement, not a bar. Record them before\n" +
-			"choosing thresholds, and read answer quality with the judge, not here.\n",
+		"\nUngated categories are a measurement, not a bar. Read answer quality\n" +
+			"with the judge and the rubric, not from these counts.",
 	);
 
-	// Only the categories that must simply work decide red or green.
-	const gated = results.filter((r) => GATED_CATEGORIES.includes(r.category));
-	return accuracyGate("tutor (gated categories)", gated, 0.85);
+	return categoryGate("tutor", results, GATED_THRESHOLDS);
 };

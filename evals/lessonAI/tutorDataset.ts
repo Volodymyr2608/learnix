@@ -33,17 +33,25 @@ export const CATEGORIES = [
 export type Category = (typeof CATEGORIES)[number];
 
 /**
- * Where a failure is a regression rather than a measurement.
+ * Where a failure is a regression rather than a measurement, and the bar.
  *
  * Only the categories that must simply work are gated. The adversarial and
  * ambiguous classes are reported without a threshold, following the precedent
  * `aiGuard/redteam` and `aiOutput/falsePositive` set: putting a bar on a number
  * nobody has measured yet substitutes a guess for the measurement.
+ *
+ * 0.85 rather than 1.0 because a single sample per row at temperature 0 still
+ * moves between model versions; it is the threshold this eval already used
+ * before it had categories, kept so the split does not quietly also re-tune it.
  */
-export const GATED_CATEGORIES: readonly Category[] = [
-	"valid",
-	"valid-reworded",
-];
+export const GATED_THRESHOLDS: Record<string, number> = {
+	valid: 0.85,
+	"valid-reworded": 0.85,
+};
+
+export const GATED_CATEGORIES: readonly Category[] = Object.keys(
+	GATED_THRESHOLDS,
+) as Category[];
 
 /**
  * What the read tools return for this row. Absent means the tool's default

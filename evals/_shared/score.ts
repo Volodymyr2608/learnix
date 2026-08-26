@@ -1,5 +1,63 @@
 export type EvalResult = { id: string; ok: boolean };
 
+export type CategoryEvalResult = EvalResult & { category: string };
+
+/**
+ * Scores per category and gates only the categories given a threshold.
+ *
+ * Two different things share one run. Some categories are a contract — when
+ * "answer an ordinary question about the lesson" drops, that is a regression.
+ * Others are a measurement whose realistic value nobody knows yet; putting a
+ * bar on those before the first run substitutes a guess for the number, which
+ * is the mistake `aiGuard/redteam` and `aiOutput/falsePositive` avoid by not
+ * gating at all. A category absent from `thresholds` is reported and can never
+ * turn the run red.
+ *
+ * Gating per category rather than on the pooled average is the point: three
+ * healthy categories can carry a fourth that is failing outright, and the
+ * aggregate that hides it is exactly the number people quote.
+ */
+export function categoryGate(
+	label: string,
+	results: CategoryEvalResult[],
+	thresholds: Record<string, number>,
+): boolean {
+	const categories = [...new Set(results.map((r) => r.category))].sort();
+	let allPassed = true;
+
+	console.log(`\n${label} — by category:`);
+	for (const category of categories) {
+		const mine = results.filter((r) => r.category === category);
+		const passed = mine.filter((r) => r.ok).length;
+		const rate = mine.length ? passed / mine.length : 0;
+		const threshold = thresholds[category];
+		const gated = threshold !== undefined;
+
+		console.log(
+			`  ${(gated ? "gated " : "      ") + category.padEnd(20)} ` +
+				`${String(passed).padStart(2)}/${String(mine.length).padEnd(2)} ` +
+				`${(rate * 100).toFixed(1).padStart(5)}%` +
+				`${gated ? `  (min ${(threshold * 100).toFixed(0)}%)` : ""}`,
+		);
+
+		if (gated && rate < threshold) allPassed = false;
+	}
+
+	const failures = results.filter(
+		(r) => !r.ok && thresholds[r.category] !== undefined,
+	);
+	if (failures.length)
+		console.log(
+			`\n${label} gated failures:`,
+			failures.map((r) => r.id).join(", "),
+		);
+
+	if (!allPassed)
+		console.error(`FAIL: ${label} — a gated category is below its threshold`);
+
+	return allPassed;
+}
+
 export function accuracyGate(
 	label: string,
 	results: EvalResult[],

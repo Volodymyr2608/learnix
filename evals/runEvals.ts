@@ -1,3 +1,9 @@
+import {
+	compareToBaseline,
+	readBaseline,
+	takeReportedRun,
+	writeBaseline,
+} from "./_shared/baseline";
 import { runAdversarialEval } from "./aiGuard/adversarial.eval";
 import { runIndirectEval } from "./aiGuard/indirect.eval";
 import { runRedteamEval } from "./aiGuard/redteam.eval";
@@ -28,8 +34,37 @@ const EVALS: Record<string, () => Promise<boolean>> = {
 	"learningPathAI:learningPath": runLearningPathEval,
 };
 
+/**
+ * Compares this run against the committed baseline, or records a new one with
+ * `--baseline`. Only evals that call `reportRun` take part; the rest are
+ * unaffected.
+ */
+function handleBaseline(name: string, record: boolean): void {
+	const metrics = takeReportedRun(name);
+	if (!metrics) return;
+
+	if (record) {
+		console.log(`\nbaseline written: ${writeBaseline(name, metrics)}`);
+		return;
+	}
+
+	const previous = readBaseline(name);
+	if (!previous) {
+		console.log(
+			`\nno baseline for ${name} — record one with: pnpm eval ${name} --baseline`,
+		);
+		return;
+	}
+
+	const report = compareToBaseline(previous, metrics);
+	console.log(`\nvs baseline (${previous.recordedAt}):`);
+	console.log(report.changed ? report.lines.join("\n") : "  no category moved");
+}
+
 async function main() {
-	const which = process.argv[2];
+	const args = process.argv.slice(2);
+	const record = args.includes("--baseline");
+	const which = args.find((arg) => !arg.startsWith("--"));
 
 	if (which && !(which in EVALS)) {
 		console.log("Unknown eval:", which);
@@ -42,6 +77,7 @@ async function main() {
 	for (const name of names) {
 		console.log(`\n=== ${name} ===`);
 		const passed = await (EVALS[name] as () => Promise<boolean>)();
+		handleBaseline(name, record);
 		allPassed &&= passed;
 	}
 	if (!allPassed) process.exit(1);
