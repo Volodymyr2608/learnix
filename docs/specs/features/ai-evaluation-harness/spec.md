@@ -97,6 +97,7 @@ Known limits rather than asserting them away.
 | Dataset shape | ≥5 rows, unique ids, valid JSONL | `datasets.contract.test.ts` fails in `pnpm test:unit` |
 | Eval fidelity | no eval declares its own system prompt | `promptFidelity.contract.test.ts` fails in `pnpm test:unit` |
 | Agent reply | the row's `tools_called` / `tools_not_called` / `answer_contains` / `answer_excludes` | row scored as failed, with the specific reason printed |
+| **Judge input** | the text the tutor's tools returned *this attempt*, recorded at the point of service — never reconstructed from the row | `servedContent.test.ts`; a reconstruction graded 9 of 24 rows against content the tutor never saw |
 | **Judge output** | Zod schema, axes integer 1–5 | row reported as a judge failure; it is **not** counted as a passing score |
 | Baseline comparison | prompt hash, generator model, judge model, sample count all match | printed as "not comparable", never as a delta |
 
@@ -192,7 +193,8 @@ complex-tier change with its own ADR.
   only and not the document's prose (**58% smaller**), and `mapWithConcurrency` caps calls in flight.
   Judging one sample per row costs ~29k tokens, which does fit.
 - **Wall clock:** the tutor run completes in roughly a minute with all rows in flight concurrently.
-- **No rate limiting.** The harness runs locally and by hand, so `aiLimits` does not apply.
+- **No *server-side* rate limiting.** `aiLimits` governs production surfaces and does not apply to a
+  harness run by hand; the client-side cap described above is a separate thing.
 - **Not yet measured:** token counts per run, and therefore cost in currency. Owner: the cost and
   latency task in the area-2 plan; until then, "129 generator + 24 judge calls" is the honest unit
   rather than a dollar figure invented for the document.

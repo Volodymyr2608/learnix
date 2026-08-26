@@ -40,29 +40,29 @@ describe("mapWithConcurrency", () => {
 	it("handles an empty input", async () => {
 		expect(await mapWithConcurrency([], 3, async () => 1)).toEqual([]);
 	});
-});
 
-it("refuses a limit below one rather than silently returning holes", async () => {
-	await expect(mapWithConcurrency([1, 2], 0, async (n) => n)).rejects.toThrow(
-		/limit must be >= 1/,
-	);
-});
+	it("refuses a limit below one rather than silently returning holes", async () => {
+		await expect(mapWithConcurrency([1, 2], 0, async (n) => n)).rejects.toThrow(
+			/limit must be >= 1/,
+		);
+	});
 
-/** The queued path: more items than workers, every value distinct. */
-it("runs every queued item exactly once, in order", async () => {
-	const runs: number[] = [];
-	const out = await mapWithConcurrency(
-		Array.from({ length: 10 }, (_, i) => i),
-		3,
-		async (n) => {
-			runs.push(n);
-			await new Promise((r) => setTimeout(r, 2));
-			return n * 2;
-		},
-	);
+	/** The queued path: more items than workers, every value distinct. */
+	it("runs every queued item exactly once, in order", async () => {
+		const runs: number[] = [];
+		const out = await mapWithConcurrency(
+			Array.from({ length: 10 }, (_, i) => i),
+			3,
+			async (n) => {
+				runs.push(n);
+				await new Promise((r) => setTimeout(r, 2));
+				return n * 2;
+			},
+		);
 
-	expect(out).toEqual(Array.from({ length: 10 }, (_, i) => i * 2));
-	expect(runs.sort((a, b) => a - b)).toEqual(
-		Array.from({ length: 10 }, (_, i) => i),
-	);
+		expect(out).toEqual(Array.from({ length: 10 }, (_, i) => i * 2));
+		expect(runs.sort((a, b) => a - b)).toEqual(
+			Array.from({ length: 10 }, (_, i) => i),
+		);
+	});
 });

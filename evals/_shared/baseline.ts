@@ -24,6 +24,21 @@ export type CategoryCount = {
 	category: string;
 	passed: number;
 	total: number;
+	/**
+	 * Mean judge score per axis, when this category was judged.
+	 *
+	 * Recorded because an unrecorded number cannot be contradicted. The first
+	 * version of ADR-031 asserted a judge figure that lived only in a terminal
+	 * session, and it survived two commits before anyone could check it — it was
+	 * wrong. A number in the baseline is a number a reviewer can argue with.
+	 */
+	judge?: {
+		relevance: number;
+		faithfulness: number;
+		completeness: number;
+		groundedness: number;
+		judged: number;
+	};
 };
 
 export type RunMetrics = {

@@ -147,7 +147,10 @@ export const openAIJudgeCall: JudgeModelCall = async (
  * it points a reader at the reply and the rubric rather than at the network.
  */
 export const classifyJudgeError = (error: Error): "call" | "output" =>
-	/\b429\b|\b5\d\d\b|rate limit|timed? ?out|connection|ECONN|ETIMEDOUT|socket|fetch failed|network/i.test(
+	// Anchored phrases, not bare words: an OutputParserException embeds the
+	// model's own text, and this dataset teaches Promises and the event loop —
+	// a rationale mentioning "network timing" must not read as a transport error.
+	/\b429\b|\b5\d\d\b|rate.?limit|quota|overloaded|timed? ?out|connection (error|reset|refused|closed)|APIConnectionError|ECONN|ETIMEDOUT|socket hang up|fetch failed|network error/i.test(
 		error.message,
 	)
 		? "call"

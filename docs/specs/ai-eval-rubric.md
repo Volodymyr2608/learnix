@@ -115,15 +115,19 @@ inconsistently:
 - **Groundedness 4 vs 3** — whether a generalization counts as "appropriately hedged" is a judgement
   about register, and register is exactly where LLM judges are known to be least stable run to run.
 
-**What the runs so far showed.** `valid` scores ~4.9 and `hallucination-bait` 5.0 on relevance and
-completeness. The interesting rows are the ones where a green gate and a middling score disagree:
-`low-confidence` gates at 100% while scoring 3.0 on faithfulness and groundedness, and `missing-info`
-scores 1.0 on both — the tutor inventing an answer rather than asking for what it lacks.
+**What the runs so far showed.** Current figures live in `evals/baselines/lessonAI-tutor.json`, per
+category, so they can be checked rather than taken from prose. The rows worth reading are where the
+two kinds of measurement disagree: `low-confidence` satisfies every deterministic assertion (6/6)
+while scoring 3.0 on faithfulness and groundedness, and `missing-info` fails every assertion (0/9,
+because the tutor never asks for the code the student withheld) while scoring 4.7 on both — what it
+does say is grounded, it simply answers a question it should first have clarified.
 
-An earlier run put `valid` at ~3.9, and that number was an artifact: the judge was handed content
-reconstructed from the dataset row rather than what the tutor's tools served, so 9 of 24 judged rows
-were graded against a document the tutor never saw. Worth remembering when a score looks like a
-finding — check what the judge was actually shown first.
+**Two earlier figures quoted here were artifacts, and both looked like findings.** `valid` at ~3.9
+came from a judge handed content reconstructed from the dataset row instead of what the tutor's tools
+served. `missing-info` at 1.0 came from rows that staged no lesson content, so the judge scored
+replies against a placeholder containing no facts — against which anything substantive scores 1.0 by
+construction. Before reading a score as a finding about the model, check what the judge was actually
+shown.
 
 Still open, and the deliverable of the judge-limits task: disagreement against hand-scoring, drift
 between runs of the same reply, and anchors that turn out not to discriminate.

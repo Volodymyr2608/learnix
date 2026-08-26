@@ -311,3 +311,27 @@ describe("classifyJudgeError", () => {
 		expect(classifyJudgeError(new Error(message))).toBe(kind);
 	});
 });
+
+/**
+ * The classifier reads a message that can contain the judge's own prose. This
+ * dataset teaches Promises and the event loop, so a rationale about "network
+ * timing" is an ordinary thing for it to say — and must not be read as a
+ * transport failure.
+ */
+describe("classifyJudgeError does not misread a rationale as a network fault", () => {
+	it.each([
+		'Failed to parse: rationale said "the reply invents details about network timing"',
+		'Too small: expected >=1 → at "relevance"; the reply discusses socket connections',
+		"Received tool input did not match expected schema: connection pooling was mentioned",
+	])("treats %s as an output problem", (message) => {
+		expect(classifyJudgeError(new Error(message))).toBe("output");
+	});
+
+	it.each([
+		"RateLimitError: too many requests",
+		"Error: quota exceeded",
+		"server overloaded",
+	])("still catches %s as transport", (message) => {
+		expect(classifyJudgeError(new Error(message))).toBe("call");
+	});
+});

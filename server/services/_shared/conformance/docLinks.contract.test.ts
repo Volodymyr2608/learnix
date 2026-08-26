@@ -3,7 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Every relative link between documents resolves.
+ * Every relative `.md` link under `docs/`, plus the two root documents everyone
+ * reads first, resolves to a file that exists.
  *
  * Deleting `ai-hardening-plan.md` left nine dead links across ADRs and feature
  * specs, and nothing said so — the docs are the navigation layer for this repo
@@ -47,7 +48,10 @@ const linksIn = (file: string): string[] =>
 		.map((match) => match[1] ?? "")
 		.filter(Boolean);
 
-const files = walk(DOCS);
+/** The most-read files in the repo, and outside `docs/`. */
+const ROOT_DOCS = ["CLAUDE.md", "README.md"].filter((f) => existsSync(f));
+
+const files = [...walk(DOCS), ...ROOT_DOCS];
 
 describe("documentation links", () => {
 	it("finds documents to check", () => {

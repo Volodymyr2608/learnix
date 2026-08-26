@@ -79,6 +79,9 @@ const NO_LESSON_CONTENT = "No relevant content found for this lesson.";
 const NO_COURSE_CONTENT = "No relevant content found across this course.";
 const NO_PROGRESS = "Student has not completed any lessons yet.";
 
+/** The model answered without calling a retrieval tool at all. */
+const NO_RETRIEVAL_ATTEMPTED = "The tutor did not call a retrieval tool.";
+
 /**
  * Stub tools carrying the real names, descriptions and schemas from
  * `server/services/lessonAI/tools/*.tool.ts`. Built per row so a row can stage
@@ -271,9 +274,13 @@ export const runTutorEval = async (): Promise<boolean> => {
 				row,
 				answer,
 				// Exactly what retrieval returned this attempt, in call order.
+				// Deduplicated: a model that retries the same query would otherwise
+				// show the judge one chunk twice. Distinct from NO_LESSON_CONTENT —
+				// "never asked" and "asked and got nothing" are different behaviours
+				// and must not read alike in a judge prompt.
 				servedContent: served.length
-					? served.join("\n\n---\n\n")
-					: NO_LESSON_CONTENT,
+					? [...new Set(served)].join("\n\n---\n\n")
+					: NO_RETRIEVAL_ATTEMPTED,
 			};
 		}),
 	);
@@ -343,6 +350,10 @@ export const runTutorEval = async (): Promise<boolean> => {
 			);
 	}
 
+	const judgeByCategory = new Map(
+		summariseJudgeScores(judged).map((entry) => [entry.category, entry]),
+	);
+
 	reportRun("lessonAI:tutor", {
 		model: MODEL,
 		// Ties the numbers to the prompt that produced them: a baseline taken
@@ -352,10 +363,16 @@ export const runTutorEval = async (): Promise<boolean> => {
 		judgeModel: JUDGE_MODEL,
 		categories: CATEGORIES.map((category) => {
 			const mine = results.filter((r) => r.category === category);
+			const scores = judgeByCategory.get(category);
 			return {
 				category,
 				passed: mine.filter((r) => r.ok).length,
 				total: mine.length,
+				// Committed so the figures quoted in docs can be checked against
+				// something rather than taken on trust.
+				...(scores?.means
+					? { judge: { ...scores.means, judged: scores.judged } }
+					: {}),
 			};
 		}).filter((c) => c.total > 0),
 	});

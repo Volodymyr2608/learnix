@@ -76,26 +76,45 @@ ADR-013 §5 asked each structured-output feature to own; none existed until now.
 - A green eval now means something about the deployed system. Before, two of the evals could be green
   about code that was never shipped.
 - The question "did this change make anything worse" is answerable from the diff, by anyone, later.
-- Judge scores made visible what the deterministic suite could not. `low-confidence` and
-  `hallucination-bait` both gate at 100%, and the judge scores their faithfulness and groundedness at
-  3.0 and 4.0 — replies that pick the right tool and avoid every forbidden phrase while being only
-  partly grounded in what retrieval returned. No assertion in the suite can express that.
-- It also quantifies *how* badly a failing category fails: `missing-info` gates at 0% and scores 1.0
-  on both faithfulness and groundedness, which says the tutor invents an answer rather than asking
-  for the input it needs — a different defect from answering the wrong question.
+- Judge scores make visible what the deterministic suite cannot. `low-confidence` satisfies every
+  assertion in the suite — 6/6 samples — while the judge scores its faithfulness and groundedness at
+  3.0: replies that pick the right tool and avoid every forbidden phrase while being only partly
+  grounded in what retrieval returned. `hallucination-bait` is 12/12 with both axes at 4.0. No
+  assertion in the suite can express either gap. (These are measured categories, not gated ones —
+  see Decision 5.)
+- The two measurements can disagree without either being wrong, which is the case worth understanding
+  before trusting a single number. `missing-info` fails every deterministic assertion (0/9 — the
+  tutor never asks for the code the student withheld) while the judge scores faithfulness and
+  groundedness at 4.7, because what it *does* say is grounded in the lesson. The assertion measures
+  whether it asked; the judge measures whether what it said was true. A suite carrying only one of
+  them reports a confident half-answer.
+- **Every figure above is in `evals/baselines/lessonAI-tutor.json`**, per category, alongside the
+  deterministic counts — see the retraction below for why that matters more than it looks.
 - Three checks that used to require a careful reader are now contract tests, so the next feature does
   not pay for them again (`docs/constitution.md` §Agent economics).
 
 **A number this ADR originally asserted, and why it was wrong**
 
-The first version of this ADR reported that `valid` gates at 100% while the judge scored those same
-replies ~3.9 — presented as the headline case for having a judge at all. It was an artifact. The judge
-was being handed content reconstructed from the dataset row rather than the text the tutor's tools
-actually served, and for 9 of 24 judged rows the two differed; cross-lesson rows in particular were
-graded against "No relevant content found" while their content sat in a field the reconstruction never
-read. With the judge given the served text, `valid` scores 4.9 and the gap closes. The lesson kept
-rather than the number: a judge is a measuring instrument, and an instrument fed the wrong input
-produces a confident reading that looks exactly like a finding.
+**Two** numbers this ADR asserted turned out to be artifacts of how the judge was fed, and both are
+kept here rather than quietly edited, because the pattern is the point.
+
+**First: `valid` at ~3.9**, presented as the headline case for having a judge at all. The judge was
+handed content *reconstructed* from the dataset row rather than the text the tutor's tools actually
+served; for 9 of 24 judged rows the two differed, and cross-lesson rows were graded against "No
+relevant content found" while their content sat in a field the reconstruction never read. Given the
+served text, `valid` scores 5.0/4.6 and the gap closes.
+
+**Second: `missing-info` at 1.0**, read as "the tutor invents an answer rather than asking". Those
+rows staged no lesson content, so the stub served a placeholder with no facts in it — against which
+*any* substantive reply scores 1.0 by construction, whatever the tutor did. With real lesson content
+staged, the same rows score 4.7. The replacement finding above is a different and better one.
+
+Both were caught in review, and the second was predicted by the reviewer from the first. The lesson
+kept rather than the numbers: **a judge is a measuring instrument, and one fed the wrong input
+produces a confident reading indistinguishable from a finding** — twice here, in a single feature, by
+someone who had just been burned by it once. That is the argument for recording judge means in the
+baseline (Decision 3): a number no committed artifact can contradict is a number that survives on
+its author's confidence, and both of these did, for two commits each.
 
 **Negative / Trade-offs**
 - A judged run is rate-limited. The judge prompt carries the rubric, so judging every sample of every

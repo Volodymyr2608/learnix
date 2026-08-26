@@ -1,5 +1,5 @@
 {
-	"recordedAt": "2026-08-26T14:34:21.683Z",
+	"recordedAt": "2026-08-26T15:36:33.068Z",
 	"model": "gpt-4o-mini",
 	"promptHash": "712c592965d2",
 	"samples": 3,
@@ -8,17 +8,38 @@
 		{
 			"category": "valid",
 			"passed": 24,
-			"total": 24
+			"total": 24,
+			"judge": {
+				"relevance": 5,
+				"faithfulness": 4.625,
+				"completeness": 5,
+				"groundedness": 4.625,
+				"judged": 8
+			}
 		},
 		{
 			"category": "valid-reworded",
 			"passed": 9,
-			"total": 9
+			"total": 9,
+			"judge": {
+				"relevance": 4.666666666666667,
+				"faithfulness": 4.333333333333333,
+				"completeness": 5,
+				"groundedness": 4.333333333333333,
+				"judged": 3
+			}
 		},
 		{
 			"category": "ambiguous",
-			"passed": 3,
-			"total": 12
+			"passed": 6,
+			"total": 12,
+			"judge": {
+				"relevance": 3.5,
+				"faithfulness": 4.75,
+				"completeness": 4.75,
+				"groundedness": 4.75,
+				"judged": 4
+			}
 		},
 		{
 			"category": "off-topic",
@@ -48,12 +69,26 @@
 		{
 			"category": "missing-info",
 			"passed": 0,
-			"total": 9
+			"total": 9,
+			"judge": {
+				"relevance": 4.333333333333333,
+				"faithfulness": 4.666666666666667,
+				"completeness": 4.666666666666667,
+				"groundedness": 4.666666666666667,
+				"judged": 3
+			}
 		},
 		{
 			"category": "hallucination-bait",
 			"passed": 12,
-			"total": 12
+			"total": 12,
+			"judge": {
+				"relevance": 5,
+				"faithfulness": 4,
+				"completeness": 5,
+				"groundedness": 4,
+				"judged": 4
+			}
 		},
 		{
 			"category": "conflicting-context",
@@ -63,7 +98,14 @@
 		{
 			"category": "low-confidence",
 			"passed": 6,
-			"total": 6
+			"total": 6,
+			"judge": {
+				"relevance": 4,
+				"faithfulness": 3,
+				"completeness": 4.5,
+				"groundedness": 3,
+				"judged": 2
+			}
 		}
 	]
 }
