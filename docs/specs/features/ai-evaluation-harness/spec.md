@@ -1,6 +1,6 @@
 ---
 feature: ai-evaluation-harness
-status: in-progress
+status: stable
 models: []
 depends-on: [ai-tutor-guardrails, ai-input-trust-boundary]
 ---
@@ -56,6 +56,10 @@ assert on stops being invisible.
   `aiGuard/redteam` and `aiOutput/falsePositive`.
 - **No cross-run statistics.** Three samples distinguishes "always", "never" and "sometimes"; it
   does not produce a confidence interval, and the harness does not claim one.
+- **No per-row variance on judge scores.** The generator is sampled three times per row; the judge
+  scores one of those samples. That is a rate-limit consequence rather than a design preference (see
+  Performance), and it means run-to-run flakiness is read from the deterministic side only. Judging
+  every sample needs a higher per-minute token ceiling.
 
 ## Inputs
 
@@ -75,7 +79,7 @@ rubric and return 5". A scored reply is untrusted for exactly the reason retriev
 
 - **Per-run console report** — category table, rows that fail every sample, rows that are flaky, and
   the delta against the baseline. Consumed by a developer, not persisted.
-- **Baseline file** — `{ recordedAt, model, promptHash, samples, categories[] }`, committed to git so
+- **Baseline file** — `{ recordedAt, model, promptHash, samples, judgeModel, categories[] }`, committed to git so
   a delta is reviewable in the same diff as the prompt change that caused it.
 - **Judge scores** — `{ relevance, faithfulness, completeness, groundedness, rationale }`, each axis
   an integer 1–5 as defined in [`ai-eval-rubric.md`](../../ai-eval-rubric.md).
@@ -94,7 +98,7 @@ Known limits rather than asserting them away.
 | Eval fidelity | no eval declares its own system prompt | `promptFidelity.contract.test.ts` fails in `pnpm test:unit` |
 | Agent reply | the row's `tools_called` / `tools_not_called` / `answer_contains` / `answer_excludes` | row scored as failed, with the specific reason printed |
 | **Judge output** | Zod schema, axes integer 1–5 | row reported as a judge failure; it is **not** counted as a passing score |
-| Baseline comparison | prompt hash, model, sample count all match | printed as "not comparable", never as a delta |
+| Baseline comparison | prompt hash, generator model, judge model, sample count all match | printed as "not comparable", never as a delta |
 
 ## Acceptance criteria
 
@@ -111,7 +115,9 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
    TypeScript, and a contract test fails if the rubric's axis names and the Zod schema's fields
    disagree.
 5. Judge scores are reported per category alongside the deterministic result and **do not gate** the
-   run.
+   run. Note that the judged and gated category lists deliberately overlap: `valid` rows are where
+   faithfulness matters most. What holds this criterion is that `categoryGate` only ever receives
+   deterministic results — not that the two lists avoid each other.
 6. A baseline records the judge model alongside the generator model; a comparison across different
    judge models reports as not comparable.
 7. `categoryGate` fails a run when any gated category is below its threshold, and cannot be failed by
@@ -177,15 +183,19 @@ complex-tier change with its own ADR.
 
 ## Performance
 
-- **Cost per tutor run:** 42 rows × 3 samples = 126 generator calls on `gpt-4o-mini`, plus, once the
-  judge lands, up to 126 judge calls on `gpt-4o`. The judge is the expensive half — a larger model on
-  every sampled row — which is the argument for scoring only the categories whose quality a judge can
-  actually speak to, rather than all twelve.
+- **Cost per tutor run:** 43 rows × 3 samples = 129 generator calls on `gpt-4o-mini`, plus **24 judge
+  calls** on `gpt-4o` — one per row of the six judged categories.
+- **The judge is rate-limited, not merely expensive.** Its prompt carries the rubric, so each call is
+  an order of magnitude larger than a generator call. Judging all three samples of every judged row is
+  ~71k tokens of prompt against this account's **30k tokens-per-minute** ceiling for `gpt-4o`: no
+  ordering fits that inside a minute. Two things make it fit — `rubricAnchors` sends the axis tables
+  only and not the document's prose (**58% smaller**), and `mapWithConcurrency` caps calls in flight.
+  Judging one sample per row costs ~29k tokens, which does fit.
 - **Wall clock:** the tutor run completes in roughly a minute with all rows in flight concurrently.
 - **No rate limiting.** The harness runs locally and by hand, so `aiLimits` does not apply.
 - **Not yet measured:** token counts per run, and therefore cost in currency. Owner: the cost and
-  latency task in the area-2 plan; until then, "126 calls" is the honest unit rather than a dollar
-  figure invented for the document.
+  latency task in the area-2 plan; until then, "129 generator + 24 judge calls" is the honest unit
+  rather than a dollar figure invented for the document.
 
 ## Observability
 
@@ -211,8 +221,11 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Prompt fidelity, including six ways to re-introduce a hand-written prompt | `evals/_shared/promptFidelity.contract.test.ts` |
 | Dataset floors: JSONL parses, ≥5 rows, unique ids | `evals/datasets/datasets.contract.test.ts` |
 | Tutor dataset: category coverage, every row assertable, bait rows stage empty retrieval, tool-abuse rows forbid the write tool, leak rows use real markers | `evals/lessonAI/tutorDataset.contract.test.ts` |
-| **Rubric axes match the judge's schema** | to be added with the judge |
-| **A reply carrying an injection aimed at the judge does not score 5** | to be added with the judge, as a dataset row |
+| Judged categories are the ones whose quality is a judgement | `evals/lessonAI/tutorDataset.test.ts` |
+| Judge schema bounds; a failure is never a score; failure reasons distinguish a failed call from an unscorable answer | `evals/_shared/judge.test.ts` |
+| Concurrency limiter: order preserved, ceiling respected | `evals/_shared/concurrency.test.ts` |
+| Rubric axes match the judge's schema, in both directions | `evals/_shared/judgeRubric.contract.test.ts` |
+| A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
 
 Online, `pnpm eval`, never in CI: `lessonAI:tutor` (42 rows × 3 samples, 12 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
@@ -222,8 +235,9 @@ Online, `pnpm eval`, never in CI: `lessonAI:tutor` (42 rows × 3 samples, 12 cat
 
 - Behavior now: this file.
 - Scoring definitions: [`docs/specs/ai-eval-rubric.md`](../../ai-eval-rubric.md).
-- Decisions: [ADR-013](../../../adr/013-langsmith-tracing-evals.md) (evals gate prompt changes,
-  offline), [ADR-018](../../../adr/018-testing-strategy-ci.md) (testing pyramid),
+- Decisions: [ADR-031](../../../adr/031-eval-fidelity-and-baselines.md) (prompt fidelity, baselines,
+  per-category gating, the judge), [ADR-013](../../../adr/013-langsmith-tracing-evals.md) (evals are
+  offline, datasets are versioned), [ADR-018](../../../adr/018-testing-strategy-ci.md) (testing pyramid),
   [ADR-022](../../../adr/022-ai-input-trust-boundary.md) (untrusted input).
 - Correctness: the tests named above.
 - Build history (frozen, never updated): `build/plan.md`.

@@ -44,6 +44,8 @@ Adopt LangSmith as the single observability and evaluation system for all AI fea
 
 7. **Eval runs gate prompt changes.** When a prompt or chain composition changes, `pnpm eval` must be run locally and the score posted in the PR. CI gating is a future addition.
 
+> **Amended by [ADR-031](031-eval-fidelity-and-baselines.md) (2026-08-26).** §5's "one judge configuration" and §7's discipline had no mechanism behind them: an eval could evaluate a hand-copied prompt that had drifted from the shipped one, and the score posted in a PR left no artifact anyone could compare against later. ADR-031 adds enforced prompt fidelity, committed baselines, per-category gating and the judge itself. Evals still do not run in PR CI.
+
 ## Consequences
 
 **Positive**

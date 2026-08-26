@@ -53,6 +53,7 @@ for why it's structured this way.
 | [ADR-028](adr/028-multilingual-ai-guard-coverage.md) | Multilingual AI guard coverage | Accepted |
 | [ADR-029](adr/029-error-reporting-projection-funnel.md) | Enrich at the service boundary, capture once through an allowlist projection | Accepted |
 | [ADR-030](adr/030-tiered-agentic-development.md) | Decide process ceremony from the diff, and measure what it costs | Accepted |
+| [ADR-031](adr/031-eval-fidelity-and-baselines.md) | Evals measure the shipped system, and their numbers survive the run | Accepted |
 
 ## Specs
 
