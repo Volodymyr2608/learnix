@@ -4,6 +4,7 @@ import {
 	JudgeScoresSchema,
 	loadRubric,
 	RUBRIC_PATH,
+	rubricAnchors,
 	rubricAxes,
 } from "./judge";
 
@@ -84,6 +85,43 @@ describe("the judge prompt is built from the document", () => {
 		// copy, this would drift the moment the document was edited.
 		expect(systemPrompt).toContain(
 			"Every claim traces to a sentence in `retrievedContent`",
+		);
+	});
+});
+
+/**
+ * The judge needs the anchor tables, not the document's prose. Sending the
+ * whole file costs tokens on every call — and the account's per-minute ceiling
+ * is what turns that cost into 429s misreported as judge failures.
+ */
+describe("rubricAnchors", () => {
+	it("keeps every axis and its anchor table", () => {
+		const anchors = rubricAnchors(loadRubric());
+
+		for (const axis of [
+			"Relevance",
+			"Faithfulness",
+			"Completeness",
+			"Groundedness",
+		]) {
+			expect(anchors).toContain(`## ${axis}`);
+		}
+		expect(anchors).toContain(
+			"Every claim traces to a sentence in `retrievedContent`",
+		);
+	});
+
+	it("drops the prose the judge does not score against", () => {
+		const anchors = rubricAnchors(loadRubric());
+
+		expect(anchors).not.toContain("## Known limits");
+		expect(anchors).not.toContain("## Output shape for the judge");
+		expect(anchors).not.toContain("## Why these four");
+	});
+
+	it("is materially smaller than the whole document", () => {
+		expect(rubricAnchors(loadRubric()).length).toBeLessThan(
+			loadRubric().length * 0.8,
 		);
 	});
 });

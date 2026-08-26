@@ -9,10 +9,12 @@ import {
 	SYSTEM_PROMPT,
 } from "@/server/services/lessonAI/lessonAI.agent";
 import { promptHash, reportRun } from "../_shared/baseline";
+import { mapWithConcurrency } from "../_shared/concurrency";
 import {
 	DEFAULT_JUDGE_MODEL as JUDGE_MODEL,
 	judgeReply,
 	loadRubric,
+	rubricAnchors,
 	summariseJudgeScores,
 } from "../_shared/judge";
 import { categoryGate, flakyRows, rowStability } from "../_shared/score";
@@ -64,6 +66,13 @@ const TEMPERATURE = 0.4;
  * and "sometimes" apart, and matches what `aiOutput/*.eval.ts` already samples.
  */
 const SAMPLES = 3;
+
+/**
+ * Judge calls in flight at once. Low on purpose: the judge prompt carries the
+ * rubric, so a judged run is token-heavy enough to hit a per-minute account
+ * ceiling long before it hits a request-rate one.
+ */
+const JUDGE_CONCURRENCY = 2;
 
 /** What the real tools return when they find nothing. */
 const NO_LESSON_CONTENT = "No relevant content found for this lesson.";
@@ -246,12 +255,29 @@ export const runTutorEval = async (): Promise<boolean> => {
 	// Judge only where quality is a judgement. The boundary categories already
 	// have an exact answer above, so a second, larger model re-reading them adds
 	// cost and noise to a number that is currently precise.
-	const judgeable = results.filter((r) =>
-		JUDGED_CATEGORIES.includes(r.category),
-	);
-	const rubric = loadRubric();
-	const judged = await Promise.all(
-		judgeable.map(async (r) => ({
+	// One sample per row, not all three. 43 rows x 3 samples of judged categories
+	// is ~71k tokens of judge prompt, and this account's gpt-4o ceiling is 30k
+	// tokens per minute — no ordering fits that inside one minute. Judging the
+	// first draw of each row costs ~29k and does fit. The price is that judge
+	// scores carry no per-row variance of their own; that needs a higher rate
+	// limit, and until then the deterministic side is where flakiness is read.
+	const seen = new Set<string>();
+	const judgeable = results.filter((r) => {
+		if (!JUDGED_CATEGORIES.includes(r.category)) return false;
+		if (seen.has(r.id)) return false;
+		seen.add(r.id);
+		return true;
+	});
+	// Anchors only, and a few at a time. The judge prompt carries the rubric, so
+	// it is an order of magnitude larger than a tutor call; firing all of them at
+	// once put the run past the account's per-minute token ceiling and returned
+	// 429s that arrived looking exactly like a judge that could not score.
+	const rubric = rubricAnchors(loadRubric());
+	const judged = await mapWithConcurrency(
+		judgeable,
+		JUDGE_CONCURRENCY,
+		async (r) => ({
+			id: r.id,
 			category: r.category as string,
 			result: await judgeReply({
 				question: r.row.input.question,
@@ -261,7 +287,7 @@ export const runTutorEval = async (): Promise<boolean> => {
 				rubric,
 				model: JUDGE_MODEL,
 			}),
-		})),
+		}),
 	);
 
 	console.log(
@@ -308,6 +334,18 @@ export const runTutorEval = async (): Promise<boolean> => {
 			};
 		}).filter((c) => c.total > 0),
 	});
+
+	const unscorable = judged.filter((entry) => !entry.result.ok);
+	if (unscorable.length > 0) {
+		// Printed, not just counted: the first judged run reported 13 of these and
+		// they were all rate limits, not judge failures. A count alone would have
+		// read as "the judge cannot score this surface".
+		console.log(`\nUnscorable (${unscorable.length}):`);
+		for (const entry of unscorable.slice(0, 5))
+			console.log(
+				`  ${entry.id.padEnd(16)} ${entry.result.ok ? "" : entry.result.reason.slice(0, 120)}`,
+			);
+	}
 
 	console.log(`\nJudge (${JUDGE_MODEL}) — mean score per axis, 1-5:`);
 	console.log(

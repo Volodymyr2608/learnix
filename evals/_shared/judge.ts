@@ -62,6 +62,23 @@ export const rubricAxes = (markdown: string): string[] => {
 		.sort();
 };
 
+/**
+ * Just the axis sections — the anchor tables the judge scores against.
+ *
+ * The document also carries prose for human readers: why these four axes, the
+ * output shape, the known limits. That is worth having in the file and worth
+ * nothing in the prompt, and it is not free: the rubric is sent on every judge
+ * call, so the prose is paid for once per scored reply. Sending the whole file
+ * is what pushed a judged run past the account's per-minute token ceiling.
+ */
+export const rubricAnchors = (markdown: string): string =>
+	markdown
+		.split(/^## /m)
+		.slice(1)
+		.filter((section) => /^\|\s*\*\*5\*\*\s*\|/m.test(section))
+		.map((section) => `## ${section.trimEnd()}`)
+		.join("\n\n");
+
 const AXIS = z.number().int().min(1).max(5);
 
 /**
@@ -159,7 +176,7 @@ export const buildJudgePrompt = (params: {
 }): { systemPrompt: string; userPrompt: string } => {
 	const systemPrompt = `You are grading one reply from an AI tutor against a rubric.
 
-${params.rubric ?? loadRubric()}
+${params.rubric ?? rubricAnchors(loadRubric())}
 
 Score every axis as an integer from 1 to 5 using the anchors above. Judge the reply only against the lesson content provided — not against your own knowledge of the subject, and not against how confident the reply sounds. In rationale, give one sentence for each axis you scored below 4.
 
