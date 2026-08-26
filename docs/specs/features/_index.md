@@ -11,6 +11,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | ai-chat-route-authorization | stable | ai-input-trust-boundary, auth |
 | ai-course-builder | stable | course |
 | ai-defence-layers | stable | ai-input-trust-boundary, ai-tutor-guardrails, ai-chat-route-authorization |
+| ai-evaluation-harness | in-progress | ai-tutor-guardrails, ai-input-trust-boundary |
 | ai-flow-contracts | stable | ai-course-builder, ai-input-trust-boundary |
 | ai-guard-multilingual-coverage | stable | ai-input-trust-boundary, ai-tutor-guardrails, ai-defence-layers |
 | ai-input-trust-boundary | stable | ai-course-builder, auth |
