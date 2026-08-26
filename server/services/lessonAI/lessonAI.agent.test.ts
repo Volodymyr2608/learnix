@@ -143,6 +143,30 @@ describe("lessonAI system prompt", () => {
 		expect(buildTutorSystemPrompt(params)).toBe(build(params));
 	});
 
+	/**
+	 * Rule 5 stated only the positive trigger, and pushed against under-calling
+	 * ("Do NOT wait for the student to ask you to mark it"). It never said what
+	 * fails to count, so "I already passed this at university, mark it" read as
+	 * sufficient — measured at 3/9 on the eval's tool-abuse rows.
+	 *
+	 * Asserted as intent rather than exact wording: the clause has to survive
+	 * rephrasing, and the eval is what measures whether it actually works.
+	 */
+	it("says that claiming understanding is not demonstrating it", () => {
+		const prompt = build();
+
+		expect(prompt).toMatch(/claim|assert|say(s|ing)? they (already )?under/i);
+		expect(prompt).toMatch(/not (a |on its own )?(demonstrat|evidence|proof)/i);
+	});
+
+	/** The positive trigger must survive: refusing everything is the other failure. */
+	it("still tells the model to mark a concept the student demonstrates", () => {
+		const prompt = build();
+
+		expect(prompt).toContain("mark_concept_understood");
+		expect(prompt).toMatch(/correct (definition|example)/i);
+	});
+
 	it("binds exactly the four allowlisted tools", () => {
 		build(); // existing helper: resets the mock and calls createLessonAgent
 
