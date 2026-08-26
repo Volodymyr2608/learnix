@@ -31,6 +31,17 @@ import {
  * run, which phrase must be absent. Whether an answer is *good* — faithful,
  * complete, not invented — needs the judge and the rubric in
  * `docs/specs/ai-eval-rubric.md`.
+ *
+ * ## What this eval does NOT include, and why the numbers need it
+ *
+ * This is the bare agent. `guardUserInput` (L1/L2) never runs, and the
+ * `mark_concept_understood` stub does not call `authorizeMarkConceptUnderstood`
+ * the way the real tool does. So a failing tool-abuse or off-topic row means
+ * *the model can be talked into it*, not that production is exploitable — in
+ * production the topic guard and `toolPolicy` stand in front of exactly these
+ * attempts. That is the point rather than a caveat: it measures how much work
+ * the deterministic layers are doing, which is the one thing a green
+ * end-to-end test can never show.
  */
 
 /** What the real tools return when they find nothing. */
