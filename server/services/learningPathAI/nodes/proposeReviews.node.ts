@@ -16,7 +16,11 @@ export function proposeReviews(state: PathState): Partial<PathState> {
 		reviewSteps.push({
 			type: "REVIEW_LESSON" as const,
 			lessonId: w.firstLessonId,
-			reasonSeed: `Mastery of "${w.concept}" is ${w.level}/5 — review recommended`,
+			// Mastery runs 0-3, not 0-5: conversation grants at most 2 and quizzes
+			// write 3. The seed is interpolated into mergeAndExplain's prompt and
+			// surfaces to the student in the path's reason text, so a wrong
+			// denominator misstates progress to both.
+			reasonSeed: `Mastery of "${w.concept}" is ${w.level}/3 — review recommended`,
 		});
 	}
 
