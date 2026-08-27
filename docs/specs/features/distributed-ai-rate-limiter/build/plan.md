@@ -17,7 +17,7 @@ rejection, not a pass.
 **Tech Stack:** TypeScript, `@upstash/redis` (HTTP/REST client), Redis Lua scripting, Vitest,
 `serverless-redis-http` (SRH) for local/CI testing against a real Redis.
 
-**Spec:** [`../spec.md`](../spec.md) · **ADR:** [`../../../adr/027-distributed-ai-rate-limiting.md`](../../../adr/027-distributed-ai-rate-limiting.md)
+**Spec:** [`../spec.md`](../spec.md) · **ADR:** [`../../../adr/027-distributed-ai-rate-limiting.md`](../../../../adr/027-distributed-ai-rate-limiting.md)
 
 ## Global Constraints
 

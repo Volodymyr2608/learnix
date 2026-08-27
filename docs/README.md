@@ -53,6 +53,7 @@ for why it's structured this way.
 | [ADR-028](adr/028-multilingual-ai-guard-coverage.md) | Multilingual AI guard coverage | Accepted |
 | [ADR-029](adr/029-error-reporting-projection-funnel.md) | Enrich at the service boundary, capture once through an allowlist projection | Accepted |
 | [ADR-030](adr/030-tiered-agentic-development.md) | Decide process ceremony from the diff, and measure what it costs | Accepted |
+| [ADR-031](adr/031-eval-fidelity-and-baselines.md) | Evals measure the shipped system, and their numbers survive the run | Accepted |
 
 ## Specs
 
@@ -63,6 +64,17 @@ for why it's structured this way.
 | [mission.md](specs/mission.md) | Platform purpose, audience, and AI differentiators |
 | [tech-stack.md](specs/tech-stack.md) | Technology choices with rationale (links to ADRs) |
 | [roadmap.md](specs/roadmap.md) | High-level implementation order by phase |
+
+### Cross-surface documents
+
+Living documents that answer questions no single feature's `spec.md` can, because they are about the
+seam between features. Kept in `docs/specs/` (and `docs/security/`) rather than under `features/`.
+
+| Doc | Purpose |
+|-----|---------|
+| [ai-eval-strategy.md](specs/ai-eval-strategy.md) | How the AI subsystem is measured — the assert / judge / human line, when an eval gates and when it only measures, baselines, cost per run, known limits |
+| [ai-eval-rubric.md](specs/ai-eval-rubric.md) | The four scoring axes the LLM judge applies, read at run time by `evals/_shared/judge.ts` |
+| [security/ai-defence-strategy.md](security/ai-defence-strategy.md) | How the five AI surfaces defend each other — the nine layers and the content chains between features |
 
 ### Features
 

@@ -129,7 +129,7 @@ and feeding it back puts unauthored text into the prompt through the error path.
 
 ## Acceptance criteria
 
-Applies: [`docs/constitution.md`](../../constitution.md) — the standing constraints are inherited,
+Applies: [`docs/constitution.md`](../../../constitution.md) — the standing constraints are inherited,
 not retyped — plus:
 
 1. A generation on a lesson owned by another instructor is refused, and the refusal comes from the
@@ -224,7 +224,7 @@ its own `security.md`.
 
 **Not measured**, the same gap the other AI surfaces carry: no p95 latency budget, no per-generation
 token or cost ceiling. Owner is workstream D of
-[`../../ai-hardening-plan.md`](../../ai-hardening-plan.md) §3. The unbounded quantity here is the
+`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3. The unbounded quantity here is the
 **lesson body**: `get_lesson_content` returns it whole, with no length cap, so the cost of one
 generation scales with how much the instructor wrote — and it is re-read on every retry.
 

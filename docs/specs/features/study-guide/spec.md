@@ -137,7 +137,7 @@ the read boundary would short-circuit its own replacement forever, since the has
 
 ## Acceptance criteria
 
-Applies: [`docs/constitution.md`](../../constitution.md) — the standing constraints (structure,
+Applies: [`docs/constitution.md`](../../../constitution.md) — the standing constraints (structure,
 style, error handling, security, testing) are inherited, not retyped here — plus:
 
 1. A guide generated 3 minutes ago reads "Last generated 3 minutes ago"; one generated 90 days ago
@@ -267,7 +267,7 @@ change adds a second render path — hence acceptance criterion 10.
 
 **Not measured**, the same stated gap the other AI surfaces carry: no p95 latency budget, no
 per-generation token or cost ceiling, because nothing measures them. Owner is workstream D of
-[`../../ai-hardening-plan.md`](../../ai-hardening-plan.md) §3. The input side is unbounded in a way
+`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3. The input side is unbounded in a way
 the others are not — a lesson body has no length cap before it reaches the prompt, so the cost of one
 generation scales with how much an instructor wrote.
 
@@ -310,7 +310,7 @@ Tests run in PR CI; **evals never do** — they are the manual gate before a pro
 | Model text never reaches the markdown renderer | contract | `app/_components/_shared/markdown/renderers.contract.test.ts` |
 | Every station, tool and chain documented | contract | `chainContract.contract.test.ts` |
 
-**Evals**: `pnpm eval lessonInsightsAI:lessonInsights` (`evals/datasets/lessonInsights.jsonl`) —
+**Evals**: `pnpm eval lessonInsightsAI:lessonInsights` (`evals/datasets/lessonInsightsAI/lessonInsights.jsonl`) —
 generation quality against sample lessons. The adversarial side is covered by the shared
 `aiOutput:falsePositive` set, which is where this surface's 9.5% figure comes from; there is no
 study-guide-specific injection set, and a prompt change to one of the three chains has no eval that

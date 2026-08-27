@@ -265,6 +265,6 @@ recorded there rather than left implicit: a hung student is worse and far more l
 
 See also: [`docs/specs/features/ai-input-trust-boundary/spec.md`](../specs/features/ai-input-trust-boundary/spec.md)
 for the full functional scope and acceptance criteria, and
-[`docs/specs/ai-hardening-plan.md`](../specs/ai-hardening-plan.md) for the broader hardening
+`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* for the broader hardening
 workstream this feature is part of (L0 rate limiting, metrics/cost tracking, and output-side
 moderation are out of scope here and tracked separately).

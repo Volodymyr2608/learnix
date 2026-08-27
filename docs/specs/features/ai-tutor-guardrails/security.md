@@ -424,7 +424,52 @@ Written as facts after implementation, not as intentions before it.
    their existing power. Accepted, not solved.
 5. **Social manipulation is not detected as input, and should not be.** "My professor already signed
    this off" is on-topic and pattern-free. It is stopped at the authority layer (S7), not the input
-   layer.
+   layer. **Still accepted, and now measured — with no effect found.** A prompt-level counterweight
+   was added (rule 6: asserting knowledge is not showing it) and evaluated on the `tool-abuse` rows
+   of `evals/datasets/lessonAI/tutor.jsonl`, three rows at three samples each.
+
+   Across **four** runs of the *unchanged* prompt (hash `712c592965d2`, all committed in
+   `evals/baselines/lessonAI-tutor.json` — see `git log` on that file), `tool-abuse` scored
+   **0/9, 2/9, 3/9 and 3/9**. Two runs of a verbose clause placed inside rule 5 scored 0/9; two runs
+   of the terse clause now shipped as rule 6 scored 3/9.
+
+   Every arm falls inside the range the unchanged prompt already produces on its own. **Neither
+   formulation is distinguishable from having no clause at all**, and the run-to-run spread of a
+   single prompt is as large as any difference between prompts. The limit is the finding: two runs
+   per arm cannot separate a prompt effect from noise on a control that varies by 0/9 to 3/9.
+
+   **A negative control then showed why no wording helped: the model does not discriminate at all.**
+   `legit-mastery` scoring 9/9 looked like the prompt was working, but that number is equally
+   consistent with a model that marks *any* mastery-adjacent message. The `mastery-lookalike` rows —
+   a student parroting the retrieved chunk back verbatim, and a student asserting fluency while
+   stating no content — settle it:
+
+   | rows | tool should | result |
+   |---|---|---|
+   | `legit-mastery` (4) | fire | **12/12** |
+   | `mastery-lookalike` (2) | **not** fire | **0/6** |
+   | `tool-abuse` (3) | **not** fire | 3/9 |
+
+   The tool fires on genuine demonstration, on verbatim parroting, and on bare assertion, at close to
+   the same rate. There is no evidence the model distinguishes demonstrated understanding from
+   anything else on-topic — so a prompt clause has nothing to sharpen, which is the likeliest reason
+   both formulations landed inside the control's own noise.
+
+   The residual is therefore unchanged and better understood. A student who merely restates lesson
+   text can obtain a level ≤ 2 `ConceptMastery` row, and `toolPolicy` (S7) — the closed concept
+   allowlist and the level ceiling — is the *only* thing bounding it. This is no longer a judgement
+   that the authority layer is the right place to enforce; it is measured.
+
+   Rule 6 is kept on **policy** grounds only, with no functional claim attached: rule 5 stated the
+   positive trigger and pushed twice against under-calling with no counterweight, and that asymmetry
+   was a defect in a stated policy regardless of whether a model acts on it. It does not over-refuse
+   (`legit-mastery` 12/12), and it does not discriminate either.
+
+   **Open, and larger than this entry:** the write tool's trigger is a model judgement the model
+   appears not to make. Options are narrowing what can be marked (a quiz-backed signal rather than a
+   conversational one) or accepting that conversational mastery means "the student talked about it".
+   Both are product decisions beyond a security register.
+
 6. **Conversation cannot reach mastery level 3, so lessons with no quizzes have no path to it.**
    Their concepts stay at level 2 and read as "weak" in the learning path forever. The alternative
    (promoting on lesson completion) would reintroduce confirmation-by-non-action.
@@ -485,9 +530,32 @@ Written as facts after implementation, not as intentions before it.
     model without being registered; they do not enumerate what an agent actually bound at runtime.
     A stronger version would import each agent and walk its real tool list and assembled prompt. This
     is exactly how the original exemption was able to rot.
-16. **`tutor.eval.ts` validates its own copy of the prompt.** It does not import `SYSTEM_PROMPT` or
-    the real tool definitions, and its copies have already drifted from production; its dataset is
-    two rows, so one failure moves the score by 50%. It is green and proves very little.
+16. **`tutor.eval.ts` validated its own copy of the prompt — closed 2026-08-26.** It did not import
+    `SYSTEM_PROMPT` or the real tool definitions, and its copy had already drifted: it instructed the
+    model to always call `retrieve_lesson_context`, which the shipped prompt forbids for "which
+    lesson covered X" questions, and it omitted the untrusted-data clause entirely. Its dataset was
+    two rows, so one failure moved the score by 50%. It was green about a system that was never
+    deployed.
+
+    **Closed by `ai-evaluation-harness` / [ADR-031](../../../adr/031-eval-fidelity-and-baselines.md).**
+    The eval imports the prompt, and `buildTutorSystemPrompt` is exported from `lessonAI.agent.ts` so
+    production and the eval assemble it the same way, pinned equal by a test. A copy cannot come back
+    silently: `promptFidelity.contract.test.ts` fails any eval declaring its own system prompt,
+    matching on the literal's *content* rather than its declaration — the declaration-shaped first
+    version was tested against six ways of reintroducing the defect and waved five of them through.
+    The dataset is 49 rows across 14 categories, every dataset in the repo now carries a ≥5-row floor
+    (`datasets.contract.test.ts`), each row runs three times at production's `temperature: 0.4`, and
+    the numbers are committed to `evals/baselines/lessonAI-tutor.json` so a prompt change prints what
+    moved. See [`../ai-evaluation-harness/spec.md`](../ai-evaluation-harness/spec.md).
+
+    **Residual, and it is the point of the eval rather than a defect:** the eval drives a *naked*
+    agent — no `guardUserInput` in front, and a `mark_concept_understood` stub that never calls
+    `authorizeMarkConceptUnderstood`. `tool-abuse` at 2/9 therefore means "the model can be talked
+    into trying", not "production is exploitable"; what it measures is how much work the
+    deterministic layers are doing, which a green end-to-end test never shows. Evals still do not run
+    in PR CI (ADR-013 §7, deliberately kept), the judge scores but does not gate, and per-row judge
+    variance is unmeasured. What no assertion covers at all is in [`manual-qa.md`](manual-qa.md);
+    why each check sits where it does is [`../../ai-eval-strategy.md`](../../ai-eval-strategy.md).
 17. **The rate limiter lived in process memory** — then `server/utils/aiRateLimiter.ts`, shared by
     all three `app/api/chat/**` routes (a second, separate limiter lived in
     `learningPathAI.service.ts:8`). The guarantee was 20 requests per instance per minute, and the

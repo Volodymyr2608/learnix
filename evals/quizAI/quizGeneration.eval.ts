@@ -1,10 +1,13 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { tool } from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent } from "langchain";
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import { QUIZ_INITIAL_SYSTEM_PROMPT } from "@/server/services/quizAI/quizAI.agent";
 import type { QuizQuestion } from "@/server/services/quizAI/schemas/quizOutput.schema";
 import { QuizOutputSchema } from "@/server/services/quizAI/schemas/quizOutput.schema";
 import { accuracyGate } from "../_shared/score";
@@ -21,18 +24,13 @@ const DATASET = resolve(
 	"evals/datasets/quizAI/quizGeneration.jsonl",
 );
 
-const SYSTEM_PROMPT = `You are an expert quiz writer for an online learning platform.
-
-Your job is to generate exactly {count} multiple-choice questions for a lesson.
-
-Rules:
-1. Call get_lesson_content first to understand the lesson material.
-2. Call get_existing_quizzes to check for existing questions — never duplicate them.
-3. Generate exactly {count} questions based on the lesson content.
-4. Each question must have exactly 4 answer options.
-5. The "correct" field must be verbatim identical to one of the 4 options — no paraphrasing.
-6. Calibrate difficulty to {level} level (Beginner = basic recall, Intermediate = application, Advanced = analysis/synthesis).
-7. Output must conform to the required schema — no markdown, no extra keys.`;
+// Same LangChain templating production uses (quizAI.agent.ts createQuizAgent,
+// initial-generation branch) — {count}/{level} substitution goes through the
+// prompt's own f-string engine, not a hand-rolled .replace() that would miss
+// {count}'s second occurrence in rule 3.
+const template = ChatPromptTemplate.fromMessages([
+	["system", QUIZ_INITIAL_SYSTEM_PROMPT],
+]);
 
 function isStructurallyValid(questions: QuizQuestion[]): boolean {
 	return questions.every(
@@ -74,10 +72,13 @@ export async function runQuizGenerationEval(): Promise<boolean> {
 				},
 			);
 
-			const systemPrompt = SYSTEM_PROMPT.replace(
-				"{count}",
-				String(r.count),
-			).replace("{level}", r.level);
+			// `level` is instructor-authored free text (Course.level is an
+			// unconstrained string) — production wraps it as untrusted
+			// course_data before interpolation; the eval must too.
+			const systemPrompt = await template.format({
+				count: r.count,
+				level: wrapUntrustedContent(r.level, "course_data"),
+			});
 
 			const agent = createAgent({
 				model: llm,

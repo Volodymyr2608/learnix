@@ -4,6 +4,7 @@ import { insightsChain } from "@/server/services/lessonInsightsAI/chains/paralle
 import { accuracyGate } from "../_shared/score";
 
 type Row = {
+	id: string;
 	input: { content: string };
 	expected: {
 		summary_contains: string[];
@@ -12,7 +13,10 @@ type Row = {
 	};
 };
 
-const DATASET = resolve(process.cwd(), "evals/datasets/lessonInsights.jsonl");
+const DATASET = resolve(
+	process.cwd(),
+	"evals/datasets/lessonInsightsAI/lessonInsights.jsonl",
+);
 
 export async function runLessonInsightsEval(): Promise<boolean> {
 	const rows: Row[] = readFileSync(DATASET, "utf-8")
@@ -21,7 +25,7 @@ export async function runLessonInsightsEval(): Promise<boolean> {
 		.map((l) => JSON.parse(l));
 
 	const results = await Promise.all(
-		rows.map(async (r, i) => {
+		rows.map(async (r) => {
 			const out = await insightsChain.invoke({ content: r.input.content });
 			const summaryLower = out.summary.summary.toLowerCase();
 			const summaryOk = r.expected.summary_contains.every((kw) =>
@@ -31,7 +35,7 @@ export async function runLessonInsightsEval(): Promise<boolean> {
 				out.concepts.concepts.length >= r.expected.concepts_min;
 			const glossaryOk =
 				out.glossary.glossary.length >= r.expected.glossary_min;
-			return { id: `row-${i}`, ok: summaryOk && conceptsOk && glossaryOk };
+			return { id: r.id, ok: summaryOk && conceptsOk && glossaryOk };
 		}),
 	);
 
