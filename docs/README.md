@@ -65,6 +65,17 @@ for why it's structured this way.
 | [tech-stack.md](specs/tech-stack.md) | Technology choices with rationale (links to ADRs) |
 | [roadmap.md](specs/roadmap.md) | High-level implementation order by phase |
 
+### Cross-surface documents
+
+Living documents that answer questions no single feature's `spec.md` can, because they are about the
+seam between features. Kept in `docs/specs/` (and `docs/security/`) rather than under `features/`.
+
+| Doc | Purpose |
+|-----|---------|
+| [ai-eval-strategy.md](specs/ai-eval-strategy.md) | How the AI subsystem is measured — the assert / judge / human line, when an eval gates and when it only measures, baselines, cost per run, known limits |
+| [ai-eval-rubric.md](specs/ai-eval-rubric.md) | The four scoring axes the LLM judge applies, read at run time by `evals/_shared/judge.ts` |
+| [security/ai-defence-strategy.md](security/ai-defence-strategy.md) | How the five AI surfaces defend each other — the nine layers and the content chains between features |
+
 ### Features
 
 Generated index, not hand-maintained: [`docs/specs/features/_index.md`](specs/features/_index.md)

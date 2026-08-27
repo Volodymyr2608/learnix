@@ -235,13 +235,15 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Rubric axes match the judge's schema, in both directions | `evals/_shared/judgeRubric.contract.test.ts` |
 | A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
 
-Online, `pnpm eval`, never in CI: `lessonAI:tutor` (43 rows × 3 samples, 12 categories),
+Online, `pnpm eval`, never in CI: `lessonAI:tutor` (49 rows × 3 samples, 14 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
 `courseAI:*`, `aiGuard:*`, `aiOutput:*`.
 
 ## Source of truth
 
 - Behavior now: this file.
+- Why this harness measures what it measures, across all surfaces — the assert/judge/human line, gate
+  policy, cost and known limits: [`docs/specs/ai-eval-strategy.md`](../../ai-eval-strategy.md).
 - Scoring definitions: [`docs/specs/ai-eval-rubric.md`](../../ai-eval-rubric.md).
 - Decisions: [ADR-031](../../../adr/031-eval-fidelity-and-baselines.md) (prompt fidelity, baselines,
   per-category gating, the judge), [ADR-013](../../../adr/013-langsmith-tracing-evals.md) (evals are

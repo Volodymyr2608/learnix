@@ -116,11 +116,13 @@ inconsistently:
   about register, and register is exactly where LLM judges are known to be least stable run to run.
 
 **What the runs so far showed.** Current figures live in `evals/baselines/lessonAI-tutor.json`, per
-category, so they can be checked rather than taken from prose. The rows worth reading are where the
-two kinds of measurement disagree: `low-confidence` satisfies every deterministic assertion (6/6)
-while scoring 3.0 on faithfulness and groundedness, and `missing-info` fails every assertion (0/9,
-because the tutor never asks for the code the student withheld) while scoring 4.7 on both — what it
-does say is grounded, it simply answers a question it should first have clarified.
+category, so they can be checked rather than taken from prose — and the baseline is re-recorded as
+the dataset grows, so read it rather than this paragraph, which was last reconciled with it on
+2026-08-27. The rows worth reading are where the two kinds of measurement disagree:
+`low-confidence` satisfies every deterministic assertion (6/6) while scoring 3.5 on faithfulness and
+groundedness, and `missing-info` fails every assertion (0/9, because the tutor never asks for the
+code the student withheld) while scoring 5.0 on both — what it does say is grounded, it simply
+answers a question it should first have clarified.
 
 **Two earlier figures quoted here were artifacts, and both looked like findings.** `valid` at ~3.9
 came from a judge handed content reconstructed from the dataset row instead of what the tutor's tools

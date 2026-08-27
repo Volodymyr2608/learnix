@@ -78,18 +78,20 @@ ADR-013 §5 asked each structured-output feature to own; none existed until now.
 - The question "did this change make anything worse" is answerable from the diff, by anyone, later.
 - Judge scores make visible what the deterministic suite cannot. `low-confidence` satisfies every
   assertion in the suite — 6/6 samples — while the judge scores its faithfulness and groundedness at
-  3.0: replies that pick the right tool and avoid every forbidden phrase while being only partly
+  3.5: replies that pick the right tool and avoid every forbidden phrase while being only partly
   grounded in what retrieval returned. `hallucination-bait` is 12/12 with both axes at 4.0. No
   assertion in the suite can express either gap. (These are measured categories, not gated ones —
   see Decision 5.)
 - The two measurements can disagree without either being wrong, which is the case worth understanding
   before trusting a single number. `missing-info` fails every deterministic assertion (0/9 — the
   tutor never asks for the code the student withheld) while the judge scores faithfulness and
-  groundedness at 4.7, because what it *does* say is grounded in the lesson. The assertion measures
+  groundedness at 5.0, because what it *does* say is grounded in the lesson. The assertion measures
   whether it asked; the judge measures whether what it said was true. A suite carrying only one of
   them reports a confident half-answer.
 - **Every figure above is in `evals/baselines/lessonAI-tutor.json`**, per category, alongside the
-  deterministic counts — see the retraction below for why that matters more than it looks.
+  deterministic counts — see the retraction below for why that matters more than it looks. The
+  baseline is re-recorded as the dataset grows, so it, not this prose, is the number: the figures
+  here were last reconciled with it on 2026-08-27.
 - Three checks that used to require a careful reader are now contract tests, so the next feature does
   not pay for them again (`docs/constitution.md` §Agent economics).
 
@@ -102,12 +104,12 @@ kept here rather than quietly edited, because the pattern is the point.
 handed content *reconstructed* from the dataset row rather than the text the tutor's tools actually
 served; for 9 of 24 judged rows the two differed, and cross-lesson rows were graded against "No
 relevant content found" while their content sat in a field the reconstruction never read. Given the
-served text, `valid` scores 5.0/4.6 and the gap closes.
+served text, `valid` scores 4.9 relevance / 4.8 faithfulness and the gap closes.
 
 **Second: `missing-info` at 1.0**, read as "the tutor invents an answer rather than asking". Those
 rows staged no lesson content, so the stub served a placeholder with no facts in it — against which
 *any* substantive reply scores 1.0 by construction, whatever the tutor did. With real lesson content
-staged, the same rows score 4.7. The replacement finding above is a different and better one.
+staged, the same rows score 5.0. The replacement finding above is a different and better one.
 
 Both were caught in review, and the second was predicted by the reviewer from the first. The lesson
 kept rather than the numbers: **a judge is a measuring instrument, and one fed the wrong input
