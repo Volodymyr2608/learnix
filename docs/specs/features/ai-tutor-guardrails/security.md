@@ -530,9 +530,32 @@ Written as facts after implementation, not as intentions before it.
     model without being registered; they do not enumerate what an agent actually bound at runtime.
     A stronger version would import each agent and walk its real tool list and assembled prompt. This
     is exactly how the original exemption was able to rot.
-16. **`tutor.eval.ts` validates its own copy of the prompt.** It does not import `SYSTEM_PROMPT` or
-    the real tool definitions, and its copies have already drifted from production; its dataset is
-    two rows, so one failure moves the score by 50%. It is green and proves very little.
+16. **`tutor.eval.ts` validated its own copy of the prompt — closed 2026-08-26.** It did not import
+    `SYSTEM_PROMPT` or the real tool definitions, and its copy had already drifted: it instructed the
+    model to always call `retrieve_lesson_context`, which the shipped prompt forbids for "which
+    lesson covered X" questions, and it omitted the untrusted-data clause entirely. Its dataset was
+    two rows, so one failure moved the score by 50%. It was green about a system that was never
+    deployed.
+
+    **Closed by `ai-evaluation-harness` / [ADR-031](../../../adr/031-eval-fidelity-and-baselines.md).**
+    The eval imports the prompt, and `buildTutorSystemPrompt` is exported from `lessonAI.agent.ts` so
+    production and the eval assemble it the same way, pinned equal by a test. A copy cannot come back
+    silently: `promptFidelity.contract.test.ts` fails any eval declaring its own system prompt,
+    matching on the literal's *content* rather than its declaration — the declaration-shaped first
+    version was tested against six ways of reintroducing the defect and waved five of them through.
+    The dataset is 49 rows across 14 categories, every dataset in the repo now carries a ≥5-row floor
+    (`datasets.contract.test.ts`), each row runs three times at production's `temperature: 0.4`, and
+    the numbers are committed to `evals/baselines/lessonAI-tutor.json` so a prompt change prints what
+    moved. See [`../ai-evaluation-harness/spec.md`](../ai-evaluation-harness/spec.md).
+
+    **Residual, and it is the point of the eval rather than a defect:** the eval drives a *naked*
+    agent — no `guardUserInput` in front, and a `mark_concept_understood` stub that never calls
+    `authorizeMarkConceptUnderstood`. `tool-abuse` at 2/9 therefore means "the model can be talked
+    into trying", not "production is exploitable"; what it measures is how much work the
+    deterministic layers are doing, which a green end-to-end test never shows. Evals still do not run
+    in PR CI (ADR-013 §7, deliberately kept), the judge scores but does not gate, and per-row judge
+    variance is unmeasured. What no assertion covers at all is in [`manual-qa.md`](manual-qa.md);
+    why each check sits where it does is [`../../ai-eval-strategy.md`](../../ai-eval-strategy.md).
 17. **The rate limiter lived in process memory** — then `server/utils/aiRateLimiter.ts`, shared by
     all three `app/api/chat/**` routes (a second, separate limiter lived in
     `learningPathAI.service.ts:8`). The guarantee was 20 requests per instance per minute, and the
