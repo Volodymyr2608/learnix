@@ -42,13 +42,21 @@ type; the `as typeof lesson & { quizzes: Quiz[] }` casts are removed. A student 
 reaches for `quiz.correct` fails `pnpm typecheck` instead of reading `undefined` at runtime.
 
 **3. Guessing is bounded.** A quiz allows `min(3, options.length - 1)` graded attempts per student —
-always fewer than the number of options, so exhausting the option set cannot produce a correct
-answer. `QuizAttempt` records `attemptCount`, so a brute-force run is visible in the record rather
-than overwritten by its own last attempt.
+always fewer than the number of options, so a student cannot **exhaust** the option set and arrive at
+the answer by elimination. It does not make a lucky guess impossible: with four options and three
+attempts, a random enumeration hits the correct option three times in four. What the cap removes is
+the *guarantee*, which is what made reading the key and guessing the key equivalent. `QuizAttempt`
+records `attemptCount`, so a brute-force run is visible in the record rather than overwritten by its
+own last attempt.
 
 **4. Exhausting the cap starts a 24-hour cooldown**, after which the counter resets and the student
 may try again. A student who genuinely misunderstood the lesson is not permanently denied level 3;
 a student cycling options is slowed to a rate at which the attempt record is the signal.
+
+The cooldown is measured from the **last graded attempt**, which needs a timestamp that moves.
+`QuizAttempt` carries only `createdAt` today and the row is updated in place, so `createdAt` stays
+pinned to the first attempt forever — the attempt row therefore also gains `updatedAt`. It must be a
+column rather than in-process state, so the cooldown survives a restart (`security.md` S10 item 2).
 
 **5. The correct answer is never revealed to a student, at any point** — not after a wrong attempt,
 not after a correct one, not after the cooldown.
@@ -84,13 +92,21 @@ page, `GenerateQuizDialog` and `LessonContentEditor` all keep `correct`. The spl
 
 **Guessing is bounded**
 
-7. A quiz permits at most `min(3, options.length - 1)` graded attempts per student. With four
-   options and no knowledge of the answer, a client submitting each option in turn cannot obtain
-   `isCorrect: true`, and `promoteConceptsIfLessonComplete` does not fire.
-8. `QuizAttempt.attemptCount` increments on each graded retry: three wrong submissions then one
-   correct yields `{ attemptCount: 4, isCorrect: true }`.
+7. A quiz permits at most `min(3, options.length - 1)` graded attempts per student. A client
+   enumerating the options therefore **runs out of attempts before running out of options**: with the
+   correct option placed beyond the cap, it never obtains `isCorrect: true` and
+   `promoteConceptsIfLessonComplete` does not fire. The criterion is about exhaustion, not luck — a
+   guess inside the cap can still land, and that residual is accepted in `security.md` S10 item 3.
+   **The test fixture must place the correct option outside the cap**, or it passes or fails by
+   chance rather than by behaviour.
+8. `QuizAttempt.attemptCount` increments on each graded retry, and `updatedAt` moves with it: on a
+   five-option quiz (cap 4), three wrong submissions then one correct yields
+   `{ attemptCount: 4, isCorrect: true }`. Note the option count — on a four-option quiz the cap is 3
+   and the fourth submission is refused, so every fixture for criteria 7–9 sets `options` explicitly.
+   `makeQuiz`'s default of two options caps at **one** attempt.
 9. Exceeding the cap rejects with a typed error, records no further attempt, and starts a 24-hour
-   cooldown; after the cooldown the student may attempt again and the counter resets.
+   cooldown measured from `updatedAt`; after the cooldown the student may attempt again and the
+   counter resets.
 10. `quiz.submit` is rate-limited per `(userId, quizId)`; submissions past the window are rejected
     before reaching `quizRepository`.
 11. A student who answers wrongly within the cap still retries normally and still receives no
@@ -128,8 +144,18 @@ page, `GenerateQuizDialog` and `LessonContentEditor` all keep `correct`. The spl
     `options`.
 20. `get_existing_quizzes` returns questions only, asserted against a fixture quiz whose `correct` is
     a distinctive sentinel that must not appear in the output.
-21. The `ai-defence-layers` conformance matrix drops quizAI's C4 exception — legitimate only because
-    AC 19 and 20 exist, so the claim rests on a test rather than on an absence of code.
+21. The `ai-defence-layers` conformance matrix **narrows** quizAI's C4 exception — it does not drop
+    it. The exception as written (`aiSurfaces.ts`, `exclusions`) makes two claims, and this feature
+    answers only one:
+
+    | claim in the exception | after this feature |
+    |---|---|
+    | the answer key can reach a student or a model, and nothing checks it | **closed** — AC 3, 19, 20, now resting on tests rather than on an absence of code |
+    | the key is **model-authored**: a poisoned lesson can steer which option is marked correct | **still open** — no layer here checks that, and nothing in this feature adds one |
+
+    Deleting the whole entry would have the matrix certify a guarantee this feature does not deliver —
+    the same failure mode as shipping the projection without the cap, one level up. The remaining half
+    keeps its own tracking in `ai-defence-layers` S17.
 
 **Hygiene**
 
