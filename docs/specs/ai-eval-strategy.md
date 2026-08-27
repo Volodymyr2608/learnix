@@ -343,10 +343,18 @@ wrong with it is that a learning record was written on a student's say-so, which
 someone reading the transcript and asking *what got persisted*. Escalation of distressing content in
 a student question is the second case, and the off-topic-versus-blocked UX difference is the third.
 
-🚧 **`features/ai-tutor-guardrails/manual-qa.md` is not written yet** — the scenarios are tutor-specific
-and belong beside that surface's `security.md` and `threat-model.md`, as a live pre-release checklist
-with a date column, not as a report of a past pass. This strategy states the rule; that file holds
-the runs.
+The scenarios live in [`features/ai-tutor-guardrails/manual-qa.md`](features/ai-tutor-guardrails/manual-qa.md)
+— beside that surface's `security.md` and `threat-model.md`, because they are tutor-specific — as a
+live pre-release checklist with a date column, not a report of a past pass. This strategy states the
+rule; that file holds the runs. Seven scenarios: bare assertion of mastery, genuine demonstration (the
+false-positive direction, without which "refuse everything" scores perfectly), an explicit level-3
+request, parroting, distress escalation ⚠️ (specified, **not implemented** — `security.md` S12/S13
+§14, so the row records what happens rather than asserting what should), off-topic versus injection
+side by side, and a poisoned lesson body end to end — the only check in the repo that runs instructor
+content through chunking, retrieval, the model and the write path in one pass, since every eval stubs
+the database.
+
+🚧 **No pass has been recorded yet.** The empty date column is the honest state.
 
 ## 11. Rules for the next AI surface
 

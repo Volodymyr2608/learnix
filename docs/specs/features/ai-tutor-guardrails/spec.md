@@ -618,6 +618,9 @@ coverage.
   authority + output boundary), ADR-026 (shared defence layers), ADR-027 (distributed rate limiter),
   ADR-029 (error-reporting funnel). Dated records; never edited to match a later change.
 - **Correctness** — the tests and evals in the section above.
+- **What no automated check covers** — [`manual-qa.md`](manual-qa.md), seven scenarios run by hand
+  before a release touching this surface; why those seven and not others is
+  [`../../ai-eval-strategy.md`](../../ai-eval-strategy.md) §10.
 - **Build history, frozen** — `build/plan.md` (original build) and `build/hardening-plan.md`
   (items 7–11). Kept, never updated; they say how it was built, never how it behaves now.
 
