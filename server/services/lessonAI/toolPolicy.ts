@@ -1,9 +1,7 @@
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
-import {
-	CONVERSATION_MAX_LEVEL,
-	canonicalConceptName,
-} from "@/server/services/mastery/masteryLevels";
+import { resolveAllowlistedConcept } from "@/server/services/_shared/concepts/conceptKey";
+import { CONVERSATION_MAX_LEVEL } from "@/server/services/mastery/masteryLevels";
 import type {
 	MarkConceptRequest,
 	ToolAuthorization,
@@ -57,18 +55,21 @@ export const authorizeMarkConceptUnderstood = (
 		return deny(ctx, "level_exceeds_conversation_ceiling");
 	}
 
-	const needle = request.concept.trim().toLowerCase();
-	const allowlisted = ctx.lessonConcepts.find(
-		(candidate) => candidate.trim().toLowerCase() === needle,
+	// One comparison rule, shared with `identifyWeakSignals` and with the SQL that
+	// backfilled `conceptKey`. The inline `trim().toLowerCase()` this replaces
+	// normalised the ends and the case but not internal runs, so it disagreed with
+	// the reader on exactly the inputs the allowlist carries: model-authored
+	// insights JSON, padding and all.
+	//
+	// The resolver returns the ALLOWLIST's spelling, never the model's — storing
+	// the model's would put one concept in the table under two names. A name that
+	// is not allowlisted and one whose allowlist entry is unstorable are the same
+	// refusal on purpose: neither is distinguishable to the caller.
+	const resolved = resolveAllowlistedConcept(
+		request.concept,
+		ctx.lessonConcepts,
 	);
-	if (!allowlisted) return deny(ctx, "concept_not_allowlisted");
+	if (!resolved) return deny(ctx, "concept_not_allowlisted");
 
-	// The allowlist is model-authored insights JSON, so its entries can carry
-	// padding the quiz path would have trimmed away. Storing the raw entry here
-	// would put the same concept in the table twice, under two spellings, and
-	// mastery is unique on the exact string.
-	const canonicalConcept = canonicalConceptName(allowlisted);
-	if (!canonicalConcept) return deny(ctx, "concept_not_canonicalisable");
-
-	return { authorized: true, canonicalConcept };
+	return { authorized: true, canonicalConcept: resolved.concept };
 };

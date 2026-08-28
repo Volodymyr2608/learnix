@@ -65,6 +65,28 @@ describe("authorizeMarkConceptUnderstood", () => {
 		expect(result).toEqual({ authorized: true, canonicalConcept: "Recursion" });
 	});
 
+	it("matches across a doubled internal space the old rule missed", () => {
+		// `trim().toLowerCase()` normalised the ends and the case but left internal
+		// runs alone, so an allowlist entry carrying model-authored padding never
+		// matched the same concept spelled once.
+		const result = authorizeMarkConceptUnderstood(
+			{ concept: "api routes", level: 1 },
+			ctx(["API  Routes"]),
+		);
+		expect(result).toEqual({
+			authorized: true,
+			canonicalConcept: "API Routes",
+		});
+	});
+
+	it("returns the allowlist spelling with its own padding collapsed", () => {
+		const result = authorizeMarkConceptUnderstood(
+			{ concept: "recursion", level: 1 },
+			ctx(["  Recursion  "]),
+		);
+		expect(result).toEqual({ authorized: true, canonicalConcept: "Recursion" });
+	});
+
 	it("emits unsafe_tool_call on denial, with no concept name in the event", () => {
 		authorizeMarkConceptUnderstood(
 			{ concept: "Course completed in full", level: 2 },
