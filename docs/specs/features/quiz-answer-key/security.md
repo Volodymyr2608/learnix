@@ -146,6 +146,18 @@ level 3**. The pre-change population carrying unverified provenance is therefore
 Re-measure against production before deploying: the control is the cutoff column, and this number
 only says how much history it has to cover in this environment.
 
+**Re-measured 2026-08-28, after the `evidence` column landed (local dev):** unchanged — 3 rows, all
+with `evidence IS NULL`, of which **1 is at level 3**. That NULL is now the cutoff itself:
+`level = 3 AND evidence IS NULL` isolates the pre-change population without needing a deploy
+timestamp. **Production is still unmeasured** — the number above is dev only, and `/qa` should not
+read it as the production figure.
+
+The enum shipped with a fourth member the design pass did not name: `QUIZ_RETRIED`, for a promotion
+where every quiz was answered correctly but at least one took more than one attempt. Without it that
+case had to be recorded as `QUIZ_FIRST_PASS`, which would make the column assert something the
+attempt rows contradict — the opposite of what provenance is for. `LEGACY` keeps its meaning: at
+least one attempt row predates the counter, so how many tries it took is unknowable.
+
 ## S9. Decision record
 
 | # | Decision | Choice | Rationale |

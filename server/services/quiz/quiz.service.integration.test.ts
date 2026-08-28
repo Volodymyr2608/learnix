@@ -7,6 +7,7 @@ import {
 	it,
 	vi,
 } from "vitest";
+import { MasteryEvidence } from "@/generated/prisma";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import {
 	AttemptLimitError,
@@ -115,6 +116,49 @@ describe("quizService.submit — mastery promotion", () => {
 
 		const rows = await testDb.conceptMastery.findMany({ where: { studentId } });
 		expect(rows.map((r) => r.concept)).toEqual(["Recursion"]);
+	});
+
+	it("records a first-pass promotion as earned on the first attempt", async () => {
+		const only = await makeQuiz({ lessonId });
+
+		await quizService.submit(only.id, studentId, "A");
+
+		const row = await testDb.conceptMastery.findFirstOrThrow({
+			where: { studentId },
+		});
+		expect(row.evidence).toBe(MasteryEvidence.QUIZ_FIRST_PASS);
+	});
+
+	it("records a promotion that took a retry as exactly that", async () => {
+		const only = await makeQuiz({
+			lessonId,
+			options: ["A", "B", "C", "D"],
+			correct: "C",
+		});
+
+		await quizService.submit(only.id, studentId, "A");
+		await quizService.submit(only.id, studentId, "C");
+
+		const row = await testDb.conceptMastery.findFirstOrThrow({
+			where: { studentId },
+		});
+		expect(row.evidence).toBe(MasteryEvidence.QUIZ_RETRIED);
+	});
+
+	// One unknowable row makes the whole claim unverifiable, not merely
+	// imperfect: the promotion says "every quiz answered correctly, and here is
+	// how many tries it took", and for this student that second half is missing.
+	it("records a promotion resting on a pre-counter attempt as legacy", async () => {
+		const first = await makeQuiz({ lessonId });
+		const second = await makeQuiz({ lessonId });
+		await makeQuizAttempt({ quizId: first.id, studentId, isCorrect: true });
+
+		await quizService.submit(second.id, studentId, "A");
+
+		const row = await testDb.conceptMastery.findFirstOrThrow({
+			where: { studentId },
+		});
+		expect(row.evidence).toBe(MasteryEvidence.LEGACY);
 	});
 
 	it("promotes nothing on a wrong answer", async () => {

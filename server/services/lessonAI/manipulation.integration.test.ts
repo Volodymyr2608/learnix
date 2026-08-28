@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { buildMarkConceptUnderstoodTool } from "@/server/services/lessonAI/tools/markConceptUnderstood.tool";
 import { quizService } from "@/server/services/quiz/quiz.service";
@@ -149,6 +150,7 @@ describe("multi-turn manipulation cannot falsify an educational record", () => {
 			courseId,
 			"Prompt injection",
 			3,
+			MasteryEvidence.QUIZ_FIRST_PASS,
 		);
 		const tool = buildMarkConceptUnderstoodTool(studentId, courseId, ALLOWLIST);
 

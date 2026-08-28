@@ -129,6 +129,26 @@ class QuizAttemptRepository extends BaseRepository<
 		return rows.length;
 	}
 
+	/**
+	 * How many attempts each correct answer took, for the quizzes given. A NULL
+	 * entry is a row that predates the counter: how many tries it took is
+	 * unknowable, which is a different fact from "one try" and must stay
+	 * distinguishable from it.
+	 */
+	async correctAttemptCountsAmong(
+		quizIds: string[],
+		studentId: string,
+	): Promise<(number | null)[]> {
+		const rows = await this.findMany({
+			where: { quizId: { in: quizIds }, studentId, isCorrect: true },
+			distinct: ["quizId"],
+			select: { attemptCount: true },
+		});
+		return (rows as unknown as { attemptCount: number | null }[]).map(
+			(row) => row.attemptCount,
+		);
+	}
+
 	async latestPerQuizForStudent(
 		studentId: string,
 		courseId: string,

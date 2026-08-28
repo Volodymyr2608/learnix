@@ -1,5 +1,5 @@
 import type { Prisma } from "@/generated/prisma";
-import { EnrollmentStatus } from "@/generated/prisma";
+import { EnrollmentStatus, MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
@@ -71,6 +71,21 @@ const canonicalConceptNames = (raw: unknown): string[] => {
 	}
 
 	return [...canonical.values()];
+};
+
+/**
+ * What the attempt rows say about how this level was earned. A single unknown
+ * count makes the whole promotion LEGACY: the guarantee is "every quiz answered
+ * correctly, and here is how many tries that took", and one unknowable row
+ * makes that claim unverifiable rather than merely imperfect.
+ */
+const evidenceFor = (attemptCounts: (number | null)[]): MasteryEvidence => {
+	if (attemptCounts.some((count) => count === null)) {
+		return MasteryEvidence.LEGACY;
+	}
+	return attemptCounts.every((count) => count === 1)
+		? MasteryEvidence.QUIZ_FIRST_PASS
+		: MasteryEvidence.QUIZ_RETRIED;
 };
 
 class QuizService {
@@ -257,6 +272,12 @@ class QuizService {
 		);
 		if (correctCount < quizzes.length) return;
 
+		const attemptCounts = await quizAttemptRepository.correctAttemptCountsAmong(
+			quizzes.map((quiz) => quiz.id),
+			studentId,
+		);
+		const evidence = evidenceFor(attemptCounts);
+
 		const lesson = await lessonRepository.findFirst({
 			where: { id: lessonId, deletedAt: null },
 			select: { section: { select: { courseId: true } } },
@@ -276,6 +297,7 @@ class QuizService {
 					courseId,
 					concept,
 					QUIZ_MASTERY_LEVEL,
+					evidence,
 				),
 			),
 		);
