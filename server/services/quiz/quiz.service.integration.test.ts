@@ -1,4 +1,13 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from "vitest";
+import { quizRepository } from "@/server/repositories/quiz.repository";
 import {
 	AttemptLimitError,
 	QuizNotFoundError,
@@ -102,6 +111,72 @@ describe("quizService.submit — mastery promotion", () => {
 
 		const rows = await testDb.conceptMastery.findMany({ where: { studentId } });
 		expect(rows).toHaveLength(0);
+	});
+});
+
+const originalFindOne = quizRepository.findOne;
+const originalFindByLesson = quizRepository.findByLesson;
+
+// The narrowing in findByLesson could only break grading if grading read the key
+// through it. It does not — it reads the whole row through findOne, a different
+// method — and these pin that, so a future change to either read has to say so.
+describe("quizService.submit — grading reads the key through a different door", () => {
+	let studentId: string;
+	let lessonId: string;
+
+	beforeEach(async () => {
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		const student = await makeUser();
+		const course = await makeCourse({ instructorId: instructor.id });
+		const section = await makeSection({ courseId: course.id });
+		const lesson = await makeLesson({ sectionId: section.id });
+		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		await makeLessonInsights({ lessonId: lesson.id });
+		studentId = student.id;
+		lessonId = lesson.id;
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("does not read the lesson's quizzes at all to grade a wrong answer", async () => {
+		const quiz = await makeQuiz({
+			lessonId,
+			options: ["A", "B"],
+			correct: "B",
+		});
+		const findByLesson = vi.spyOn(quizRepository, "findByLesson");
+
+		const attempt = await quizService.submit(quiz.id, studentId, "A");
+
+		expect(attempt.isCorrect).toBe(false);
+		expect(findByLesson).not.toHaveBeenCalled();
+	});
+
+	it("grades a correct answer before anything reads the lesson's quizzes", async () => {
+		const quiz = await makeQuiz({
+			lessonId,
+			options: ["A", "B"],
+			correct: "B",
+		});
+		const order: string[] = [];
+		vi.spyOn(quizRepository, "findOne").mockImplementation(async (id) => {
+			order.push("findOne");
+			return await originalFindOne.call(quizRepository, id);
+		});
+		vi.spyOn(quizRepository, "findByLesson").mockImplementation(async (id) => {
+			order.push("findByLesson");
+			return await originalFindByLesson.call(quizRepository, id);
+		});
+
+		const attempt = await quizService.submit(quiz.id, studentId, "B");
+
+		expect(attempt.isCorrect).toBe(true);
+		// findByLesson appears only after grading, and only because the promotion
+		// that follows it counts how many quizzes the lesson has.
+		expect(order[0]).toBe("findOne");
+		expect(order).toContain("findByLesson");
 	});
 });
 
