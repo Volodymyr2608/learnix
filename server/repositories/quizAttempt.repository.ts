@@ -3,6 +3,16 @@ import type { Prisma, QuizAttempt } from "@/generated/prisma";
 import type { QuizAttemptRow } from "@/server/services/learningPathAI/learningPathAI.state";
 import { BaseRepository } from "./base/base.repository";
 
+/**
+ * Why a union rather than a nullable row: "nothing was written" has two causes
+ * with opposite meanings — the student already answered correctly, or they have
+ * spent the cap. The caller must be unable to conflate them.
+ */
+export type RecordAttemptResult =
+	| { outcome: "recorded"; attempt: QuizAttempt }
+	| { outcome: "already_correct"; attempt: QuizAttempt }
+	| { outcome: "capped"; attempt: QuizAttempt };
+
 class QuizAttemptRepository extends BaseRepository<
 	"quizAttempt",
 	QuizAttempt,
@@ -21,22 +31,27 @@ class QuizAttemptRepository extends BaseRepository<
 
 	/**
 	 * Records one graded attempt as a single statement, so the cap cannot be
-	 * beaten by two submissions racing between a read and a write.
+	 * beaten by two submissions racing between a read and a write: a client
+	 * firing ten parallel requests would otherwise have all ten read the same
+	 * pre-attempt count and all ten be recorded.
 	 *
-	 * `null` means the pair already holds a correct answer and nothing was
-	 * written — and it means nothing else, which is true only while
-	 * `WHERE NOT quiz_attempts."isCorrect"` is the sole predicate on the update.
-	 * Any further predicate needs its own distinguishable signal.
+	 * The update writes only while the row is not already correct and the cap is
+	 * not spent, so the statement itself is the enforcement. Zero rows is
+	 * therefore ambiguous, and the outcome is resolved by reading the row back
+	 * rather than by inferring it — `already_correct` and `capped` are different
+	 * answers to the student and only one of them is an error.
 	 */
 	async recordAttempt(
 		quizId: string,
 		studentId: string,
 		selectedAnswer: string,
 		isCorrect: boolean,
-	): Promise<QuizAttempt | null> {
+		maxAttempts: number,
+	): Promise<RecordAttemptResult> {
 		const id = randomUUID();
 		// `attemptCount + 1` on a legacy NULL stays NULL: that row's history is
-		// unknown and adding to it would invent one.
+		// unknown and adding to it would invent one. The same NULL is why the cap
+		// predicate admits it — an unknown history is not a spent one.
 		const rows = await this.db.$queryRaw<QuizAttempt[]>`
 			INSERT INTO quiz_attempts (
 				id, "quizId", "studentId", "selectedAnswer", "isCorrect", "attemptCount", "createdAt", "updatedAt"
@@ -49,10 +64,25 @@ class QuizAttemptRepository extends BaseRepository<
 				"attemptCount" = quiz_attempts."attemptCount" + 1,
 				"updatedAt" = NOW()
 			WHERE NOT quiz_attempts."isCorrect"
+				AND (
+					quiz_attempts."attemptCount" IS NULL
+					OR quiz_attempts."attemptCount" < ${maxAttempts}
+				)
 			RETURNING *;
 		`;
 
-		return rows[0] ?? null;
+		const attempt = rows[0];
+		if (attempt) return { outcome: "recorded", attempt };
+
+		const existing = await this.findByQuizAndStudent(quizId, studentId);
+		if (!existing) {
+			// The conflict fired, so a row exists; a missing one means someone
+			// deleted it between the two statements, not that nothing happened.
+			throw new Error("recordAttempt wrote nothing and found no row");
+		}
+		if (existing.isCorrect)
+			return { outcome: "already_correct", attempt: existing };
+		return { outcome: "capped", attempt: existing };
 	}
 
 	countCorrect(studentId: string): Promise<number> {

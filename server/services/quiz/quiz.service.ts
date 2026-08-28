@@ -9,6 +9,7 @@ import { quizAttemptRepository } from "@/server/repositories/quizAttempt.reposit
 import { logger } from "@/server/utils/logger";
 import {
 	AlreadyAttemptedError,
+	AttemptLimitError,
 	QuizError,
 	QuizForbiddenError,
 } from "./quiz.errors";
@@ -17,6 +18,18 @@ type QuizInput = Pick<
 	Prisma.QuizUncheckedCreateInput,
 	"question" | "options" | "correct"
 >;
+
+/**
+ * Never the option count: a student who may try every option arrives at the
+ * answer by elimination, which is what removing the key from the response was
+ * for. Three is the ceiling, one option short of the set is the rule, and the
+ * floor of 1 only covers a malformed single-option quiz — there is nothing to
+ * withhold there anyway.
+ */
+const MAX_GRADED_ATTEMPTS = 3;
+
+const attemptCapFor = (options: string[]): number =>
+	Math.max(1, Math.min(MAX_GRADED_ATTEMPTS, options.length - 1));
 
 class QuizService {
 	private async verifyInstructorOwnership(
@@ -101,31 +114,33 @@ class QuizService {
 
 			await this.verifyEnrollment(quiz.lessonId, studentId);
 
-			const existingAttempt = await quizAttemptRepository.findByQuizAndStudent(
+			const isCorrect = quiz.correct === selectedAnswer;
+
+			const result = await quizAttemptRepository.recordAttempt(
 				quizId,
 				studentId,
+				selectedAnswer,
+				isCorrect,
+				attemptCapFor(quiz.options),
 			);
 
-			if (existingAttempt?.isCorrect) {
+			if (result.outcome === "already_correct") {
 				throw new AlreadyAttemptedError(
 					"You have already answered this question correctly",
 					"CONFLICT",
 				);
 			}
 
-			const isCorrect = quiz.correct === selectedAnswer;
+			if (result.outcome === "capped") {
+				// Says nothing about the submitted answer: telling a capped student
+				// whether their last guess was right is the reveal by another door.
+				throw new AttemptLimitError(
+					"No attempts left for this question",
+					"TOO_MANY_REQUESTS",
+				);
+			}
 
-			const attempt = existingAttempt
-				? await quizAttemptRepository.update(existingAttempt.id, {
-						selectedAnswer,
-						isCorrect,
-					})
-				: await quizAttemptRepository.create({
-						quizId,
-						studentId,
-						selectedAnswer,
-						isCorrect,
-					});
+			const attempt = result.attempt;
 
 			// Confirmation by action: conversation can reach level 2, only finishing
 			// every quiz on the lesson reaches 3. Awaited so the write is ordered
@@ -164,7 +179,8 @@ class QuizService {
 		} catch (error) {
 			if (
 				error instanceof QuizForbiddenError ||
-				error instanceof AlreadyAttemptedError
+				error instanceof AlreadyAttemptedError ||
+				error instanceof AttemptLimitError
 			) {
 				throw error;
 			}

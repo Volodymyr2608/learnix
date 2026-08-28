@@ -198,14 +198,16 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 	});
 
 	it("counts the first graded attempt as one", async () => {
-		const attempt = await quizAttemptRepository.recordAttempt(
+		const result = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
 			"B",
 			false,
+			3,
 		);
 
-		expect(attempt).toMatchObject({
+		expect(result.outcome).toBe("recorded");
+		expect(result.attempt).toMatchObject({
 			attemptCount: 1,
 			isCorrect: false,
 			selectedAnswer: "B",
@@ -213,22 +215,23 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 	});
 
 	it("counts a retry on the same row, and does not open a second one", async () => {
-		await quizAttemptRepository.recordAttempt(quizId, studentId, "B", false);
+		await quizAttemptRepository.recordAttempt(quizId, studentId, "B", false, 3);
 		const second = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
 			"A",
 			true,
+			3,
 		);
 
 		const rows = await testDb.quizAttempt.findMany({
 			where: { quizId, studentId },
 		});
-		expect(second).toMatchObject({ attemptCount: 2, isCorrect: true });
+		expect(second.attempt).toMatchObject({ attemptCount: 2, isCorrect: true });
 		expect(rows).toHaveLength(1);
 	});
 
-	it("leaves a legacy row's unknown count unknown", async () => {
+	it("leaves a legacy row's unknown count unknown, and grants it the cap", async () => {
 		const legacy = await makeQuizAttempt({
 			quizId,
 			studentId,
@@ -236,25 +239,28 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 		});
 		expect(legacy.attemptCount).toBeNull();
 
-		const attempt = await quizAttemptRepository.recordAttempt(
+		const result = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
 			"B",
 			false,
+			3,
 		);
 
-		expect(attempt?.attemptCount).toBeNull();
-		expect(attempt?.updatedAt.getTime()).toBeGreaterThan(
+		expect(result.outcome).toBe("recorded");
+		expect(result.attempt.attemptCount).toBeNull();
+		expect(result.attempt.updatedAt.getTime()).toBeGreaterThan(
 			legacy.updatedAt.getTime(),
 		);
 	});
 
-	it("refuses to touch a row that is already correct, and says so with zero rows", async () => {
+	it("refuses to touch a row that is already correct, and names that outcome", async () => {
 		const correct = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
 			"A",
 			true,
+			3,
 		);
 
 		const second = await quizAttemptRepository.recordAttempt(
@@ -262,30 +268,55 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 			studentId,
 			"B",
 			false,
+			3,
+		);
+
+		expect(second.outcome).toBe("already_correct");
+		expect(second.attempt).toMatchObject({
+			isCorrect: true,
+			selectedAnswer: "A",
+			attemptCount: correct.attempt.attemptCount,
+		});
+	});
+
+	it("writes nothing once the cap is spent, and names that outcome", async () => {
+		await quizAttemptRepository.recordAttempt(quizId, studentId, "B", false, 1);
+
+		const second = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"A",
+			true,
+			1,
 		);
 
 		const row = await testDb.quizAttempt.findFirstOrThrow({
 			where: { quizId, studentId },
 		});
-		expect(second).toBeNull();
+		expect(second.outcome).toBe("capped");
 		expect(row).toMatchObject({
-			isCorrect: true,
-			selectedAnswer: "A",
-			attemptCount: correct?.attemptCount,
+			attemptCount: 1,
+			isCorrect: false,
+			selectedAnswer: "B",
 		});
 	});
 
 	it("leaves one row and one loser when two attempts race", async () => {
 		const [first, second] = await Promise.all([
-			quizAttemptRepository.recordAttempt(quizId, studentId, "A", true),
-			quizAttemptRepository.recordAttempt(quizId, studentId, "A", true),
+			quizAttemptRepository.recordAttempt(quizId, studentId, "A", true, 3),
+			quizAttemptRepository.recordAttempt(quizId, studentId, "A", true, 3),
 		]);
 
 		const rows = await testDb.quizAttempt.findMany({
 			where: { quizId, studentId },
 		});
 		expect(rows).toHaveLength(1);
-		expect([first, second].filter(Boolean)).toHaveLength(1);
+		expect(
+			[first, second].filter((r) => r.outcome === "recorded"),
+		).toHaveLength(1);
+		expect(
+			[first, second].filter((r) => r.outcome === "already_correct"),
+		).toHaveLength(1);
 	});
 
 	it("moves updatedAt when the row is written again, and leaves createdAt pinned", async () => {
