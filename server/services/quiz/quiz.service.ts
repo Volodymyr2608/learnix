@@ -9,6 +9,7 @@ import {
 	type AttemptPolicy,
 	quizAttemptRepository,
 } from "@/server/repositories/quizAttempt.repository";
+import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { QUIZ_MASTERY_LEVEL } from "@/server/services/mastery/masteryLevels";
 import { logger } from "@/server/utils/logger";
 import {
@@ -266,6 +267,8 @@ class QuizService {
 		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
 		const concepts = canonicalConceptNames(insights?.concepts);
 
+		if (concepts.length === 0) return;
+
 		await Promise.all(
 			concepts.map((concept) =>
 				conceptMasteryRepository.upsertMastery(
@@ -276,6 +279,19 @@ class QuizService {
 				),
 			),
 		);
+
+		// One event for the batch, not one per concept: the fact worth recording is
+		// that this student completed this lesson's quizzes. The event type has no
+		// field a concept name could travel in, which is what keeps that true.
+		logSecurityEvent({
+			feature: "quizAI",
+			userId: studentId,
+			layer: "mastery_write",
+			outcome: "mastery_promoted",
+			ruleIds: ["quiz_lesson_complete"],
+			score: 0,
+			subject: { kind: "lesson", id: lessonId },
+		});
 	}
 
 	async upsertMany(
