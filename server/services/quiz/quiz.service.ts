@@ -9,6 +9,7 @@ import {
 	type AttemptPolicy,
 	quizAttemptRepository,
 } from "@/server/repositories/quizAttempt.repository";
+import { QUIZ_MASTERY_LEVEL } from "@/server/services/mastery/masteryLevels";
 import { logger } from "@/server/utils/logger";
 import {
 	AlreadyAttemptedError,
@@ -251,7 +252,7 @@ class QuizService {
 					studentId,
 					courseId,
 					concept.name,
-					3,
+					QUIZ_MASTERY_LEVEL,
 				),
 			),
 		);
