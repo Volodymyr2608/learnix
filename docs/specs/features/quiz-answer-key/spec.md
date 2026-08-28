@@ -1,6 +1,6 @@
 ---
 feature: quiz-answer-key
-status: planned
+status: in-progress
 models: [Quiz, QuizAttempt, ConceptMastery]
 depends-on: [ai-tutor-guardrails, ai-defence-layers]
 ---

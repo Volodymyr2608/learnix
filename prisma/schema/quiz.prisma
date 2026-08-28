@@ -26,8 +26,17 @@ model QuizAttempt {
   selectedAnswer String
   isCorrect      Boolean
 
-  createdAt DateTime @default(now())
+  /// How many graded attempts this row represents. NULL means "unknown": the row
+  /// predates the counter, back when a retry overwrote its own attempt in place.
+  /// Never backfilled — count(*) is 1 for a quiz retried twenty times.
+  attemptCount Int?
 
+  createdAt DateTime @default(now())
+  /// The cooldown clock. `createdAt` stays pinned to the first attempt because
+  /// the row is updated in place, so the cap needs a timestamp that moves.
+  updatedAt DateTime @updatedAt
+
+  @@unique([quizId, studentId])
   @@index([quizId])
   @@index([studentId])
   @@map("quiz_attempts")
