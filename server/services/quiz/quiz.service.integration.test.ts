@@ -94,6 +94,29 @@ describe("quizService.submit — mastery promotion", () => {
 		expect(rows).toHaveLength(0);
 	});
 
+	// The level-3 write validated less than the level-2 one: toolPolicy guards a
+	// tool write with canonicalisation and an 80-character bound, while promotion
+	// wrote unschema'd model JSON after one typeof check. The higher authority
+	// should not be the looser path.
+	it("writes one canonical row for names that differ only in case and spacing", async () => {
+		const only = await makeQuiz({ lessonId });
+		await testDb.lessonInsights.update({
+			where: { lessonId },
+			data: {
+				concepts: [
+					{ name: "  Recursion ", explanation: "spaced" },
+					{ name: "recursion", explanation: "lowercased" },
+					{ name: "R".repeat(81), explanation: "too long" },
+				],
+			},
+		});
+
+		await quizService.submit(only.id, studentId, "A");
+
+		const rows = await testDb.conceptMastery.findMany({ where: { studentId } });
+		expect(rows.map((r) => r.concept)).toEqual(["Recursion"]);
+	});
+
 	it("promotes nothing on a wrong answer", async () => {
 		const only = await makeQuiz({ lessonId });
 

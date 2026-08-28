@@ -45,6 +45,33 @@ const attemptPolicyFor = (options: string[]): AttemptPolicy => ({
 	cooldownHours: ATTEMPT_COOLDOWN_HOURS,
 });
 
+/**
+ * The same rule the level-2 tool path already enforced — trim, compare
+ * case-insensitively, bound at 80 characters — applied to the level-3 write,
+ * which had only a `typeof name === "string"` check in front of unschema'd
+ * model JSON. The higher authority should not be the looser path.
+ *
+ * The first spelling seen wins, so "  Recursion " and "recursion" become one
+ * row named "Recursion" rather than two rows the student appears to have
+ * mastered separately.
+ */
+const MAX_CONCEPT_NAME_LENGTH = 80;
+
+const canonicalConceptNames = (raw: unknown): string[] => {
+	const entries = (raw as { name?: unknown }[] | null) ?? [];
+	const canonical = new Map<string, string>();
+
+	for (const entry of entries) {
+		if (typeof entry?.name !== "string") continue;
+		const name = entry.name.trim();
+		if (name.length === 0 || name.length > MAX_CONCEPT_NAME_LENGTH) continue;
+		const key = name.toLowerCase();
+		if (!canonical.has(key)) canonical.set(key, name);
+	}
+
+	return [...canonical.values()];
+};
+
 class QuizService {
 	private async verifyInstructorOwnership(
 		lessonId: string,
@@ -237,21 +264,14 @@ class QuizService {
 		if (!courseId) return;
 
 		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
-		// LLM-generated JSON with no schema behind it. An entry missing `name`
-		// would reach the NOT NULL `concept` column as undefined.
-		const concepts = (
-			(insights?.concepts as { name?: unknown }[] | null) ?? []
-		).filter(
-			(concept): concept is { name: string } =>
-				typeof concept?.name === "string" && concept.name.length > 0,
-		);
+		const concepts = canonicalConceptNames(insights?.concepts);
 
 		await Promise.all(
 			concepts.map((concept) =>
 				conceptMasteryRepository.upsertMastery(
 					studentId,
 					courseId,
-					concept.name,
+					concept,
 					QUIZ_MASTERY_LEVEL,
 				),
 			),
