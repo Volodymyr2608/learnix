@@ -1,6 +1,9 @@
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
-import { CONVERSATION_MAX_LEVEL } from "@/server/services/mastery/masteryLevels";
+import {
+	CONVERSATION_MAX_LEVEL,
+	canonicalConceptName,
+} from "@/server/services/mastery/masteryLevels";
 import type {
 	MarkConceptRequest,
 	ToolAuthorization,
@@ -55,10 +58,17 @@ export const authorizeMarkConceptUnderstood = (
 	}
 
 	const needle = request.concept.trim().toLowerCase();
-	const canonicalConcept = ctx.lessonConcepts.find(
+	const allowlisted = ctx.lessonConcepts.find(
 		(candidate) => candidate.trim().toLowerCase() === needle,
 	);
-	if (!canonicalConcept) return deny(ctx, "concept_not_allowlisted");
+	if (!allowlisted) return deny(ctx, "concept_not_allowlisted");
+
+	// The allowlist is model-authored insights JSON, so its entries can carry
+	// padding the quiz path would have trimmed away. Storing the raw entry here
+	// would put the same concept in the table twice, under two spellings, and
+	// mastery is unique on the exact string.
+	const canonicalConcept = canonicalConceptName(allowlisted);
+	if (!canonicalConcept) return deny(ctx, "concept_not_canonicalisable");
 
 	return { authorized: true, canonicalConcept };
 };

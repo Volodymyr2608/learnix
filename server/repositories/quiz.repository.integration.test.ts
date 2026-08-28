@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { quizRepository } from "@/server/repositories/quiz.repository";
+import { testDb } from "@/test/db";
 import {
 	makeCourse,
 	makeLesson,
 	makeQuiz,
+	makeQuizAttempt,
 	makeSection,
 	makeUser,
 } from "@/test/factories";
@@ -28,7 +30,6 @@ describe("quizRepository.findByLesson", () => {
 		const [quiz] = await quizRepository.findByLesson(lessonId);
 
 		expect(Object.keys(quiz ?? {}).sort()).toEqual([
-			"deletedAt",
 			"id",
 			"lessonId",
 			"options",
@@ -73,6 +74,30 @@ describe("quizRepository.findByLesson", () => {
 		const [quiz] = await quizRepository.findByLessonForAuthor(lessonId);
 
 		expect(quiz?.correct).toBe("SENTINEL");
+	});
+
+	// The attempt row is the evidence of record: a cap, a cooldown and the
+	// provenance of any level-3 promotion all read it. Replacing a lesson's
+	// questions must not destroy it — a hard delete cascades to QuizAttempt.
+	it("keeps every student's attempt history when the questions are replaced", async () => {
+		const quiz = await makeQuiz({ lessonId, question: "old" });
+		const student = await makeUser();
+		await makeQuizAttempt({
+			quizId: quiz.id,
+			studentId: student.id,
+			isCorrect: false,
+		});
+
+		await quizRepository.replaceForLesson(lessonId, [
+			{ question: "new", options: ["A", "B"], correct: "A" },
+		]);
+
+		const attempts = await testDb.quizAttempt.findMany({
+			where: { studentId: student.id },
+		});
+		const live = await quizRepository.findByLesson(lessonId);
+		expect(attempts).toHaveLength(1);
+		expect(live.map((q) => q.question)).toEqual(["new"]);
 	});
 
 	it("leaves out quizzes the instructor has deleted", async () => {

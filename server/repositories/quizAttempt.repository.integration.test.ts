@@ -251,10 +251,10 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 		expect(rows).toHaveLength(1);
 	});
 
-	// A row of unknown history cannot be counted against a cap, so the cooldown
-	// is the only bound that applies to it: one attempt per window, and the count
-	// keeps saying "unknown" rather than claiming a history it does not have.
-	it("bounds a row of unknown history by the cooldown alone, and keeps it unknown", async () => {
+	// A row of unknown history has a knowable window from here on, so the cap
+	// applies to it normally. What stays unknown is the lifetime count, and it
+	// keeps saying so rather than claiming a history it does not have.
+	it("caps a row of unknown history by its window, and leaves its lifetime unknown", async () => {
 		const legacy = await makeQuizAttempt({
 			quizId,
 			studentId,
@@ -262,28 +262,28 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 		});
 		expect(legacy.attemptCount).toBeNull();
 
-		const inWindow = await quizAttemptRepository.recordAttempt(
+		const first = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
 			"B",
 			false,
-			policy(3),
+			policy(1),
 		);
-		await moveUpdatedAtBack(25);
-		const afterCooldown = await quizAttemptRepository.recordAttempt(
+		const second = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
-			"B",
+			"C",
 			false,
-			policy(3),
+			policy(1),
 		);
 
-		expect(inWindow.outcome).toBe("capped");
-		expect(afterCooldown.outcome).toBe("recorded");
-		expect(afterCooldown.attempt.attemptCount).toBeNull();
+		expect(first.outcome).toBe("recorded");
+		expect(first.attempt.attemptCount).toBeNull();
+		expect(first.attempt.windowCount).toBe(1);
+		expect(second.outcome).toBe("capped");
 	});
 
-	it("restarts the count for a counted row once the cooldown has passed", async () => {
+	it("restarts the window once the cooldown has passed", async () => {
 		await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
@@ -302,7 +302,36 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 		);
 
 		expect(result.outcome).toBe("recorded");
-		expect(result.attempt.attemptCount).toBe(1);
+		expect(result.attempt.windowCount).toBe(1);
+	});
+
+	// The defect this column split exists to prevent: with one counter, a student
+	// who spent the cap, waited a day and submitted the last remaining option was
+	// recorded as having answered on the first attempt — the strongest provenance
+	// marker in the enum, for an answer reached purely by elimination.
+	it("keeps counting a lifetime across cooldowns, so an enumerated answer says so", async () => {
+		for (const option of ["A", "B", "C"]) {
+			await quizAttemptRepository.recordAttempt(
+				quizId,
+				studentId,
+				option,
+				false,
+				policy(3),
+			);
+		}
+		await moveUpdatedAtBack(25);
+
+		const result = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"D",
+			true,
+			policy(3),
+		);
+
+		expect(result.outcome).toBe("recorded");
+		expect(result.attempt.windowCount).toBe(1);
+		expect(result.attempt.attemptCount).toBe(4);
 	});
 
 	it("refuses to touch a row that is already correct, and names that outcome", async () => {

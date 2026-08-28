@@ -132,7 +132,9 @@ describe("quiz.submit never carries the answer key", () => {
 			.catch((e: unknown) => e);
 
 		expect(findKeyPaths(serialised(error), "correct")).toEqual([]);
-		expect(JSON.stringify(error)).not.toContain("D");
+		// The message, not JSON.stringify(error): a TRPCError's message is
+		// non-enumerable, so stringifying it yields "{}" and asserts nothing.
+		expect((error as { message: string }).message).not.toContain("D");
 	});
 
 	it("says nothing about the key when the question is already answered", async () => {

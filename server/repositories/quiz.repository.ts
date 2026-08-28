@@ -8,7 +8,7 @@ import { BaseRepository } from "@/server/repositories/base/base.repository";
  */
 export type StudentQuiz = Pick<
 	Quiz,
-	"id" | "question" | "options" | "lessonId" | "deletedAt"
+	"id" | "question" | "options" | "lessonId"
 >;
 
 export default class QuizRepository extends BaseRepository<
@@ -24,7 +24,8 @@ export default class QuizRepository extends BaseRepository<
 	protected readonly modelName = "quiz";
 
 	/**
-	 * The student field set, and the only lesson-wide read of quizzes there is.
+	 * The student field set — the four fields its three callers read, and no
+	 * `deletedAt`, which the `where` clause already guarantees is null.
 	 * `correct` is an assessment secret: narrowing here rather than at the caller
 	 * means it is never loaded, so it cannot be spread into a response, written to
 	 * a log line, or re-exposed by a caller added later. Grading reads the whole
@@ -42,7 +43,6 @@ export default class QuizRepository extends BaseRepository<
 				question: true,
 				options: true,
 				lessonId: true,
-				deletedAt: true,
 			},
 		}) as unknown as Promise<StudentQuiz[]>;
 	}
@@ -61,6 +61,16 @@ export default class QuizRepository extends BaseRepository<
 		}) as Promise<Quiz[]>;
 	}
 
+	/**
+	 * Soft-deletes the lesson's current questions and creates the new set.
+	 *
+	 * A hard delete cascades to `QuizAttempt` (`onDelete: Cascade`), so saving the
+	 * quiz tab wiped every student's attempt history for that lesson: their caps
+	 * and cooldowns reset, and the rows a level-3 `evidence` value points at were
+	 * gone — with nothing archived, unlike the one other place in this feature
+	 * that deletes attempt rows. The attempts stay attached to the soft-deleted
+	 * questions, which no student read returns.
+	 */
 	async replaceForLesson(
 		lessonId: string,
 		questions: Pick<
@@ -69,7 +79,10 @@ export default class QuizRepository extends BaseRepository<
 		>[],
 	): Promise<Quiz[]> {
 		return this.transaction(async (tx) => {
-			await tx.quiz.deleteMany({ where: { lessonId } });
+			await tx.quiz.updateMany({
+				where: { lessonId, deletedAt: null },
+				data: { deletedAt: new Date() },
+			});
 			return tx.quiz.createManyAndReturn({
 				data: questions.map((q) => ({ ...q, lessonId })),
 			});

@@ -10,7 +10,10 @@ import {
 	quizAttemptRepository,
 } from "@/server/repositories/quizAttempt.repository";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
-import { QUIZ_MASTERY_LEVEL } from "@/server/services/mastery/masteryLevels";
+import {
+	canonicalConceptName,
+	QUIZ_MASTERY_LEVEL,
+} from "@/server/services/mastery/masteryLevels";
 import { logger } from "@/server/utils/logger";
 import {
 	AlreadyAttemptedError,
@@ -50,22 +53,26 @@ const attemptPolicyFor = (options: string[]): AttemptPolicy => ({
  * The same rule the level-2 tool path already enforced — trim, compare
  * case-insensitively, bound at 80 characters — applied to the level-3 write,
  * which had only a `typeof name === "string"` check in front of unschema'd
- * model JSON. The higher authority should not be the looser path.
+ * model JSON. The higher authority should not be the looser path, and both
+ * paths now canonicalise through one function so they cannot disagree about
+ * the spelling a concept is stored under.
  *
  * The first spelling seen wins, so "  Recursion " and "recursion" become one
  * row named "Recursion" rather than two rows the student appears to have
  * mastered separately.
+ *
+ * Exported for the contract test that holds the two writers to the same string.
  */
-const MAX_CONCEPT_NAME_LENGTH = 80;
-
-const canonicalConceptNames = (raw: unknown): string[] => {
-	const entries = (raw as { name?: unknown }[] | null) ?? [];
+export const canonicalConceptNames = (raw: unknown): string[] => {
+	// `insights.concepts` is a JSON column written by a model. A shape that is
+	// not an array would make `for … of` throw inside the promotion.
+	const entries = Array.isArray(raw) ? (raw as { name?: unknown }[]) : [];
 	const canonical = new Map<string, string>();
 
 	for (const entry of entries) {
 		if (typeof entry?.name !== "string") continue;
-		const name = entry.name.trim();
-		if (name.length === 0 || name.length > MAX_CONCEPT_NAME_LENGTH) continue;
+		const name = canonicalConceptName(entry.name);
+		if (!name) continue;
 		const key = name.toLowerCase();
 		if (!canonical.has(key)) canonical.set(key, name);
 	}
@@ -167,12 +174,15 @@ class QuizService {
 
 	async submit(quizId: string, studentId: string, selectedAnswer: string) {
 		try {
-			const quiz = await quizRepository.findOne(quizId);
-
-			// `findOne` is `findUniqueOrThrow` and knows nothing about soft deletes,
-			// so a deleted quiz still grades — and its attempt row would then count
-			// toward a lesson that no longer asks the question.
-			if (quiz.deletedAt) {
+			// `findFirst`, not `findOne`: the latter is `findUniqueOrThrow`, which
+			// knows nothing about soft deletes and turns an id that does not exist
+			// into a 500. Both are the caller's mistake, both answer NOT_FOUND, and
+			// a client-fault code is what keeps a client sweeping made-up ids from
+			// burning the Sentry quota every real failure has to fit inside.
+			const quiz = await quizRepository.findFirst({
+				where: { id: quizId, deletedAt: null },
+			});
+			if (!quiz) {
 				throw new QuizNotFoundError("Quiz not found", "NOT_FOUND");
 			}
 

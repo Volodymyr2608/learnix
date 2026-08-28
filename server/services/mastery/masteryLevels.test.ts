@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { authorizeMarkConceptUnderstood } from "@/server/services/lessonAI/toolPolicy";
+import { canonicalConceptNames } from "@/server/services/quiz/quiz.service";
 import { CONVERSATION_MAX_LEVEL, QUIZ_MASTERY_LEVEL } from "./masteryLevels";
 
 describe("the two mastery ceilings", () => {
@@ -32,5 +34,36 @@ describe("the two mastery ceilings", () => {
 
 		expect(source).toContain('from "@/server/services/mastery/masteryLevels"');
 		expect(source).not.toMatch(/CONVERSATION_MAX_LEVEL\s*=\s*\d/);
+	});
+
+	// ConceptMastery is unique on the exact string, so two writers that disagree
+	// about whitespace put one concept in the table twice — and the learning path
+	// then recommends reviewing what the student has demonstrably mastered. The
+	// allowlist is model-authored insights JSON, which is where the padding comes
+	// from.
+	it("stores the same string from either writer for the same concept", () => {
+		const stored = [{ name: "  Recursion " }];
+
+		const fromQuiz = canonicalConceptNames(stored);
+		const fromTool = authorizeMarkConceptUnderstood(
+			{ concept: "recursion", level: 2 },
+			{ userId: "u1", lessonConcepts: stored.map((c) => c.name) },
+		);
+
+		expect(fromTool.authorized).toBe(true);
+		expect(fromTool.authorized && fromTool.canonicalConcept).toBe(fromQuiz[0]);
+		expect(fromQuiz).toEqual(["Recursion"]);
+	});
+
+	it("refuses a name that cannot be stored at all", () => {
+		const tooLong = "R".repeat(81);
+
+		const fromTool = authorizeMarkConceptUnderstood(
+			{ concept: tooLong, level: 2 },
+			{ userId: "u1", lessonConcepts: [tooLong] },
+		);
+
+		expect(fromTool.authorized).toBe(false);
+		expect(canonicalConceptNames([{ name: tooLong }])).toEqual([]);
 	});
 });

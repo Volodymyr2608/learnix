@@ -98,6 +98,36 @@ describe("level 3 requires knowledge, not enumeration", () => {
 		// so a slow machine reports the guarantee, not the clock.
 	}, 30_000);
 
+	// The cap bounds a window, not a lifetime. A patient attacker can spend one
+	// window per day and eventually reach the last option — that residual is
+	// accepted (security.md S10 item 3). What must never happen is the record
+	// calling that a first pass: the attempt row is the evidence, and it has to
+	// survive the reset that lets the next window open.
+	it("records an answer reached across cooldowns as retried, never as a first pass", async () => {
+		for (const quizId of quizIds) {
+			for (const selectedAnswer of ["A", "B", "C"]) {
+				await caller.quiz.submit({ quizId, selectedAnswer }).catch(() => {});
+			}
+		}
+		await testDb.quizAttempt.updateMany({
+			where: { studentId },
+			data: { updatedAt: new Date(Date.now() - 25 * 60 * 60 * 1000) },
+		});
+
+		for (const quizId of quizIds) {
+			await caller.quiz.submit({ quizId, selectedAnswer: CORRECT });
+		}
+
+		const attempts = await testDb.quizAttempt.findMany({
+			where: { studentId },
+		});
+		const mastery = await testDb.conceptMastery.findMany({
+			where: { studentId },
+		});
+		expect(attempts.map((a) => a.attemptCount)).toEqual([4, 4, 4]);
+		expect(mastery.map((row) => row.evidence)).toEqual(["QUIZ_RETRIED"]);
+	}, 30_000);
+
 	it("still gives level 3 to a student who knows the answers", async () => {
 		for (const quizId of quizIds) {
 			await caller.quiz.submit({ quizId, selectedAnswer: CORRECT });

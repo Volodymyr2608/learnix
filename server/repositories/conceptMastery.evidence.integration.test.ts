@@ -105,6 +105,49 @@ describe("ConceptMastery records how a level was earned", () => {
 		expect(row.evidence).toBeNull();
 	});
 
+	// The cutoff is `level = 3 AND evidence IS NULL`. A pre-change row that the
+	// student then re-earns has left that population, and saying so is the whole
+	// point of being able to identify it.
+	it("attributes a pre-change row that is re-earned at the same level", async () => {
+		await makeConceptMastery({
+			studentId,
+			courseId,
+			concept: "Recursion",
+			level: 3,
+		});
+
+		const row = await conceptMasteryRepository.upsertMastery(
+			studentId,
+			courseId,
+			"Recursion",
+			3,
+			MasteryEvidence.QUIZ_RETRIED,
+		);
+
+		expect(row.level).toBe(3);
+		expect(row.evidence).toBe(MasteryEvidence.QUIZ_RETRIED);
+	});
+
+	it("never overwrites evidence that already says something", async () => {
+		await conceptMasteryRepository.upsertMastery(
+			studentId,
+			courseId,
+			"Recursion",
+			3,
+			MasteryEvidence.QUIZ_FIRST_PASS,
+		);
+
+		const row = await conceptMasteryRepository.upsertMastery(
+			studentId,
+			courseId,
+			"Recursion",
+			3,
+			MasteryEvidence.QUIZ_RETRIED,
+		);
+
+		expect(row.evidence).toBe(MasteryEvidence.QUIZ_FIRST_PASS);
+	});
+
 	it("still counts the pre-change population the cutoff has to cover", async () => {
 		await makeConceptMastery({
 			studentId,

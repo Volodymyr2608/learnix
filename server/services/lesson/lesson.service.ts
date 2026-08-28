@@ -138,7 +138,6 @@ class LessonService {
 							question: true,
 							options: true,
 							lessonId: true,
-							deletedAt: true,
 						},
 					},
 					section: { select: { courseId: true } },

@@ -18,6 +18,14 @@ const WINDOW_MS = 60_000;
 export const MAX_SUBMITS_PER_WINDOW = 10;
 
 /**
+ * The ceiling that actually bounds a client, because the per-quiz one does not:
+ * `quizId` comes from the request, so a caller sweeping made-up ids gets a fresh
+ * per-quiz budget every time and the limiter never fires. Generous enough that a
+ * student working through a lesson never meets it.
+ */
+export const MAX_SUBMITS_PER_USER_WINDOW = 30;
+
+/**
  * `quizSubmit` is not a member of `AiFeature`, so this key space cannot collide
  * with the AI limiter's `${userId}:${feature}` — and `quizId` is placed where a
  * scope goes, after a segment no feature name can occupy.
@@ -28,10 +36,23 @@ export const MAX_SUBMITS_PER_WINDOW = 10;
 const submitKey = (userId: string, quizId: string) =>
 	`${userId}:quizSubmit:${quizId}`;
 
-export const createQuizSubmitLimiter = (store: RateLimitStore) => {
+/**
+ * Disjoint from both existing key spaces for the same reason the per-quiz key
+ * is: `quizSubmit` is not a member of `AiFeature`, and the aggregate key is
+ * separated by a space at index `userId.length`.
+ */
+const userKey = (userId: string) => `${userId}:quizSubmit`;
+
+const createQuizSubmitLimiter = (store: RateLimitStore) => {
+	// Both windows in one call: the store evaluates every window before
+	// incrementing any, so a caller already over one ceiling does not also spend
+	// the other.
 	const check = (userId: string, quizId: string): Promise<boolean> =>
 		store.checkAndBump(
-			[{ key: submitKey(userId, quizId), max: MAX_SUBMITS_PER_WINDOW }],
+			[
+				{ key: userKey(userId), max: MAX_SUBMITS_PER_USER_WINDOW },
+				{ key: submitKey(userId, quizId), max: MAX_SUBMITS_PER_WINDOW },
+			],
 			WINDOW_MS,
 		);
 

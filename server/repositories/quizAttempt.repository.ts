@@ -4,11 +4,6 @@ import type { QuizAttemptRow } from "@/server/services/learningPathAI/learningPa
 import { BaseRepository } from "./base/base.repository";
 
 /**
- * Why a union rather than a nullable row: "nothing was written" has two causes
- * with opposite meanings — the student already answered correctly, or they have
- * spent the cap. The caller must be unable to conflate them.
- */
-/**
  * The bound on guessing, read straight into the statement that writes the
  * attempt: how many graded attempts a window allows, and how long a spent window
  * lasts. Derived from the attempt row itself, never from in-process state, so it
@@ -19,6 +14,11 @@ export type AttemptPolicy = {
 	cooldownHours: number;
 };
 
+/**
+ * Why a union rather than a nullable row: "nothing was written" has two causes
+ * with opposite meanings — the student already answered correctly, or they have
+ * spent the cap. The caller must be unable to conflate them.
+ */
 export type RecordAttemptResult =
 	| { outcome: "recorded"; attempt: QuizAttempt }
 	| { outcome: "already_correct"; attempt: QuizAttempt }
@@ -48,9 +48,12 @@ class QuizAttemptRepository extends BaseRepository<
 	 *
 	 * The update writes only while the row is not already correct and the cap is
 	 * not spent, so the statement itself is the enforcement. Zero rows is
-	 * therefore ambiguous, and the outcome is resolved by reading the row back
-	 * rather than by inferring it — `already_correct` and `capped` are different
-	 * answers to the student and only one of them is an error.
+	 * therefore ambiguous, and which refusal it was is resolved by reading the row
+	 * back — `already_correct` and `capped` are different answers to the student.
+	 * That second read is outside the statement, so a write landing between the
+	 * two can mislabel the refusal. Both are refusals and neither writes anything,
+	 * so the label is best-effort by design; nothing downstream may depend on it
+	 * being authoritative.
 	 */
 	async recordAttempt(
 		quizId: string,
@@ -61,31 +64,37 @@ class QuizAttemptRepository extends BaseRepository<
 	): Promise<RecordAttemptResult> {
 		const id = randomUUID();
 		const { maxAttempts, cooldownHours } = policy;
-		// Two NULL behaviours, both deliberate. `attemptCount < maxAttempts` is
-		// NULL — not true — for a row of unknown history, so such a row is never
-		// admitted by the cap and falls through to the cooldown branch: one attempt
-		// per window. And `attemptCount + 1` on NULL stays NULL, so it keeps saying
-		// "unknown" rather than claiming a history it does not have, which is what
-		// a later promotion reads to mark its evidence as legacy.
+		// Two counters, because they answer two different questions and a cooldown
+		// resets only one of them. `windowCount` is what the cap compares against
+		// and what a spent window restarts; `attemptCount` is the lifetime count a
+		// promotion reads to say how the level was earned, and nothing resets it.
+		// Held in one column, a student who exhausted the cap, waited a day and
+		// submitted the last remaining option was recorded as a first pass.
+		//
+		// `attemptCount + 1` on NULL stays NULL: a row of unknown history keeps
+		// saying "unknown" rather than claiming a history it does not have, which
+		// is what a later promotion reads to mark its evidence as legacy. Its
+		// window, by contrast, is knowable from now on — COALESCE starts it.
 		const rows = await this.db.$queryRaw<QuizAttempt[]>`
 			INSERT INTO quiz_attempts (
-				id, "quizId", "studentId", "selectedAnswer", "isCorrect", "attemptCount", "createdAt", "updatedAt"
+				id, "quizId", "studentId", "selectedAnswer", "isCorrect",
+				"attemptCount", "windowCount", "createdAt", "updatedAt"
 			)
-			VALUES (${id}, ${quizId}, ${studentId}, ${selectedAnswer}, ${isCorrect}, 1, NOW(), NOW())
+			VALUES (${id}, ${quizId}, ${studentId}, ${selectedAnswer}, ${isCorrect}, 1, 1, NOW(), NOW())
 			ON CONFLICT ("quizId", "studentId")
 			DO UPDATE SET
 				"selectedAnswer" = EXCLUDED."selectedAnswer",
 				"isCorrect" = EXCLUDED."isCorrect",
-				"attemptCount" = CASE
+				"attemptCount" = quiz_attempts."attemptCount" + 1,
+				"windowCount" = CASE
 					WHEN quiz_attempts."updatedAt" < NOW() - (${cooldownHours} * INTERVAL '1 hour')
-						AND quiz_attempts."attemptCount" IS NOT NULL
 					THEN 1
-					ELSE quiz_attempts."attemptCount" + 1
+					ELSE COALESCE(quiz_attempts."windowCount", 0) + 1
 				END,
 				"updatedAt" = NOW()
 			WHERE NOT quiz_attempts."isCorrect"
 				AND (
-					quiz_attempts."attemptCount" < ${maxAttempts}
+					COALESCE(quiz_attempts."windowCount", 0) < ${maxAttempts}
 					OR quiz_attempts."updatedAt" < NOW() - (${cooldownHours} * INTERVAL '1 hour')
 				)
 			RETURNING *;
@@ -130,10 +139,14 @@ class QuizAttemptRepository extends BaseRepository<
 	}
 
 	/**
-	 * How many attempts each correct answer took, for the quizzes given. A NULL
-	 * entry is a row that predates the counter: how many tries it took is
-	 * unknowable, which is a different fact from "one try" and must stay
-	 * distinguishable from it.
+	 * How many attempts each correct answer took over its whole life, for the
+	 * quizzes given. A NULL entry is a row that predates the counter: how many
+	 * tries it took is unknowable, which is a different fact from "one try" and
+	 * must stay distinguishable from it.
+	 *
+	 * Deliberately the lifetime counter, not the window one: an answer reached by
+	 * spending a cap, waiting out the cooldown and trying again is not a first
+	 * pass, however small the window count reads afterwards.
 	 */
 	async correctAttemptCountsAmong(
 		quizIds: string[],

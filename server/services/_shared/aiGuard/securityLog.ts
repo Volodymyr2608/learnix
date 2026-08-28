@@ -6,7 +6,7 @@ import type { SecurityEvent, SecurityOutcome } from "./types";
  * Which SecurityOutcome values get an explicit Sentry forward (AC 36/37).
  *
  * A total Record, not an array with `.includes()`: SecurityOutcome has exactly
- * eight members today, and a ninth added to the union makes this object literal
+ * nine members today, and a tenth added to the union makes this object literal
  * fail to type-check until someone classifies it (AC 37a). An array would
  * silently treat an unclassified outcome as "not forwarded" — the safe
  * direction, but not the point; the point is to force the decision.

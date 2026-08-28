@@ -219,12 +219,12 @@ describe("quizService.submit — mastery promotion", () => {
 	});
 });
 
-const originalFindOne = quizRepository.findOne;
+const originalFindFirst = quizRepository.findFirst;
 const originalFindByLesson = quizRepository.findByLesson;
 
 // The narrowing in findByLesson could only break grading if grading read the key
-// through it. It does not — it reads the whole row through findOne, a different
-// method — and these pin that, so a future change to either read has to say so.
+// through it. It does not — it reads one whole row by id, a different call — and
+// these pin that, so a future change to either read has to say so.
 describe("quizService.submit — grading reads the key through a different door", () => {
 	let studentId: string;
 	let lessonId: string;
@@ -266,9 +266,9 @@ describe("quizService.submit — grading reads the key through a different door"
 			correct: "B",
 		});
 		const order: string[] = [];
-		vi.spyOn(quizRepository, "findOne").mockImplementation(async (id) => {
-			order.push("findOne");
-			return await originalFindOne.call(quizRepository, id);
+		vi.spyOn(quizRepository, "findFirst").mockImplementation(async (args) => {
+			order.push("findFirst");
+			return await originalFindFirst.call(quizRepository, args);
 		});
 		vi.spyOn(quizRepository, "findByLesson").mockImplementation(async (id) => {
 			order.push("findByLesson");
@@ -280,7 +280,7 @@ describe("quizService.submit — grading reads the key through a different door"
 		expect(attempt.isCorrect).toBe(true);
 		// findByLesson appears only after grading, and only because the promotion
 		// that follows it counts how many quizzes the lesson has.
-		expect(order[0]).toBe("findOne");
+		expect(order[0]).toBe("findFirst");
 		expect(order).toContain("findByLesson");
 	});
 });
@@ -347,7 +347,11 @@ describe("quizService.submit — the attempt cap", () => {
 			.catch((e: unknown) => e);
 
 		expect(error).toBeInstanceOf(AttemptLimitError);
-		expect(JSON.stringify(error)).not.toContain("D");
+		// On the message, not on JSON.stringify(error) — an Error's message is
+		// non-enumerable, so stringifying it yields "{}" and asserts nothing.
+		expect((error as AttemptLimitError).message).toBe(
+			"No attempts left for this question",
+		);
 	});
 
 	it("caps a two-option quiz at a single attempt", async () => {
@@ -390,7 +394,9 @@ describe("quizService.submit — the attempt cap", () => {
 			data: { updatedAt: new Date(Date.now() - hours * 60 * 60 * 1000) },
 		});
 
-	it("lets the student try again once the cooldown has passed, from a fresh count", async () => {
+	// A fresh window, but not a fresh history: the lifetime count keeps climbing,
+	// which is what a promotion reads to decide whether this was a first pass.
+	it("lets the student try again once the cooldown has passed, in a fresh window", async () => {
 		const quiz = await cappedQuiz();
 		await quizService.submit(quiz.id, studentId, "A");
 		await quizService.submit(quiz.id, studentId, "B");
@@ -399,7 +405,11 @@ describe("quizService.submit — the attempt cap", () => {
 
 		const next = await quizService.submit(quiz.id, studentId, "A");
 
-		expect(next).toMatchObject({ attemptCount: 1, isCorrect: false });
+		expect(next).toMatchObject({
+			windowCount: 1,
+			attemptCount: 4,
+			isCorrect: false,
+		});
 	});
 
 	it("still refuses an hour before the cooldown is up", async () => {
@@ -414,10 +424,10 @@ describe("quizService.submit — the attempt cap", () => {
 		);
 	});
 
-	// A row whose history is unknown cannot be counted against a cap, so it is
-	// bounded by the cooldown alone: one attempt per window, and the count stays
-	// NULL so a promotion built on it is still marked as legacy evidence.
-	it("gives a row of unknown history one attempt per cooldown window", async () => {
+	// A row whose history is unknown gets the ordinary cap from here on — its
+	// window is knowable even when its lifetime is not — and the lifetime count
+	// stays NULL, so a promotion built on it is still marked as legacy evidence.
+	it("caps a row of unknown history without inventing a history for it", async () => {
 		const quiz = await cappedQuiz();
 		await makeQuizAttempt({
 			quizId: quiz.id,
@@ -428,10 +438,13 @@ describe("quizService.submit — the attempt cap", () => {
 		await moveAttemptBack(quiz.id, 72);
 
 		const first = await quizService.submit(quiz.id, studentId, "A");
-		const second = quizService.submit(quiz.id, studentId, "B");
+		await quizService.submit(quiz.id, studentId, "B");
+		await quizService.submit(quiz.id, studentId, "C");
+		const fourth = quizService.submit(quiz.id, studentId, "D");
 
 		expect(first.attemptCount).toBeNull();
-		await expect(second).rejects.toThrow(AttemptLimitError);
+		expect(first.windowCount).toBe(1);
+		await expect(fourth).rejects.toThrow(AttemptLimitError);
 	});
 
 	it("refuses a submission for a quiz the instructor has deleted", async () => {

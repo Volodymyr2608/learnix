@@ -26,10 +26,18 @@ model QuizAttempt {
   selectedAnswer String
   isCorrect      Boolean
 
-  /// How many graded attempts this row represents. NULL means "unknown": the row
-  /// predates the counter, back when a retry overwrote its own attempt in place.
-  /// Never backfilled — count(*) is 1 for a quiz retried twenty times.
+  /// How many graded attempts this row represents over its whole life. NULL means
+  /// "unknown": the row predates the counter, back when a retry overwrote its own
+  /// attempt in place. Never backfilled — count(*) is 1 for a quiz retried twenty
+  /// times — and never reset, because this is what a promotion reads to say how
+  /// the level was earned.
   attemptCount Int?
+
+  /// Attempts inside the current cooldown window. This is what the cap compares
+  /// against, and the only counter the cooldown resets. Kept separate from
+  /// attemptCount: one column serving both jobs let a spent window erase the
+  /// lifetime fact, and an enumerated answer then recorded as a first pass.
+  windowCount Int?
 
   createdAt DateTime @default(now())
   /// The cooldown clock. `createdAt` stays pinned to the first attempt because
