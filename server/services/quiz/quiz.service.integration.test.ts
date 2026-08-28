@@ -161,6 +161,44 @@ describe("quizService.submit — mastery promotion", () => {
 		expect(row.evidence).toBe(MasteryEvidence.LEGACY);
 	});
 
+	it("promotes on the last of three quizzes, and not before", async () => {
+		const quizzes = [
+			await makeQuiz({ lessonId }),
+			await makeQuiz({ lessonId }),
+			await makeQuiz({ lessonId }),
+		];
+
+		await quizService.submit(quizzes[0]?.id ?? "", studentId, "A");
+		await quizService.submit(quizzes[1]?.id ?? "", studentId, "A");
+		const beforeLast = await testDb.conceptMastery.count({
+			where: { studentId },
+		});
+		await quizService.submit(quizzes[2]?.id ?? "", studentId, "A");
+
+		expect(beforeLast).toBe(0);
+		expect(await testDb.conceptMastery.count({ where: { studentId } })).toBe(1);
+	});
+
+	// A deleted quiz is not a question the student failed to answer: it is not a
+	// question. Counting it would leave the lesson permanently uncompletable.
+	it("does not count a deleted quiz toward the lesson", async () => {
+		const quizzes = [
+			await makeQuiz({ lessonId }),
+			await makeQuiz({ lessonId }),
+			await makeQuiz({ lessonId }),
+		];
+		await makeQuiz({ lessonId, deletedAt: new Date() });
+
+		await quizService.submit(quizzes[0]?.id ?? "", studentId, "A");
+		await quizService.submit(quizzes[1]?.id ?? "", studentId, "A");
+		await quizService.submit(quizzes[2]?.id ?? "", studentId, "A");
+
+		const row = await testDb.conceptMastery.findFirstOrThrow({
+			where: { studentId },
+		});
+		expect(row.level).toBe(3);
+	});
+
 	it("promotes nothing on a wrong answer", async () => {
 		const only = await makeQuiz({ lessonId });
 
