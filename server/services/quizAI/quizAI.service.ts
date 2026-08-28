@@ -92,7 +92,10 @@ class QuizAIService {
 				}
 
 				if (!regen) {
-					const existing = await quizRepository.findByLesson(lId);
+					// The author's accessor: this path returns the questions to the
+					// instructor who owns the lesson, verified above, and the dialog
+					// they land in needs the key it is about to save.
+					const existing = await quizRepository.findByLessonForAuthor(lId);
 					if (existing.length > 0) {
 						return existing.map((q) => ({
 							question: q.question,

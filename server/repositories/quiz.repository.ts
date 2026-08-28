@@ -1,6 +1,16 @@
 import type { Prisma, Quiz } from "@/generated/prisma";
 import { BaseRepository } from "@/server/repositories/base/base.repository";
 
+/**
+ * A quiz as a student may see it. The type exists so that a component reaching
+ * for `quiz.correct` fails `pnpm typecheck` rather than reading `undefined` at
+ * runtime — and so the plausible "fix" is not to put the field back.
+ */
+export type StudentQuiz = Pick<
+	Quiz,
+	"id" | "question" | "options" | "lessonId" | "deletedAt"
+>;
+
 export default class QuizRepository extends BaseRepository<
 	"quiz",
 	Quiz,
@@ -13,7 +23,38 @@ export default class QuizRepository extends BaseRepository<
 > {
 	protected readonly modelName = "quiz";
 
-	async findByLesson(lessonId: string): Promise<Quiz[]> {
+	/**
+	 * The student field set, and the only lesson-wide read of quizzes there is.
+	 * `correct` is an assessment secret: narrowing here rather than at the caller
+	 * means it is never loaded, so it cannot be spread into a response, written to
+	 * a log line, or re-exposed by a caller added later. Grading reads the whole
+	 * row through `findOne`, which is a different door.
+	 *
+	 * `orderBy: { id: "asc" }` is load-bearing — `quizService.getByLesson` pairs
+	 * quizzes with attempts positionally.
+	 */
+	async findByLesson(lessonId: string): Promise<StudentQuiz[]> {
+		return this.findMany({
+			where: { lessonId, deletedAt: null },
+			orderBy: { id: "asc" },
+			select: {
+				id: true,
+				question: true,
+				options: true,
+				lessonId: true,
+				deletedAt: true,
+			},
+		}) as unknown as Promise<StudentQuiz[]>;
+	}
+
+	/**
+	 * The author's field set — the whole row, answer key included, for the
+	 * instructor who owns the lesson. A separate method rather than a flag on
+	 * `findByLesson`: the audience is then chosen at the call site and visible in
+	 * review, where a boolean argument would be one typo away from handing a
+	 * student the key. Callers must have verified ownership first.
+	 */
+	async findByLessonForAuthor(lessonId: string): Promise<Quiz[]> {
 		return this.findMany({
 			where: { lessonId, deletedAt: null },
 			orderBy: { id: "asc" },
