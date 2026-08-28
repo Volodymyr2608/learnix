@@ -5,6 +5,7 @@ import {
 	type Prisma,
 	Role,
 } from "@/generated/prisma";
+import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
 import { testDb } from "./db";
 
 export function makeUser(
@@ -134,7 +135,9 @@ export function makeConceptMastery(
 	},
 ) {
 	return testDb.conceptMastery.create({
-		data: { level: 0, ...overrides },
+		// Derived rather than required of every caller, so a seeded row can never
+		// carry a key that disagrees with its own spelling.
+		data: { level: 0, conceptKey: conceptKey(overrides.concept), ...overrides },
 	});
 }
 

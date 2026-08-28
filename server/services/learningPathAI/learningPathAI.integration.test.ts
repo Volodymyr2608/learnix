@@ -2,6 +2,7 @@ import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { Role } from "@/generated/prisma";
 import { testDb } from "@/test/db";
 import {
+	makeConceptMastery,
 	makeCourse,
 	makeEnrollment,
 	makeLesson,
@@ -101,21 +102,19 @@ async function seedScenario() {
 	});
 
 	// Low mastery on Next.js and Prisma (level < 3) → identifyWeakSignals flags lessonA.
-	await testDb.conceptMastery.createMany({
-		data: [
-			{
-				studentId: student.id,
-				courseId: course.id,
-				concept: "Next.js",
-				level: 1,
-			},
-			{
-				studentId: student.id,
-				courseId: course.id,
-				concept: "Prisma",
-				level: 2,
-			},
-		],
+	// Seeded through the factory so `conceptKey` is derived from the spelling
+	// rather than asserted twice.
+	await makeConceptMastery({
+		studentId: student.id,
+		courseId: course.id,
+		concept: "Next.js",
+		level: 1,
+	});
+	await makeConceptMastery({
+		studentId: student.id,
+		courseId: course.id,
+		concept: "Prisma",
+		level: 2,
 	});
 
 	// Failed quiz on lessonB (different lesson from weak-concept lesson) so the

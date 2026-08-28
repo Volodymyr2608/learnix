@@ -4,6 +4,7 @@ import type {
 	MasteryEvidence,
 	Prisma,
 } from "@/generated/prisma";
+import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
 import type { MasteryRow } from "@/server/services/learningPathAI/learningPathAI.state";
 import { BaseRepository } from "./base/base.repository";
 
@@ -34,11 +35,16 @@ class ConceptMasteryRepository extends BaseRepository<
 		// describe the level the row actually holds, so a level-2 write over a
 		// level-3 row leaves both alone — including a NULL, which says the row
 		// predates the column and must not be given a story it did not earn.
+		// The conflict target is the KEY, not the spelling: two callers that
+		// disagree about case or whitespace are talking about one concept, and the
+		// old target let the second of them insert a second row. The stored
+		// spelling stays whichever one arrived first — presentation, not identity.
 		const id = randomUUID();
+		const key = conceptKey(concept);
 		const rows = await this.db.$queryRaw<ConceptMastery[]>`
-			INSERT INTO concept_mastery (id, "studentId", "courseId", concept, level, evidence, "updatedAt")
-			VALUES (${id}, ${studentId}, ${courseId}, ${concept}, ${level}, ${evidence}::"MasteryEvidence", NOW())
-			ON CONFLICT ("studentId", "courseId", concept)
+			INSERT INTO concept_mastery (id, "studentId", "courseId", concept, "conceptKey", level, evidence, "updatedAt")
+			VALUES (${id}, ${studentId}, ${courseId}, ${concept}, ${key}, ${level}, ${evidence}::"MasteryEvidence", NOW())
+			ON CONFLICT ("studentId", "courseId", "conceptKey")
 			DO UPDATE SET
 				level = GREATEST(concept_mastery.level, EXCLUDED.level),
 				evidence = CASE
