@@ -49,7 +49,15 @@ field back. A `@ts-expect-error` in the test now fails the build if the key beco
 
 A quiz allows `min(3, options.length − 1)` graded attempts per student — always below the option
 count, so a client runs out of attempts before it runs out of options and cannot arrive at the answer
-by elimination. Exhausting it starts a 24-hour cooldown, after which the counter resets.
+by elimination inside one window. The window is rolling: 24 hours after the last graded attempt it
+restarts.
+
+**Two counters, not one.** `windowCount` is what the cap compares against and what the window
+restarts; `attemptCount` counts a lifetime and nothing resets it. The first implementation used one
+column for both, and the audit at `/qa` found what that costs: a student could spend three attempts,
+wait a day, submit the one remaining option, and be recorded as `QUIZ_FIRST_PASS` — the strongest
+provenance marker in the enum, for an answer reached purely by elimination. A cap that resets is a
+cap; a *record* that resets is a false record.
 
 Both are predicates inside one `INSERT … ON CONFLICT DO UPDATE`. A check in the service would be
 read-then-write: ten parallel submissions would all read the same pre-attempt count and all be
@@ -67,10 +75,9 @@ Rows that predate the counter carry NULL. They are **not** backfilled from `coun
 overwrote the attempt row in place, so `count(*)` is 1 for a quiz retried twenty times. That backfill
 looks free and truthful and is a fabrication.
 
-NULL is therefore not a count the cap can compare against — `attemptCount < maxAttempts` is NULL, not
-true — so such a row is admitted only by the cooldown branch: one attempt per window, count still
-NULL. The alternative, admitting NULL unconditionally, would have left every quiz a student had
-already guessed at before the deploy permanently uncapped.
+Its *window*, though, is knowable from the first post-change attempt, so such a row is capped like
+any other while its lifetime count stays NULL — which is what a promotion turns into `LEGACY`. The
+unknown rides in the label rather than in a fabricated number.
 
 ### 4. Provenance is a column, because a credential is coming
 
@@ -108,10 +115,16 @@ feature does not deliver.
 That is a real cost paid by honest students on hard questions, accepted because the alternative — the
 guarantee level 3 rests on — is worth more than the inconvenience.
 
-**A lucky guess inside the cap is still possible.** With four options and three attempts the chance
-is real. The cap makes systematic enumeration impossible, not luck; across every quiz on a lesson the
-compounding makes fabricated level-3 unlikely rather than impossible. Recorded as an accepted
-residual, not as a solved problem.
+**A lucky guess inside the cap is still possible, and so is patience.** With four options and three
+attempts the chance of a lucky answer is real, and a student who waits out the window can try the
+remaining option the next day. The cap does not make fabricated level-3 impossible; what the split
+counters buy is that it is never *silent* — a cross-window answer records as `QUIZ_RETRIED` with the
+real attempt count, and the guarantee test pins that it can never read as a first pass. Recorded as
+an accepted residual (`security.md` S10 item 3), not as a solved problem.
+
+**Editing a lesson's questions no longer erases its attempt history.** `replaceForLesson`
+hard-deleted, and `QuizAttempt` cascades — so saving the quiz tab reset every student's cap and
+cooldown and destroyed the rows a level-3 `evidence` value points at. It soft-deletes now.
 
 **Two migrations, one of them irreversible.** The dedupe collapses pre-existing duplicate
 `(quizId, studentId)` pairs — a correct attempt outranks a wrong one, then the newest, then the
@@ -141,10 +154,16 @@ the bypass through a friendlier door. After a correct answer it is merely redund
 **Delete or downgrade existing level-3 rows.** Rejected — see decision 4. The cutoff column bounds
 them instead, so a future credentialing consumer can exclude rather than trust them.
 
+**One attempt counter, with the cooldown resetting it.** Rejected at `/qa`, having been built and
+audited: the cap's window and the record's lifetime are different questions, and the column that
+answers both answers the second one wrongly the moment a window turns over.
+
 **Route `quiz.submit` through the existing `aiRateLimit` middleware.** Rejected: submitting a quiz is
 not a model call, and spending a student's tutor allowance on it is the defect
 `ai-tutor-guardrails` S13 §17/§31 already records. It gets a non-AI window on the same store, in a key
-segment no `AiFeature` name can occupy.
+segment no `AiFeature` name can occupy — two windows, in fact: per `(user, quiz)` and per user, since
+`quizId` comes from the request and a client sweeping ids would otherwise get a fresh budget every
+time.
 
 ## References
 
