@@ -4,6 +4,7 @@ import { Button } from "app/_components/_shared/ui/button";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import AttemptBadge from "./components/AttemptBadge";
+import { SubmitNotice } from "./components/SubmitNotice";
 import { optionClassName } from "./helpers/optionClassName";
 import { useSubmitQuiz } from "./hooks/useSubmitQuiz";
 import type { QuestionCardProps } from "./types";
@@ -71,6 +72,8 @@ export default function QuestionCard({
 					{isShowingWrongAnswer ? "Try Again" : "Submit"}
 				</Button>
 			</div>
+
+			{submit.error && <SubmitNotice message={submit.error.message} />}
 		</div>
 	);
 }

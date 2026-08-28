@@ -1,22 +1,99 @@
 import type { Prisma } from "@/generated/prisma";
-import { EnrollmentStatus } from "@/generated/prisma";
+import { EnrollmentStatus, MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
-import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
+import {
+	type AttemptPolicy,
+	quizAttemptRepository,
+} from "@/server/repositories/quizAttempt.repository";
+import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import {
+	canonicalConceptName,
+	QUIZ_MASTERY_LEVEL,
+} from "@/server/services/mastery/masteryLevels";
 import { logger } from "@/server/utils/logger";
 import {
 	AlreadyAttemptedError,
+	AttemptLimitError,
 	QuizError,
 	QuizForbiddenError,
+	QuizNotFoundError,
 } from "./quiz.errors";
 
 type QuizInput = Pick<
 	Prisma.QuizUncheckedCreateInput,
 	"question" | "options" | "correct"
 >;
+
+/**
+ * Never the option count: a student who may try every option arrives at the
+ * answer by elimination, which is what removing the key from the response was
+ * for. Three is the ceiling, one option short of the set is the rule, and the
+ * floor of 1 only covers a malformed single-option quiz — there is nothing to
+ * withhold there anyway.
+ */
+const MAX_GRADED_ATTEMPTS = 3;
+
+/**
+ * A spent cap is not a permanent denial: a student who genuinely misunderstood
+ * the lesson gets another window, while one cycling options is slowed to a rate
+ * at which the attempt record is the signal.
+ */
+const ATTEMPT_COOLDOWN_HOURS = 24;
+
+const attemptPolicyFor = (options: string[]): AttemptPolicy => ({
+	maxAttempts: Math.max(1, Math.min(MAX_GRADED_ATTEMPTS, options.length - 1)),
+	cooldownHours: ATTEMPT_COOLDOWN_HOURS,
+});
+
+/**
+ * The same rule the level-2 tool path already enforced — trim, compare
+ * case-insensitively, bound at 80 characters — applied to the level-3 write,
+ * which had only a `typeof name === "string"` check in front of unschema'd
+ * model JSON. The higher authority should not be the looser path, and both
+ * paths now canonicalise through one function so they cannot disagree about
+ * the spelling a concept is stored under.
+ *
+ * The first spelling seen wins, so "  Recursion " and "recursion" become one
+ * row named "Recursion" rather than two rows the student appears to have
+ * mastered separately.
+ *
+ * Exported for the contract test that holds the two writers to the same string.
+ */
+export const canonicalConceptNames = (raw: unknown): string[] => {
+	// `insights.concepts` is a JSON column written by a model. A shape that is
+	// not an array would make `for … of` throw inside the promotion.
+	const entries = Array.isArray(raw) ? (raw as { name?: unknown }[]) : [];
+	const canonical = new Map<string, string>();
+
+	for (const entry of entries) {
+		if (typeof entry?.name !== "string") continue;
+		const name = canonicalConceptName(entry.name);
+		if (!name) continue;
+		const key = name.toLowerCase();
+		if (!canonical.has(key)) canonical.set(key, name);
+	}
+
+	return [...canonical.values()];
+};
+
+/**
+ * What the attempt rows say about how this level was earned. A single unknown
+ * count makes the whole promotion LEGACY: the guarantee is "every quiz answered
+ * correctly, and here is how many tries that took", and one unknowable row
+ * makes that claim unverifiable rather than merely imperfect.
+ */
+const evidenceFor = (attemptCounts: (number | null)[]): MasteryEvidence => {
+	if (attemptCounts.some((count) => count === null)) {
+		return MasteryEvidence.LEGACY;
+	}
+	return attemptCounts.every((count) => count === 1)
+		? MasteryEvidence.QUIZ_FIRST_PASS
+		: MasteryEvidence.QUIZ_RETRIED;
+};
 
 class QuizService {
 	private async verifyInstructorOwnership(
@@ -97,35 +174,47 @@ class QuizService {
 
 	async submit(quizId: string, studentId: string, selectedAnswer: string) {
 		try {
-			const quiz = await quizRepository.findOne(quizId);
+			// `findFirst`, not `findOne`: the latter is `findUniqueOrThrow`, which
+			// knows nothing about soft deletes and turns an id that does not exist
+			// into a 500. Both are the caller's mistake, both answer NOT_FOUND, and
+			// a client-fault code is what keeps a client sweeping made-up ids from
+			// burning the Sentry quota every real failure has to fit inside.
+			const quiz = await quizRepository.findFirst({
+				where: { id: quizId, deletedAt: null },
+			});
+			if (!quiz) {
+				throw new QuizNotFoundError("Quiz not found", "NOT_FOUND");
+			}
 
 			await this.verifyEnrollment(quiz.lessonId, studentId);
 
-			const existingAttempt = await quizAttemptRepository.findByQuizAndStudent(
+			const isCorrect = quiz.correct === selectedAnswer;
+
+			const result = await quizAttemptRepository.recordAttempt(
 				quizId,
 				studentId,
+				selectedAnswer,
+				isCorrect,
+				attemptPolicyFor(quiz.options),
 			);
 
-			if (existingAttempt?.isCorrect) {
+			if (result.outcome === "already_correct") {
 				throw new AlreadyAttemptedError(
 					"You have already answered this question correctly",
 					"CONFLICT",
 				);
 			}
 
-			const isCorrect = quiz.correct === selectedAnswer;
+			if (result.outcome === "capped") {
+				// Says nothing about the submitted answer: telling a capped student
+				// whether their last guess was right is the reveal by another door.
+				throw new AttemptLimitError(
+					"No attempts left for this question",
+					"TOO_MANY_REQUESTS",
+				);
+			}
 
-			const attempt = existingAttempt
-				? await quizAttemptRepository.update(existingAttempt.id, {
-						selectedAnswer,
-						isCorrect,
-					})
-				: await quizAttemptRepository.create({
-						quizId,
-						studentId,
-						selectedAnswer,
-						isCorrect,
-					});
+			const attempt = result.attempt;
 
 			// Confirmation by action: conversation can reach level 2, only finishing
 			// every quiz on the lesson reaches 3. Awaited so the write is ordered
@@ -164,7 +253,9 @@ class QuizService {
 		} catch (error) {
 			if (
 				error instanceof QuizForbiddenError ||
-				error instanceof AlreadyAttemptedError
+				error instanceof AlreadyAttemptedError ||
+				error instanceof AttemptLimitError ||
+				error instanceof QuizNotFoundError
 			) {
 				throw error;
 			}
@@ -191,6 +282,12 @@ class QuizService {
 		);
 		if (correctCount < quizzes.length) return;
 
+		const attemptCounts = await quizAttemptRepository.correctAttemptCountsAmong(
+			quizzes.map((quiz) => quiz.id),
+			studentId,
+		);
+		const evidence = evidenceFor(attemptCounts);
+
 		const lesson = await lessonRepository.findFirst({
 			where: { id: lessonId, deletedAt: null },
 			select: { section: { select: { courseId: true } } },
@@ -199,25 +296,34 @@ class QuizService {
 		if (!courseId) return;
 
 		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
-		// LLM-generated JSON with no schema behind it. An entry missing `name`
-		// would reach the NOT NULL `concept` column as undefined.
-		const concepts = (
-			(insights?.concepts as { name?: unknown }[] | null) ?? []
-		).filter(
-			(concept): concept is { name: string } =>
-				typeof concept?.name === "string" && concept.name.length > 0,
-		);
+		const concepts = canonicalConceptNames(insights?.concepts);
+
+		if (concepts.length === 0) return;
 
 		await Promise.all(
 			concepts.map((concept) =>
 				conceptMasteryRepository.upsertMastery(
 					studentId,
 					courseId,
-					concept.name,
-					3,
+					concept,
+					QUIZ_MASTERY_LEVEL,
+					evidence,
 				),
 			),
 		);
+
+		// One event for the batch, not one per concept: the fact worth recording is
+		// that this student completed this lesson's quizzes. The event type has no
+		// field a concept name could travel in, which is what keeps that true.
+		logSecurityEvent({
+			feature: "quizAI",
+			userId: studentId,
+			layer: "mastery_write",
+			outcome: "mastery_promoted",
+			ruleIds: ["quiz_lesson_complete"],
+			score: 0,
+			subject: { kind: "lesson", id: lessonId },
+		});
 	}
 
 	async upsertMany(

@@ -4,3 +4,4 @@ export class QuizError extends DomainError {}
 export class QuizNotFoundError extends DomainError {}
 export class QuizForbiddenError extends DomainError {}
 export class AlreadyAttemptedError extends DomainError {}
+export class AttemptLimitError extends DomainError {}

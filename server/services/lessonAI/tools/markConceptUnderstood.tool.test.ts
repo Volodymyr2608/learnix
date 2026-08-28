@@ -54,6 +54,7 @@ describe("mark_concept_understood", () => {
 			"course-1",
 			"Recursion",
 			2,
+			"CONVERSATION",
 		);
 	});
 
@@ -106,6 +107,7 @@ describe("mark_concept_understood", () => {
 			"course-1",
 			"Base Case",
 			1,
+			"CONVERSATION",
 		);
 	});
 });

@@ -15,7 +15,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | ai-flow-contracts | stable | ai-course-builder, ai-input-trust-boundary |
 | ai-guard-multilingual-coverage | stable | ai-input-trust-boundary, ai-tutor-guardrails, ai-defence-layers |
 | ai-input-trust-boundary | stable | ai-course-builder, auth |
-| ai-tutor-guardrails | stable | ai-input-trust-boundary, ai-chat-route-authorization |
+| ai-tutor-guardrails | in-progress | ai-input-trust-boundary, ai-chat-route-authorization, learning-path, quiz-generation, quiz-answer-key |
 | billing | stable | payments |
 | certificates | stable | enrollment |
 | distributed-ai-rate-limiter | stable | ai-defence-layers, ai-tutor-guardrails |
@@ -25,7 +25,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | messages | stable | auth |
 | mobile-responsive | planned | — |
 | payments | stable | auth, course |
-| quiz-answer-key | planned | ai-tutor-guardrails, ai-defence-layers |
+| quiz-answer-key | stable | ai-tutor-guardrails, ai-defence-layers |
 | quiz-generation | stable | ai-defence-layers, ai-input-trust-boundary |
 | semantic-search-recommendations | stable | course, enrollment |
 | skill-progress | stable | progress |

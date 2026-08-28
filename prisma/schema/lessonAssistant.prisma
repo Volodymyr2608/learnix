@@ -29,12 +29,30 @@ model LessonAssistantMessage {
   @@map("lesson_assistant_messages")
 }
 
+/// How a mastery level was earned. Nullable on ConceptMastery, where NULL means
+/// "written before provenance was recorded" — those rows may have been earned by
+/// reading an answer key that used to ship with the questions, and attribution
+/// after the fact is impossible.
+enum MasteryEvidence {
+  /// Raised by the tutor, which can reach level 2 and no further.
+  CONVERSATION
+  /// Every quiz on the lesson answered correctly, each on the first attempt.
+  QUIZ_FIRST_PASS
+  /// Every quiz answered correctly, at least one of them after a retry.
+  QUIZ_RETRIED
+  /// Earned partly on an attempt row whose history predates the attempt counter,
+  /// so how many tries it took is unknowable.
+  LEGACY
+}
+
 model ConceptMastery {
   id        String   @id @default(cuid())
   studentId String
   courseId  String
   concept   String
   level     Int
+  /// NULL only for rows written before this column existed.
+  evidence  MasteryEvidence?
   updatedAt DateTime @updatedAt
 
   student User   @relation(fields: [studentId], references: [id], onDelete: Restrict)

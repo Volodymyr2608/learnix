@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { QuizSchema } from "@/prisma/zod";
 import {
 	QuizGenerateAIDto,
@@ -5,6 +6,7 @@ import {
 	QuizUpsertManyDto,
 } from "@/server/entities/quiz";
 import { aiRateLimit } from "@/server/services/_shared/aiLimits/aiRateLimit.middleware";
+import { checkQuizSubmitRateLimit } from "@/server/services/_shared/aiLimits/checkQuizSubmitRateLimit";
 import { quizService } from "@/server/services/quiz/quiz.service";
 import { quizAIService } from "@/server/services/quizAI/quizAI.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
@@ -28,6 +30,19 @@ export const quizRouter = createTRPCRouter({
 	submit: studentProcedure
 		.input(QuizSubmitDto)
 		.mutation(async ({ ctx, input }) => {
+			// Outside the try: handleServiceError only knows domain errors, and this
+			// is a transport-level refusal that must reach the client as written.
+			// Not the `aiRateLimit` middleware — submitting a quiz is not a model
+			// call, and it must not spend the student's tutor allowance.
+			if (
+				!(await checkQuizSubmitRateLimit(ctx.session.user.id, input.quizId))
+			) {
+				throw new TRPCError({
+					code: "TOO_MANY_REQUESTS",
+					message: "Too many submissions — please try again shortly.",
+				});
+			}
+
 			try {
 				return await quizService.submit(
 					input.quizId,

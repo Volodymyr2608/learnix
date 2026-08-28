@@ -1,5 +1,9 @@
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import {
+	CONVERSATION_MAX_LEVEL,
+	canonicalConceptName,
+} from "@/server/services/mastery/masteryLevels";
 import type {
 	MarkConceptRequest,
 	ToolAuthorization,
@@ -21,11 +25,11 @@ export const ALLOWED_TOOL_NAMES = [
 ] as const;
 
 /**
- * Conversation may raise mastery to 2. Level 3 is reachable only by completing
- * every quiz on the lesson (quiz.service.ts) — confirmation by action, not by
- * text, because a persuasive message is not evidence of understanding.
+ * Re-exported, not redeclared: the ceiling only means anything next to
+ * QUIZ_MASTERY_LEVEL, and the two live together in one module so their ordering
+ * is a fact a test can assert rather than a comment in two files.
  */
-export const CONVERSATION_MAX_LEVEL = 2;
+export { CONVERSATION_MAX_LEVEL };
 
 const deny = (ctx: ToolPolicyContext, ruleId: string): ToolAuthorization => {
 	logSecurityEvent({
@@ -54,10 +58,17 @@ export const authorizeMarkConceptUnderstood = (
 	}
 
 	const needle = request.concept.trim().toLowerCase();
-	const canonicalConcept = ctx.lessonConcepts.find(
+	const allowlisted = ctx.lessonConcepts.find(
 		(candidate) => candidate.trim().toLowerCase() === needle,
 	);
-	if (!canonicalConcept) return deny(ctx, "concept_not_allowlisted");
+	if (!allowlisted) return deny(ctx, "concept_not_allowlisted");
+
+	// The allowlist is model-authored insights JSON, so its entries can carry
+	// padding the quiz path would have trimmed away. Storing the raw entry here
+	// would put the same concept in the table twice, under two spellings, and
+	// mastery is unique on the exact string.
+	const canonicalConcept = canonicalConceptName(allowlisted);
+	if (!canonicalConcept) return deny(ctx, "concept_not_canonicalisable");
 
 	return { authorized: true, canonicalConcept };
 };

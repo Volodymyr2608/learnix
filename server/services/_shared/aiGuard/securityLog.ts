@@ -6,7 +6,7 @@ import type { SecurityEvent, SecurityOutcome } from "./types";
  * Which SecurityOutcome values get an explicit Sentry forward (AC 36/37).
  *
  * A total Record, not an array with `.includes()`: SecurityOutcome has exactly
- * eight members today, and a ninth added to the union makes this object literal
+ * nine members today, and a tenth added to the union makes this object literal
  * fail to type-check until someone classifies it (AC 37a). An array would
  * silently treat an unclassified outcome as "not forwarded" — the safe
  * direction, but not the point; the point is to force the decision.
@@ -22,6 +22,10 @@ const FORWARD_TO_SENTRY: Record<SecurityOutcome, boolean> = {
 	guard_blocked: false,
 	guard_suspect: false,
 	guard_off_topic: false,
+	// The successful path, one event per completed lesson: forwarding it would
+	// flood Sentry with normal behaviour. Nothing consumes it yet (security.md
+	// S10 item 4) — it is evidence for a later investigation, not detection.
+	mastery_promoted: false,
 	// Report-only, ~10% measured false-positive rate over every persisted
 	// model-authored field — conformance/aiSurfaces.ts:72. Highest-volume
 	// outcome in the taxonomy; forwarding it is the S6 flood pattern.

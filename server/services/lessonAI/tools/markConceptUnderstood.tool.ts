@@ -1,5 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
+import { MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { authorizeMarkConceptUnderstood } from "../toolPolicy";
 
@@ -30,6 +31,7 @@ export const buildMarkConceptUnderstoodTool = (
 				courseId,
 				authorization.canonicalConcept,
 				level,
+				MasteryEvidence.CONVERSATION,
 			);
 			const labels = ["unfamiliar", "exposed", "applied", "mastered"];
 			return [

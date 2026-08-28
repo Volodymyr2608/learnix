@@ -67,7 +67,11 @@ export type SecurityLayer =
 	// A model call that failed and was answered with a degraded path instead of an
 	// error. Its own value because callers would otherwise pick "L2" as the nearest
 	// fit and the layer field would stop discriminating.
-	| "model_call_fallback";
+	| "model_call_fallback"
+	// A write to a durable educational record. Not a guard layer: nothing here
+	// decides whether a call proceeds, and the events it emits are evidence for a
+	// later investigation rather than detection.
+	| "mastery_write";
 
 export type SecurityOutcome =
 	| "guard_blocked"
@@ -83,7 +87,11 @@ export type SecurityOutcome =
 	| "fallback_triggered"
 	// D-L: a prior-field write that stands on a turn whose reply was retracted.
 	// courseAI's analogue of mastery_write_retained.
-	| "content_revised_retained";
+	| "content_revised_retained"
+	// Level 3 written because every quiz on a lesson was answered correctly. The
+	// normal, successful path — recorded so a suspected fabrication has something
+	// to be reconstructed from.
+	| "mastery_promoted";
 
 /**
  * Who authored the content that tripped the boundary, when that is not the user

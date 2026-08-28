@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { testDb, truncateAll } from "@/test/db";
 import { makeConceptMastery, makeCourse, makeUser } from "@/test/factories";
@@ -26,6 +27,7 @@ describe("conceptMasteryRepository.upsertMastery", () => {
 			courseId,
 			"Recursion",
 			2,
+			MasteryEvidence.CONVERSATION,
 		);
 
 		const row = await testDb.conceptMastery.findFirst({
@@ -40,12 +42,14 @@ describe("conceptMasteryRepository.upsertMastery", () => {
 			courseId,
 			"Recursion",
 			1,
+			MasteryEvidence.CONVERSATION,
 		);
 		await conceptMasteryRepository.upsertMastery(
 			studentId,
 			courseId,
 			"Recursion",
 			3,
+			MasteryEvidence.QUIZ_FIRST_PASS,
 		);
 
 		const row = await testDb.conceptMastery.findFirst({
@@ -68,6 +72,7 @@ describe("conceptMasteryRepository.upsertMastery", () => {
 			courseId,
 			"Recursion",
 			1,
+			MasteryEvidence.CONVERSATION,
 		);
 
 		const row = await testDb.conceptMastery.findFirst({
@@ -82,12 +87,14 @@ describe("conceptMasteryRepository.upsertMastery", () => {
 			courseId,
 			"Recursion",
 			1,
+			MasteryEvidence.CONVERSATION,
 		);
 		await conceptMasteryRepository.upsertMastery(
 			studentId,
 			courseId,
 			"Recursion",
 			2,
+			MasteryEvidence.CONVERSATION,
 		);
 
 		const count = await testDb.conceptMastery.count({

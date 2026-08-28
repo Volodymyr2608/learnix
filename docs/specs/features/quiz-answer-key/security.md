@@ -1,8 +1,11 @@
 # Security — quiz-answer-key
 
-**Status:** design (produced at `/spec`, 2026-08-18) · **Tier:** complex ·
+**Status:** audited (design 2026-08-18, audit at `/qa` 2026-08-28) · **Tier:** complex ·
 **Method:** two design-mode agent passes (`security-auditor`, `llm-security-auditor`) over the
-drafted spec, plus code verification of every load-bearing claim.
+drafted spec, plus code verification of every load-bearing claim; both agents re-run in `audit` mode
+over the built code. The audit's findings are folded into S2/S10 and recorded in S12–S13 — one was
+High and is fixed (the cooldown erasing the lifetime attempt count), the rest are fixed or accepted
+in writing below.
 
 Written as requirements, so it can be followed without reading the implementation. Every control
 here also appears as an acceptance criterion in [`spec.md`](./spec.md) — that is what makes `/plan`
@@ -58,8 +61,10 @@ log line that dumps the object, and in any future `...spread`.
 **Requirement.** Do not branch on role inside the service. Two audiences in one function drift; a
 third audience (admin export, grading review) must be added as a deliberate accessor.
 
-**Verified safe:** `quiz.submit` grades through `quizRepository.findOne`, a different method, so
-narrowing `findByLesson` cannot affect grading. Its three callers need `id`, `question`, `options`,
+**Verified safe:** `quiz.submit` grades through a single-row read by id, a different call, so
+narrowing `findByLesson` cannot affect grading. (Built as `findFirst` rather than `findOne`:
+`findUniqueOrThrow` turns an unknown id into a 500, which a client sweeping ids can aim at the
+Sentry budget — see S12.) Its three callers need `id`, `question`, `options`,
 `lessonId` — none needs `correct`.
 
 ## S4. The type must not outlive the field
@@ -120,8 +125,8 @@ canonicalisation and no event.
 with a test asserting `QUIZ_MASTERY_LEVEL > CONVERSATION_MAX_LEVEL`. That is what makes the comment
 in `toolPolicy.ts` enforceable rather than decorative.
 
-**Requirement.** A promotion emits one structured event per batch — six fields, no free text, no
-concept string.
+**Requirement.** A promotion emits one structured event per batch — six fields plus an id-only
+`subject`, no free text, no concept string.
 
 ## S8. Provenance, because a credential is coming
 
@@ -146,6 +151,18 @@ level 3**. The pre-change population carrying unverified provenance is therefore
 Re-measure against production before deploying: the control is the cutoff column, and this number
 only says how much history it has to cover in this environment.
 
+**Re-measured 2026-08-28, after the `evidence` column landed (local dev):** unchanged — 3 rows, all
+with `evidence IS NULL`, of which **1 is at level 3**. That NULL is now the cutoff itself:
+`level = 3 AND evidence IS NULL` isolates the pre-change population without needing a deploy
+timestamp. **Production is still unmeasured** — the number above is dev only, and `/qa` should not
+read it as the production figure.
+
+The enum shipped with a fourth member the design pass did not name: `QUIZ_RETRIED`, for a promotion
+where every quiz was answered correctly but at least one took more than one attempt. Without it that
+case had to be recorded as `QUIZ_FIRST_PASS`, which would make the column assert something the
+attempt rows contradict — the opposite of what provenance is for. `LEGACY` keeps its meaning: at
+least one attempt row predates the counter, so how many tries it took is unknowable.
+
 ## S9. Decision record
 
 | # | Decision | Choice | Rationale |
@@ -165,10 +182,20 @@ only says how much history it has to cover in this environment.
 2. **The cooldown is per (student, quiz) and in-process state is not involved** — it is derived from
    persisted attempt data, so it survives a restart. If it is ever moved to the in-process limiter,
    `ai-tutor-guardrails` S13 §17 (per-process limiter) applies and this note becomes wrong.
-3. **A determined student can still guess within the cap.** With four options and three attempts the
-   chance of a lucky correct answer is real; the cap makes systematic enumeration impossible, not
-   luck. Across every quiz on a lesson the compounding makes fabricated level-3 unlikely rather than
-   impossible.
+3. **A determined student can still guess within the cap, and can still exhaust the option set
+   across windows.** With four options and three attempts the chance of a lucky correct answer is
+   real; the cap makes systematic enumeration impossible *within a window*, not luck, and not
+   patience. A student who spends three attempts, waits out the 24 hours and submits the fourth
+   option reaches the answer on day two.
+
+   **Amended 2026-08-28 (audit at `/qa`).** The original wording — "enumeration is arithmetically
+   impossible" — was true per window and false over time, and the first implementation made it worse
+   than a wording problem: the cooldown reset `attemptCount`, so an answer assembled that way was
+   recorded as `QUIZ_FIRST_PASS`. The counter is now split (`windowCount` for the cap, `attemptCount`
+   for the lifetime), so the residual is bounded and, more importantly, **legible**: a cross-window
+   answer records as `QUIZ_RETRIED` with the real attempt count, and
+   `answerKeyGuarantee.integration.test.ts` pins that it can never read as a first pass. The price of
+   a fabricated level 3 is now a day per option and a record that says so.
 4. **Nothing consumes the promotion event** (`ai-tutor-guardrails` S13 §13, `ai-defence-layers`
    S16 §9). AC 17 builds the signal; there is still no sink. Treat the event as evidence for a later
    investigation, not as detection.
@@ -184,3 +211,47 @@ only says how much history it has to cover in this environment.
   one, it is a deliberate third audience with its own accessor (S3), not a widening of
   `findByLesson`.
 - **Reconciling `ConceptMastery` rows against the new cap** — the cap applies going forward.
+
+## S12. Accepted at `/qa` — audit findings not fixed in this feature
+
+Recorded rather than left implicit. Each names what would have to change for it to matter.
+
+1. **The promotion event is filed under `feature: "quizAI"` with a student `userId`.** `AiFeature` is
+   the only vocabulary `SecurityEvent.feature` has, and `quiz.service.ts` constructs no model call, so
+   the nearest fit is a surface whose declared entry point (`quiz.generateAI`) is an *instructor*
+   procedure. `layer: "mastery_write"` discriminates it at query time, and the volume of
+   `mastery_promoted` will dominate that feature key. A declaration list of non-model emitters
+   (`aiSurfaces.ts`, mirroring `SHARED_MODEL_CALLERS`) is the fix; it would also catch
+   `lessonInsights.conceptsSchema.ts`, which already emits under `lessonInsightsAI` from a repository.
+   Out of scope here because it changes a shared taxonomy for two callers, not one.
+
+2. **A concept name rejected by `canonicalConceptNames` is dropped silently.** Empty and over-80
+   names are skipped, and a lesson whose insights yield no usable name promotes nothing. The fail
+   direction is right — under-grant, never over-grant — but nothing is observable, so the control
+   cannot be shown to have ever fired. `parseStoredConcepts` emits `stored_concepts_malformed` for the
+   same class at the read boundary; the write boundary has no counterpart. Not wired here because the
+   nearest existing outcome, `fallback_triggered`, is zero-baseline and forwarded to Sentry, and a
+   lesson with no insights is ordinary rather than anomalous.
+
+3. **`quiz_attempts_archive_dedupe` is outside the schema and outside erasure.** The dedupe migration
+   archives the rows it deletes into a table created with `(LIKE "quiz_attempts")` — no PK, no FK, not
+   in `prisma/schema/`. It holds `studentId` and `selectedAnswer`, and `anonymiseAccount` walks Prisma
+   relations, so it cannot reach it. Same data class as `quiz_attempts`, which is also retained, so
+   this is a retention-inventory gap rather than a new exposure. It should be dropped in a follow-up
+   migration once the collapse has been audited — see the deploy note below.
+
+4. **`analytics.repository.ts` returns an aggregate key literally named `correct`.** It is
+   instructor-only today, so the student-surface sweep never reaches it. The day an attempt-accuracy
+   count reaches a student surface, that sweep goes red on something that is not a leak. The fix then
+   is an allowlist by path, not a weakening of the assertion.
+
+## S13. Deploy notes
+
+- **Drain the previous version before `migrate deploy`.** The dedupe and the unique index are in one
+  transaction, so a duplicate inserted by the old read-then-write `submit` between the collapse and
+  the index — or a row inserted between the `updatedAt` backfill and its `SET NOT NULL` — makes the
+  migration fail and roll back. It fails loudly and loses nothing, but it fails.
+- **Re-measure the level-3 population against production** before reading S8's number as anything but
+  a local-dev figure. The cutoff is `level = 3 AND evidence IS NULL`.
+- **Schedule the archive table's drop** (S12 item 3) once the collapse has been reviewed. On the dev
+  database the collapse deleted **0** rows.
