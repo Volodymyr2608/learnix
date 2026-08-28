@@ -220,7 +220,7 @@ describe("quizService.submit — mastery promotion", () => {
 });
 
 const originalFindFirst = quizRepository.findFirst;
-const originalFindByLesson = quizRepository.findByLesson;
+const originalFindConceptTags = quizRepository.findConceptTagsByLesson;
 
 // The narrowing in findByLesson could only break grading if grading read the key
 // through it. It does not — it reads one whole row by id, a different call — and
@@ -251,12 +251,12 @@ describe("quizService.submit — grading reads the key through a different door"
 			options: ["A", "B"],
 			correct: "B",
 		});
-		const findByLesson = vi.spyOn(quizRepository, "findByLesson");
+		const findConceptTags = vi.spyOn(quizRepository, "findConceptTagsByLesson");
 
 		const attempt = await quizService.submit(quiz.id, studentId, "A");
 
 		expect(attempt.isCorrect).toBe(false);
-		expect(findByLesson).not.toHaveBeenCalled();
+		expect(findConceptTags).not.toHaveBeenCalled();
 	});
 
 	it("grades a correct answer before anything reads the lesson's quizzes", async () => {
@@ -270,18 +270,20 @@ describe("quizService.submit — grading reads the key through a different door"
 			order.push("findFirst");
 			return await originalFindFirst.call(quizRepository, args);
 		});
-		vi.spyOn(quizRepository, "findByLesson").mockImplementation(async (id) => {
-			order.push("findByLesson");
-			return await originalFindByLesson.call(quizRepository, id);
-		});
+		vi.spyOn(quizRepository, "findConceptTagsByLesson").mockImplementation(
+			async (id) => {
+				order.push("findConceptTagsByLesson");
+				return await originalFindConceptTags.call(quizRepository, id);
+			},
+		);
 
 		const attempt = await quizService.submit(quiz.id, studentId, "B");
 
 		expect(attempt.isCorrect).toBe(true);
-		// findByLesson appears only after grading, and only because the promotion
-		// that follows it counts how many quizzes the lesson has.
+		// The lesson's quiz set is read only after grading, and only because the
+		// promotion that follows it counts how many quizzes the lesson has.
 		expect(order[0]).toBe("findFirst");
-		expect(order).toContain("findByLesson");
+		expect(order).toContain("findConceptTagsByLesson");
 	});
 });
 
@@ -575,5 +577,113 @@ describe("quizService.upsertMany — the concept tag is resolved, not trusted", 
 
 		const rows = await testDb.quiz.findMany({ where: { lessonId } });
 		expect(rows).toHaveLength(0);
+	});
+});
+
+describe("quizService.submit — promotion follows the tag, not the lesson", () => {
+	let studentId: string;
+	let lessonId: string;
+
+	const setup = async (concepts: { name: string }[]) => {
+		await truncateAll();
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		const student = await makeUser();
+		const course = await makeCourse({ instructorId: instructor.id });
+		const section = await makeSection({ courseId: course.id });
+		const lesson = await makeLesson({ sectionId: section.id });
+		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		await makeLessonInsights({ lessonId: lesson.id, concepts });
+		studentId = student.id;
+		lessonId = lesson.id;
+	};
+
+	const threeConcepts = [
+		{ name: "Recursion" },
+		{ name: "Base Case" },
+		{ name: "Stack Frames" },
+	];
+
+	afterAll(async () => {
+		await testDb.$disconnect();
+	});
+
+	it("raises only the concepts the passed quizzes were tagged with", async () => {
+		await setup(threeConcepts);
+		const a1 = await makeQuiz({ lessonId, concept: "Recursion" });
+		const a2 = await makeQuiz({ lessonId, concept: "Recursion" });
+		const b = await makeQuiz({ lessonId, concept: "Base Case" });
+
+		await quizService.submit(a1.id, studentId, "A");
+		await quizService.submit(a2.id, studentId, "A");
+		await quizService.submit(b.id, studentId, "A");
+
+		const rows = await testDb.conceptMastery.findMany({
+			where: { studentId },
+			orderBy: { concept: "asc" },
+		});
+		expect(rows.map((r) => r.concept)).toEqual(["Base Case", "Recursion"]);
+		expect(rows.every((r) => r.level === 3)).toBe(true);
+	});
+
+	it("keeps lesson-wide promotion when no quiz carries a tag", async () => {
+		await setup(threeConcepts);
+		const first = await makeQuiz({ lessonId });
+		const second = await makeQuiz({ lessonId });
+
+		await quizService.submit(first.id, studentId, "A");
+		await quizService.submit(second.id, studentId, "A");
+
+		const rows = await testDb.conceptMastery.findMany({
+			where: { studentId },
+			orderBy: { concept: "asc" },
+		});
+		expect(rows.map((r) => r.concept)).toEqual([
+			"Base Case",
+			"Recursion",
+			"Stack Frames",
+		]);
+	});
+
+	it("promotes only the tagged concepts when the lesson is partly tagged", async () => {
+		// Under-grant rather than over-grant: the untagged question tested
+		// something, but nothing records what, and inventing lesson-wide coverage
+		// from it is the claim this column exists to stop making.
+		await setup(threeConcepts);
+		const tagged = await makeQuiz({ lessonId, concept: "Recursion" });
+		const untagged = await makeQuiz({ lessonId });
+
+		await quizService.submit(tagged.id, studentId, "A");
+		await quizService.submit(untagged.id, studentId, "A");
+
+		const rows = await testDb.conceptMastery.findMany({ where: { studentId } });
+		expect(rows.map((r) => r.concept)).toEqual(["Recursion"]);
+	});
+
+	it("scores each concept's evidence from its own quizzes", async () => {
+		// A NULL attempt count on one concept's quiz must not drag another
+		// concept's provenance down to LEGACY — the evidence describes the row it
+		// is attached to, not the lesson it happened to share.
+		await setup(threeConcepts);
+		const clean = await makeQuiz({ lessonId, concept: "Recursion" });
+		const legacy = await makeQuiz({ lessonId, concept: "Base Case" });
+
+		// The legacy row is seeded first so the clean submit is the one that
+		// completes the lesson and triggers promotion.
+		await makeQuizAttempt({
+			quizId: legacy.id,
+			studentId,
+			isCorrect: true,
+			attemptCount: null,
+		});
+		await quizService.submit(clean.id, studentId, "A");
+
+		const rows = await testDb.conceptMastery.findMany({
+			where: { studentId },
+			orderBy: { concept: "asc" },
+		});
+		expect(rows.map((r) => [r.concept, r.evidence])).toEqual([
+			["Base Case", MasteryEvidence.LEGACY],
+			["Recursion", MasteryEvidence.QUIZ_FIRST_PASS],
+		]);
 	});
 });
