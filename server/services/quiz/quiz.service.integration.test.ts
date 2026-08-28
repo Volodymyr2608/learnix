@@ -485,3 +485,95 @@ describe("quizService.submit — the attempt cap", () => {
 		expect(second).toMatchObject({ isCorrect: true, attemptCount: 2 });
 	});
 });
+
+describe("quizService.upsertMany — the concept tag is resolved, not trusted", () => {
+	let instructorId: string;
+	let lessonId: string;
+
+	const question = (text: string, concept?: string) => ({
+		question: text,
+		options: ["a", "b", "c", "d"],
+		correct: "a",
+		...(concept === undefined ? {} : { concept }),
+	});
+
+	beforeEach(async () => {
+		await truncateAll();
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		const course = await makeCourse({ instructorId: instructor.id });
+		const section = await makeSection({ courseId: course.id });
+		const lesson = await makeLesson({ sectionId: section.id });
+		await makeLessonInsights({
+			lessonId: lesson.id,
+			concepts: [{ name: "Recursion" }, { name: "Base Case" }],
+		});
+		instructorId = instructor.id;
+		lessonId = lesson.id;
+	});
+
+	afterAll(async () => {
+		await testDb.$disconnect();
+	});
+
+	it("stores an allowlisted tag under the allowlist's spelling", async () => {
+		await quizService.upsertMany(
+			lessonId,
+			[question("q1", "  recursion "), question("q2", "BASE CASE")],
+			instructorId,
+		);
+
+		const rows = await testDb.quiz.findMany({
+			where: { lessonId },
+			orderBy: { question: "asc" },
+		});
+		expect(rows.map((r) => r.concept)).toEqual(["Recursion", "Base Case"]);
+	});
+
+	it("drops a tag the client invented", async () => {
+		// The whole point of resolving again on save: the dialog's payload is
+		// client input, so a hand-crafted request could otherwise tag a question
+		// with any concept and promote it to level 3 on the first pass.
+		await quizService.upsertMany(
+			lessonId,
+			[question("q1", "Quantum Tunnelling"), question("q2", "Recursion")],
+			instructorId,
+		);
+
+		const rows = await testDb.quiz.findMany({
+			where: { lessonId },
+			orderBy: { question: "asc" },
+		});
+		expect(rows.map((r) => r.concept)).toEqual([null, "Recursion"]);
+	});
+
+	it("stores no tag when the lesson has no insights", async () => {
+		const other = await makeUser({ role: "INSTRUCTOR" });
+		const course = await makeCourse({ instructorId: other.id });
+		const section = await makeSection({ courseId: course.id });
+		const lesson = await makeLesson({ sectionId: section.id });
+
+		await quizService.upsertMany(
+			lesson.id,
+			[question("q1", "Recursion")],
+			other.id,
+		);
+
+		const rows = await testDb.quiz.findMany({ where: { lessonId: lesson.id } });
+		expect(rows[0]?.concept).toBeNull();
+	});
+
+	it("refuses another instructor's lesson before reading any allowlist", async () => {
+		const outsider = await makeUser({ role: "INSTRUCTOR" });
+
+		await expect(
+			quizService.upsertMany(
+				lessonId,
+				[question("q1", "Recursion")],
+				outsider.id,
+			),
+		).rejects.toThrow();
+
+		const rows = await testDb.quiz.findMany({ where: { lessonId } });
+		expect(rows).toHaveLength(0);
+	});
+});

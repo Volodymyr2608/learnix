@@ -75,7 +75,7 @@ export default class QuizRepository extends BaseRepository<
 		lessonId: string,
 		questions: Pick<
 			Prisma.QuizUncheckedCreateInput,
-			"question" | "options" | "correct"
+			"question" | "options" | "correct" | "concept"
 		>[],
 	): Promise<Quiz[]> {
 		return this.transaction(async (tx) => {

@@ -24,6 +24,7 @@ export function useGenerateQuizDialog({
 					question: q.question,
 					options: q.options as [string, string, string, string],
 					correctIndex: Math.max(0, q.options.indexOf(q.correct)),
+					concept: q.concept,
 				})),
 			});
 		},
@@ -62,6 +63,7 @@ export function useGenerateQuizDialog({
 					question: q.question,
 					options: [...q.options],
 					correct: q.options[q.correctIndex] ?? q.options[0] ?? "",
+					concept: q.concept,
 				})),
 			},
 			{

@@ -3,6 +3,11 @@ model Quiz {
   question String
   options  String[]
   correct  String
+  /// The lesson concept this question tests, resolved against that lesson's
+  /// insights allowlist at generation time. NULL on every quiz written before
+  /// tagging existed, and those keep lesson-wide promotion — see
+  /// `promoteConceptsIfLessonComplete`.
+  concept  String?
 
   deletedAt DateTime? @map("deleted_at")
 

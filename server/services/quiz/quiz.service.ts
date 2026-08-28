@@ -3,6 +3,7 @@ import { EnrollmentStatus, MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import {
@@ -10,6 +11,7 @@ import {
 	quizAttemptRepository,
 } from "@/server/repositories/quizAttempt.repository";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import { retagWithAllowlist } from "@/server/services/_shared/concepts/conceptKey";
 import {
 	canonicalConceptName,
 	QUIZ_MASTERY_LEVEL,
@@ -25,7 +27,7 @@ import {
 
 type QuizInput = Pick<
 	Prisma.QuizUncheckedCreateInput,
-	"question" | "options" | "correct"
+	"question" | "options" | "correct" | "concept"
 >;
 
 /**
@@ -96,17 +98,23 @@ const evidenceFor = (attemptCounts: (number | null)[]): MasteryEvidence => {
 };
 
 class QuizService {
+	/**
+	 * Returns the lesson's concept allowlist, read from the row the ownership
+	 * check returned. The query that authorizes is the query that reads, so a
+	 * caller who fails the check never reaches an allowlist at all — and a caller
+	 * who passes it cannot be handed one belonging to a different lesson.
+	 */
 	private async verifyInstructorOwnership(
 		lessonId: string,
 		instructorId: string,
-	) {
+	): Promise<string[]> {
 		const lesson = await lessonRepository.findFirst({
 			where: {
 				id: lessonId,
 				deletedAt: null,
 				section: { course: { instructorId } },
 			},
-			select: { id: true },
+			select: { id: true, lessonInsights: { select: { concepts: true } } },
 		});
 
 		if (!lesson) {
@@ -115,6 +123,10 @@ class QuizService {
 				"FORBIDDEN",
 			);
 		}
+
+		return parseStoredConcepts(lesson.lessonInsights?.concepts, {
+			lessonId,
+		}).map((c) => c.name);
 	}
 
 	private async verifyEnrollment(lessonId: string, studentId: string) {
@@ -332,8 +344,19 @@ class QuizService {
 		instructorId: string,
 	) {
 		try {
-			await this.verifyInstructorOwnership(lessonId, instructorId);
-			return await quizRepository.replaceForLesson(lessonId, questions);
+			const allowlist = await this.verifyInstructorOwnership(
+				lessonId,
+				instructorId,
+			);
+			// The questions arrive from the client, which means the tag does too —
+			// including on the path where the instructor edits generated questions
+			// before saving. Resolving again here is what stops a hand-crafted
+			// request from tagging a question with any concept it likes and
+			// promoting it to level 3 on the first pass.
+			return await quizRepository.replaceForLesson(
+				lessonId,
+				retagWithAllowlist(questions, allowlist),
+			);
 		} catch (error) {
 			if (error instanceof QuizForbiddenError) throw error;
 			logger.error("Failed to save quizzes:", error);

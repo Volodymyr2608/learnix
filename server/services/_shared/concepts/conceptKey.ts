@@ -76,6 +76,34 @@ export type ResolvedConcept = {
  * not storable; both are refusals, and neither is distinguishable from the
  * other by the caller.
  */
+export type ConceptTagged = { concept?: string | null };
+
+/**
+ * Rewrites each item's concept tag to the allowlist's spelling, or removes it.
+ *
+ * Both the model that proposes a tag and the client that echoes it back are
+ * untrusted, and the tag is authority rather than description — it decides which
+ * concept a pass promotes. So it is resolved at every boundary it crosses, never
+ * carried on trust from the last one. An untagged item is not an error: it falls
+ * back to lesson-wide promotion, which is the behaviour that already existed.
+ */
+export const retagWithAllowlist = <T extends ConceptTagged>(
+	items: readonly T[],
+	allowlist: readonly string[],
+): T[] =>
+	items.map((item) => {
+		const resolved =
+			item.concept === undefined || item.concept === null
+				? null
+				: resolveAllowlistedConcept(item.concept, allowlist);
+		const { concept: _dropped, ...rest } = item;
+		// The spread reconstructs T minus an optional property, which TypeScript
+		// cannot verify structurally.
+		return (
+			resolved === null ? rest : { ...rest, concept: resolved.concept }
+		) as T;
+	});
+
 export const resolveAllowlistedConcept = (
 	needle: string,
 	allowlist: readonly string[],
