@@ -201,6 +201,56 @@ describe("quizService.submit — the attempt cap", () => {
 		expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(3);
 	});
 
+	const moveAttemptBack = (quizId: string, hours: number) =>
+		testDb.quizAttempt.updateMany({
+			where: { quizId, studentId },
+			data: { updatedAt: new Date(Date.now() - hours * 60 * 60 * 1000) },
+		});
+
+	it("lets the student try again once the cooldown has passed, from a fresh count", async () => {
+		const quiz = await cappedQuiz();
+		await quizService.submit(quiz.id, studentId, "A");
+		await quizService.submit(quiz.id, studentId, "B");
+		await quizService.submit(quiz.id, studentId, "C");
+		await moveAttemptBack(quiz.id, 25);
+
+		const next = await quizService.submit(quiz.id, studentId, "A");
+
+		expect(next).toMatchObject({ attemptCount: 1, isCorrect: false });
+	});
+
+	it("still refuses an hour before the cooldown is up", async () => {
+		const quiz = await cappedQuiz();
+		await quizService.submit(quiz.id, studentId, "A");
+		await quizService.submit(quiz.id, studentId, "B");
+		await quizService.submit(quiz.id, studentId, "C");
+		await moveAttemptBack(quiz.id, 23);
+
+		await expect(quizService.submit(quiz.id, studentId, "A")).rejects.toThrow(
+			AttemptLimitError,
+		);
+	});
+
+	// A row whose history is unknown cannot be counted against a cap, so it is
+	// bounded by the cooldown alone: one attempt per window, and the count stays
+	// NULL so a promotion built on it is still marked as legacy evidence.
+	it("gives a row of unknown history one attempt per cooldown window", async () => {
+		const quiz = await cappedQuiz();
+		await makeQuizAttempt({
+			quizId: quiz.id,
+			studentId,
+			isCorrect: false,
+			createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000),
+		});
+		await moveAttemptBack(quiz.id, 72);
+
+		const first = await quizService.submit(quiz.id, studentId, "A");
+		const second = quizService.submit(quiz.id, studentId, "B");
+
+		expect(first.attemptCount).toBeNull();
+		await expect(second).rejects.toThrow(AttemptLimitError);
+	});
+
 	it("still lets a student retry inside the cap", async () => {
 		const quiz = await makeQuiz({
 			lessonId,

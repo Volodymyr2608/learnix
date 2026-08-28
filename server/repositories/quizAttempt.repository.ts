@@ -8,6 +8,17 @@ import { BaseRepository } from "./base/base.repository";
  * with opposite meanings — the student already answered correctly, or they have
  * spent the cap. The caller must be unable to conflate them.
  */
+/**
+ * The bound on guessing, read straight into the statement that writes the
+ * attempt: how many graded attempts a window allows, and how long a spent window
+ * lasts. Derived from the attempt row itself, never from in-process state, so it
+ * survives a restart.
+ */
+export type AttemptPolicy = {
+	maxAttempts: number;
+	cooldownHours: number;
+};
+
 export type RecordAttemptResult =
 	| { outcome: "recorded"; attempt: QuizAttempt }
 	| { outcome: "already_correct"; attempt: QuizAttempt }
@@ -46,12 +57,16 @@ class QuizAttemptRepository extends BaseRepository<
 		studentId: string,
 		selectedAnswer: string,
 		isCorrect: boolean,
-		maxAttempts: number,
+		policy: AttemptPolicy,
 	): Promise<RecordAttemptResult> {
 		const id = randomUUID();
-		// `attemptCount + 1` on a legacy NULL stays NULL: that row's history is
-		// unknown and adding to it would invent one. The same NULL is why the cap
-		// predicate admits it — an unknown history is not a spent one.
+		const { maxAttempts, cooldownHours } = policy;
+		// Two NULL behaviours, both deliberate. `attemptCount < maxAttempts` is
+		// NULL — not true — for a row of unknown history, so such a row is never
+		// admitted by the cap and falls through to the cooldown branch: one attempt
+		// per window. And `attemptCount + 1` on NULL stays NULL, so it keeps saying
+		// "unknown" rather than claiming a history it does not have, which is what
+		// a later promotion reads to mark its evidence as legacy.
 		const rows = await this.db.$queryRaw<QuizAttempt[]>`
 			INSERT INTO quiz_attempts (
 				id, "quizId", "studentId", "selectedAnswer", "isCorrect", "attemptCount", "createdAt", "updatedAt"
@@ -61,12 +76,17 @@ class QuizAttemptRepository extends BaseRepository<
 			DO UPDATE SET
 				"selectedAnswer" = EXCLUDED."selectedAnswer",
 				"isCorrect" = EXCLUDED."isCorrect",
-				"attemptCount" = quiz_attempts."attemptCount" + 1,
+				"attemptCount" = CASE
+					WHEN quiz_attempts."updatedAt" < NOW() - (${cooldownHours} * INTERVAL '1 hour')
+						AND quiz_attempts."attemptCount" IS NOT NULL
+					THEN 1
+					ELSE quiz_attempts."attemptCount" + 1
+				END,
 				"updatedAt" = NOW()
 			WHERE NOT quiz_attempts."isCorrect"
 				AND (
-					quiz_attempts."attemptCount" IS NULL
-					OR quiz_attempts."attemptCount" < ${maxAttempts}
+					quiz_attempts."attemptCount" < ${maxAttempts}
+					OR quiz_attempts."updatedAt" < NOW() - (${cooldownHours} * INTERVAL '1 hour')
 				)
 			RETURNING *;
 		`;
@@ -90,10 +110,10 @@ class QuizAttemptRepository extends BaseRepository<
 	}
 
 	/**
-	 * Counts DISTINCT quizzes answered correctly, not attempt rows. `QuizAttempt`
-	 * has no unique constraint on (quizId, studentId) and `submit()` does
-	 * read-then-write, so two concurrent submissions of the same quiz — a
-	 * double-click — leave two correct rows. Counting rows would then read as
+	 * Counts DISTINCT quizzes answered correctly, not attempt rows. The unique
+	 * constraint on (quizId, studentId) now makes a second row impossible, but
+	 * rows written before it — a double-click against the old read-then-write
+	 * submit — can still be in the table. Counting rows would read those as
 	 * "every quiz on the lesson is done" with a quiz still unanswered, and the
 	 * level-3 promotion it gates is irreversible once written.
 	 */

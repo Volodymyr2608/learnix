@@ -1,7 +1,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
+import {
+	type AttemptPolicy,
+	quizAttemptRepository,
+} from "@/server/repositories/quizAttempt.repository";
 import { testDb } from "@/test/db";
 import {
 	makeCourse,
@@ -168,9 +171,20 @@ describe("quiz_attempt_counter migration — collapsing duplicate pairs", () => 
 	});
 });
 
+const policy = (maxAttempts: number): AttemptPolicy => ({
+	maxAttempts,
+	cooldownHours: 24,
+});
+
 describe("QuizAttempt — one row per (quiz, student)", () => {
 	let quizId: string;
 	let studentId: string;
+
+	const moveUpdatedAtBack = (hours: number) =>
+		testDb.quizAttempt.updateMany({
+			where: { quizId, studentId },
+			data: { updatedAt: new Date(Date.now() - hours * 60 * 60 * 1000) },
+		});
 
 	beforeEach(async () => {
 		const instructor = await makeUser({ role: "INSTRUCTOR" });
@@ -203,7 +217,7 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 			studentId,
 			"B",
 			false,
-			3,
+			policy(3),
 		);
 
 		expect(result.outcome).toBe("recorded");
@@ -215,13 +229,19 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 	});
 
 	it("counts a retry on the same row, and does not open a second one", async () => {
-		await quizAttemptRepository.recordAttempt(quizId, studentId, "B", false, 3);
+		await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+			policy(3),
+		);
 		const second = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
 			"A",
 			true,
-			3,
+			policy(3),
 		);
 
 		const rows = await testDb.quizAttempt.findMany({
@@ -231,7 +251,10 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 		expect(rows).toHaveLength(1);
 	});
 
-	it("leaves a legacy row's unknown count unknown, and grants it the cap", async () => {
+	// A row of unknown history cannot be counted against a cap, so the cooldown
+	// is the only bound that applies to it: one attempt per window, and the count
+	// keeps saying "unknown" rather than claiming a history it does not have.
+	it("bounds a row of unknown history by the cooldown alone, and keeps it unknown", async () => {
 		const legacy = await makeQuizAttempt({
 			quizId,
 			studentId,
@@ -239,19 +262,47 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 		});
 		expect(legacy.attemptCount).toBeNull();
 
+		const inWindow = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+			policy(3),
+		);
+		await moveUpdatedAtBack(25);
+		const afterCooldown = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+			policy(3),
+		);
+
+		expect(inWindow.outcome).toBe("capped");
+		expect(afterCooldown.outcome).toBe("recorded");
+		expect(afterCooldown.attempt.attemptCount).toBeNull();
+	});
+
+	it("restarts the count for a counted row once the cooldown has passed", async () => {
+		await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+			policy(1),
+		);
+		await moveUpdatedAtBack(25);
+
 		const result = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
 			"B",
 			false,
-			3,
+			policy(1),
 		);
 
 		expect(result.outcome).toBe("recorded");
-		expect(result.attempt.attemptCount).toBeNull();
-		expect(result.attempt.updatedAt.getTime()).toBeGreaterThan(
-			legacy.updatedAt.getTime(),
-		);
+		expect(result.attempt.attemptCount).toBe(1);
 	});
 
 	it("refuses to touch a row that is already correct, and names that outcome", async () => {
@@ -260,7 +311,7 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 			studentId,
 			"A",
 			true,
-			3,
+			policy(3),
 		);
 
 		const second = await quizAttemptRepository.recordAttempt(
@@ -268,7 +319,7 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 			studentId,
 			"B",
 			false,
-			3,
+			policy(3),
 		);
 
 		expect(second.outcome).toBe("already_correct");
@@ -280,14 +331,20 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 	});
 
 	it("writes nothing once the cap is spent, and names that outcome", async () => {
-		await quizAttemptRepository.recordAttempt(quizId, studentId, "B", false, 1);
+		await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+			policy(1),
+		);
 
 		const second = await quizAttemptRepository.recordAttempt(
 			quizId,
 			studentId,
 			"A",
 			true,
-			1,
+			policy(1),
 		);
 
 		const row = await testDb.quizAttempt.findFirstOrThrow({
@@ -303,8 +360,20 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 
 	it("leaves one row and one loser when two attempts race", async () => {
 		const [first, second] = await Promise.all([
-			quizAttemptRepository.recordAttempt(quizId, studentId, "A", true, 3),
-			quizAttemptRepository.recordAttempt(quizId, studentId, "A", true, 3),
+			quizAttemptRepository.recordAttempt(
+				quizId,
+				studentId,
+				"A",
+				true,
+				policy(3),
+			),
+			quizAttemptRepository.recordAttempt(
+				quizId,
+				studentId,
+				"A",
+				true,
+				policy(3),
+			),
 		]);
 
 		const rows = await testDb.quizAttempt.findMany({

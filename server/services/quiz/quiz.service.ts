@@ -5,7 +5,10 @@ import { learningPathRepository } from "@/server/repositories/learningPath.repos
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
-import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
+import {
+	type AttemptPolicy,
+	quizAttemptRepository,
+} from "@/server/repositories/quizAttempt.repository";
 import { logger } from "@/server/utils/logger";
 import {
 	AlreadyAttemptedError,
@@ -28,8 +31,17 @@ type QuizInput = Pick<
  */
 const MAX_GRADED_ATTEMPTS = 3;
 
-const attemptCapFor = (options: string[]): number =>
-	Math.max(1, Math.min(MAX_GRADED_ATTEMPTS, options.length - 1));
+/**
+ * A spent cap is not a permanent denial: a student who genuinely misunderstood
+ * the lesson gets another window, while one cycling options is slowed to a rate
+ * at which the attempt record is the signal.
+ */
+const ATTEMPT_COOLDOWN_HOURS = 24;
+
+const attemptPolicyFor = (options: string[]): AttemptPolicy => ({
+	maxAttempts: Math.max(1, Math.min(MAX_GRADED_ATTEMPTS, options.length - 1)),
+	cooldownHours: ATTEMPT_COOLDOWN_HOURS,
+});
 
 class QuizService {
 	private async verifyInstructorOwnership(
@@ -121,7 +133,7 @@ class QuizService {
 				studentId,
 				selectedAnswer,
 				isCorrect,
-				attemptCapFor(quiz.options),
+				attemptPolicyFor(quiz.options),
 			);
 
 			if (result.outcome === "already_correct") {
