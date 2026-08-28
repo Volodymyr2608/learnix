@@ -13,8 +13,8 @@ output validation (L5), render policy (L6), resource limits (L7) and detection (
 during `ai-tutor-guardrails`, and all of them live inside `server/services/lessonAI/`.
 
 The result is a system where the tutor is defended and the other four surfaces are defended by
-accident of what happened to be factored out. `docs/security/2026-08-16-ai-content-supply-chain.md`
-Part II measures it: of five model-calling surfaces, one has an output boundary, one has a render
+accident of what happened to be factored out.
+[`ai-defence/findings-register.md`](../../../ai-defence/findings-register.md) records it (G1–G8): of five model-calling surfaces, one has an output boundary, one has a render
 policy, two are covered by a rate limiter, and **three cannot emit a security event at all** because
 `SecurityEvent.feature` is typed to the two chat callers of the input guard. The same defect repeats
 one layer down: `AiRateLimitFeature` omits `quizAI` and `lessonInsightsAI`, so those two surfaces
