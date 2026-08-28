@@ -15,6 +15,7 @@ import {
 	AttemptLimitError,
 	QuizError,
 	QuizForbiddenError,
+	QuizNotFoundError,
 } from "./quiz.errors";
 
 type QuizInput = Pick<
@@ -124,6 +125,13 @@ class QuizService {
 		try {
 			const quiz = await quizRepository.findOne(quizId);
 
+			// `findOne` is `findUniqueOrThrow` and knows nothing about soft deletes,
+			// so a deleted quiz still grades — and its attempt row would then count
+			// toward a lesson that no longer asks the question.
+			if (quiz.deletedAt) {
+				throw new QuizNotFoundError("Quiz not found", "NOT_FOUND");
+			}
+
 			await this.verifyEnrollment(quiz.lessonId, studentId);
 
 			const isCorrect = quiz.correct === selectedAnswer;
@@ -192,7 +200,8 @@ class QuizService {
 			if (
 				error instanceof QuizForbiddenError ||
 				error instanceof AlreadyAttemptedError ||
-				error instanceof AttemptLimitError
+				error instanceof AttemptLimitError ||
+				error instanceof QuizNotFoundError
 			) {
 				throw error;
 			}

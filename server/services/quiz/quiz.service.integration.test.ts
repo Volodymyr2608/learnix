@@ -1,5 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { AttemptLimitError } from "@/server/services/quiz/quiz.errors";
+import {
+	AttemptLimitError,
+	QuizNotFoundError,
+} from "@/server/services/quiz/quiz.errors";
 import { quizService } from "@/server/services/quiz/quiz.service";
 import { testDb, truncateAll } from "@/test/db";
 import {
@@ -249,6 +252,31 @@ describe("quizService.submit — the attempt cap", () => {
 
 		expect(first.attemptCount).toBeNull();
 		await expect(second).rejects.toThrow(AttemptLimitError);
+	});
+
+	it("refuses a submission for a quiz the instructor has deleted", async () => {
+		const quiz = await cappedQuiz();
+		await testDb.quiz.update({
+			where: { id: quiz.id },
+			data: { deletedAt: new Date() },
+		});
+
+		await expect(quizService.submit(quiz.id, studentId, "D")).rejects.toThrow(
+			QuizNotFoundError,
+		);
+
+		const attempts = await testDb.quizAttempt.findMany({
+			where: { quizId: quiz.id },
+		});
+		expect(attempts).toHaveLength(0);
+	});
+
+	it("accepts the same submission before the quiz is deleted", async () => {
+		const quiz = await cappedQuiz();
+
+		const attempt = await quizService.submit(quiz.id, studentId, "D");
+
+		expect(attempt.isCorrect).toBe(true);
 	});
 
 	it("still lets a student retry inside the cap", async () => {
