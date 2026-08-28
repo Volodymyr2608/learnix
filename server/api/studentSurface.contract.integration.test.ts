@@ -1,6 +1,7 @@
 // Set NODE_ENV to production so the timing middleware skips the artificial delay
 Object.assign(process.env, { NODE_ENV: "production" });
 
+import { readFileSync } from "node:fs";
 import SuperJSON from "superjson";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Role } from "@/generated/prisma";
@@ -38,6 +39,9 @@ const SKIPPED_ROUTERS = new Set([
  * other half of the quiz surface.
  */
 const SWEPT_MUTATIONS = new Set(["quiz.submit"]);
+
+/** Where a router's file name differs from its key in the app router. */
+const ROUTER_FILES: Record<string, string> = { courseAI: "ai" };
 
 type ProcedureType = "query" | "mutation";
 
@@ -164,6 +168,29 @@ describe("no student-reachable response carries the answer key", () => {
 
 	// The sentinel is the answer to the seeded quiz. Text, not keys, this time:
 	// it catches a leak that renames the field on the way out.
+	// The skip list rests on "none of them reads a quiz row", which is exactly the
+	// guarantee-by-absence-of-code this feature argues against everywhere else.
+	// These make it mechanical: a skipped router that starts reading quizzes, or a
+	// router that is renamed out from under the list, fails here.
+	it("skips only routers that cannot reach a quiz", () => {
+		const routers = new Set(
+			procedures().map(({ name }) => name.split(".")[0] as string),
+		);
+		const unknown = [...SKIPPED_ROUTERS].filter((r) => !routers.has(r));
+
+		const readsQuizzes = [...SKIPPED_ROUTERS].filter((router) =>
+			/quizRepository|quizService/.test(
+				readFileSync(
+					`server/api/routers/${ROUTER_FILES[router] ?? router}.ts`,
+					"utf8",
+				),
+			),
+		);
+
+		expect(unknown, `not a router: ${unknown.join(", ")}`).toEqual([]);
+		expect(readsQuizzes, readsQuizzes.join(", ")).toEqual([]);
+	});
+
 	it("never echoes the answer text either", () => {
 		const leaks = exercised
 			.filter(({ payload }) => JSON.stringify(payload)?.includes("SENTINEL"))

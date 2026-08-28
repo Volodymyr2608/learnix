@@ -1,6 +1,6 @@
 ---
 feature: quiz-answer-key
-status: in-progress
+status: stable
 models: [Quiz, QuizAttempt, ConceptMastery]
 depends-on: [ai-tutor-guardrails, ai-defence-layers]
 ---
@@ -34,8 +34,12 @@ unlimited.
 `question`, `options` and `lessonId` and nothing else. `lessonService.getStudentLesson` selects its
 nested `quizzes` fields explicitly rather than including the relation whole.
 
-Grading is unaffected because `quiz.submit` reads the full row through a different method,
-`quizRepository.findOne`.
+Grading is unaffected because `quiz.submit` reads one whole row by id through a different call,
+`quizRepository.findFirst({ where: { id, deletedAt: null } })` — `findOne` would be
+`findUniqueOrThrow`, which knows nothing about soft deletes and turns an id that does not exist into
+a 500. A fourth audience appeared during implementation: quizAI returns already-generated questions,
+key included, to the instructor who owns the lesson. It reads `findByLessonForAuthor`, a deliberate
+second accessor rather than a flag on the first.
 
 **2. No student-facing type claims the field exists.** `lessonService` returns the inferred narrowed
 type; the `as typeof lesson & { quizzes: Quiz[] }` casts are removed. A student component that
@@ -46,11 +50,12 @@ always fewer than the number of options, so a student cannot **exhaust** the opt
 the answer by elimination. It does not make a lucky guess impossible: with four options and three
 attempts, a random enumeration hits the correct option three times in four. What the cap removes is
 the *guarantee*, which is what made reading the key and guessing the key equivalent. `QuizAttempt`
-records `attemptCount`, so a brute-force run is visible in the record rather than overwritten by its
-own last attempt.
+records `attemptCount` over its whole life, so a brute-force run is visible in the record rather than
+overwritten by its own last attempt — or by the cooldown reset, which restarts a separate
+`windowCount` and leaves the lifetime count alone.
 
-**4. Exhausting the cap starts a 24-hour cooldown**, after which the counter resets and the student
-may try again. A student who genuinely misunderstood the lesson is not permanently denied level 3;
+**4. A rolling 24-hour window.** Twenty-four hours after a student's last graded attempt — whether or
+not the cap was spent — the window counter restarts and they may try again. A student who genuinely misunderstood the lesson is not permanently denied level 3;
 a student cycling options is slowed to a rate at which the attempt record is the signal.
 
 The cooldown is measured from the **last graded attempt**, which needs a timestamp that moves.
@@ -82,13 +87,15 @@ page, `GenerateQuizDialog` and `LessonContentEditor` all keep `correct`. The spl
    enrolled student against a lesson carrying quizzes, and deep-walks the serialised result for a key
    named `correct` at any depth. Key presence, not text search — so `analytics`' `correct` *count* is
    not a false positive and a future nested `include` is not a false negative.
-4. `quizRepository.findByLesson` selects `{ id, question, options, lessonId, deletedAt }` explicitly;
-   a repository test asserts the returned object's own keys. `correct` is never loaded, so it cannot
+4. `quizRepository.findByLesson` selects `{ id, question, options, lessonId }` explicitly; a
+   repository test asserts the returned object's own keys. (`deletedAt` was in the field list as
+   built and then dropped: the `where` clause already guarantees it is null, so it was a dead field
+   in every student payload.) `correct` is never loaded, so it cannot
    be spread, logged, or re-exposed by a future caller.
 5. `lessonService.getStudentLesson` contains no `as … & { quizzes: Quiz[] }` cast, and a student
    component referencing `quiz.correct` fails `pnpm typecheck`.
-6. `quiz.submit` still grades correctly via `findOne`; a test asserts `findByLesson` is not called on
-   the submit path.
+6. `quiz.submit` still grades correctly via its own single-row read; a test asserts `findByLesson` is
+   not called on the submit path before grading.
 
 **Guessing is bounded**
 
@@ -99,16 +106,31 @@ page, `GenerateQuizDialog` and `LessonContentEditor` all keep `correct`. The spl
    guess inside the cap can still land, and that residual is accepted in `security.md` S10 item 3.
    **The test fixture must place the correct option outside the cap**, or it passes or fails by
    chance rather than by behaviour.
-8. `QuizAttempt.attemptCount` increments on each graded retry, and `updatedAt` moves with it: on a
-   five-option quiz (cap 4), three wrong submissions then one correct yields
-   `{ attemptCount: 4, isCorrect: true }`. Note the option count — on a four-option quiz the cap is 3
-   and the fourth submission is refused, so every fixture for criteria 7–9 sets `options` explicitly.
-   `makeQuiz`'s default of two options caps at **one** attempt.
-9. Exceeding the cap rejects with a typed error, records no further attempt, and starts a 24-hour
-   cooldown measured from `updatedAt`; after the cooldown the student may attempt again and the
-   counter resets.
-10. `quiz.submit` is rate-limited per `(userId, quizId)`; submissions past the window are rejected
-    before reaching `quizRepository`.
+8. **Two counters, because a cooldown resets only one of them.** `QuizAttempt.windowCount` is what
+   the cap compares against and what a spent window restarts; `QuizAttempt.attemptCount` counts the
+   attempts of a whole lifetime and nothing resets it, because it is what criterion 18 reads to say
+   how a level was earned. Both increment on each graded retry, and `updatedAt` moves with them: on a
+   four-option quiz (cap 3), two wrong submissions then one correct yields
+   `{ attemptCount: 3, windowCount: 3, isCorrect: true }`.
+
+   `MAX_GRADED_ATTEMPTS = 3` is a hard ceiling, so `min(3, options.length − 1) ≤ 3` for every quiz
+   and no option count makes a fourth attempt reachable *within one window*. Across a cooldown it is:
+   the same student, a day later, yields `{ attemptCount: 4, windowCount: 1 }`. Every fixture for
+   criteria 7–9 sets `options` explicitly — `makeQuiz`'s default of two options caps at **one**
+   attempt.
+9. Exceeding the cap rejects with a typed error and records no further attempt. The window is
+   **rolling**, measured from `updatedAt`: 24 hours after a student's last graded attempt, whether or
+   not the cap was spent, `windowCount` restarts and they may attempt again. `attemptCount` does not
+   restart — a fresh window is not a fresh history.
+
+   A row whose `attemptCount` is NULL predates the counter. Its window is knowable from the first
+   post-change attempt, so it is capped like any other; its lifetime stays NULL, which is what
+   criterion 18 turns into `LEGACY`.
+10. `quiz.submit` is rate-limited per `(userId, quizId)` **and** per `userId`; submissions past
+    either window are rejected before reaching `quizRepository`. The per-user ceiling is the one that
+    bounds a caller: `quizId` comes from the request, so a client sweeping ids would otherwise get a
+    fresh per-quiz budget every time. A submission for an id that does not exist answers `NOT_FOUND`
+    — a client-fault code, so a sweep cannot burn the Sentry error budget.
 11. A student who answers wrongly within the cap still retries normally and still receives no
     `correct` on the retry response.
 
@@ -131,11 +153,16 @@ page, `GenerateQuizDialog` and `LessonContentEditor` all keep `correct`. The spl
 16. Concept names are trimmed, deduplicated case-insensitively and rejected above 80 characters
     before `upsertMastery`. An insights blob containing `"  Recursion "`, `"recursion"` and an
     81-character name produces exactly one row, for the canonical `"Recursion"`.
-17. A level-3 promotion emits one structured event per batch — six fields, no free text, no concept
-    string — and none when `correctCount < quizzes.length`.
-18. `ConceptMastery` records level-3 provenance, so a row written before this change is
-    distinguishable from one written after. The pre-change population is counted and the number
-    recorded in `security.md`.
+17. A level-3 promotion emits one structured event per batch — six fields plus an id-only
+    `subject`, no free text, no concept string — and none when `correctCount < quizzes.length`.
+18. `ConceptMastery` records level-3 provenance in a nullable `MasteryEvidence`
+    (`CONVERSATION`, `QUIZ_FIRST_PASS`, `QUIZ_RETRIED`, `LEGACY`), so a row written before this
+    change is distinguishable from one written after. `QUIZ_RETRIED` was not in the design pass and
+    is the reason `attemptCount` may not be reset: without it, an answer assembled over two windows
+    had to be recorded as a first pass. A pre-change row that is later re-earned at the level it
+    already holds is attributed rather than left NULL, so the `level = 3 AND evidence IS NULL` cutoff
+    does not over-count. The pre-change population is counted and the number recorded in
+    `security.md`.
 
 **The AI path stays closed**
 
