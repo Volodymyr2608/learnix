@@ -305,6 +305,33 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 		expect(result.attempt.windowCount).toBe(1);
 	});
 
+	// The window is rolling, not "starts when the cap is spent": a row still under
+	// the cap whose last attempt is stale restarts too. Harmless — it is still at
+	// most `maxAttempts` graded attempts per rolling 24 hours — but it is the one
+	// branch of the CASE nothing else exercises, and the spec says which of the
+	// two designs this is.
+	it("restarts the window for a row that never reached the cap", async () => {
+		await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+			policy(3),
+		);
+		await moveUpdatedAtBack(25);
+
+		const result = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"C",
+			false,
+			policy(3),
+		);
+
+		expect(result.attempt.windowCount).toBe(1);
+		expect(result.attempt.attemptCount).toBe(2);
+	});
+
 	// The defect this column split exists to prevent: with one counter, a student
 	// who spent the cap, waited a day and submitted the last remaining option was
 	// recorded as having answered on the first attempt — the strongest provenance
