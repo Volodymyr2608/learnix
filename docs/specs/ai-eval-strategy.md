@@ -11,8 +11,8 @@ states why one of those claims is checked by a string comparison, the next by a 
 third only by a person reading a transcript — or why a number that has been measured is still not
 allowed to fail a build.
 
-Read it as the pair of [`../security/ai-defence-strategy.md`](../security/ai-defence-strategy.md):
-that one is about what the system prevents, this one about what we actually know. The mechanics of
+Read it as the pair of [`../ai-defence/strategy.md`](../ai-defence/strategy.md): that one is about
+what the system prevents, this one about what we actually know. The mechanics of
 the harness that produces these numbers are in
 [`features/ai-evaluation-harness/spec.md`](features/ai-evaluation-harness/spec.md); the scoring
 definitions are in [`ai-eval-rubric.md`](ai-eval-rubric.md); the decisions are

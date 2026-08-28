@@ -501,8 +501,17 @@ Written as facts after implementation, not as intentions before it.
     niche course, a timestamp, and review prose. Accepted rather than solved, because the
     alternative (destroying reviews and payments) breaks the third-party and legal-retention
     guarantees that motivated the change.
-11. **The quiz answer key reaches the client.** `quiz.service.getByLesson` returns `...quiz`
-    including `correct`. Not an AI surface; found while auditing the indexing channel.
+11. **The quiz answer key reaches the client — closed 2026-08-28.** `quiz.service.getByLesson`
+    returned `...quiz` including `correct`. Not an AI surface; found while auditing the indexing
+    channel.
+
+    **Closed by [`quiz-answer-key`](../quiz-answer-key/spec.md)** (merged, PR #122). The field is
+    narrowed at the repository, so it is never loaded on a student read, and removing it was paired
+    with an attempt cap — on its own it would have converted one read into a three-request
+    enumeration. Down to that feature's residual S10 item 3, not to zero: a lucky guess inside the
+    cap is still possible, and a patient student can spend one window per day until the option set
+    is exhausted. What is no longer possible is doing either *silently* — the attempt row keeps a
+    lifetime count and the mastery row records `QUIZ_RETRIED` rather than `QUIZ_FIRST_PASS`.
 12. **No retention period is set for security events.** They carry `userId` and are retained under
     legitimate interest, but "indefinitely" is not a policy.
 13. **Nothing consumes the security events — partly closed 2026-08-24.** `logSecurityEvent` wrote to

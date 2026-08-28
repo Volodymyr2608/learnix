@@ -174,4 +174,4 @@ time.
 - [ADR-024](024-lesson-tutor-authority-boundaries.md) — the level-2 ceiling this feature makes
   meaningful
 - [ADR-017](017-owasp-security-rules.md) — the OWASP rules this projection change answers to
-- `docs/security/2026-08-16-ai-content-supply-chain.md` — finding C4
+- [`docs/ai-defence/findings-register.md`](../ai-defence/findings-register.md) — finding C4

@@ -8,7 +8,7 @@ Written as requirements, so it can be followed without reading the implementatio
 appears as an acceptance criterion in [`spec.md`](./spec.md) — that is what makes `/plan` unable to
 omit it and `/qa` able to check it back.
 
-Companion analysis: `docs/security/2026-08-16-ai-content-supply-chain.md` Part II (layer model,
+Companion analysis: [`ai-defence/findings-register.md`](../../../ai-defence/findings-register.md) (layer model,
 conformance matrix, gaps G1–G8). Prior art this generalises:
 [`../ai-tutor-guardrails/security.md`](../ai-tutor-guardrails/security.md).
 

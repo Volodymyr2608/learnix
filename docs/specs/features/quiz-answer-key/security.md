@@ -11,7 +11,7 @@ Written as requirements, so it can be followed without reading the implementatio
 here also appears as an acceptance criterion in [`spec.md`](./spec.md) — that is what makes `/plan`
 unable to omit it and `/qa` able to check it back.
 
-Source finding: `docs/security/2026-08-16-ai-content-supply-chain.md` C4.
+Source finding: [`ai-defence/findings-register.md`](../../../ai-defence/findings-register.md) C4.
 
 ---
 

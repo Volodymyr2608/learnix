@@ -272,21 +272,34 @@ Quizzes gain `Quiz.concept`, so passing promotes the concept a question actually
 every concept the lesson mentions. That is this item's whole scope.
 
 **Everything else about quiz evidence belongs to [`quiz-answer-key`](../quiz-answer-key/spec.md)**,
-which is specified and unbuilt, and is a **hard prerequisite** for this reopening. It removes `correct`
-from every student-reachable response, adds `QuizAttempt.attemptCount`, caps graded attempts at
-`min(3, options.length - 1)` with a 24-hour cooldown, and records level-3 provenance. Those are the
-same columns and the same guarantee this work needs; specifying them twice would produce two
-migrations for one column and two answers to "what does level 3 mean".
+which was a **hard prerequisite** for this reopening and **shipped 2026-08-28** (PR #122). It removes
+`correct` from every student-reachable response, adds `QuizAttempt.attemptCount`, caps graded
+attempts at `min(3, options.length - 1)` with a 24-hour cooldown, and records level-3 provenance.
+Those are the same columns and the same guarantee this work needs; specifying them twice would
+produce two migrations for one column and two answers to "what does level 3 mean".
 
-The dependency is not administrative. Until that feature ships, `quiz.getByLesson` returns the answer
-key to any enrolled student, so `QUIZ_FIRST_PASS` would be forgeable at 100 % — cheaper and more
-reliable than guessing a check. Building the check mechanism first would be a careful front door
-beside an open window.
+The dependency was not administrative. Before it shipped, `quiz.getByLesson` returned the answer key
+to any enrolled student, so `QUIZ_FIRST_PASS` would have been forgeable at 100 % — cheaper and more
+reliable than guessing a check. Building the check mechanism first would have been a careful front
+door beside an open window.
 
-What this item takes from it and must not re-derive: `attemptCount = NULL` means *unknown*, not *one*.
-Unknown still counts toward promotion — a student mid-course cannot re-answer a locked question and
-would otherwise be stranded — but the row it produces is labelled `LEGACY`, never `QUIZ_FIRST_PASS`.
-The uncertainty rides in the label, not in a fabricated number.
+**What this item inherits and must not re-derive** — as built, which differs from the sketch above in
+two ways worth carrying forward:
+
+- `attemptCount = NULL` means *unknown*, not *one*. Unknown still counts toward promotion — a student
+  mid-course cannot re-answer a locked question and would otherwise be stranded — but the row it
+  produces is labelled `LEGACY`, never `QUIZ_FIRST_PASS`. The uncertainty rides in the label, not in
+  a fabricated number.
+- **There are two counters.** `QuizAttempt.windowCount` is what the cap compares against and what a
+  spent window restarts; `attemptCount` counts a lifetime and nothing resets it. They were one column
+  until the audit at `/qa` found that the cooldown reset it, so an answer assembled across two
+  windows recorded as a first pass. Item 12's `ask_concept_check` must read the same distinction if
+  it ever prices a check by how many tries it took.
+- **`MasteryEvidence` has four members, not three**: `CONVERSATION`, `QUIZ_FIRST_PASS`,
+  `QUIZ_RETRIED`, `LEGACY`. Item 15 adds `APPLIED_CHECK` and backfills NULL → `LEGACY`; it must
+  leave `QUIZ_RETRIED` alone. Note also that `upsertMastery` now attributes a pre-change NULL row
+  that is re-earned at the level it already holds, so the `level = 3 AND evidence IS NULL` cutoff
+  shrinks over time rather than staying fixed.
 
 **15. Nothing model-authored is persisted before the output boundary passes.** The authored check is
 buffered for the duration of the turn and committed where the assistant message is committed — after
@@ -735,7 +748,7 @@ un-instrumented bypass around it.
 | F9 | Poisoned lesson text steers the *authoring*: "make option A correct" | Server CSPRNG shuffle; grading by text, never index (13) | Check-authoring criteria |
 | F10 | Read the answer out of `toolCalls` via `getHistory`, the SSE frame, or the tool result | Per-tool field allowlist + `getHistory` projection + bare tool ack (15) | Answer-key criteria |
 | F11 | Answer someone else's check, or replay your own | One conditional `UPDATE` that authorizes and acts; byte-identical errors (13) | Answering criteria |
-| F12 | Fabricate `QUIZ_FIRST_PASS` from the still-open quiz answer-key leak (S13 §11) | `quiz-answer-key` ships **first**, as a hard prerequisite (14) | That feature's criteria |
+| F12 | ~~Fabricate `QUIZ_FIRST_PASS` from the still-open quiz answer-key leak (S13 §11)~~ | Closed 2026-08-28: `quiz-answer-key` shipped as the prerequisite (14) | That feature's criteria, incl. `answerKeyGuarantee.integration.test.ts` |
 | F13 | Let an unswept expired check hold the one-check slot for a lesson forever | Expiry swept in the issuing transaction (13) | Edge cases |
 
 **Why F1 outranks its apparent severity.** `security.md` S13 §2 accepts the streaming disclosure —

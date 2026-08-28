@@ -9,11 +9,16 @@ docs/
 └── templates/  feature-spec.md (spec.md) + plan.md (build/plan.md)
 ```
 
-Security review output is not kept here. A finding that gets fixed becomes acceptance criteria in the
-owning feature's `spec.md`; a finding that gets accepted goes into that feature's `security.md` risk
-register with its residual impact. Point-in-time review documents are working notes, not a tier of
-documentation — the repo records the decision, not the pass that produced it. Reviews are produced by
-the `security-auditor` and `llm-security-auditor` agents (see `documentation-process.md` §3d).
+Point-in-time review output is not kept here. A finding that gets fixed becomes acceptance criteria
+in the owning feature's `spec.md`; a finding that gets accepted goes into that feature's
+`security.md` risk register with its residual impact — the repo records the decision, not the pass
+that produced it. Reviews are produced by the `security-auditor` and `llm-security-auditor` agents
+(see `documentation-process.md` §3d).
+
+The one exception is `docs/ai-defence/`, and it earns it by being cited: finding ids (C4, G2) are
+referenced from specs, ADRs and the conformance matrix, so they need a stable home rather than a
+report someone has to be sent. Those two documents are living — they carry current status, not the
+state on the day of a pass.
 
 See [`docs/specs/documentation-process.md`](specs/documentation-process.md) for the full process —
 tiers, `spec.md` format, lifecycle, and [`docs/adr/020-hybrid-documentation-model.md`](adr/020-hybrid-documentation-model.md)
@@ -68,13 +73,14 @@ for why it's structured this way.
 ### Cross-surface documents
 
 Living documents that answer questions no single feature's `spec.md` can, because they are about the
-seam between features. Kept in `docs/specs/` (and `docs/security/`) rather than under `features/`.
+seam between features. Kept in `docs/specs/` and `docs/ai-defence/` rather than under `features/`.
 
 | Doc | Purpose |
 |-----|---------|
 | [ai-eval-strategy.md](specs/ai-eval-strategy.md) | How the AI subsystem is measured — the assert / judge / human line, when an eval gates and when it only measures, baselines, cost per run, known limits |
 | [ai-eval-rubric.md](specs/ai-eval-rubric.md) | The four scoring axes the LLM judge applies, read at run time by `evals/_shared/judge.ts` |
-| [security/ai-defence-strategy.md](security/ai-defence-strategy.md) | How the five AI surfaces defend each other — the nine layers and the content chains between features |
+| [ai-defence/strategy.md](ai-defence/strategy.md) | How the five AI surfaces defend each other — the nine layers and the content chains between features |
+| [ai-defence/findings-register.md](ai-defence/findings-register.md) | The content supply-chain findings by id (C1–C7, G1–G8), each with what it cost and where it stands |
 
 ### Features
 
