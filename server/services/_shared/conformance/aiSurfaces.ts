@@ -148,7 +148,8 @@ export const AI_SURFACES: SurfaceConformance[] = [
 		renderPolicy: NOT_RENDERED_AS_MARKDOWN,
 		resourceLimits: APPLIED,
 		exclusions: [
-			"The answer key itself is model-authored: a poisoned lesson can steer which option is marked correct, and no layer here checks that. Tracked separately as a content defect.",
+			"The answer key itself is model-authored: a poisoned lesson can steer which option is marked correct, and no layer here checks that. Tracked separately as a content defect (ai-defence-layers S17).",
+			"Narrowed by quiz-answer-key, 2026-08-28: the other half of C4 — that the key could be read from a student response, or handed to a model — is closed and pinned by tests rather than by an absence of code. server/api/studentSurface.contract.integration.test.ts walks every student-reachable response for the key; server/services/quizFieldExposure.contract.test.ts asserts no tool definition or embedding builder projects it. The model-authored half above is untouched by that work and stays open.",
 		],
 	},
 	{

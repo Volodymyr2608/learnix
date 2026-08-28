@@ -513,6 +513,17 @@ which is the same cross-tenant tail the finalize exclusion already flags.
 - **C4 (quiz answer key)** — not a blocking dependency, **but** it makes the conformance matrix
   certify something false: quizAI's L0 row would read `✓` while the answer key ships to students. The
   declaration format must therefore support "declared, with a known open exception referencing C4".
+
+  **Amended 2026-08-28 (quiz-answer-key).** C4 is two claims, not one, and only the first is now
+  answered:
+
+  | claim | state |
+  |---|---|
+  | the key can reach a student or a model, and nothing checks it | **closed** — the exposure is gone and pinned by `studentSurface.contract.integration.test.ts` and `quizFieldExposure.contract.test.ts`, so the matrix rests on tests rather than on an absence of code |
+  | the key is **model-authored**: a poisoned lesson can steer which option is marked correct | **still open** — no layer checks it, and nothing in quiz-answer-key adds one |
+
+  quizAI's `exclusions` entry was therefore narrowed, not dropped: deleting it would have the matrix
+  certify a guarantee that does not hold. The second claim keeps its tracking here.
 - **C5 (content length caps)** — the URL-field caps are folded in here (AC 57) because this feature
   already edits those three lines; `content` / `title` / `description` remain C5's.
 - **S13 §13 (event sink)** — not blocking, cost raised (S16 §8).

@@ -172,6 +172,23 @@ describe("the output boundary is declared per rule, with reasons", () => {
 		expect(reportOnly.sort()).toEqual(["lessonInsightsAI", "quizAI"]);
 	});
 
+	// C4 made two claims, and quiz-answer-key answers only one of them. Dropping
+	// the entry would have the matrix certify a guarantee the feature does not
+	// deliver — the same failure mode as shipping the projection without the cap,
+	// one level up.
+	it("keeps quizAI's answer-key exclusion to the half that is still open", () => {
+		const quizAI = AI_SURFACES.find((s) => s.feature === "quizAI");
+		const exclusions = quizAI?.exclusions.join(" ") ?? "";
+
+		// Still open: nothing checks which option a poisoned lesson steers the
+		// model into marking correct.
+		expect(exclusions).toMatch(/model-authored/);
+		// Closed, and resting on tests rather than on an absence of code: the key
+		// reaches neither a student response nor a model.
+		expect(exclusions).not.toMatch(/reaches (a|the) (student|model)/i);
+		expect(exclusions).toMatch(/quizFieldExposure|studentSurface/);
+	});
+
 	it("gives every surface at least one written exclusion", () => {
 		for (const surface of AI_SURFACES) {
 			expect(surface.exclusions.length, surface.feature).toBeGreaterThan(0);
