@@ -25,11 +25,27 @@ model, two tRPC procedures, an agent tool and three migrations — **new authori
 (`documentation-process.md` §3a). Both threat agents ran in `design` mode on 2026-08-27 and their
 controls are acceptance criteria in `spec.md`; every one has a task below. **ADR required at `/qa`.**
 
-**Hard prerequisite:** [`quiz-answer-key`](../../quiz-answer-key/build/plan.md) ships **first**. It
-owns `QuizAttempt.attemptCount`, the attempt cap, the answer-key projection and the nullable
-`ConceptMastery.evidence` column. Until it lands, `quiz.getByLesson` returns the answer key to any
-enrolled student and `QUIZ_FIRST_PASS` is forgeable at 100 % — cheaper than guessing a check. Stage 2
-below extends its `evidence` column rather than creating one.
+**Hard prerequisite — met.** [`quiz-answer-key`](../../quiz-answer-key/spec.md) **shipped 2026-08-28**
+(PR #122). It owns `QuizAttempt.attemptCount`, the attempt cap, the answer-key projection and the
+nullable `ConceptMastery.evidence` column, so Stage 2 below extends that column rather than creating
+one. Re-plan against what it actually built, not against this plan's expectation of it:
+
+- `MasteryEvidence` already has **four** members — `CONVERSATION`, `QUIZ_FIRST_PASS`, `QUIZ_RETRIED`,
+  `LEGACY`. Task 15's backfill (NULL → `LEGACY`, then `NOT NULL`) must leave `QUIZ_RETRIED` alone,
+  and `APPLIED_CHECK` is the fifth.
+- `QuizAttempt` carries **two** counters: `windowCount` (the cap's, reset by the rolling 24-hour
+  window) and `attemptCount` (a lifetime, never reset). Anything here that prices a check by effort
+  reads the second.
+- `upsertMastery` takes an `evidence` argument and writes it only when the level rises — or when a
+  pre-change NULL row is re-earned at the level it already holds. `ask_concept_check`'s write must
+  pass `APPLIED_CHECK` explicitly; there is no default.
+- `quizRepository.findByLesson` no longer loads `correct`, and `findByLessonForAuthor` is the
+  instructor accessor that does. Task 8's "reading a pending check cannot return its answer" has a
+  working precedent to imitate rather than invent.
+- Two contract tests now police this ground and will fail on a careless addition here:
+  `studentSurface.contract.integration.test.ts` (no `correct` key in any student-reachable response)
+  and `quizFieldExposure.contract.test.ts` (no tool or embedding call touches a quiz accessor that
+  loads the key). `ConceptCheck.correct` must satisfy the same two.
 
 **Codebase anchors (verified during planning):**
 
