@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Prisma, QuizAttempt } from "@/generated/prisma";
 import type { QuizAttemptRow } from "@/server/services/learningPathAI/learningPathAI.state";
 import { BaseRepository } from "./base/base.repository";
@@ -16,6 +17,42 @@ class QuizAttemptRepository extends BaseRepository<
 
 	async findByQuizAndStudent(quizId: string, studentId: string) {
 		return this.findFirst({ where: { quizId, studentId } });
+	}
+
+	/**
+	 * Records one graded attempt as a single statement, so the cap cannot be
+	 * beaten by two submissions racing between a read and a write.
+	 *
+	 * `null` means the pair already holds a correct answer and nothing was
+	 * written — and it means nothing else, which is true only while
+	 * `WHERE NOT quiz_attempts."isCorrect"` is the sole predicate on the update.
+	 * Any further predicate needs its own distinguishable signal.
+	 */
+	async recordAttempt(
+		quizId: string,
+		studentId: string,
+		selectedAnswer: string,
+		isCorrect: boolean,
+	): Promise<QuizAttempt | null> {
+		const id = randomUUID();
+		// `attemptCount + 1` on a legacy NULL stays NULL: that row's history is
+		// unknown and adding to it would invent one.
+		const rows = await this.db.$queryRaw<QuizAttempt[]>`
+			INSERT INTO quiz_attempts (
+				id, "quizId", "studentId", "selectedAnswer", "isCorrect", "attemptCount", "createdAt", "updatedAt"
+			)
+			VALUES (${id}, ${quizId}, ${studentId}, ${selectedAnswer}, ${isCorrect}, 1, NOW(), NOW())
+			ON CONFLICT ("quizId", "studentId")
+			DO UPDATE SET
+				"selectedAnswer" = EXCLUDED."selectedAnswer",
+				"isCorrect" = EXCLUDED."isCorrect",
+				"attemptCount" = quiz_attempts."attemptCount" + 1,
+				"updatedAt" = NOW()
+			WHERE NOT quiz_attempts."isCorrect"
+			RETURNING *;
+		`;
+
+		return rows[0] ?? null;
 	}
 
 	countCorrect(studentId: string): Promise<number> {

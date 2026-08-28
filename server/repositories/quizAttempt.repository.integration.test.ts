@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { quizAttemptRepository } from "@/server/repositories/quizAttempt.repository";
 import { testDb } from "@/test/db";
 import {
 	makeCourse,
@@ -194,6 +195,97 @@ describe("QuizAttempt — one row per (quiz, student)", () => {
 		const attempt = await makeQuizAttempt({ quizId, studentId });
 
 		expect(attempt.attemptCount).toBeNull();
+	});
+
+	it("counts the first graded attempt as one", async () => {
+		const attempt = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+		);
+
+		expect(attempt).toMatchObject({
+			attemptCount: 1,
+			isCorrect: false,
+			selectedAnswer: "B",
+		});
+	});
+
+	it("counts a retry on the same row, and does not open a second one", async () => {
+		await quizAttemptRepository.recordAttempt(quizId, studentId, "B", false);
+		const second = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"A",
+			true,
+		);
+
+		const rows = await testDb.quizAttempt.findMany({
+			where: { quizId, studentId },
+		});
+		expect(second).toMatchObject({ attemptCount: 2, isCorrect: true });
+		expect(rows).toHaveLength(1);
+	});
+
+	it("leaves a legacy row's unknown count unknown", async () => {
+		const legacy = await makeQuizAttempt({
+			quizId,
+			studentId,
+			isCorrect: false,
+		});
+		expect(legacy.attemptCount).toBeNull();
+
+		const attempt = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+		);
+
+		expect(attempt?.attemptCount).toBeNull();
+		expect(attempt?.updatedAt.getTime()).toBeGreaterThan(
+			legacy.updatedAt.getTime(),
+		);
+	});
+
+	it("refuses to touch a row that is already correct, and says so with zero rows", async () => {
+		const correct = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"A",
+			true,
+		);
+
+		const second = await quizAttemptRepository.recordAttempt(
+			quizId,
+			studentId,
+			"B",
+			false,
+		);
+
+		const row = await testDb.quizAttempt.findFirstOrThrow({
+			where: { quizId, studentId },
+		});
+		expect(second).toBeNull();
+		expect(row).toMatchObject({
+			isCorrect: true,
+			selectedAnswer: "A",
+			attemptCount: correct?.attemptCount,
+		});
+	});
+
+	it("leaves one row and one loser when two attempts race", async () => {
+		const [first, second] = await Promise.all([
+			quizAttemptRepository.recordAttempt(quizId, studentId, "A", true),
+			quizAttemptRepository.recordAttempt(quizId, studentId, "A", true),
+		]);
+
+		const rows = await testDb.quizAttempt.findMany({
+			where: { quizId, studentId },
+		});
+		expect(rows).toHaveLength(1);
+		expect([first, second].filter(Boolean)).toHaveLength(1);
 	});
 
 	it("moves updatedAt when the row is written again, and leaves createdAt pinned", async () => {
