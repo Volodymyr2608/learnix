@@ -128,7 +128,19 @@ class LessonService {
 					},
 				},
 				include: {
-					quizzes: { where: { deletedAt: null }, orderBy: { id: "asc" } },
+					// Explicit fields, not the whole relation: `correct` is an
+					// assessment secret and this is the student's read of the lesson.
+					quizzes: {
+						where: { deletedAt: null },
+						orderBy: { id: "asc" },
+						select: {
+							id: true,
+							question: true,
+							options: true,
+							lessonId: true,
+							deletedAt: true,
+						},
+					},
 					section: { select: { courseId: true } },
 				},
 			});
@@ -146,7 +158,11 @@ class LessonService {
 					logger.warn("touchLastAccessed after lesson open failed:", err),
 				);
 
-			return lesson as typeof lesson & { quizzes: Quiz[] };
+			// Returned as inferred, never cast: the cast asserted `quiz.correct`
+			// exists on a student-facing value, so narrowing the projection under it
+			// would have left a component reading `undefined` at runtime — and the
+			// plausible fix for that is to put the field back.
+			return lesson;
 		} catch (error) {
 			if (error instanceof LessonError) throw error;
 			throw new LessonError(
