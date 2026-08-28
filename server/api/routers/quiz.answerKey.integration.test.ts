@@ -12,6 +12,7 @@ import {
 	makeEnrollment,
 	makeLesson,
 	makeQuiz,
+	makeQuizAttempt,
 	makeSection,
 	makeUser,
 } from "@/test/factories";
@@ -36,6 +37,58 @@ const ctxFor = (userId: string) =>
  */
 const serialised = (result: unknown): unknown =>
 	SuperJSON.parse(SuperJSON.stringify(result));
+
+describe("quiz.getByLesson never carries the answer key", () => {
+	let caller: ReturnType<typeof createCaller>;
+	let lessonId: string;
+	let studentId: string;
+
+	beforeEach(async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const student = await makeUser();
+		const course = await makeCourse({ instructorId: instructor.id });
+		const section = await makeSection({ courseId: course.id });
+		const lesson = await makeLesson({ sectionId: section.id });
+		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		lessonId = lesson.id;
+		studentId = student.id;
+		caller = createCaller(ctxFor(student.id));
+	});
+
+	it("returns the questions without the key", async () => {
+		await makeQuiz({ lessonId, correct: "SENTINEL" });
+
+		const result = await caller.getByLesson(lessonId);
+
+		expect(findKeyPaths(serialised(result), "correct")).toEqual([]);
+		expect(JSON.stringify(result)).not.toContain("SENTINEL");
+	});
+
+	// The service pairs quizzes[i] with attempts[i] positionally, so ids that do
+	// not sort in creation order are the case a narrowing change can break: a
+	// student would be shown someone else's attempt state on their own quiz.
+	it("still gives each quiz its own attempt", async () => {
+		await makeQuiz({ lessonId, id: "quiz-c", question: "c" });
+		await makeQuiz({ lessonId, id: "quiz-a", question: "a" });
+		await makeQuiz({ lessonId, id: "quiz-b", question: "b" });
+		await makeQuizAttempt({
+			quizId: "quiz-b",
+			studentId,
+			selectedAnswer: "B-answer",
+			isCorrect: true,
+		});
+
+		const result = await caller.getByLesson(lessonId);
+
+		expect(
+			result?.map((q) => [q.id, q.attempt?.selectedAnswer ?? null]),
+		).toEqual([
+			["quiz-a", null],
+			["quiz-b", "B-answer"],
+			["quiz-c", null],
+		]);
+	});
+});
 
 describe("quiz.submit never carries the answer key", () => {
 	let caller: ReturnType<typeof createCaller>;
