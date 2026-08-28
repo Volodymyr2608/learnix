@@ -74,7 +74,7 @@ seam between features. Kept in `docs/specs/` (and `docs/security/`) rather than 
 |-----|---------|
 | [ai-eval-strategy.md](specs/ai-eval-strategy.md) | How the AI subsystem is measured — the assert / judge / human line, when an eval gates and when it only measures, baselines, cost per run, known limits |
 | [ai-eval-rubric.md](specs/ai-eval-rubric.md) | The four scoring axes the LLM judge applies, read at run time by `evals/_shared/judge.ts` |
-| [security/ai-defence-strategy.md](security/ai-defence-strategy.md) | How the five AI surfaces defend each other — the nine layers and the content chains between features |
+| `docs/security/ai-defence-strategy.md` *(local only — `docs/security` is gitignored)* | How the five AI surfaces defend each other — the nine layers and the content chains between features |
 
 ### Features
 
