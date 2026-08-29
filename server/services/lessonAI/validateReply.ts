@@ -42,6 +42,24 @@ const containsVerbatimChunk = (
 		return false;
 	});
 
+/**
+ * Whitespace-insensitive, case-insensitive containment. The model writes the
+ * reply and the option in the same breath, so an echo that differs only in
+ * spacing or capitalisation is the same giveaway.
+ */
+const fold = (value: string): string =>
+	value.toLowerCase().replace(/\s+/g, " ").trim();
+
+const revealsCheckAnswer = (
+	reply: string,
+	correctOption?: string | null,
+): boolean => {
+	if (!correctOption) return false;
+	const needle = fold(correctOption);
+	if (needle.length === 0) return false;
+	return fold(reply).includes(needle);
+};
+
 const reject = (
 	ctx: ReplyValidationContext,
 	ruleId: ReplyValidationRuleId,
@@ -95,6 +113,25 @@ export const validateReply = (
 	}
 
 	if (!shared.valid) return reject(ctx, shared.ruleId);
+
+	if (revealsCheckAnswer(reply, ctx.pendingCheckAnswer)) {
+		// Routine, not adversarial, and NOT a rejection. The correct option is by
+		// construction a phrase from the lesson the tutor has just been explaining,
+		// so this rule has a structurally high false-positive rate — unlike
+		// system_prompt_echo, whose markers never occur in legitimate prose.
+		// Failing closed on the CHECK costs the student one question they can be
+		// asked again; failing closed on the REPLY would destroy a legitimate turn
+		// on a collision. The event is routine and unforwarded for the same reason.
+		logSecurityEvent({
+			feature: "lessonAI",
+			userId: ctx.userId,
+			layer: "output_validation",
+			outcome: "tool_call_declined",
+			ruleIds: ["concept_check_answer_echo"],
+			score: 0,
+		});
+		return { valid: true, suppressCheck: true };
+	}
 
 	return { valid: true };
 };

@@ -4,6 +4,7 @@ import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.r
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { traced } from "@/server/services/_shared/tracing";
+import { conceptCheckService } from "@/server/services/conceptCheck/conceptCheck.service";
 import { logger } from "@/server/utils/logger";
 import { createLessonAgent } from "./lessonAI.agent";
 import { newTurnState } from "./turnState";
@@ -164,6 +165,7 @@ class LessonAIService {
 				return validateReply(fullReply, {
 					userId: studentId,
 					retrievedContent,
+					pendingCheckAnswer: turn.pendingCheck?.correctOption ?? null,
 				});
 			} catch {
 				logSecurityEvent({
@@ -310,6 +312,34 @@ class LessonAIService {
 			content: fullReply,
 			toolCalls: toolCallsSummary.length > 0 ? toolCallsSummary : undefined,
 		});
+
+		// The authored check is committed HERE and nowhere else — after the reply
+		// has been judged valid, alongside the only write of model text.
+		//
+		// This is what makes "a rejected turn leaves no artifact" true by
+		// construction rather than by a compensating delete: every earlier exit
+		// (retraction, abort, mid-stream error, consumer abandonment) returns
+		// before this line, and the buffered check simply goes out of scope. It is
+		// also what retired `mastery_write_retained` rather than reinventing it.
+		const check = turn.pendingCheck;
+		if (check && !validation.suppressCheck) {
+			try {
+				const issued = await conceptCheckService.issue(check);
+				// Typed as the keyless projection, so this frame cannot carry the
+				// answer even if someone widens the query behind it.
+				yield { type: "concept_check" as const, check: issued };
+			} catch (error) {
+				// A check that cannot be issued — one already open, a budget spent,
+				// an enrollment that ended mid-turn — must not take the reply down
+				// with it. The student has already read the answer; losing the
+				// question is the smaller failure, and it is recoverable by asking
+				// again.
+				logger.warn(
+					{ err: error, lessonId },
+					"[lessonAI] authored check was not issued",
+				);
+			}
+		}
 	}
 }
 

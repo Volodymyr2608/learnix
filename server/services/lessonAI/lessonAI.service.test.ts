@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
+import { findKeyPaths } from "@/test/deepKeys";
 
 const {
 	mockSaveMessage,
@@ -9,6 +10,8 @@ const {
 	mockValidateReply,
 	mockLogSecurityEvent,
 	mockMarkContextIneligible,
+	mockIssue,
+	mockOnAgentCreated,
 } = vi.hoisted(() => ({
 	mockSaveMessage: vi.fn().mockResolvedValue({}),
 	mockGetContextMessages: vi.fn().mockResolvedValue([]),
@@ -17,6 +20,18 @@ const {
 	mockValidateReply: vi.fn(),
 	mockLogSecurityEvent: vi.fn(),
 	mockMarkContextIneligible: vi.fn().mockResolvedValue(undefined),
+	mockIssue: vi.fn().mockResolvedValue({
+		id: "check-1",
+		lessonId: "lesson-1",
+		concept: "Recursion",
+		question: "Which call ends a recursive descent?",
+		options: ["A frame", "The base case", "An input", "A recursive call"],
+		expiresAt: new Date(),
+	}),
+	// The turn state createLessonAgent was handed. The agent is mocked, so the
+	// authoring tool never actually runs — this is how a test says "the model
+	// called ask_concept_check on this turn".
+	mockOnAgentCreated: vi.fn(),
 }));
 
 vi.mock("./validateReply", async (importOriginal) => {
@@ -38,9 +53,15 @@ vi.mock("@/server/repositories/lessonAssistant.repository", () => ({
 vi.mock("@/server/repositories/lessonInsights.repository", () => ({
 	lessonInsightsRepository: { findByLessonId: mockFindByLessonId },
 }));
+vi.mock("@/server/services/conceptCheck/conceptCheck.service", () => ({
+	conceptCheckService: { issue: mockIssue },
+}));
 vi.mock("./lessonAI.agent", async (importOriginal) => ({
 	...(await importOriginal<object>()),
-	createLessonAgent: () => ({ streamEvents: mockStreamEvents }),
+	createLessonAgent: (params: { turn: unknown }) => {
+		mockOnAgentCreated(params.turn);
+		return { streamEvents: mockStreamEvents };
+	},
 }));
 // OpenAIEmbeddings is pulled in transitively via the agent's RAG tools.
 vi.mock("@langchain/openai", () => ({
@@ -578,5 +599,96 @@ describe("what a persisted tool call may carry", () => {
 		for (const call of persistedCalls()) {
 			expect(Object.keys(call).sort()).toEqual(["query", "tool"]);
 		}
+	});
+});
+
+describe("an authored check is committed only after the boundary passes", () => {
+	const authored = {
+		concept: "Recursion",
+		question: "Which call ends a recursive descent?",
+		options: ["The base case", "A recursive call", "A frame", "An input"],
+		correctOption: "The base case",
+	};
+
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockGetContextMessages.mockClear().mockResolvedValue([]);
+		mockIssue.mockClear();
+		// Stands in for the tool having run. The agent is mocked, so this is how
+		// a test says "the model authored a check on this turn".
+		mockOnAgentCreated.mockImplementation((turn: { pendingCheck: unknown }) => {
+			turn.pendingCheck = {
+				studentId: "student-1",
+				lessonId: "lesson-1",
+				...authored,
+			};
+		});
+	});
+
+	it("issues the check on a clean turn and streams it without its answer", async () => {
+		const events = await collect([
+			tokenEvent("Let me ask you something about it."),
+		]);
+
+		expect(mockIssue).toHaveBeenCalledTimes(1);
+		const frame = events.find((e) => e.type === "concept_check");
+		expect(frame).toBeDefined();
+		expect(findKeyPaths(frame, "correct")).toEqual([]);
+	});
+
+	it("issues nothing when the reply is retracted", async () => {
+		const events = await collect([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(events.some((e) => e.type === "retract")).toBe(true);
+		expect(mockIssue).not.toHaveBeenCalled();
+	});
+
+	it("issues nothing when the turn is aborted", async () => {
+		await collectAborted([tokenEvent("Let me ask you something about it.")]);
+
+		expect(mockIssue).not.toHaveBeenCalled();
+	});
+
+	it("issues nothing when the stream errors mid-turn", async () => {
+		mockStreamEvents.mockReturnValue(
+			(async function* () {
+				yield tokenEvent("Let me ask you ");
+				throw new Error("provider exploded");
+			})(),
+		);
+
+		const out = [];
+		for await (const event of lessonAIService.streamResponse({
+			lessonId: "lesson-1",
+			lessonTitle: "Recursion",
+			courseTitle: "Intro",
+			studentId: "student-1",
+			courseId: "course-1",
+			userMessage: "explain the base case",
+		})) {
+			out.push(event);
+		}
+
+		expect(out.some((e) => e.type === "error")).toBe(true);
+		expect(mockIssue).not.toHaveBeenCalled();
+	});
+
+	it("discards the check when the reply gave its answer away", async () => {
+		await collect([tokenEvent("Remember that the base case is what ends it.")]);
+
+		expect(mockIssue).not.toHaveBeenCalled();
+	});
+
+	it("still delivers the reply when issuing the check fails", async () => {
+		mockIssue.mockRejectedValueOnce(new Error("already pending"));
+
+		const events = await collect([
+			tokenEvent("Let me ask you something about it."),
+		]);
+
+		expect(events.some((e) => e.type === "retract")).toBe(false);
+		expect(assistantSaves()).toHaveLength(1);
 	});
 });

@@ -45,14 +45,30 @@ export type ReplyValidationRuleId =
 	| "untrusted_data_echo"
 	| "verbatim_chunk_echo"
 	| "off_origin_link"
-	| "validator_error";
+	| "validator_error"
+	/**
+	 * The reply named the answer to the check authored on the same turn. Unlike
+	 * every other id here it does not reject the reply — it discards the check.
+	 */
+	| "concept_check_answer_echo";
 
 export type ReplyValidationResult =
-	| { valid: true }
+	/**
+	 * `suppressCheck` is the one outcome that is neither pass nor fail: the reply
+	 * is delivered and persisted, and the check authored alongside it is thrown
+	 * away unwritten.
+	 */
+	| { valid: true; suppressCheck?: boolean }
 	| { valid: false; ruleId: ReplyValidationRuleId };
 
 export type ReplyValidationContext = {
 	userId: string;
 	/** Raw tool output captured during this turn — what "verbatim dump" is measured against. */
 	retrievedContent: string[];
+	/**
+	 * The correct option of the check authored on this turn, or null when none
+	 * was. Null makes the echo rule unable to fire, rather than firing against an
+	 * empty string that every reply contains.
+	 */
+	pendingCheckAnswer?: string | null;
 };
