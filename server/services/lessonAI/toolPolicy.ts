@@ -3,6 +3,8 @@ import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog"
 import { resolveAllowlistedConcept } from "@/server/services/_shared/concepts/conceptKey";
 import { CONVERSATION_MAX_LEVEL } from "@/server/services/mastery/masteryLevels";
 import type {
+	ConceptCheckPolicyContext,
+	ConceptCheckRequest,
 	MarkConceptRequest,
 	ToolAuthorization,
 	ToolPolicyContext,
@@ -70,6 +72,114 @@ export const authorizeMarkConceptUnderstood = (
 		ctx.lessonConcepts,
 	);
 	if (!resolved) return deny(ctx, "concept_not_allowlisted");
+
+	return { authorized: true, canonicalConcept: resolved.concept };
+};
+
+/**
+ * Bounds on what the model may author. Exported so the tool's Zod schema and
+ * this policy cannot disagree about what a well-formed check is — a shape the
+ * schema accepts and the policy rejects is a denial the model can never learn
+ * to avoid.
+ */
+export const CHECK_QUESTION_MIN_LENGTH = 10;
+export const CHECK_QUESTION_MAX_LENGTH = 300;
+export const CHECK_OPTION_MAX_LENGTH = 120;
+export const CHECK_MIN_OPTIONS = 4;
+export const CHECK_MAX_OPTIONS = 5;
+
+/**
+ * Distinctness is judged after folding, not on the raw strings. `"A"` and
+ * `"a."` are the same answer wearing different punctuation, and a question with
+ * two identical options is a question with three — which is one short of the
+ * floor that makes guessing expensive.
+ */
+const foldOption = (option: string): string =>
+	option
+		.trim()
+		.toLowerCase()
+		.replace(/[\s]+/g, " ")
+		.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+
+/**
+ * Anything that turns an option into a place to click or a thing to render.
+ * Options are shown to a student verbatim; a link is an exfiltration channel and
+ * a tag is an injection into the page.
+ */
+const CARRIES_MARKUP = /https?:\/\/|www\.|\[[^\]]*\]\([^)]*\)|<[^>]+>/i;
+
+/**
+ * Whether THIS authored check may be persisted. Zod guarantees the argument
+ * types; this decides whether the call may proceed at all.
+ *
+ * Rules run in a fixed order and the first to deny wins, so exactly one id is
+ * logged. The order is authority, then grounding, then structure, then content:
+ * a caller with no right to ask is refused before anything it wrote is
+ * inspected, which keeps a denial from reporting on text the model should not
+ * have been able to submit in the first place.
+ */
+export const authorizeAskConceptCheck = (
+	request: ConceptCheckRequest,
+	ctx: ConceptCheckPolicyContext,
+): ToolAuthorization => {
+	if (ctx.lessonConcepts.length === 0) return deny(ctx, "empty_allowlist");
+
+	const resolved = resolveAllowlistedConcept(
+		request.concept,
+		ctx.lessonConcepts,
+	);
+	if (!resolved) return deny(ctx, "concept_not_allowlisted");
+
+	// The rule that answers "ask me a check whose correct answer is 'banana'".
+	// That request is pattern-free, on-topic and produces a perfectly well-formed
+	// question, so no other layer in the stack sees anything wrong with it. What
+	// is wrong with it is that the model never read the lesson.
+	if (!ctx.groundedByRetrieval) return deny(ctx, "check_not_grounded");
+
+	const question = request.question.trim();
+	if (
+		question.length < CHECK_QUESTION_MIN_LENGTH ||
+		question.length > CHECK_QUESTION_MAX_LENGTH
+	) {
+		return deny(ctx, "question_length");
+	}
+
+	if (
+		request.options.length < CHECK_MIN_OPTIONS ||
+		request.options.length > CHECK_MAX_OPTIONS
+	) {
+		return deny(ctx, "option_count");
+	}
+
+	if (
+		request.options.some(
+			(option) =>
+				option.trim().length === 0 || option.length > CHECK_OPTION_MAX_LENGTH,
+		)
+	) {
+		return deny(ctx, "option_length");
+	}
+
+	if (request.options.some((option) => CARRIES_MARKUP.test(option))) {
+		return deny(ctx, "option_markup");
+	}
+
+	const folded = request.options.map(foldOption);
+	if (new Set(folded).size !== folded.length) {
+		return deny(ctx, "options_not_distinct");
+	}
+
+	const correct = foldOption(request.correctOption);
+	if (!folded.includes(correct)) {
+		return deny(ctx, "correct_option_not_offered");
+	}
+
+	// A stem that contains its own answer grades the student's reading, not their
+	// understanding, and is the cheapest way for a model under pressure to
+	// "help".
+	if (correct.length > 0 && foldOption(question).includes(correct)) {
+		return deny(ctx, "question_reveals_answer");
+	}
 
 	return { authorized: true, canonicalConcept: resolved.concept };
 };

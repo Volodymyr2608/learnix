@@ -4,6 +4,25 @@ export type ToolPolicyContext = {
 	lessonConcepts: string[];
 };
 
+/**
+ * The check-authoring policy needs one fact the mastery write never did:
+ * whether this turn actually read the lesson. Kept as its own type rather than
+ * widened onto `ToolPolicyContext`, so the flag cannot be silently defaulted
+ * away by a caller that has no notion of grounding.
+ */
+export type ConceptCheckPolicyContext = ToolPolicyContext & {
+	/** True only if `retrieve_lesson_context` ran on this turn. */
+	groundedByRetrieval: boolean;
+};
+
+/** A check exactly as the model authored it, before any server processing. */
+export type ConceptCheckRequest = {
+	concept: string;
+	question: string;
+	options: string[];
+	correctOption: string;
+};
+
 export type MarkConceptRequest = {
 	concept: string;
 	level: number;
