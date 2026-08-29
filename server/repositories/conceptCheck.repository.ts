@@ -1,4 +1,5 @@
 import type { ConceptCheck, Prisma } from "@/generated/prisma";
+import type { db } from "@/server/db";
 import { BaseRepository } from "./base/base.repository";
 
 /**
@@ -49,6 +50,45 @@ class ConceptCheckRepository extends BaseRepository<
 				AND status = 'PENDING'::"ConceptCheckStatus"
 				AND "expiresAt" > NOW()
 			LIMIT 1;
+		`;
+
+		return rows[0] ?? null;
+	}
+
+	/**
+	 * Takes ownership of a check so it can be graded, and returns the whole row —
+	 * answer key included — to the caller that won it. Returns null to everyone
+	 * else.
+	 *
+	 * One statement. The four conditions that authorise the answer live in its
+	 * `WHERE`, so the query that authorizes is the query that acts (ADR-023):
+	 * a `SELECT` first, or a `status` / `expiresAt` test hoisted into TypeScript,
+	 * would ask one question and act on another. Single-use then follows from the
+	 * statement itself — under READ COMMITTED the loser of a race re-evaluates its
+	 * `WHERE` against the updated row and matches nothing, so no lock or retry is
+	 * involved.
+	 *
+	 * Absent, foreign, already-answered and expired all return null, and the
+	 * service turns all four into one message: four causes, one error, no oracle
+	 * telling a guesser which of them they hit.
+	 *
+	 * `client` is how this participates in the transaction that also writes
+	 * mastery — repository singletons hold `db`, never `tx`, so the caller must
+	 * hand its `tx` in for the two writes to be atomic.
+	 */
+	async claimForAnswer(
+		id: string,
+		studentId: string,
+		client: Prisma.TransactionClient | typeof db = this.db,
+	): Promise<ConceptCheck | null> {
+		const rows = await client.$queryRaw<ConceptCheck[]>`
+			UPDATE concept_checks
+			SET status = 'ANSWERED'::"ConceptCheckStatus", "answeredAt" = NOW()
+			WHERE id = ${id}
+				AND "studentId" = ${studentId}
+				AND status = 'PENDING'::"ConceptCheckStatus"
+				AND "expiresAt" > NOW()
+			RETURNING *;
 		`;
 
 		return rows[0] ?? null;

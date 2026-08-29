@@ -147,7 +147,7 @@ describe("concept_checks — one open check per lesson", () => {
  * read without deciding which side it belongs to fails here rather than in
  * review.
  */
-const ANSWER_KEY_DOORS: string[] = [];
+const ANSWER_KEY_DOORS: string[] = ["claimForAnswer"];
 
 const READ_DOORS = ["findPendingPublic"];
 
@@ -220,5 +220,102 @@ describe("conceptCheckRepository.findPendingPublic", () => {
 		expect([...owned].sort()).toEqual(
 			[...READ_DOORS, ...ANSWER_KEY_DOORS].sort(),
 		);
+	});
+});
+
+describe("conceptCheckRepository.claimForAnswer", () => {
+	beforeEach(async () => {
+		await truncateAll();
+	});
+
+	afterAll(async () => {
+		await testDb.$disconnect();
+	});
+
+	it("claims an open check once and never again", async () => {
+		const s = await seed();
+		const created = await insertPending(s);
+
+		const claimed = await conceptCheckRepository.claimForAnswer(
+			created.id,
+			s.studentId,
+		);
+		expect(claimed).toMatchObject({
+			id: created.id,
+			status: ConceptCheckStatus.ANSWERED,
+		});
+
+		await expect(
+			conceptCheckRepository.claimForAnswer(created.id, s.studentId),
+		).resolves.toBeNull();
+	});
+
+	it("hands the answer key to the claim, the one door that carries it", async () => {
+		const s = await seed();
+		const created = await insertPending(s);
+
+		const claimed = await conceptCheckRepository.claimForAnswer(
+			created.id,
+			s.studentId,
+		);
+
+		// The grader compares option text, so the claim must return it. This is
+		// the single channel the key leaves through, and it is reached only by the
+		// student who owns the row, exactly once.
+		expect(claimed?.correct).toBe("route.ts");
+	});
+
+	it("refuses an expired check and leaves it PENDING", async () => {
+		const s = await seed();
+		const created = await insertPending(s, {
+			expiresAt: new Date(Date.now() - 1000),
+		});
+
+		await expect(
+			conceptCheckRepository.claimForAnswer(created.id, s.studentId),
+		).resolves.toBeNull();
+
+		const after = await testDb.conceptCheck.findUniqueOrThrow({
+			where: { id: created.id },
+		});
+		expect(after.status).toBe(ConceptCheckStatus.PENDING);
+	});
+
+	it("refuses another student's checkId and changes nothing", async () => {
+		const s = await seed();
+		const created = await insertPending(s);
+
+		await expect(
+			conceptCheckRepository.claimForAnswer(created.id, s.otherStudentId),
+		).resolves.toBeNull();
+
+		const after = await testDb.conceptCheck.findUniqueOrThrow({
+			where: { id: created.id },
+		});
+		expect(after.status).toBe(ConceptCheckStatus.PENDING);
+		expect(after.answeredAt).toBeNull();
+	});
+
+	it("returns null for an id that does not exist", async () => {
+		const s = await seed();
+
+		await expect(
+			conceptCheckRepository.claimForAnswer("no-such-check", s.studentId),
+		).resolves.toBeNull();
+	});
+
+	it("produces exactly one winner when two claims race", async () => {
+		const s = await seed();
+		const created = await insertPending(s);
+
+		const results = await Promise.all([
+			conceptCheckRepository.claimForAnswer(created.id, s.studentId),
+			conceptCheckRepository.claimForAnswer(created.id, s.studentId),
+		]);
+
+		// Single-use is a property of the statement: under READ COMMITTED the
+		// loser re-evaluates its WHERE against the row the winner just updated and
+		// matches nothing. No lock, no retry, no SELECT beforehand.
+		expect(results.filter((row) => row !== null)).toHaveLength(1);
 	});
 });
