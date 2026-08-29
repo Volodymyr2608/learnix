@@ -16,3 +16,17 @@ export class CheckAlreadyPendingError extends DomainError {}
  * would let a caller report which bound was hit.
  */
 export class CheckBudgetSpentError extends DomainError {}
+
+/**
+ * The check cannot be answered — and deliberately does not say why.
+ *
+ * Absent, belonging to someone else, already answered and expired are four
+ * causes with one message and one code. Distinguishable errors would turn
+ * `checkId` into an oracle: a caller could walk ids and learn which exist and
+ * whose they are. Same requirement, and the same reasoning, as the guard's
+ * byte-identical refusals.
+ *
+ * The message must stay free of the cause. Adding "expired" to help a student
+ * is the change that reopens this.
+ */
+export class CheckUnavailableError extends DomainError {}

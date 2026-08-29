@@ -11,6 +11,7 @@ import { CONVERSATION_MAX_LEVEL } from "@/server/services/mastery/masteryLevels"
 import {
 	CheckAlreadyPendingError,
 	CheckBudgetSpentError,
+	CheckUnavailableError,
 	ConceptCheckForbiddenError,
 } from "./conceptCheck.errors";
 
@@ -34,6 +35,26 @@ const MAX_CHECKS_PER_CONCEPT = 3;
  * job, not this one's.
  */
 const WRONG_ANSWER_COOLDOWN_HOURS = 24;
+
+export type AnswerCheckInput = {
+	studentId: string;
+	checkId: string;
+	/**
+	 * A position in the stored, shuffled options — never the option text. The
+	 * text that gets graded is read from the claimed row, so a client cannot
+	 * submit an answer the question never offered.
+	 */
+	optionIndex: number;
+};
+
+export type AnswerCheckResult = {
+	isCorrect: boolean;
+	/**
+	 * The one channel the answer key leaves the server through: the terminal
+	 * response of a claim that succeeded, to the student who owns the row, once.
+	 */
+	correctOption: string;
+};
 
 export type IssueCheckInput = {
 	studentId: string;
@@ -191,6 +212,39 @@ class ConceptCheckService {
 			}
 			throw error;
 		}
+	}
+
+	/**
+	 * Grades a check the student owns, exactly once.
+	 *
+	 * Every one of the four ways this can fail — no such check, someone else's,
+	 * already answered, expired — is the same error with the same message. They
+	 * are not four cases handled alike; they are one case, because the claim asks
+	 * all four questions in a single `WHERE` and simply returns nothing.
+	 *
+	 * Grading is string equality against the text stored on the claimed row, so
+	 * the option order the student saw is the order the server wrote and no index
+	 * into the model's authored array is ever consulted.
+	 */
+	async answer(input: AnswerCheckInput): Promise<AnswerCheckResult> {
+		const claimed = await conceptCheckRepository.claimForAnswer(
+			input.checkId,
+			input.studentId,
+		);
+
+		if (!claimed) {
+			throw new CheckUnavailableError(
+				"This check is no longer available",
+				"NOT_FOUND",
+			);
+		}
+
+		const selected = claimed.options[input.optionIndex] ?? null;
+
+		return {
+			isCorrect: selected !== null && selected === claimed.correct,
+			correctOption: claimed.correct,
+		};
 	}
 }
 

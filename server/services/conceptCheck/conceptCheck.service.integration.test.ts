@@ -4,6 +4,7 @@ import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
 import {
 	CheckAlreadyPendingError,
 	CheckBudgetSpentError,
+	CheckUnavailableError,
 	ConceptCheckForbiddenError,
 } from "@/server/services/conceptCheck/conceptCheck.errors";
 import { conceptCheckService } from "@/server/services/conceptCheck/conceptCheck.service";
@@ -223,5 +224,132 @@ describe("conceptCheckService.issue", () => {
 		});
 
 		await expect(issue(s)).resolves.toBeTruthy();
+	});
+});
+
+describe("conceptCheckService.answer — four causes, one error", () => {
+	beforeEach(async () => {
+		await truncateAll();
+	});
+
+	afterAll(async () => {
+		await testDb.$disconnect();
+	});
+
+	/**
+	 * Absent, foreign, already-answered and expired. A caller able to tell them
+	 * apart can walk `checkId`s and learn which ones exist and whose they are, so
+	 * the four are required to be indistinguishable — not merely similar.
+	 */
+	const causes: [string, (s: Seed) => Promise<string>][] = [
+		["absent", async () => "no-such-check"],
+		[
+			"belonging to another student",
+			async (s) => {
+				const intruder = await makeUser();
+				await makeEnrollment({
+					studentId: intruder.id,
+					courseId: s.courseId,
+				});
+				const check = await issue(s);
+				// The intruder submits the victim's id, through their own session.
+				s.studentId = intruder.id;
+				return check.id;
+			},
+		],
+		[
+			"already answered",
+			async (s) => {
+				const check = await issue(s);
+				await testDb.conceptCheck.update({
+					where: { id: check.id },
+					data: {
+						status: ConceptCheckStatus.ANSWERED,
+						answeredAt: new Date(),
+					},
+				});
+				return check.id;
+			},
+		],
+		[
+			"expired",
+			async (s) => {
+				const check = await issue(s);
+				await testDb.conceptCheck.update({
+					where: { id: check.id },
+					data: { expiresAt: new Date(Date.now() - 1000) },
+				});
+				return check.id;
+			},
+		],
+	];
+
+	const failureFor = async (
+		make: (s: Seed) => Promise<string>,
+	): Promise<{ name: string; code: string; message: string }> => {
+		await truncateAll();
+		const s = await seed();
+		const checkId = await make(s);
+
+		try {
+			await conceptCheckService.answer({
+				studentId: s.studentId,
+				checkId,
+				optionIndex: 0,
+			});
+		} catch (error) {
+			const e = error as CheckUnavailableError;
+			return { name: e.name, code: e.code, message: e.message };
+		}
+
+		throw new Error("answer() resolved where it should have refused");
+	};
+
+	it.each(causes)("refuses a check that is %s", async (_label, make) => {
+		const s = await seed();
+		const checkId = await make(s);
+
+		await expect(
+			conceptCheckService.answer({
+				studentId: s.studentId,
+				checkId,
+				optionIndex: 0,
+			}),
+		).rejects.toBeInstanceOf(CheckUnavailableError);
+	});
+
+	it("gives byte-identical failures for all four causes", async () => {
+		const failures = [];
+		for (const [, make] of causes) {
+			failures.push(await failureFor(make));
+		}
+
+		const [first] = failures;
+		expect(first).toBeDefined();
+		for (const failure of failures) {
+			expect(failure).toEqual(first);
+		}
+		// A message naming the cause is the oracle this test exists to prevent.
+		expect(first?.message).not.toMatch(/expired|another|already|found/i);
+	});
+
+	it("leaves a foreign check untouched", async () => {
+		const s = await seed();
+		const check = await issue(s);
+		const intruder = await makeUser();
+
+		await expect(
+			conceptCheckService.answer({
+				studentId: intruder.id,
+				checkId: check.id,
+				optionIndex: 0,
+			}),
+		).rejects.toBeInstanceOf(CheckUnavailableError);
+
+		const after = await testDb.conceptCheck.findUniqueOrThrow({
+			where: { id: check.id },
+		});
+		expect(after.status).toBe(ConceptCheckStatus.PENDING);
+		expect(after.answeredAt).toBeNull();
 	});
 });
