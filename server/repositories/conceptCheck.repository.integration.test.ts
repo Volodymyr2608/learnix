@@ -1,7 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ConceptCheckStatus } from "@/generated/prisma";
+import { conceptCheckRepository } from "@/server/repositories/conceptCheck.repository";
 import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
 import { testDb, truncateAll } from "@/test/db";
+import { findKeyPaths } from "@/test/deepKeys";
 import {
 	makeCourse,
 	makeLesson,
@@ -136,5 +138,87 @@ describe("concept_checks — one open check per lesson", () => {
 		expect(indexdef).toContain(`"studentId"`);
 		expect(indexdef).toContain(`"lessonId"`);
 		expect(indexdef).toMatch(/WHERE \(status = 'PENDING'/);
+	});
+});
+
+/**
+ * The answer key leaves the server through exactly one door. Every method the
+ * repository owns must be listed on one side of this split, so that adding a
+ * read without deciding which side it belongs to fails here rather than in
+ * review.
+ */
+const ANSWER_KEY_DOORS: string[] = [];
+
+const READ_DOORS = ["findPendingPublic"];
+
+describe("conceptCheckRepository.findPendingPublic", () => {
+	beforeEach(async () => {
+		await truncateAll();
+	});
+
+	afterAll(async () => {
+		await testDb.$disconnect();
+	});
+
+	it("returns the open check without its answer key", async () => {
+		const s = await seed();
+		const created = await insertPending(s);
+
+		const found = await conceptCheckRepository.findPendingPublic(
+			s.studentId,
+			s.lessonId,
+		);
+
+		expect(found).toMatchObject({
+			id: created.id,
+			concept: CONCEPT,
+			question: "Which file exports a route handler?",
+		});
+		expect(found?.options).toHaveLength(4);
+		// Key presence, not value: `expect(found.correct).toBeUndefined()` passes
+		// just as well when the field is loaded and happens to be empty.
+		expect(findKeyPaths(found, "correct")).toEqual([]);
+		expect(Object.keys(found ?? {})).not.toContain("correct");
+	});
+
+	it("returns null for another student's open check", async () => {
+		const s = await seed();
+		await insertPending(s);
+
+		await expect(
+			conceptCheckRepository.findPendingPublic(s.otherStudentId, s.lessonId),
+		).resolves.toBeNull();
+	});
+
+	it("returns null once the check is answered", async () => {
+		const s = await seed();
+		const created = await insertPending(s);
+		await testDb.conceptCheck.update({
+			where: { id: created.id },
+			data: { status: ConceptCheckStatus.ANSWERED, answeredAt: new Date() },
+		});
+
+		await expect(
+			conceptCheckRepository.findPendingPublic(s.studentId, s.lessonId),
+		).resolves.toBeNull();
+	});
+
+	it("never returns a check whose expiry has passed, swept or not", async () => {
+		const s = await seed();
+		await insertPending(s, { expiresAt: new Date(Date.now() - 1000) });
+
+		await expect(
+			conceptCheckRepository.findPendingPublic(s.studentId, s.lessonId),
+		).resolves.toBeNull();
+	});
+
+	it("classifies every method it owns as a read door or an answer-key door", () => {
+		const owned = Object.getOwnPropertyNames(
+			Object.getPrototypeOf(conceptCheckRepository),
+		).filter((name) => name !== "constructor");
+
+		expect([...owned].sort()).toEqual(
+			[...READ_DOORS, ...ANSWER_KEY_DOORS].sort(),
+		);
 	});
 });
