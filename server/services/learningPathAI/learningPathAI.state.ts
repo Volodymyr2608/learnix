@@ -24,7 +24,18 @@ const MasteryRowSchema = z.object({
 
 const WeakConceptRowSchema = z.object({
 	concept: z.string(),
-	level: z.number(),
+	/**
+	 * What the student has actually done with this concept, rather than a number
+	 * on a scale nobody outside this codebase shares.
+	 *
+	 * `encountered` is DERIVED at read time — the concept appears in a lesson the
+	 * student completed, and no mastery row exists for it. It is not stored,
+	 * because "has seen a lesson mentioning X" is not evidence about X, and
+	 * storing it made "has mastery" and "has been exposed" the same query.
+	 * `applied` means a row exists at the conversation ceiling: the student
+	 * answered a check about it.
+	 */
+	evidence: z.enum(["encountered", "applied"]),
 	firstLessonId: z.string(),
 });
 

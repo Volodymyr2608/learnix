@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { PathState } from "../learningPathAI.state";
 import { proposeReviews } from "./proposeReviews.node";
 
-const weak = (concept: string, level: number, firstLessonId: string) => ({
-	concept,
-	level,
-	firstLessonId,
-});
+const weak = (
+	concept: string,
+	evidence: "encountered" | "applied",
+	firstLessonId: string,
+) => ({ concept, evidence, firstLessonId });
 
 const state = (over: Partial<PathState>): PathState =>
 	({
@@ -16,26 +16,51 @@ const state = (over: Partial<PathState>): PathState =>
 	}) as PathState;
 
 describe("proposeReviews", () => {
-	it("reports mastery against the real ceiling, not an invented one", () => {
+	/**
+	 * The seed reaches the model AND the student, in the path's reason text. A
+	 * bare numeric scale was wrong for both: "2/3" means nothing outside this
+	 * codebase, and it also misdescribed what the row recorded.
+	 */
+	it("renders no bare numeric scale for either kind of evidence", () => {
 		const { candidateSteps } = proposeReviews(
-			state({ weakConcepts: [weak("Recursion", 2, "lesson-1")] }),
+			state({
+				weakConcepts: [
+					weak("Recursion", "applied", "lesson-1"),
+					weak("API Routes", "encountered", "lesson-2"),
+				],
+			}),
 		);
 
-		// Mastery runs 0-3: conversation grants at most 2, quizzes write 3.
-		// The seed reached the model — and the student — claiming a 5-point scale.
-		expect(candidateSteps?.[0]?.reasonSeed).toBe(
-			'Mastery of "Recursion" is 2/3 — review recommended',
+		for (const step of candidateSteps ?? []) {
+			expect(step.reasonSeed).not.toMatch(/\d\s*\/\s*\d/);
+			expect(step.reasonSeed).not.toMatch(/level \d/i);
+		}
+	});
+
+	it("says which of the two things the student actually did", () => {
+		const { candidateSteps } = proposeReviews(
+			state({
+				weakConcepts: [
+					weak("Recursion", "applied", "lesson-1"),
+					weak("API Routes", "encountered", "lesson-2"),
+				],
+			}),
 		);
+
+		expect(candidateSteps?.[0]?.reasonSeed).toContain(
+			"answered correctly once",
+		);
+		expect(candidateSteps?.[1]?.reasonSeed).toContain("has not been checked");
 	});
 
 	it("proposes at most three reviews", () => {
 		const { candidateSteps } = proposeReviews(
 			state({
 				weakConcepts: [
-					weak("A", 1, "l1"),
-					weak("B", 1, "l2"),
-					weak("C", 1, "l3"),
-					weak("D", 1, "l4"),
+					weak("A", "encountered", "l1"),
+					weak("B", "encountered", "l2"),
+					weak("C", "encountered", "l3"),
+					weak("D", "encountered", "l4"),
 				],
 			}),
 		);
@@ -46,7 +71,10 @@ describe("proposeReviews", () => {
 	it("proposes one review per lesson, even when several concepts point at it", () => {
 		const { candidateSteps } = proposeReviews(
 			state({
-				weakConcepts: [weak("A", 1, "same"), weak("B", 2, "same")],
+				weakConcepts: [
+					weak("A", "encountered", "same"),
+					weak("B", "applied", "same"),
+				],
 			}),
 		);
 

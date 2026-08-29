@@ -101,14 +101,16 @@ async function seedScenario() {
 		],
 	});
 
-	// Low mastery on Next.js and Prisma (level < 3) → identifyWeakSignals flags lessonA.
+	// Evidence below mastery on Next.js and Prisma (level < 3) → identifyWeakSignals
+	// flags lessonA. Level 2 is the floor: 0 and 1 recorded exposure, which the
+	// node now derives from the completed lesson instead of reading from a row.
 	// Seeded through the factory so `conceptKey` is derived from the spelling
 	// rather than asserted twice.
 	await makeConceptMastery({
 		studentId: student.id,
 		courseId: course.id,
 		concept: "Next.js",
-		level: 1,
+		level: 2,
 	});
 	await makeConceptMastery({
 		studentId: student.id,
@@ -283,6 +285,8 @@ describe("LearningPathAIService", () => {
 
 			expect(cached).not.toBeNull();
 			expect(cached?.staleAt).toBeNull();
+			// The model's own `weakConcepts`, not the derived set: this asserts the
+			// cache stores what mergeAndExplain returned.
 			expect(cached?.weakConcepts).toEqual(["Next.js", "Prisma"]);
 		});
 	});

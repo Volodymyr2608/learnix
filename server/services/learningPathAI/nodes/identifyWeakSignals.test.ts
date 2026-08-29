@@ -38,7 +38,11 @@ describe("identifyWeakSignals", () => {
 		);
 
 		expect(result.weakConcepts).toEqual([
-			{ concept: "API Routes", level: 2, firstLessonId: "lesson-1" },
+			{
+				concept: "API Routes",
+				evidence: "applied",
+				firstLessonId: "lesson-1",
+			},
 		]);
 	});
 
@@ -55,20 +59,34 @@ describe("identifyWeakSignals", () => {
 	});
 
 	it("does not match a concept that merely contains the name", () => {
-		// `.includes()` on the array is exact-element, but the shared rule must not
-		// quietly become a substring match either: `C` is not `C#`.
+		// The shared rule must not quietly become a substring match: `C` is not
+		// `C#`. The lesson's own `C#` is weak by encounter; the row for `C` finds
+		// no lesson and stays an orphan.
 		const result = identifyWeakSignals(
 			state({
 				completedLessonIds: ["lesson-1"],
-				mastery: [{ concept: "C", level: 1 }],
+				mastery: [{ concept: "C", level: 2 }],
 				lessonOrder: [lesson("lesson-1", ["C#"])],
 			}),
 		);
 
-		expect(result.weakConcepts).toEqual([]);
+		expect(result.weakConcepts).toContainEqual({
+			concept: "C#",
+			evidence: "encountered",
+			firstLessonId: "lesson-1",
+		});
+		expect(
+			result.weakConcepts?.find((w) => w.concept === "C")?.firstLessonId,
+		).toBe("");
 	});
 
-	it("drops a concept that belongs to no completed lesson", () => {
+	/**
+	 * An insights regeneration can rename a concept out from under a row the
+	 * student earned. The row is retained — destroying evidence because a model
+	 * reworded a heading is the failure this guards — but it has no lesson to send
+	 * anyone to, so it produces no review step.
+	 */
+	it("keeps a concept that belongs to no completed lesson, with no lesson to review", () => {
 		const result = identifyWeakSignals(
 			state({
 				completedLessonIds: [],
@@ -77,10 +95,47 @@ describe("identifyWeakSignals", () => {
 			}),
 		);
 
+		expect(result.weakConcepts).toEqual([
+			{ concept: "API Routes", evidence: "applied", firstLessonId: "" },
+		]);
+	});
+
+	it("derives a completed lesson's concept as encountered when no row exists", () => {
+		const result = identifyWeakSignals(
+			state({
+				completedLessonIds: ["lesson-1"],
+				mastery: [],
+				lessonOrder: [lesson("lesson-1", ["API Routes"])],
+			}),
+		);
+
+		// The row this replaces used to be stored at level 1. Deriving it is what
+		// made deleting those rows safe.
+		expect(result.weakConcepts).toEqual([
+			{
+				concept: "API Routes",
+				evidence: "encountered",
+				firstLessonId: "lesson-1",
+			},
+		]);
+	});
+
+	it("does not derive concepts from a lesson the student has not completed", () => {
+		const result = identifyWeakSignals(
+			state({
+				completedLessonIds: [],
+				mastery: [],
+				lessonOrder: [lesson("lesson-1", ["API Routes"])],
+			}),
+		);
+
 		expect(result.weakConcepts).toEqual([]);
 	});
 
-	it("excludes a concept already at level 3", () => {
+	it("excludes a concept already at level 3, derived or not", () => {
+		// The level-3 row must also displace the `encountered` entry the lesson
+		// scan adds, or the student is told to review what they have demonstrably
+		// mastered — this feature's own defect, reached from the other end.
 		const result = identifyWeakSignals(
 			state({
 				completedLessonIds: ["lesson-1"],
@@ -104,7 +159,10 @@ describe("identifyWeakSignals", () => {
 			}),
 		);
 
-		expect(result.weakConcepts?.[0]?.firstLessonId).toBe("lesson-2");
+		expect(
+			result.weakConcepts?.find((w) => w.concept === "API Routes")
+				?.firstLessonId,
+		).toBe("lesson-2");
 	});
 
 	it("deduplicates failed quizzes by lesson", () => {
