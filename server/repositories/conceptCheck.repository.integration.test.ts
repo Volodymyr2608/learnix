@@ -149,7 +149,12 @@ describe("concept_checks — one open check per lesson", () => {
  */
 const ANSWER_KEY_DOORS: string[] = ["claimForAnswer"];
 
-const READ_DOORS = ["findPendingPublic"];
+const READ_DOORS = [
+	"findPendingPublic",
+	"countForConcept",
+	"lastWrongAnsweredAt",
+	"insertSweepingExpired",
+];
 
 describe("conceptCheckRepository.findPendingPublic", () => {
 	beforeEach(async () => {

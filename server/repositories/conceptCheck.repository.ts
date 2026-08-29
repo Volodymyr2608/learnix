@@ -56,6 +56,90 @@ class ConceptCheckRepository extends BaseRepository<
 	}
 
 	/**
+	 * How many checks this student has ever been issued on this concept, in any
+	 * status. Swept and abandoned ones count: the budget prices the authoring,
+	 * which is where the model spend and the enumeration risk both sit.
+	 */
+	async countForConcept(
+		studentId: string,
+		conceptKey: string,
+	): Promise<number> {
+		return this.count({ studentId, conceptKey });
+	}
+
+	/**
+	 * When this student last answered a check on this concept wrongly, or null.
+	 * The cooldown reads it; nothing else does.
+	 */
+	async lastWrongAnsweredAt(
+		studentId: string,
+		conceptKey: string,
+	): Promise<Date | null> {
+		const rows = await this.findMany({
+			where: { studentId, conceptKey, isCorrect: false },
+			orderBy: { answeredAt: "desc" },
+			take: 1,
+			select: { answeredAt: true },
+		});
+
+		return (
+			(rows as unknown as { answeredAt: Date | null }[])[0]?.answeredAt ?? null
+		);
+	}
+
+	/**
+	 * Sweeps this pair's stale `PENDING` rows and inserts the new check in one
+	 * transaction, returning it without its key.
+	 *
+	 * The two statements cannot be split. The partial unique index cannot carry
+	 * `expiresAt` — index predicates must be IMMUTABLE — so an abandoned row would
+	 * hold the lesson's only slot forever without the sweep, and a sweep in its
+	 * own transaction leaves a window where two concurrent issues both see a free
+	 * slot and one raises a constraint error instead of the benign result.
+	 *
+	 * `P2002` from that index is left to the caller to interpret: here it means
+	 * the student already has a question waiting, which is not a failure.
+	 */
+	async insertSweepingExpired(
+		data: Pick<
+			Prisma.ConceptCheckUncheckedCreateInput,
+			| "studentId"
+			| "lessonId"
+			| "courseId"
+			| "concept"
+			| "conceptKey"
+			| "question"
+			| "options"
+			| "correct"
+			| "expiresAt"
+		>,
+	): Promise<ConceptCheckPublic> {
+		return this.db.$transaction(async (tx) => {
+			await tx.conceptCheck.updateMany({
+				where: {
+					studentId: data.studentId,
+					lessonId: data.lessonId,
+					status: "PENDING",
+					expiresAt: { lte: new Date() },
+				},
+				data: { status: "EXPIRED" },
+			});
+
+			return tx.conceptCheck.create({
+				data,
+				select: {
+					id: true,
+					lessonId: true,
+					concept: true,
+					question: true,
+					options: true,
+					expiresAt: true,
+				},
+			});
+		});
+	}
+
+	/**
 	 * Takes ownership of a check so it can be graded, and returns the whole row —
 	 * answer key included — to the caller that won it. Returns null to everyone
 	 * else.
