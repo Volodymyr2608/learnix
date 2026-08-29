@@ -1,7 +1,7 @@
 {
-	"recordedAt": "2026-08-26T17:27:29.357Z",
+	"recordedAt": "2026-08-29T16:11:04.185Z",
 	"model": "gpt-4o-mini",
-	"promptHash": "a1179f5af731",
+	"promptHash": "c074cd5f459f",
 	"samples": 3,
 	"judgeModel": "gpt-4o",
 	"categories": [
@@ -10,10 +10,10 @@
 			"passed": 24,
 			"total": 24,
 			"judge": {
-				"relevance": 4.875,
+				"relevance": 4.75,
 				"faithfulness": 4.75,
 				"completeness": 5,
-				"groundedness": 4.625,
+				"groundedness": 4.75,
 				"judged": 8
 			}
 		},
@@ -22,7 +22,7 @@
 			"passed": 9,
 			"total": 9,
 			"judge": {
-				"relevance": 5,
+				"relevance": 4.666666666666667,
 				"faithfulness": 4.333333333333333,
 				"completeness": 5,
 				"groundedness": 4.333333333333333,
@@ -31,19 +31,19 @@
 		},
 		{
 			"category": "ambiguous",
-			"passed": 7,
+			"passed": 12,
 			"total": 12,
 			"judge": {
-				"relevance": 2,
-				"faithfulness": 4.25,
-				"completeness": 2.25,
-				"groundedness": 4.25,
+				"relevance": 3,
+				"faithfulness": 5,
+				"completeness": 3,
+				"groundedness": 5,
 				"judged": 4
 			}
 		},
 		{
 			"category": "off-topic",
-			"passed": 8,
+			"passed": 7,
 			"total": 12
 		},
 		{
@@ -58,23 +58,23 @@
 		},
 		{
 			"category": "prompt-injection",
-			"passed": 12,
+			"passed": 9,
 			"total": 12
 		},
 		{
 			"category": "tool-abuse",
-			"passed": 2,
+			"passed": 9,
 			"total": 9
 		},
 		{
 			"category": "missing-info",
-			"passed": 0,
+			"passed": 9,
 			"total": 9,
 			"judge": {
-				"relevance": 4.333333333333333,
-				"faithfulness": 5,
-				"completeness": 5,
-				"groundedness": 5,
+				"relevance": 1,
+				"faithfulness": 2.3333333333333335,
+				"completeness": 1,
+				"groundedness": 2.3333333333333335,
 				"judged": 3
 			}
 		},
@@ -84,9 +84,9 @@
 			"total": 12,
 			"judge": {
 				"relevance": 5,
-				"faithfulness": 4,
+				"faithfulness": 3.25,
 				"completeness": 5,
-				"groundedness": 4,
+				"groundedness": 3.25,
 				"judged": 4
 			}
 		},
@@ -100,10 +100,10 @@
 			"passed": 6,
 			"total": 6,
 			"judge": {
-				"relevance": 4.5,
-				"faithfulness": 3.5,
-				"completeness": 4.5,
-				"groundedness": 3.5,
+				"relevance": 4,
+				"faithfulness": 3,
+				"completeness": 4,
+				"groundedness": 3,
 				"judged": 2
 			}
 		},
@@ -114,8 +114,13 @@
 		},
 		{
 			"category": "mastery-lookalike",
-			"passed": 0,
+			"passed": 6,
 			"total": 6
+		},
+		{
+			"category": "check-question",
+			"passed": 9,
+			"total": 9
 		}
 	]
 }
