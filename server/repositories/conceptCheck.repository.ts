@@ -56,6 +56,24 @@ class ConceptCheckRepository extends BaseRepository<
 	}
 
 	/**
+	 * Runs a callback inside one transaction, letting its errors through
+	 * unchanged.
+	 *
+	 * Deliberately not `BaseRepository.transaction`: that funnels every failure
+	 * through `handleError`, which discards the original and throws a generic
+	 * `Error` carrying only a message. That is right for an unexpected database
+	 * failure and wrong here — the answer path throws a domain error on purpose,
+	 * one indistinguishable error for four causes, and flattening it would turn a
+	 * deliberate refusal into a 500 and lose the property that the four look
+	 * alike.
+	 */
+	async runAtomically<R>(
+		callback: (tx: Prisma.TransactionClient) => Promise<R>,
+	): Promise<R> {
+		return this.db.$transaction(callback);
+	}
+
+	/**
 	 * How many checks this student has ever been issued on this concept, in any
 	 * status. Swept and abandoned ones count: the budget prices the authoring,
 	 * which is where the model spend and the enumeration risk both sit.

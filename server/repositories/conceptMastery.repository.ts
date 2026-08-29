@@ -4,6 +4,7 @@ import type {
 	MasteryEvidence,
 	Prisma,
 } from "@/generated/prisma";
+import type { db } from "@/server/db";
 import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
 import type { MasteryRow } from "@/server/services/learningPathAI/learningPathAI.state";
 import { BaseRepository } from "./base/base.repository";
@@ -20,12 +21,22 @@ class ConceptMasteryRepository extends BaseRepository<
 > {
 	protected readonly modelName = "conceptMastery" as const;
 
+	/**
+	 * `client` lets this join a caller's transaction. It is not a convenience:
+	 * `BaseRepository` exposes `db` and never `tx`, so a repository singleton
+	 * called from inside `$transaction` issues its statement on a DIFFERENT
+	 * connection and commits independently — two writes behind a comment claiming
+	 * atomicity. `user.repository.ts` documents the same trap from the other side.
+	 * The concept-check answer path passes its `tx` so the claim that authorised
+	 * the write and the write itself succeed or fail together.
+	 */
 	async upsertMastery(
 		studentId: string,
 		courseId: string,
 		concept: string,
 		level: number,
 		evidence: MasteryEvidence,
+		client: Prisma.TransactionClient | typeof db = this.db,
 	): Promise<ConceptMastery> {
 		// Monotonic by construction: a later, lower write cannot undo an earlier,
 		// higher one. The level-3-by-quiz rule depends on this and nothing else
@@ -41,7 +52,7 @@ class ConceptMasteryRepository extends BaseRepository<
 		// spelling stays whichever one arrived first — presentation, not identity.
 		const id = randomUUID();
 		const key = conceptKey(concept);
-		const rows = await this.db.$queryRaw<ConceptMastery[]>`
+		const rows = await client.$queryRaw<ConceptMastery[]>`
 			INSERT INTO concept_mastery (id, "studentId", "courseId", concept, "conceptKey", level, evidence, "updatedAt")
 			VALUES (${id}, ${studentId}, ${courseId}, ${concept}, ${key}, ${level}, ${evidence}::"MasteryEvidence", NOW())
 			ON CONFLICT ("studentId", "courseId", "conceptKey")

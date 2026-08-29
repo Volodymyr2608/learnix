@@ -1,5 +1,10 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { ConceptCheckStatus, EnrollmentStatus } from "@/generated/prisma";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	ConceptCheckStatus,
+	EnrollmentStatus,
+	MasteryEvidence,
+} from "@/generated/prisma";
+import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
 import {
 	CheckAlreadyPendingError,
@@ -377,5 +382,199 @@ describe("conceptCheckService.answer — four causes, one error", () => {
 		});
 		expect(after.status).toBe(ConceptCheckStatus.PENDING);
 		expect(after.answeredAt).toBeNull();
+	});
+});
+
+describe("conceptCheckService.answer — grading and the write", () => {
+	beforeEach(async () => {
+		await truncateAll();
+	});
+
+	afterAll(async () => {
+		await testDb.$disconnect();
+		vi.restoreAllMocks();
+	});
+
+	/** The index of the correct option in the order the SERVER stored. */
+	const correctIndex = (options: string[]) =>
+		options.indexOf(authored.correctOption);
+
+	it("writes exactly one row at the conversation ceiling for a correct answer", async () => {
+		const s = await seed();
+		const check = await issue(s);
+
+		const result = await conceptCheckService.answer({
+			studentId: s.studentId,
+			checkId: check.id,
+			optionIndex: correctIndex(check.options),
+		});
+
+		expect(result.isCorrect).toBe(true);
+
+		const rows = await testDb.conceptMastery.findMany({
+			where: { studentId: s.studentId },
+		});
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			level: CONVERSATION_MAX_LEVEL,
+			concept: CONCEPT,
+			conceptKey: conceptKey(CONCEPT),
+			evidence: MasteryEvidence.APPLIED_CHECK,
+			courseId: s.courseId,
+		});
+	});
+
+	it("writes nothing for a wrong answer, and burns the check", async () => {
+		const s = await seed();
+		const check = await issue(s);
+		const wrongIndex = check.options.findIndex(
+			(option) => option !== authored.correctOption,
+		);
+
+		const result = await conceptCheckService.answer({
+			studentId: s.studentId,
+			checkId: check.id,
+			optionIndex: wrongIndex,
+		});
+
+		expect(result.isCorrect).toBe(false);
+		await expect(testDb.conceptMastery.count()).resolves.toBe(0);
+
+		const stored = await testDb.conceptCheck.findUniqueOrThrow({
+			where: { id: check.id },
+		});
+		expect(stored.status).toBe(ConceptCheckStatus.ANSWERED);
+		expect(stored.isCorrect).toBe(false);
+		expect(stored.selectedAnswer).toBe(check.options[wrongIndex]);
+		expect(stored.answeredAt).not.toBeNull();
+	});
+
+	it("records which option was chosen on a correct answer too", async () => {
+		const s = await seed();
+		const check = await issue(s);
+
+		await conceptCheckService.answer({
+			studentId: s.studentId,
+			checkId: check.id,
+			optionIndex: correctIndex(check.options),
+		});
+
+		const stored = await testDb.conceptCheck.findUniqueOrThrow({
+			where: { id: check.id },
+		});
+		expect(stored.selectedAnswer).toBe(authored.correctOption);
+		expect(stored.isCorrect).toBe(true);
+	});
+
+	/**
+	 * The reason claim and write share a transaction. Without it a crash after
+	 * the claim consumes the check, burns one of the student's three, and leaves
+	 * no mastery row — the student pays and gets nothing, with no way to retry.
+	 */
+	it("leaves the check answerable when the mastery write fails", async () => {
+		const s = await seed();
+		const check = await issue(s);
+
+		const spy = vi
+			.spyOn(conceptMasteryRepository, "upsertMastery")
+			.mockRejectedValueOnce(new Error("write failed"));
+
+		await expect(
+			conceptCheckService.answer({
+				studentId: s.studentId,
+				checkId: check.id,
+				optionIndex: correctIndex(check.options),
+			}),
+		).rejects.toThrow();
+		spy.mockRestore();
+
+		const stored = await testDb.conceptCheck.findUniqueOrThrow({
+			where: { id: check.id },
+		});
+		expect(stored.status).toBe(ConceptCheckStatus.PENDING);
+		expect(stored.answeredAt).toBeNull();
+		await expect(testDb.conceptMastery.count()).resolves.toBe(0);
+	});
+
+	it("cannot grade once the enrollment is cancelled", async () => {
+		const s = await seed();
+		const check = await issue(s);
+		await testDb.enrollment.updateMany({
+			where: { studentId: s.studentId, courseId: s.courseId },
+			data: { status: EnrollmentStatus.cancelled },
+		});
+
+		await expect(
+			conceptCheckService.answer({
+				studentId: s.studentId,
+				checkId: check.id,
+				optionIndex: correctIndex(check.options),
+			}),
+		).rejects.toBeInstanceOf(CheckUnavailableError);
+
+		const stored = await testDb.conceptCheck.findUniqueOrThrow({
+			where: { id: check.id },
+		});
+		expect(stored.status).toBe(ConceptCheckStatus.PENDING);
+		await expect(testDb.conceptMastery.count()).resolves.toBe(0);
+	});
+
+	it("compares expiry against the database clock", async () => {
+		const s = await seed();
+		const check = await issue(s);
+		// Expired according to Postgres regardless of what the app believes the
+		// time is — the claim reads NOW(), not `new Date()`.
+		await testDb.$executeRaw`
+			UPDATE concept_checks SET "expiresAt" = NOW() - INTERVAL '1 second'
+			WHERE id = ${check.id}
+		`;
+
+		await expect(
+			conceptCheckService.answer({
+				studentId: s.studentId,
+				checkId: check.id,
+				optionIndex: correctIndex(check.options),
+			}),
+		).rejects.toBeInstanceOf(CheckUnavailableError);
+	});
+
+	it("refuses an option position the question never offered", async () => {
+		const s = await seed();
+		const check = await issue(s);
+
+		const result = await conceptCheckService.answer({
+			studentId: s.studentId,
+			checkId: check.id,
+			optionIndex: 99,
+		});
+
+		expect(result.isCorrect).toBe(false);
+		await expect(testDb.conceptMastery.count()).resolves.toBe(0);
+	});
+
+	it("produces exactly one success and one mastery row when two answers race", async () => {
+		const s = await seed();
+		const check = await issue(s);
+		const index = correctIndex(check.options);
+
+		const results = await Promise.allSettled([
+			conceptCheckService.answer({
+				studentId: s.studentId,
+				checkId: check.id,
+				optionIndex: index,
+			}),
+			conceptCheckService.answer({
+				studentId: s.studentId,
+				checkId: check.id,
+				optionIndex: index,
+			}),
+		]);
+
+		expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+		const loser = results.find((r) => r.status === "rejected");
+		expect((loser as PromiseRejectedResult).reason).toBeInstanceOf(
+			CheckUnavailableError,
+		);
+		await expect(testDb.conceptMastery.count()).resolves.toBe(1);
 	});
 });

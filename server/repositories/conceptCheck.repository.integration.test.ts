@@ -147,7 +147,12 @@ describe("concept_checks — one open check per lesson", () => {
  * read without deciding which side it belongs to fails here rather than in
  * review.
  */
-const ANSWER_KEY_DOORS: string[] = ["claimForAnswer"];
+const ANSWER_KEY_DOORS: string[] = [
+	"claimForAnswer",
+	// Plumbing, but classified here because its payload is whatever the callback
+	// returns — and the callback that matters is the claim.
+	"runAtomically",
+];
 
 const READ_DOORS = [
 	"findPendingPublic",

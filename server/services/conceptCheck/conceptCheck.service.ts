@@ -1,5 +1,9 @@
 import { randomInt } from "node:crypto";
-import { EnrollmentStatus } from "@/generated/prisma";
+import {
+	EnrollmentStatus,
+	MasteryEvidence,
+	type Prisma,
+} from "@/generated/prisma";
 import {
 	type ConceptCheckPublic,
 	conceptCheckRepository,
@@ -55,6 +59,13 @@ export type AnswerCheckResult = {
 	 */
 	correctOption: string;
 };
+
+/**
+ * One error, one message, for every way answering can fail. Built in one place
+ * so the four causes cannot drift apart into an oracle.
+ */
+const unavailable = () =>
+	new CheckUnavailableError("This check is no longer available", "NOT_FOUND");
 
 export type IssueCheckInput = {
 	studentId: string;
@@ -227,24 +238,76 @@ class ConceptCheckService {
 	 * into the model's authored array is ever consulted.
 	 */
 	async answer(input: AnswerCheckInput): Promise<AnswerCheckResult> {
-		const claimed = await conceptCheckRepository.claimForAnswer(
-			input.checkId,
-			input.studentId,
-		);
-
-		if (!claimed) {
-			throw new CheckUnavailableError(
-				"This check is no longer available",
-				"NOT_FOUND",
+		return conceptCheckRepository.runAtomically(async (tx) => {
+			const claimed = await conceptCheckRepository.claimForAnswer(
+				input.checkId,
+				input.studentId,
+				tx,
 			);
-		}
 
-		const selected = claimed.options[input.optionIndex] ?? null;
+			// Absent, foreign, already answered, expired. One error for all four.
+			if (!claimed) throw unavailable();
 
-		return {
-			isCorrect: selected !== null && selected === claimed.correct,
-			correctOption: claimed.correct,
-		};
+			// Enrollment is checked after the claim and inside the same
+			// transaction, so a student whose access ended cannot grade — and the
+			// throw rolls the claim back, leaving the check PENDING rather than
+			// silently consumed. Indistinguishable from the other four causes.
+			await this.assertStillEnrolled(claimed.lessonId, input.studentId, tx);
+
+			// Grading is string equality against the text on the claimed row. The
+			// position the client submitted only selects from the order the SERVER
+			// stored, so an index into the model's authored array is never
+			// consulted and a client cannot submit an option the question never
+			// offered.
+			const selected = claimed.options[input.optionIndex] ?? null;
+			const isCorrect = selected !== null && selected === claimed.correct;
+
+			await tx.conceptCheck.update({
+				where: { id: claimed.id },
+				data: { selectedAnswer: selected, isCorrect },
+			});
+
+			if (isCorrect) {
+				// Everything written comes from the claimed row — the concept, its
+				// key and the course — never from the request, which carries only a
+				// check id and a position.
+				await conceptMasteryRepository.upsertMastery(
+					claimed.studentId,
+					claimed.courseId,
+					claimed.concept,
+					CONVERSATION_MAX_LEVEL,
+					MasteryEvidence.APPLIED_CHECK,
+					tx,
+				);
+			}
+
+			return { isCorrect, correctOption: claimed.correct };
+		});
+	}
+
+	/**
+	 * The enrollment must still be live at the moment of grading, not merely at
+	 * the moment the question was asked — a check outlives the request that
+	 * created it.
+	 */
+	private async assertStillEnrolled(
+		lessonId: string,
+		studentId: string,
+		tx: Prisma.TransactionClient,
+	): Promise<void> {
+		const rows = await tx.$queryRaw<{ ok: number }[]>`
+			SELECT 1 AS ok
+			FROM lessons l
+			JOIN sections s ON s.id = l."sectionId"
+			JOIN enrollments e ON e."courseId" = s."courseId"
+			WHERE l.id = ${lessonId}
+				AND l.deleted_at IS NULL
+				AND e."studentId" = ${studentId}
+				AND e.status <> 'cancelled'::"EnrollmentStatus"
+			LIMIT 1;
+		`;
+
+		if (rows.length === 0) throw unavailable();
 	}
 }
 
