@@ -15,7 +15,6 @@ const FORWARD_TO_SENTRY: Record<SecurityOutcome, boolean> = {
 	// Zero-baseline: normal rate is zero, so any occurrence is the signal.
 	unsafe_tool_call: true,
 	fallback_triggered: true,
-	mastery_write_retained: true,
 	content_revised_retained: true,
 	// Rate-based and attacker-triggerable — forwarding would hand out the
 	// throttle's quota lever (AC 24).
@@ -26,6 +25,10 @@ const FORWARD_TO_SENTRY: Record<SecurityOutcome, boolean> = {
 	// flood Sentry with normal behaviour. Nothing consumes it yet (security.md
 	// S10 item 4) — it is evidence for a later investigation, not detection.
 	mastery_promoted: false,
+	// Normal operation: a student who already has a question waiting, or a lesson
+	// whose insights have not generated. Its baseline is NOT zero, which is
+	// precisely why it exists as its own outcome.
+	tool_call_declined: false,
 	// Report-only, ~10% measured false-positive rate over every persisted
 	// model-authored field — conformance/aiSurfaces.ts:72. Highest-volume
 	// outcome in the taxonomy; forwarding it is the S6 flood pattern.

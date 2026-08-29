@@ -115,12 +115,6 @@ export class LessonAIService {
 		let fullReply = "";
 		const toolCallsSummary: Array<{ tool: string; input: unknown }> = [];
 		const retrievedContent: string[] = [];
-		// Tracks whether a mark_concept_understood call actually committed this
-		// turn (vs. being denied by toolPolicy, which returns the neutral refusal
-		// and writes nothing). Used only to correlate a retained write with a
-		// retracted reply — never to claim a write that never landed.
-		let masteryCommitted = false;
-
 		// The output boundary, callable from every exit. validateReply emits its own
 		// output_validation_failed via reject(), so this must not log that outcome a
 		// second time — it only handles the validator itself throwing.
@@ -175,18 +169,6 @@ export class LessonAIService {
 			boundaryRun = true;
 			const validation = runOutputBoundary();
 			if (validation.valid) return;
-			// Emitted BEFORE the write, not after: this is the zero-baseline signal
-			// that S13 §24 traded against, so it must not sit behind anything fallible.
-			if (masteryCommitted) {
-				logSecurityEvent({
-					feature: "lessonAI",
-					userId: studentId,
-					layer: "output_validation",
-					outcome: "mastery_write_retained",
-					ruleIds: [validation.ruleId],
-					score: 0,
-				});
-			}
 			await retireRejectedPrompt();
 		};
 
@@ -223,18 +205,6 @@ export class LessonAIService {
 				if (event.event === "on_tool_end") {
 					const text = toolOutputText(event.data?.output);
 					if (text) retrievedContent.push(text);
-					// Read the commit from the tool's artifact, never from its prose.
-					// The prose is a user-facing string shared with two other refusal
-					// paths; rewording it is a product change nobody would expect to
-					// touch telemetry, and this signal's baseline is zero.
-					if (event.name === "mark_concept_understood") {
-						const artifact = (
-							event.data?.output as
-								| { artifact?: { committed?: boolean } }
-								| undefined
-						)?.artifact;
-						if (artifact?.committed === true) masteryCommitted = true;
-					}
 				}
 			}
 		} catch (error) {
@@ -290,19 +260,6 @@ export class LessonAIService {
 			// stochastic model, with the previous attempt replayed as ordinary
 			// conversation. The turn stays visible in the thread.
 			//
-			// Event first, then the write, then the retraction — the write is the only
-			// fallible step here, and neither the signal nor the refusal may depend on
-			// it succeeding.
-			if (masteryCommitted) {
-				logSecurityEvent({
-					feature: "lessonAI",
-					userId: studentId,
-					layer: "output_validation",
-					outcome: "mastery_write_retained",
-					ruleIds: [validation.ruleId],
-					score: 0,
-				});
-			}
 			await retireRejectedPrompt();
 			yield { type: "retract" as const, message: NEUTRAL_REFUSAL_MESSAGE };
 			return;

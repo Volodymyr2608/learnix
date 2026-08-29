@@ -2,6 +2,14 @@ export type ToolPolicyContext = {
 	userId: string;
 	/** Canonical concept names for this lesson. Empty denies every write. */
 	lessonConcepts: string[];
+	/**
+	 * Per-turn denial bookkeeping, so a model retrying inside one turn produces
+	 * one event per class rather than one per attempt. Optional: a caller that
+	 * has no turn to scope emits every denial.
+	 */
+	denials?: {
+		emitted: Set<import("../_shared/aiGuard/types").SecurityOutcome>;
+	};
 };
 
 /**

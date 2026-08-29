@@ -79,14 +79,15 @@ export type SecurityOutcome =
 	| "guard_suspect"
 	| "unsafe_tool_call"
 	| "output_validation_failed"
-	// A mastery write committed on a turn whose reply was then retracted by
-	// output validation. The write is not rolled back (it passed its own
-	// authorization); this correlates the retained side effect with the
-	// adversarial signal for review. See security.md S7/S13 §24.
-	| "mastery_write_retained"
+	// A tool declining an ordinary "not now" — no concepts on the lesson yet, a
+	// check already open, a budget spent. Routine by construction and therefore
+	// never forwarded: routing these into `unsafe_tool_call` destroyed the one
+	// property that made a zero-baseline alert worth having, and
+	// `fallback_triggered` would be the same mistake with a different label.
+	| "tool_call_declined"
 	| "fallback_triggered"
 	// D-L: a prior-field write that stands on a turn whose reply was retracted.
-	// courseAI's analogue of mastery_write_retained.
+	// courseAI's analogue of the retired mastery_write_retained.
 	| "content_revised_retained"
 	// Level 3 written because every quiz on a lesson was answered correctly. The
 	// normal, successful path — recorded so a suspected fabrication has something

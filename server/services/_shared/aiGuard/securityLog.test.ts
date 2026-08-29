@@ -123,7 +123,6 @@ describe("logSecurityEvent", () => {
 		const zeroBaselineOutcomes: SecurityOutcome[] = [
 			"unsafe_tool_call",
 			"fallback_triggered",
-			"mastery_write_retained",
 			"content_revised_retained",
 		];
 
@@ -132,6 +131,10 @@ describe("logSecurityEvent", () => {
 			"guard_suspect",
 			"guard_off_topic",
 			"output_validation_failed",
+			// Routine by construction: a tool declining an ordinary "not now" is
+			// normal operation, and forwarding it would flood the channel whose
+			// value is that it is usually empty.
+			"tool_call_declined",
 		];
 
 		it.each(

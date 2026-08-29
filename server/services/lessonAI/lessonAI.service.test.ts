@@ -164,25 +164,6 @@ const collectServiceNoticedAbort = async (events: unknown[]) => {
 	return out;
 };
 
-const recorded = 'Recorded: "Recursion" at level 2 (applied).';
-
-/**
- * The agent always invokes with a tool_call id, so on_tool_end carries a
- * ToolMessage whose `artifact` says whether the write committed. The prose is
- * for the model and is deliberately not what telemetry reads.
- */
-const markConceptEnd = (
-	artifact: Record<string, unknown>,
-	content = recorded,
-) => ({
-	event: "on_tool_end",
-	name: "mark_concept_understood",
-	data: { output: { content, artifact } },
-});
-
-const committed = { committed: true, concept: "Recursion", level: 2 };
-const denied = { committed: false };
-
 describe("streamResponse output boundary", () => {
 	beforeEach(() => {
 		mockSaveMessage.mockClear();
@@ -261,81 +242,13 @@ describe("streamResponse output boundary", () => {
 		expect(events.some((e) => e.type === "retract")).toBe(true);
 	});
 
-	// F3: retracting the reply leaves the same turn's mastery write in place
-	// (it passed its own authorization and is not coupled to the reply text).
-	// The retract is the strongest signal a turn was adversarial, so the retained
-	// write is flagged for review — without lying about writes that never landed.
-	it("flags a committed mastery write retained on a retracted turn", async () => {
-		const events = await collect([
-			markConceptEnd(committed),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(events.some((e) => e.type === "retract")).toBe(true);
-		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
-			expect.objectContaining({
-				feature: "lessonAI",
-				layer: "output_validation",
-				outcome: "mastery_write_retained",
-			}),
-		);
-	});
-
-	// Discriminating: a mark_concept call that toolPolicy DENIED returns the
-	// neutral refusal and writes nothing, so no write was retained — the flag
-	// must not fire, or the signal claims a write that never happened.
-	it("does not flag when the mastery tool was denied on a retracted turn", async () => {
-		await collect([
-			markConceptEnd(denied, NEUTRAL_REFUSAL_MESSAGE),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
-
-	// F4: the signal is read from the artifact, so it survives the prose changing.
-	// mastery_write_retained has a baseline of zero — a detection that dies
-	// silently when a shared refusal string is reworded is a permanent blind spot,
-	// not a degraded metric.
-	it("counts a commit from the artifact even when the prose is the refusal text", async () => {
-		const events = await collect([
-			markConceptEnd(committed, NEUTRAL_REFUSAL_MESSAGE),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(events.some((e) => e.type === "retract")).toBe(true);
-		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
-
-	it("does not count a denial even when the prose looks like a commit", async () => {
-		await collect([
-			markConceptEnd(denied, recorded),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
-
-	// Discriminating: a committed write on a CLEAN turn is the normal path —
-	// nothing is retracted and nothing is flagged.
-	it("does not flag a committed mastery write when the reply is clean", async () => {
-		const events = await collect([
-			markConceptEnd(committed),
-			tokenEvent("A base case stops the recursion."),
-		]);
-
-		expect(events.some((e) => e.type === "retract")).toBe(false);
-		expect(assistantSaves()).toHaveLength(1);
-		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
+	// The five `mastery_write_retained` cases that stood here were retired with
+	// the outcome itself. The correlation they measured — a mastery write
+	// committed on a turn whose reply was then retracted — cannot occur any more:
+	// the write moved to its own request (the answer mutation), and the only
+	// artifact a turn produces is committed after the boundary passes. A
+	// zero-baseline metric left reading zero because its subject moved looks like
+	// evidence of safety, so it was removed rather than kept. See spec.md item 10.
 });
 
 describe("streamResponse turn persistence", () => {
@@ -476,17 +389,6 @@ describe("streamResponse abort path", () => {
 
 		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
 			expect.objectContaining({ outcome: "output_validation_failed" }),
-		);
-	});
-
-	it("still correlates a retained mastery write on an aborted, rejected turn", async () => {
-		await collectAborted([
-			markConceptEnd(committed),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
 		);
 	});
 

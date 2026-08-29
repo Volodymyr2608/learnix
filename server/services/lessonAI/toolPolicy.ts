@@ -1,5 +1,6 @@
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import type { SecurityOutcome } from "@/server/services/_shared/aiGuard/types";
 import { resolveAllowlistedConcept } from "@/server/services/_shared/concepts/conceptKey";
 import { CONVERSATION_MAX_LEVEL } from "@/server/services/mastery/masteryLevels";
 import type {
@@ -31,16 +32,63 @@ export const ALLOWED_TOOL_NAMES = [
  */
 export { CONVERSATION_MAX_LEVEL };
 
-const deny = (ctx: ToolPolicyContext, ruleId: string): ToolAuthorization => {
+/**
+ * Per-turn scratch state, created once per turn by whatever builds the tools.
+ *
+ * A model that has been refused will often try again inside the same turn, and
+ * five identical events say nothing the first one did not. Deduplication is per
+ * OUTCOME, never per turn as a whole: a routine decline must not be able to
+ * swallow the zero-baseline alert that follows it.
+ */
+export type TurnDenialLedger = { emitted: Set<SecurityOutcome> };
+
+export const newTurnDenialLedger = (): TurnDenialLedger => ({
+	emitted: new Set(),
+});
+
+const emitDenial = (
+	ctx: ToolPolicyContext,
+	ruleId: string,
+	outcome: SecurityOutcome,
+): void => {
+	// Absent a ledger every denial is emitted: a caller with no notion of a turn
+	// gets the noisy, complete record rather than a silently suppressed one.
+	if (ctx.denials?.emitted.has(outcome)) return;
+	ctx.denials?.emitted.add(outcome);
+
 	logSecurityEvent({
 		feature: "lessonAI",
 		userId: ctx.userId,
 		layer: "tool_policy",
-		outcome: "unsafe_tool_call",
+		outcome,
 		ruleIds: [ruleId],
 		score: 0,
 	});
+};
+
+/**
+ * The call should never have been made. Zero-baseline outcome, forwarded, and
+ * the model learns nothing from the refusal beyond that it was refused.
+ */
+const deny = (ctx: ToolPolicyContext, ruleId: string): ToolAuthorization => {
+	emitDenial(ctx, ruleId, "unsafe_tool_call");
 	return { authorized: false, message: NEUTRAL_REFUSAL_MESSAGE };
+};
+
+/**
+ * An ordinary "not now" — nothing to check yet, a question already waiting, a
+ * budget spent. The event is routine and unforwarded, and the message is
+ * explanatory rather than neutral: the tutor has to be able to say something
+ * coherent to the student, and there is no secret in "this lesson has no
+ * concepts recorded yet".
+ */
+const decline = (
+	ctx: ToolPolicyContext,
+	ruleId: string,
+	message: string,
+): ToolAuthorization => {
+	emitDenial(ctx, ruleId, "tool_call_declined");
+	return { authorized: false, message };
 };
 
 /**
@@ -122,7 +170,13 @@ export const authorizeAskConceptCheck = (
 	request: ConceptCheckRequest,
 	ctx: ConceptCheckPolicyContext,
 ): ToolAuthorization => {
-	if (ctx.lessonConcepts.length === 0) return deny(ctx, "empty_allowlist");
+	if (ctx.lessonConcepts.length === 0) {
+		return decline(
+			ctx,
+			"empty_allowlist",
+			"This lesson has no concepts recorded yet, so there is nothing to check.",
+		);
+	}
 
 	const resolved = resolveAllowlistedConcept(
 		request.concept,
