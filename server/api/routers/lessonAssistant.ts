@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { conceptCheckRepository } from "@/server/repositories/conceptCheck.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
+import { aiRateLimit } from "@/server/services/_shared/aiLimits/aiRateLimit.middleware";
 import { conceptCheckService } from "@/server/services/conceptCheck/conceptCheck.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 import { createTRPCRouter, studentProcedure } from "../trpc";
@@ -22,12 +23,17 @@ export const lessonAssistantRouter = createTRPCRouter({
 	/**
 	 * The one check waiting for this student on this lesson, or null.
 	 *
+	 * Shares the lessonAI budget rather than getting its own: it belongs to that
+	 * surface, and the client caches it per lesson, so it is not a hot path
+	 * against a 20/min ceiling.
+	 *
 	 * Scoped to the caller's own id from the session — a `studentId` input would
 	 * be an IDOR on someone else's open question. The payload is the repository's
 	 * keyless projection, so `correct` is not merely omitted here: it is never
 	 * loaded.
 	 */
 	pendingCheck: studentProcedure
+		.use(aiRateLimit("lessonAI"))
 		.input(z.object({ lessonId: z.string() }))
 		.query(async ({ input, ctx }) => {
 			try {
@@ -51,6 +57,7 @@ export const lessonAssistantRouter = createTRPCRouter({
 	 * a caller walking ids learns nothing about which exist or whose they are.
 	 */
 	answerConceptCheck: studentProcedure
+		.use(aiRateLimit("lessonAI"))
 		.input(
 			z.object({
 				checkId: z.string(),
