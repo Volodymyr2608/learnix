@@ -86,6 +86,14 @@ class ConceptCheckRepository extends BaseRepository<
 	}
 
 	/**
+	 * How many checks this student has been issued on this lesson, in any status.
+	 * The per-lesson ceiling reads it, independently of the per-concept budget.
+	 */
+	async countForLesson(studentId: string, lessonId: string): Promise<number> {
+		return this.count({ studentId, lessonId });
+	}
+
+	/**
 	 * When this student last answered a check on this concept wrongly, or null.
 	 * The cooldown reads it; nothing else does.
 	 */

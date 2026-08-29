@@ -34,6 +34,20 @@ const CHECK_TTL_MINUTES = 30;
 const MAX_CHECKS_PER_CONCEPT = 3;
 
 /**
+ * A ceiling on the LESSON, holding independently of the per-concept one.
+ *
+ * `lessonInsights.concepts` is LLM-generated with a loose upper bound, so
+ * without this a lesson that extracted 40 concepts allows 120 authored
+ * questions per student — a cost ceiling nobody chose, reachable without
+ * breaking a single per-concept rule. Twelve is four concepts' worth of the
+ * per-concept budget, which is more checks than any single lesson has reason to
+ * ask.
+ *
+ * Exported for the test that pins the bound rather than restating the number.
+ */
+export const MAX_CHECKS_PER_LESSON = 12;
+
+/**
  * A wrong answer is not a permanent denial — the same reasoning as the quiz cap.
  * The next question must also be a different one, which is the authoring rule's
  * job, not this one's.
@@ -146,15 +160,17 @@ class ConceptCheckService {
 	private async assertBudget(
 		studentId: string,
 		courseId: string,
+		lessonId: string,
 		key: string,
 	): Promise<void> {
-		const [mastery, spent, lastWrongAt] = await Promise.all([
+		const [mastery, spent, lastWrongAt, spentOnLesson] = await Promise.all([
 			conceptMasteryRepository.findFirst({
 				where: { studentId, courseId, conceptKey: key },
 				select: { level: true },
 			}) as Promise<{ level: number } | null>,
 			conceptCheckRepository.countForConcept(studentId, key),
 			conceptCheckRepository.lastWrongAnsweredAt(studentId, key),
+			conceptCheckRepository.countForLesson(studentId, lessonId),
 		]);
 
 		// Evidence already earned is not re-earned. A concept at the conversation
@@ -165,6 +181,10 @@ class ConceptCheckService {
 		}
 
 		if (spent >= MAX_CHECKS_PER_CONCEPT) {
+			throw new CheckBudgetSpentError("No check is available for this concept");
+		}
+
+		if (spentOnLesson >= MAX_CHECKS_PER_LESSON) {
 			throw new CheckBudgetSpentError("No check is available for this concept");
 		}
 
@@ -195,7 +215,7 @@ class ConceptCheckService {
 			input.studentId,
 		);
 		const key = conceptKey(input.concept);
-		await this.assertBudget(input.studentId, courseId, key);
+		await this.assertBudget(input.studentId, courseId, input.lessonId, key);
 
 		const expiresAt = new Date(Date.now() + CHECK_TTL_MINUTES * 60_000);
 

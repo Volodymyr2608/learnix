@@ -157,6 +157,7 @@ const ANSWER_KEY_DOORS: string[] = [
 const READ_DOORS = [
 	"findPendingPublic",
 	"countForConcept",
+	"countForLesson",
 	"lastWrongAnsweredAt",
 	"insertSweepingExpired",
 ];

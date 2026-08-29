@@ -12,7 +12,10 @@ import {
 	CheckUnavailableError,
 	ConceptCheckForbiddenError,
 } from "@/server/services/conceptCheck/conceptCheck.errors";
-import { conceptCheckService } from "@/server/services/conceptCheck/conceptCheck.service";
+import {
+	conceptCheckService,
+	MAX_CHECKS_PER_LESSON,
+} from "@/server/services/conceptCheck/conceptCheck.service";
 import { CONVERSATION_MAX_LEVEL } from "@/server/services/mastery/masteryLevels";
 import { testDb, truncateAll } from "@/test/db";
 import {
@@ -72,15 +75,19 @@ const issue = (s: Seed, overrides: Partial<typeof authored> = {}) =>
 /** A closed check in the past, as the budget and the cooldown will read it. */
 const answeredCheck = (
 	s: Seed,
-	{ isCorrect, hoursAgo }: { isCorrect: boolean; hoursAgo: number },
+	{
+		isCorrect,
+		hoursAgo,
+		concept = CONCEPT,
+	}: { isCorrect: boolean; hoursAgo: number; concept?: string },
 ) =>
 	testDb.conceptCheck.create({
 		data: {
 			studentId: s.studentId,
 			lessonId: s.lessonId,
 			courseId: s.courseId,
-			concept: CONCEPT,
-			conceptKey: conceptKey(CONCEPT),
+			concept,
+			conceptKey: conceptKey(concept),
 			question: authored.question,
 			options: authored.options,
 			correct: authored.correctOption,
@@ -228,6 +235,47 @@ describe("conceptCheckService.issue", () => {
 		await answeredCheck(s, { isCorrect: false, hoursAgo: 25 });
 
 		await expect(issue(s)).resolves.toBeTruthy();
+	});
+
+	/**
+	 * A per-lesson ceiling that holds independently of the per-concept one.
+	 * `lessonInsights.concepts` is LLM-generated with a loose upper bound, so
+	 * 40 concepts x 3 checks is 120 authored questions per student per lesson —
+	 * a cost ceiling nobody set, reachable without breaking any per-concept rule.
+	 */
+	it("refuses once the lesson's own ceiling is spent, whatever the concept", async () => {
+		const s = await seed();
+		for (let i = 0; i < MAX_CHECKS_PER_LESSON; i++) {
+			await answeredCheck(s, {
+				isCorrect: false,
+				hoursAgo: 48 + i,
+				concept: `Concept ${i}`,
+			});
+		}
+
+		await expect(
+			issue(s, { concept: "A brand new concept" }),
+		).rejects.toBeInstanceOf(CheckBudgetSpentError);
+	});
+
+	it("counts the lesson ceiling per lesson, not per student", async () => {
+		const s = await seed();
+		for (let i = 0; i < MAX_CHECKS_PER_LESSON; i++) {
+			await answeredCheck(s, {
+				isCorrect: false,
+				hoursAgo: 48 + i,
+				concept: `Concept ${i}`,
+			});
+		}
+
+		await expect(
+			conceptCheckService.issue({
+				studentId: s.studentId,
+				lessonId: s.otherLessonId,
+				...authored,
+				concept: "A brand new concept",
+			}),
+		).resolves.toBeTruthy();
 	});
 
 	it("refuses a concept the student has already earned evidence for", async () => {
