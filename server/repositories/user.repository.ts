@@ -80,6 +80,14 @@ export default class UserRepository extends BaseRepository<
 				// Private authored content. The two message deletes are redundant with the
 				// `Cascade` on their parent — they are kept deliberately so that a future
 				// downgrade of either cascade cannot silently strand the transcripts.
+				// Model-authored questions about this student, with their answer keys.
+				// The FK cascade is defence in depth and NOT the control: ADR-025 never
+				// deletes the `User` row (`databaseHooks.user.delete.before` returns
+				// false), so `onDelete` never fires on this path. Without this delete
+				// Art. 17 erasure does not leak — it FAILS, because the relation is
+				// required and Prisma's default action is Restrict.
+				await tx.conceptCheck.deleteMany({ where: { studentId: userId } });
+
 				await tx.lessonAssistantMessage.deleteMany({
 					where: { conversation: { studentId: userId } },
 				});

@@ -168,6 +168,19 @@ describe("userRepository.anonymiseAccount", () => {
 				model: "test",
 			},
 		});
+		await testDb.conceptCheck.create({
+			data: {
+				studentId: user.id,
+				lessonId: lesson.id,
+				courseId: course.id,
+				concept: "Recursion",
+				conceptKey: "recursion",
+				question: "Which call ends a recursive descent?",
+				options: ["The base case", "A recursive call"],
+				correct: "The base case",
+				expiresAt: new Date(Date.now() + 60_000),
+			},
+		});
 		await testDb.$executeRaw`
 			INSERT INTO user_interest_embeddings ("userId", embedding, "updatedAt")
 			VALUES (${user.id}, ${`[${Array(1536).fill(0).join(",")}]`}::vector, NOW())
@@ -183,6 +196,12 @@ describe("userRepository.anonymiseAccount", () => {
 			}),
 		).toBe(0);
 		expect(await testDb.lessonAssistantMessage.count()).toBe(0);
+		// A model-authored question about this student, and its answer key. The
+		// explicit delete is the control — the FK cascade never fires here, because
+		// ADR-025 keeps the User row.
+		expect(
+			await testDb.conceptCheck.count({ where: { studentId: user.id } }),
+		).toBe(0);
 		expect(
 			await testDb.courseGeneration.count({ where: { instructorId: user.id } }),
 		).toBe(0);
