@@ -16,17 +16,20 @@ describe("ConceptMastery records how a level was earned", () => {
 		courseId = course.id;
 	});
 
-	// NULL means "written before this change" — the pre-change population
-	// security.md S8 needs isolated, and the reason the column is nullable.
-	it("leaves a row written without evidence saying nothing", async () => {
+	// LEGACY is the pre-change population security.md S8 needs isolated: rows
+	// written before provenance was recorded, which the NOT NULL migration
+	// backfilled rather than left silent. A row that says nothing at all is no
+	// longer representable — a level with no source is a claim without one.
+	it("labels a row whose provenance is unknowable rather than leaving it silent", async () => {
 		const row = await makeConceptMastery({
 			studentId,
 			courseId,
 			concept: "Recursion",
 			level: 3,
+			evidence: MasteryEvidence.LEGACY,
 		});
 
-		expect(row.evidence).toBeNull();
+		expect(row.evidence).toBe(MasteryEvidence.LEGACY);
 	});
 
 	it("records the evidence a write was made with", async () => {
@@ -85,12 +88,13 @@ describe("ConceptMastery records how a level was earned", () => {
 		expect(row.evidence).toBe(MasteryEvidence.QUIZ_FIRST_PASS);
 	});
 
-	it("leaves a pre-change row's NULL evidence alone when a lower write arrives", async () => {
+	it("leaves a pre-change row's LEGACY evidence alone when a lower write arrives", async () => {
 		await makeConceptMastery({
 			studentId,
 			courseId,
 			concept: "Recursion",
 			level: 3,
+			evidence: MasteryEvidence.LEGACY,
 		});
 
 		const row = await conceptMasteryRepository.upsertMastery(
@@ -102,10 +106,10 @@ describe("ConceptMastery records how a level was earned", () => {
 		);
 
 		expect(row.level).toBe(3);
-		expect(row.evidence).toBeNull();
+		expect(row.evidence).toBe(MasteryEvidence.LEGACY);
 	});
 
-	// The cutoff is `level = 3 AND evidence IS NULL`. A pre-change row that the
+	// The cutoff is `level = 3 AND evidence = 'LEGACY'`. A pre-change row that the
 	// student then re-earns has left that population, and saying so is the whole
 	// point of being able to identify it.
 	it("attributes a pre-change row that is re-earned at the same level", async () => {
@@ -114,6 +118,7 @@ describe("ConceptMastery records how a level was earned", () => {
 			courseId,
 			concept: "Recursion",
 			level: 3,
+			evidence: MasteryEvidence.LEGACY,
 		});
 
 		const row = await conceptMasteryRepository.upsertMastery(
@@ -154,6 +159,7 @@ describe("ConceptMastery records how a level was earned", () => {
 			courseId,
 			concept: "Recursion",
 			level: 3,
+			evidence: MasteryEvidence.LEGACY,
 		});
 		await conceptMasteryRepository.upsertMastery(
 			studentId,
@@ -164,7 +170,7 @@ describe("ConceptMastery records how a level was earned", () => {
 		);
 
 		const unattributed = await testDb.conceptMastery.count({
-			where: { level: 3, evidence: null },
+			where: { level: 3, evidence: MasteryEvidence.LEGACY },
 		});
 
 		expect(unattributed).toBe(1);

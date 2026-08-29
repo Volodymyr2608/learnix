@@ -49,11 +49,13 @@ class ConceptMasteryRepository extends BaseRepository<
 				level = GREATEST(concept_mastery.level, EXCLUDED.level),
 				evidence = CASE
 					WHEN EXCLUDED.level > concept_mastery.level THEN EXCLUDED.evidence
-					-- A row written before this column existed, re-earned at the level it
-					-- already holds: its provenance is now known, and leaving it NULL
-					-- would keep counting it in the unattributed population it has just
-					-- left. Never overwrites an evidence value that already says something.
-					WHEN concept_mastery.evidence IS NULL AND EXCLUDED.level = concept_mastery.level
+					-- A row whose provenance was never knowable, re-earned at the level it
+					-- already holds: it is now known, and leaving it LEGACY would keep
+					-- counting it in the unattributed population it has just left. This
+					-- read IS NULL until the evidence column became NOT NULL; LEGACY is
+					-- what those rows were backfilled to and is the same population under
+					-- a name. Never overwrites evidence that already says something.
+					WHEN concept_mastery.evidence = 'LEGACY' AND EXCLUDED.level = concept_mastery.level
 						THEN EXCLUDED.evidence
 					ELSE concept_mastery.evidence
 				END,

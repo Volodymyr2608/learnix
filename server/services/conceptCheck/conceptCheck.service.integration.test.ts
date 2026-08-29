@@ -214,13 +214,16 @@ describe("conceptCheckService.issue", () => {
 		await expect(issue(s)).rejects.toBeInstanceOf(CheckBudgetSpentError);
 	});
 
-	it("still issues when the concept sits below the conversation ceiling", async () => {
+	it("still issues when the student holds no evidence for the concept", async () => {
 		const s = await seed();
+		// Nothing seeded on purpose: "below the ceiling" is no longer a row. Levels
+		// 0 and 1 recorded exposure and are unrepresentable since the evidence
+		// migration, so the absence of a row IS the below-the-ceiling state.
 		await makeConceptMastery({
 			studentId: s.studentId,
 			courseId: s.courseId,
-			concept: CONCEPT,
-			level: CONVERSATION_MAX_LEVEL - 1,
+			concept: "Server Components",
+			level: CONVERSATION_MAX_LEVEL,
 		});
 
 		await expect(issue(s)).resolves.toBeTruthy();
