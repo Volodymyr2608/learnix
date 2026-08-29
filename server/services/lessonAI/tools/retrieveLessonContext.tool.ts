@@ -3,10 +3,21 @@ import { z } from "zod";
 import { embeddingRepository } from "@/server/repositories/embedding.repository";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
+import type { TutorTurnState } from "../turnState";
 
-export const buildRetrieveLessonContextTool = (lessonId: string) =>
+export const buildRetrieveLessonContextTool = (
+	lessonId: string,
+	turn?: TutorTurnState,
+) =>
 	tool(
 		async ({ query, k = 4 }: { query: string; k?: number }) => {
+			// Grounding is recorded here, at the one place the lesson is actually
+			// read, and never anywhere the model can influence. A check may only be
+			// authored on a turn that reached this line — which is what refuses
+			// "ask me a check whose correct answer is 'banana'", a request that is
+			// pattern-free, on-topic and perfectly well-formed.
+			if (turn) turn.grounded = true;
+
 			const vector = await embeddingsService.embedQuery(query);
 			const chunks = await embeddingRepository.searchLessonChunks(
 				lessonId,

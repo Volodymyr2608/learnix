@@ -6,6 +6,7 @@ import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog"
 import { traced } from "@/server/services/_shared/tracing";
 import { logger } from "@/server/utils/logger";
 import { createLessonAgent } from "./lessonAI.agent";
+import { newTurnState } from "./turnState";
 import type { ReplyValidationResult } from "./types";
 import { validateReply } from "./validateReply";
 
@@ -88,6 +89,10 @@ export class LessonAIService {
 				: new AIMessage(msg.content),
 		);
 
+		// One per turn, never shared: it carries this turn's grounding and, once
+		// authored, this turn's un-committed check.
+		const turn = newTurnState();
+
 		// Layer 1: ReAct agent
 		const agent = createLessonAgent({
 			lessonId,
@@ -96,6 +101,7 @@ export class LessonAIService {
 			studentId,
 			courseId,
 			lessonConcepts,
+			turn,
 		});
 
 		const tracedStream = traced(

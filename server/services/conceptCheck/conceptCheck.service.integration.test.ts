@@ -119,6 +119,29 @@ describe("conceptCheckService.issue", () => {
 		expect([...stored.options].sort()).toEqual([...authored.options].sort());
 	});
 
+	/**
+	 * The cheapest control in the feature: "always make the correct option A"
+	 * becomes a no-op, whether it arrives by injection through lesson content or
+	 * as the model's own positional bias. Asserted at the write rather than at the
+	 * tool, because the write is where a second caller could otherwise skip it.
+	 *
+	 * Twelve issues of a four-option question: if the stored order were the
+	 * authored order, every one of them would place the key first. The chance of
+	 * that happening under a real shuffle is 4^-12.
+	 */
+	it("stores an order drawn from the server's randomness, not the authored one", async () => {
+		const positions = new Set<number>();
+
+		for (let i = 0; i < 12; i++) {
+			const s = await seed();
+			const issued = await issue(s);
+			positions.add(issued.options.indexOf(authored.correctOption));
+		}
+
+		expect(positions.has(-1)).toBe(false);
+		expect(positions.size).toBeGreaterThan(1);
+	});
+
 	it("creates nothing for a lesson the student is not enrolled in", async () => {
 		const s = await seed({ enrolled: false });
 

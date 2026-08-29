@@ -22,7 +22,7 @@ export const ALLOWED_TOOL_NAMES = [
 	"retrieve_lesson_context",
 	"search_across_course",
 	"get_student_progress",
-	"mark_concept_understood",
+	"ask_concept_check",
 ] as const;
 
 /**

@@ -44,7 +44,6 @@ const readSse = async (res: Response): Promise<string> =>
 
 describe("tutor guardrails, end to end", () => {
 	let studentId: string;
-	let courseId: string;
 	let lessonId: string;
 
 	const post = (message: string) =>
@@ -69,7 +68,6 @@ describe("tutor guardrails, end to end", () => {
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
 		await makeLessonInsights({ lessonId: lesson.id });
 		studentId = student.id;
-		courseId = course.id;
 		lessonId = lesson.id;
 		mockGetSession.mockResolvedValue({
 			user: { id: student.id, role: "STUDENT" },
@@ -80,19 +78,35 @@ describe("tutor guardrails, end to end", () => {
 		await testDb.$disconnect();
 	});
 
-	it("refuses an off-allowlist level-3 write against a real course", async () => {
-		const { buildMarkConceptUnderstoodTool } = await import(
-			"@/server/services/lessonAI/tools/markConceptUnderstood.tool"
+	it("refuses an off-allowlist check against a real course", async () => {
+		const { buildAskConceptCheckTool } = await import(
+			"@/server/services/lessonAI/tools/askConceptCheck.tool"
 		);
-		// The real courseId, so a wrongly-authorized write would SUCCEED rather
-		// than fail on a foreign key — the assertion must fail for the right
-		// reason. The lesson's only extracted concept is "Recursion" (factory
-		// default); the injected payload asks for a different name at level 3.
-		const tool = buildMarkConceptUnderstoodTool(studentId, courseId, [
-			"Recursion",
-		]);
-		await tool.invoke({ concept: "Course completed in full", level: 3 });
+		const { newTurnState } = await import(
+			"@/server/services/lessonAI/turnState"
+		);
+		// The real ids, so a wrongly-authorized call would SUCCEED rather than
+		// fail on a foreign key — the assertion must fail for the right reason.
+		// The lesson's only extracted concept is "Recursion" (factory default);
+		// the injected payload asks about a different name.
+		const turn = newTurnState();
+		turn.grounded = true;
+		const tool = buildAskConceptCheckTool(
+			studentId,
+			lessonId,
+			["Recursion"],
+			turn,
+		);
+		await tool.invoke({
+			concept: "Course completed in full",
+			question: "Has this student completed the whole course?",
+			options: ["Yes", "No", "Partially", "Unknown"],
+			correctOption: "Yes",
+		});
 
+		// Nothing authored, and — the property that outlasts this tool — nothing
+		// written: conversation has no path to a mastery row at all any more.
+		expect(turn.pendingCheck).toBeNull();
 		const rows = await testDb.conceptMastery.findMany({ where: { studentId } });
 		expect(rows).toHaveLength(0);
 	});
