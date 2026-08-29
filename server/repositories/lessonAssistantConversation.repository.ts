@@ -25,10 +25,24 @@ export default class LessonAssistantConversationRepository extends BaseRepositor
 		return this.findFirst({ where: { lessonId, studentId } });
 	}
 
+	/**
+	 * The explicit message field list is the control, not a tidiness choice: see
+	 * `lessonAssistantRepository.getMessages`. `toolCalls` must never appear here.
+	 */
 	findWithMessages(lessonId: string, studentId: string) {
 		return this.findFirst({
 			where: { lessonId, studentId },
-			include: { messages: { orderBy: { createdAt: "asc" } } },
+			include: {
+				messages: {
+					orderBy: { createdAt: "asc" },
+					select: {
+						id: true,
+						role: true,
+						content: true,
+						createdAt: true,
+					},
+				},
+			},
 		});
 	}
 }

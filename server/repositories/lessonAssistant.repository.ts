@@ -39,6 +39,16 @@ class LessonAssistantRepository extends BaseRepository<
 		this.conversationRepository = lessonAssistantConversationRepository;
 	}
 
+	/**
+	 * The thread as the student's browser renders it: four fields, written out.
+	 *
+	 * `toolCalls` is deliberately absent, and absent by projection rather than by
+	 * nothing being written there. It holds what the model asked each tool for,
+	 * and `ask_concept_check`'s arguments are a question and its answer. This
+	 * query is reachable by any enrolled student for their own thread, so a
+	 * `select` that returned the whole row would ship the tutor's own answer key
+	 * to the person meant to be answering it.
+	 */
 	async getMessages(lessonId: string, studentId: string) {
 		const convo = await this.conversationRepository.findWithMessages(
 			lessonId,
@@ -66,6 +76,18 @@ class LessonAssistantRepository extends BaseRepository<
 		// Newest-first with `take`, then reversed: `orderBy asc` + `take` would
 		// return the OLDEST N, which is the opposite of a recency window.
 		const rows = await this.findMany({
+			// Content only, and this is load-bearing rather than incidental: it is
+			// what makes the answer key unrecoverable on the next turn. Anyone
+			// adding tool-call replay "for continuity" would hand the model back the
+			// question it just wrote and the option it marked correct, and nothing
+			// about that change would look security-relevant.
+			select: {
+				id: true,
+				role: true,
+				content: true,
+				createdAt: true,
+				contextEligible: true,
+			},
 			where: { conversationId: convo.id, contextEligible: true },
 			// createdAt is timestamp(3), so two rows written in the same millisecond
 			// tie; without the id tiebreaker a user/assistant pair could invert or
