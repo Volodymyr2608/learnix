@@ -507,3 +507,76 @@ describe("streamResponse mid-stream error path", () => {
 		});
 	});
 });
+
+describe("what a persisted tool call may carry", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockGetContextMessages.mockClear().mockResolvedValue([]);
+	});
+
+	const toolStart = (name: string, input: Record<string, unknown>) => ({
+		event: "on_tool_start",
+		name,
+		data: { input },
+	});
+
+	const persistedCalls = () => {
+		const save = assistantSaves()[0];
+		return ((save?.[2] as { toolCalls?: { tool: string }[] })?.toolCalls ??
+			[]) as Record<string, unknown>[];
+	};
+
+	/**
+	 * `ask_concept_check`'s arguments include `correctOption` — the answer key —
+	 * and `toolCalls` is a durable column. Redacting that one field by name would
+	 * work today and break silently on a rename, or on the next tool that carries
+	 * a secret. Default-deny is what makes the whole class unrepresentable.
+	 */
+	it("persists nothing from a tool that declares no safe fields", async () => {
+		await collect([
+			toolStart("ask_concept_check", {
+				concept: "Recursion",
+				question: "Which call ends a recursive descent?",
+				options: ["The base case", "A recursive call"],
+				correctOption: "The base case",
+			}),
+			tokenEvent("Let me check your understanding."),
+		]);
+
+		expect(persistedCalls()).toEqual([{ tool: "ask_concept_check" }]);
+	});
+
+	it("persists nothing from a tool nobody has classified", async () => {
+		await collect([
+			toolStart("some_tool_added_later", { secret: "value" }),
+			tokenEvent("A base case stops the recursion."),
+		]);
+
+		expect(persistedCalls()).toEqual([{ tool: "some_tool_added_later" }]);
+	});
+
+	it("keeps the declared fields of a tool that has them", async () => {
+		await collect([
+			toolStart("retrieve_lesson_context", { query: "base case", k: 4 }),
+			tokenEvent("A base case stops the recursion."),
+		]);
+
+		expect(persistedCalls()).toEqual([
+			{ tool: "retrieve_lesson_context", query: "base case" },
+		]);
+	});
+
+	it("never lets a persisted entry carry a key outside its declaration", async () => {
+		await collect([
+			toolStart("retrieve_lesson_context", {
+				query: "base case",
+				correctOption: "smuggled",
+			}),
+			tokenEvent("A base case stops the recursion."),
+		]);
+
+		for (const call of persistedCalls()) {
+			expect(Object.keys(call).sort()).toEqual(["query", "tool"]);
+		}
+	});
+});

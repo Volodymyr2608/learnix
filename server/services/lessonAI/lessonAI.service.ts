@@ -37,7 +37,42 @@ const toolOutputText = (output: unknown): string => {
  */
 const AGENT_RECURSION_LIMIT = 12;
 
-export class LessonAIService {
+export /**
+ * What each tool is allowed to leave behind in the durable `toolCalls` column,
+ * by name. Default-deny: a tool that is not listed persists its name and
+ * nothing else.
+ *
+ * The alternative — redacting the one field that is currently a secret — works
+ * exactly until someone renames `correctOption`, or adds a second tool that
+ * carries something. Naming what may be KEPT makes the class of leak
+ * unrepresentable rather than patched: `ask_concept_check` appears here with an
+ * empty list precisely so that reading this table answers "what does the tutor
+ * store about a check?" with "its name".
+ */
+const PERSISTABLE_TOOL_FIELDS: Record<string, readonly string[]> = {
+	retrieve_lesson_context: ["query"],
+	search_across_course: ["query"],
+	get_student_progress: [],
+	// Its arguments are the question, the options and the answer key.
+	ask_concept_check: [],
+};
+
+const summariseToolCall = (
+	tool: string,
+	input: unknown,
+): Record<string, unknown> => {
+	const allowed = PERSISTABLE_TOOL_FIELDS[tool] ?? [];
+	const summary: Record<string, unknown> = { tool };
+	if (allowed.length === 0) return summary;
+
+	const args = (input ?? {}) as Record<string, unknown>;
+	for (const field of allowed) {
+		if (args[field] !== undefined) summary[field] = args[field];
+	}
+	return summary;
+};
+
+class LessonAIService {
 	async *streamResponse(params: {
 		lessonId: string;
 		lessonTitle: string;
@@ -119,7 +154,7 @@ export class LessonAIService {
 		);
 
 		let fullReply = "";
-		const toolCallsSummary: Array<{ tool: string; input: unknown }> = [];
+		const toolCallsSummary: Array<Record<string, unknown>> = [];
 		const retrievedContent: string[] = [];
 		// The output boundary, callable from every exit. validateReply emits its own
 		// output_validation_failed via reject(), so this must not log that outcome a
@@ -202,10 +237,9 @@ export class LessonAIService {
 				}
 
 				if (event.event === "on_tool_start") {
-					toolCallsSummary.push({
-						tool: event.name ?? "unknown",
-						input: event.data?.input,
-					});
+					toolCallsSummary.push(
+						summariseToolCall(event.name ?? "unknown", event.data?.input),
+					);
 				}
 
 				if (event.event === "on_tool_end") {
