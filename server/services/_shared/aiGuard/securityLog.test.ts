@@ -193,4 +193,39 @@ describe("logSecurityEvent", () => {
 			}
 		});
 	});
+
+	/**
+	 * The forward is telemetry; the caller is an authorization decision.
+	 * `logSecurityEvent` runs synchronously inside `deny()`, which runs inside
+	 * the tool, so a throwing sink does not merely lose an event — it propagates
+	 * out of the policy and fails the turn. The alert path must not be able to
+	 * break the path it is watching. Found for real: an environment where the
+	 * Sentry SDK was present but `captureMessage` was not took down every denial
+	 * that reached it.
+	 */
+	it("survives a forward that throws, and still logs the event", () => {
+		mockReportMessage.mockImplementationOnce(() => {
+			throw new TypeError("Sentry.captureMessage is not a function");
+		});
+
+		expect(() =>
+			logSecurityEvent({
+				feature: "lessonAI",
+				userId: "user-1",
+				layer: "tool_policy",
+				outcome: "unsafe_tool_call",
+				ruleIds: ["concept_not_allowlisted"],
+				score: 0,
+			}),
+		).not.toThrow();
+
+		// Two warns: the event itself, then the forward failure. Reported at
+		// `warn` because the `error` level routes through the same sink that just
+		// failed, so reporting there re-enters the broken path.
+		expect(mockLogger.warn).toHaveBeenCalledTimes(2);
+		expect(mockLogger.warn.mock.calls[1]?.[1]).toContain(
+			"could not be forwarded",
+		);
+		expect(mockLogger.error).not.toHaveBeenCalled();
+	});
 });

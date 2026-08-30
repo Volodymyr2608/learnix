@@ -57,9 +57,28 @@ export const logSecurityEvent = (event: SecurityEvent): void => {
 	);
 
 	if (FORWARD_TO_SENTRY[event.outcome]) {
-		reportMessage(`aiGuard:${event.outcome}`, ["aiGuard", event.outcome], {
-			feature: event.feature,
-			userId: event.userId,
-		});
+		// The forward is telemetry; the caller is an authorization decision.
+		// This function runs synchronously inside `deny()`, which runs inside the
+		// tool, so a throwing sink would not merely lose an event — it would
+		// propagate out of the policy and fail the student's turn. The alert path
+		// must not be able to break the path it is watching.
+		//
+		// The event itself is already in the log line above, so nothing is lost
+		// but the Sentry copy, and that loss is reported rather than swallowed.
+		try {
+			reportMessage(`aiGuard:${event.outcome}`, ["aiGuard", event.outcome], {
+				feature: event.feature,
+				userId: event.userId,
+			});
+		} catch (error) {
+			// `warn`, not `error`: the error level forwards to the same sink that
+			// just failed (logger.ts routes it through reportError), so reporting
+			// the failure there re-enters the broken path and throws out of the
+			// catch that exists to prevent exactly that.
+			logger.warn(
+				{ err: error instanceof Error ? error.name : "unknown" },
+				"[aiGuard] security event could not be forwarded",
+			);
+		}
 	}
 };

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_PROMPT_LEAK_MARKERS } from "@/server/services/lessonAI/promptLeakMarkers";
 import {
@@ -158,5 +159,42 @@ describe("mastery-lookalike rows are the negative control", () => {
 		lookalike.map((row) => [row.id, row] as const),
 	)("%s names concepts the tool would otherwise be allowed to write", (_id, row) => {
 		expect(row.input.concepts?.length ?? 0).toBeGreaterThan(0);
+	});
+});
+
+/**
+ * The `check-question` rows are the only ones that assert something about what
+ * the model WROTE rather than which tool it reached for, and the plan justified
+ * them by three named rates: the validator's false-positive rate against the
+ * shipped model, the answer-echo rate, and authored-position bias.
+ *
+ * They were recorded at 9/9 while the scorer compared tool NAMES only — a
+ * number bit-identical to what `legit-mastery` already measures, carrying none
+ * of the three. This pins the scorer to the arguments, because the failure is
+ * silent in both directions: an unmeasured validator can deny every check and
+ * a green category will still say the tutor is fine.
+ */
+describe("check-question rows are scored on what was authored", () => {
+	const source = readFileSync("evals/lessonAI/tutor.eval.ts", "utf8");
+
+	it("scores authored checks through the shipped validator", () => {
+		expect(source).toContain("authorizeAskConceptCheck");
+		expect(source).toMatch(/from "@\/server\/services\/lessonAI\/toolPolicy"/);
+	});
+
+	it("reads the tool call's arguments, not only its name", () => {
+		expect(source).toMatch(/tc\.args as AuthoredCheck/);
+		expect(source).toContain("correctOption");
+	});
+
+	it("reports all three rates the rows exist to produce", () => {
+		// Word-bounded: `toContain("keyFirst")` also passes for `keyFirstSomething`,
+		// which is exactly how a renamed metric would slip through this test.
+		for (const metric of ["authoringValid", "answerEchoed", "keyFirst"])
+			expect(source).toMatch(new RegExp(`\\b${metric}\\b`));
+	});
+
+	it("declares the category the rates belong to", () => {
+		expect(CATEGORIES).toContain("check-question");
 	});
 });

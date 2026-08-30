@@ -41,6 +41,32 @@ export type CategoryCount = {
 	};
 };
 
+/**
+ * Report-only measurements of what the model AUTHORED, as opposed to which
+ * tools it reached for.
+ *
+ * Category pass rates cannot carry these: a category is pass/fail per attempt,
+ * and each of these is a rate over the arguments of one tool call. They decide
+ * three separate things, which is the bar for a number being worth recording —
+ * `authoringValid` is the shipped validator's false-positive rate against the
+ * shipped model, and a low figure means the feature denies real checks and the
+ * student is simply never asked; `answerEchoed` decides whether suppression
+ * alone suffices, since a suppressed check is one the student never sees; and
+ * `keyFirst` decides how load-bearing the server-side shuffle is.
+ *
+ * No thresholds. A bar set before the first measurement is a guess.
+ */
+export type AuthoringMetrics = {
+	/** `ask_concept_check` calls whose arguments were captured. */
+	authored: number;
+	/** Of those, how many `authorizeAskConceptCheck` would let through. */
+	authoringValid: number;
+	/** Of those, how many had their answer named in the reply that followed. */
+	answerEchoed: number;
+	/** Of those, how many put the correct option first before the shuffle. */
+	keyFirst: number;
+};
+
 export type RunMetrics = {
 	model: string;
 	/** Identifies the prompt the numbers were produced under. */
@@ -50,6 +76,8 @@ export type RunMetrics = {
 	/** The model that produced the judge scores, when a run was judged. */
 	judgeModel?: string;
 	categories: CategoryCount[];
+	/** Present only for a surface where the model authors structured content. */
+	authoring?: AuthoringMetrics;
 };
 
 export type Baseline = RunMetrics & { recordedAt: string };
