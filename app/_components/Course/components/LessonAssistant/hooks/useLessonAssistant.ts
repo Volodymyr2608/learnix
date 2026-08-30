@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { api } from "trpc/client";
 import { isAbortError } from "@/lib/guards/isAbortError";
+import type { ConceptCheckPublic } from "@/server/repositories/conceptCheck.repository";
 
 type Message = {
 	id: string;
@@ -83,6 +84,7 @@ export function useLessonAssistant(lessonId: string) {
 						type: string;
 						value?: string;
 						message?: string;
+						check?: ConceptCheckPublic;
 					};
 
 					if (parsed.type === "token" && parsed.value) {
@@ -144,6 +146,19 @@ export function useLessonAssistant(lessonId: string) {
 						// would replace this with silence — the student would see their
 						// own question and no reply at all.
 						return;
+					}
+
+					// The tutor asked a question. The frame carries the check as the
+					// student may see it — the keyless projection — so the panel can be
+					// filled from it directly rather than waiting for a refetch that
+					// nothing triggers. Without this the student finishes a turn in
+					// which they were asked something and sees no question until the
+					// window happens to regain focus.
+					if (parsed.type === "concept_check" && parsed.check) {
+						utils.lessonAssistant.pendingCheck.setData(
+							{ lessonId },
+							parsed.check,
+						);
 					}
 
 					if (parsed.type === "done") {

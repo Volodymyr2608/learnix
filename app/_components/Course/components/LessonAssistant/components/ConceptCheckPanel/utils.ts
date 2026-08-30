@@ -7,9 +7,23 @@ import type { AnswerCheckResult } from "@/server/services/conceptCheck/conceptCh
  */
 
 /**
- * The panel renders only for a check that is actually open. It disappears once
- * answered rather than lingering: the tutor asks one question at a time, and a
- * stale panel invites a second submission the server would refuse anyway.
+ * Which check the panel is showing.
+ *
+ * `pendingCheck` returns only PENDING rows, so an answered check is gone from
+ * it the moment the answer lands. Showing the held copy instead keeps the
+ * question on screen next to its result — without it the panel unmounts in the
+ * same tick the verdict arrives and the student never learns whether they were
+ * right. A newly issued check always wins, so the panel follows the tutor and
+ * never strands the student on a question that has already been graded.
+ */
+export const visibleCheck = (
+	pending: ConceptCheckPublic | null,
+	answered: ConceptCheckPublic | null,
+): ConceptCheckPublic | null => pending ?? answered;
+
+/**
+ * The panel renders only for a check it can actually draw. A second submission
+ * is prevented by locking once a result is in, not by unmounting the panel.
  */
 export const shouldRenderPanel = (
 	isLoading: boolean,

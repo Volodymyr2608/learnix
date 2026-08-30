@@ -5,6 +5,7 @@ import {
 	isSubmitDisabled,
 	selectedOptionIndex,
 	shouldRenderPanel,
+	visibleCheck,
 } from "./utils";
 
 const check = {
@@ -56,5 +57,31 @@ describe("the concept-check panel's decisions", () => {
 	it("resolves an option the check never offered to nothing", () => {
 		expect(selectedOptionIndex(check.options, "Something else")).toBe(-1);
 		expect(selectedOptionIndex(check.options, null)).toBe(-1);
+	});
+});
+
+describe("visibleCheck", () => {
+	const withId = (id: string): ConceptCheckPublic => ({ ...check, id });
+
+	it("shows the open check while one is open", () => {
+		expect(visibleCheck(withId("open"), withId("held"))?.id).toBe("open");
+	});
+
+	/**
+	 * The regression this exists for: `pendingCheck` returns PENDING rows only,
+	 * so the answered check disappears from it the instant the answer lands. With
+	 * nothing held, the panel unmounted in the same tick as the verdict and the
+	 * student never saw whether they were right.
+	 */
+	it("keeps showing the answered check once it has left the pending query", () => {
+		expect(visibleCheck(null, withId("held"))?.id).toBe("held");
+	});
+
+	it("follows the tutor to a newly issued check", () => {
+		expect(visibleCheck(withId("new"), withId("old"))?.id).toBe("new");
+	});
+
+	it("shows nothing when there is nothing to show", () => {
+		expect(visibleCheck(null, null)).toBeNull();
 	});
 });
