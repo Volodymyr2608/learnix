@@ -358,6 +358,14 @@ critic still rejects the paths it should. The adversarial side is the shared `ai
   reading as weak here. Changing either number without the other silently changes what the platform
   recommends.
 
+- **`pnpm eval learningPathAI:learningPath` does not cover the derivation.** It feeds `weakConcepts`
+  in from its dataset and invokes `reflectAndCheck` alone — `identifyWeakSignals` and
+  `proposeReviews` are never called, and the eval reports no baseline (it does not call `reportRun`).
+  So a green 8/8 says the terminal validator accepts a well-formed path; it says nothing about how
+  the weak set was derived. Those two nodes are covered by their unit tests and by
+  `learningPathAI.integration.test.ts`, and that is deliberate — but do not read the eval as
+  evidence for them, which is exactly the mistake available here.
+
 - **The derived union is ordered and capped, and both matter.** `applied` rows come first, then
   `encountered`, then the list is cut at `MAX_WEAK_CONCEPTS`. Ordering, because the sparse rows
   recording something the student actually *did* would otherwise sit behind every bare `encountered`
