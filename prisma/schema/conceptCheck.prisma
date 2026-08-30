@@ -1,0 +1,91 @@
+/// Where a check is in its one-way lifecycle. A row leaves PENDING exactly once:
+/// the student answers it, or issuing a new check sweeps it.
+enum ConceptCheckStatus {
+  /// Authored, persisted, and waiting for the student. The only status the
+  /// one-open-per-lesson index counts.
+  PENDING
+  /// Graded. `isCorrect` says how, and the row can never be graded again.
+  ANSWERED
+  /// `expiresAt` passed before it was answered, and issuing swept it. Costs the
+  /// student nothing and blocks nothing.
+  EXPIRED
+}
+
+/// A multiple-choice question the tutor authored about one lesson concept, so
+/// that mastery in conversation is earned by answering rather than by asserting.
+/// The model authors; it never judges — grading is string equality in
+/// `conceptCheck.service.answer()`.
+///
+/// The row is a model-authored artifact, not a record of achievement: it is
+/// buffered for the turn and written only after the output boundary passes, so a
+/// rejected or aborted turn leaves none.
+model ConceptCheck {
+  id String @id @default(cuid())
+
+  studentId String
+  lessonId  String
+  /// Carried on the row so grading can write `ConceptMastery` from the claim it
+  /// already holds, rather than asking a second question to find the course.
+  courseId  String
+
+  /// The spelling shown to a human, taken from the lesson's concept allowlist.
+  concept    String
+  /// The spelling compared by machine: `conceptKey()` of `concept`. Identity
+  /// lives here, exactly as on `ConceptMastery` — it is what the per-concept
+  /// budget counts and what the mastery write binds to.
+  conceptKey String
+
+  question String   @db.Text
+  /// `conceptKey()` of `question`, by the same rule that keys concept identity.
+  /// A question is asked once: the model cannot remember what it asked — the
+  /// design keeps the authored check out of `toolCalls` and replays content only
+  /// — so the repeat rule is a server-side lookup on this column.
+  questionKey String
+  /// Shuffled by the server's CSPRNG before the row is written. Grading reads
+  /// option text, never an index into the order the model authored.
+  options  String[]
+  /// The answer key. It leaves the server through exactly one channel — the
+  /// terminal response of a successful `answerConceptCheck` claim — so every
+  /// read path here selects an explicit field list that omits it.
+  correct  String
+
+  status         ConceptCheckStatus @default(PENDING)
+  selectedAnswer String?
+  isCorrect      Boolean?
+
+  /// Compared against the database clock inside the claim, never against the
+  /// application's. It cannot live in the partial unique index below — index
+  /// predicates must be immutable — so issuing sweeps stale rows instead.
+  expiresAt  DateTime
+  answeredAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  /// The per-concept budget and the cooldown count on this triple: evidence is
+  /// written per course, so the budget that gates it is read per course.
+  @@index([studentId, courseId, conceptKey])
+  /// The repeat lookup, deliberately NOT course-scoped — being shown the answer
+  /// you got wrong is a disclosure that does not stop at a course boundary.
+  @@index([studentId, conceptKey, questionKey])
+  @@map("concept_checks")
+}
+
+/// INVARIANT NOT EXPRESSIBLE HERE: at most one PENDING check per
+/// (studentId, lessonId). It is the partial unique index
+/// `concept_checks_one_pending_per_lesson`, created in
+/// `prisma/migrations/20260829090000_concept_check/migration.sql`, and Prisma
+/// has no syntax for the `WHERE status = 'PENDING'` predicate that makes it
+/// partial. It is therefore invisible to the schema differ:
+///
+///   * NEVER run `prisma db push` against a database carrying it — push
+///     reconciles the database to this file, which does not mention the index.
+///   * `prisma migrate dev` will report drift here and offer to reset. Take the
+///     drift as expected and hand-write the next migration instead.
+///
+/// `conceptCheck.repository.integration.test.ts` pins it two ways — against
+/// `pg_indexes`, and behaviourally — because a non-partial re-creation would
+/// pass the first assertion of the pair and lock the student out of every check
+/// after their first.

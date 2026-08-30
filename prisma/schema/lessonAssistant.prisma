@@ -29,10 +29,9 @@ model LessonAssistantMessage {
   @@map("lesson_assistant_messages")
 }
 
-/// How a mastery level was earned. Nullable on ConceptMastery, where NULL means
-/// "written before provenance was recorded" — those rows may have been earned by
-/// reading an answer key that used to ship with the questions, and attribution
-/// after the fact is impossible.
+/// How a mastery level was earned. Every row carries one: a level with no
+/// provenance is a claim without a source, and those rows were backfilled to
+/// LEGACY rather than left NULL.
 enum MasteryEvidence {
   /// Raised by the tutor, which can reach level 2 and no further.
   CONVERSATION
@@ -41,24 +40,41 @@ enum MasteryEvidence {
   /// Every quiz answered correctly, at least one of them after a retry.
   QUIZ_RETRIED
   /// Earned partly on an attempt row whose history predates the attempt counter,
-  /// so how many tries it took is unknowable.
+  /// so how many tries it took is unknowable — or written before this column
+  /// existed at all, back when the answer key shipped with the questions.
   LEGACY
+  /// Earned by answering a server-graded check question the tutor authored. The
+  /// model wrote the question; it never judged the answer.
+  APPLIED_CHECK
 }
 
 model ConceptMastery {
   id        String   @id @default(cuid())
   studentId String
   courseId  String
-  concept   String
+  /// The spelling shown to a human, taken from the lesson's concept allowlist.
+  concept    String
+  /// The spelling compared by machine: `conceptKey()` of `concept`, kept in step
+  /// with the SQL `concept_key()` the backfill used. Identity lives here; the
+  /// column above is presentation.
+  conceptKey String
+  /// INVARIANT NOT EXPRESSIBLE HERE: `CHECK (level IN (2, 3))`, added by
+  /// `prisma/migrations/20260829100000_mastery_is_evidence/migration.sql`.
+  /// Prisma has no syntax for a check constraint, so `prisma db push` would
+  /// remove it — see the same warning on `ConceptCheck`. Levels 0 and 1 recorded
+  /// exposure, not evidence; the learning path derives exposure at read time.
   level     Int
-  /// NULL only for rows written before this column existed.
-  evidence  MasteryEvidence?
+  evidence  MasteryEvidence
   updatedAt DateTime @updatedAt
 
   student User   @relation(fields: [studentId], references: [id], onDelete: Restrict)
   course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
+  /// Retained only until the follow-up migration drops it: `ON CONFLICT` named it
+  /// while the previous code was live, and dropping it under that code raises
+  /// 42P10 on every write.
   @@unique([studentId, courseId, concept])
+  @@unique([studentId, courseId, conceptKey])
   @@index([studentId, courseId])
   @@map("concept_mastery")
 }

@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import {
 	CourseStatus,
 	EnrollmentStatus,
+	MasteryEvidence,
 	type Prisma,
 	Role,
 } from "@/generated/prisma";
+import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
 import { testDb } from "./db";
 
 export function makeUser(
@@ -134,7 +136,17 @@ export function makeConceptMastery(
 	},
 ) {
 	return testDb.conceptMastery.create({
-		data: { level: 0, ...overrides },
+		// Level 2 is the floor: `CHECK (level IN (2, 3))` makes 0 and 1
+		// unrepresentable, because a row is evidence and those levels were
+		// exposure. Evidence is derived rather than required of every caller for
+		// the same reason as the key — a seeded row must not be able to say
+		// something its own columns contradict.
+		data: {
+			level: 2,
+			evidence: MasteryEvidence.CONVERSATION,
+			conceptKey: conceptKey(overrides.concept),
+			...overrides,
+		},
 	});
 }
 

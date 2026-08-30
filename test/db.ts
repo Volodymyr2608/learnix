@@ -12,6 +12,7 @@ const TABLES = [
 	"processed_stripe_events",
 	"enrollments",
 	"course_reviews",
+	"concept_checks",
 	"lesson_assistant_messages",
 	"lesson_assistant_conversations",
 	"concept_mastery",

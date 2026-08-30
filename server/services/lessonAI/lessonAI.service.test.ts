@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
+import {
+	CheckAlreadyPendingError,
+	CheckBudgetSpentError,
+} from "@/server/services/conceptCheck/conceptCheck.errors";
+import { findKeyPaths } from "@/test/deepKeys";
 
 const {
 	mockSaveMessage,
@@ -9,7 +14,11 @@ const {
 	mockValidateReply,
 	mockLogSecurityEvent,
 	mockMarkContextIneligible,
+	mockIssue,
+	mockOnAgentCreated,
+	mockLoggerWarn,
 } = vi.hoisted(() => ({
+	mockLoggerWarn: vi.fn(),
 	mockSaveMessage: vi.fn().mockResolvedValue({}),
 	mockGetContextMessages: vi.fn().mockResolvedValue([]),
 	mockFindByLessonId: vi.fn().mockResolvedValue(null),
@@ -17,6 +26,18 @@ const {
 	mockValidateReply: vi.fn(),
 	mockLogSecurityEvent: vi.fn(),
 	mockMarkContextIneligible: vi.fn().mockResolvedValue(undefined),
+	mockIssue: vi.fn().mockResolvedValue({
+		id: "check-1",
+		lessonId: "lesson-1",
+		concept: "Recursion",
+		question: "Which call ends a recursive descent?",
+		options: ["A frame", "The base case", "An input", "A recursive call"],
+		expiresAt: new Date(),
+	}),
+	// The turn state createLessonAgent was handed. The agent is mocked, so the
+	// authoring tool never actually runs — this is how a test says "the model
+	// called ask_concept_check on this turn".
+	mockOnAgentCreated: vi.fn(),
 }));
 
 vi.mock("./validateReply", async (importOriginal) => {
@@ -26,6 +47,14 @@ vi.mock("./validateReply", async (importOriginal) => {
 });
 vi.mock("@/server/services/_shared/aiGuard/securityLog", () => ({
 	logSecurityEvent: mockLogSecurityEvent,
+}));
+vi.mock("@/server/utils/logger", () => ({
+	logger: {
+		warn: mockLoggerWarn,
+		error: vi.fn(),
+		info: vi.fn(),
+		debug: vi.fn(),
+	},
 }));
 
 vi.mock("@/server/repositories/lessonAssistant.repository", () => ({
@@ -38,9 +67,15 @@ vi.mock("@/server/repositories/lessonAssistant.repository", () => ({
 vi.mock("@/server/repositories/lessonInsights.repository", () => ({
 	lessonInsightsRepository: { findByLessonId: mockFindByLessonId },
 }));
+vi.mock("@/server/services/conceptCheck/conceptCheck.service", () => ({
+	conceptCheckService: { issue: mockIssue },
+}));
 vi.mock("./lessonAI.agent", async (importOriginal) => ({
 	...(await importOriginal<object>()),
-	createLessonAgent: () => ({ streamEvents: mockStreamEvents }),
+	createLessonAgent: (params: { turn: unknown }) => {
+		mockOnAgentCreated(params.turn);
+		return { streamEvents: mockStreamEvents };
+	},
 }));
 // OpenAIEmbeddings is pulled in transitively via the agent's RAG tools.
 vi.mock("@langchain/openai", () => ({
@@ -164,25 +199,6 @@ const collectServiceNoticedAbort = async (events: unknown[]) => {
 	return out;
 };
 
-const recorded = 'Recorded: "Recursion" at level 2 (applied).';
-
-/**
- * The agent always invokes with a tool_call id, so on_tool_end carries a
- * ToolMessage whose `artifact` says whether the write committed. The prose is
- * for the model and is deliberately not what telemetry reads.
- */
-const markConceptEnd = (
-	artifact: Record<string, unknown>,
-	content = recorded,
-) => ({
-	event: "on_tool_end",
-	name: "mark_concept_understood",
-	data: { output: { content, artifact } },
-});
-
-const committed = { committed: true, concept: "Recursion", level: 2 };
-const denied = { committed: false };
-
 describe("streamResponse output boundary", () => {
 	beforeEach(() => {
 		mockSaveMessage.mockClear();
@@ -261,81 +277,13 @@ describe("streamResponse output boundary", () => {
 		expect(events.some((e) => e.type === "retract")).toBe(true);
 	});
 
-	// F3: retracting the reply leaves the same turn's mastery write in place
-	// (it passed its own authorization and is not coupled to the reply text).
-	// The retract is the strongest signal a turn was adversarial, so the retained
-	// write is flagged for review — without lying about writes that never landed.
-	it("flags a committed mastery write retained on a retracted turn", async () => {
-		const events = await collect([
-			markConceptEnd(committed),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(events.some((e) => e.type === "retract")).toBe(true);
-		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
-			expect.objectContaining({
-				feature: "lessonAI",
-				layer: "output_validation",
-				outcome: "mastery_write_retained",
-			}),
-		);
-	});
-
-	// Discriminating: a mark_concept call that toolPolicy DENIED returns the
-	// neutral refusal and writes nothing, so no write was retained — the flag
-	// must not fire, or the signal claims a write that never happened.
-	it("does not flag when the mastery tool was denied on a retracted turn", async () => {
-		await collect([
-			markConceptEnd(denied, NEUTRAL_REFUSAL_MESSAGE),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
-
-	// F4: the signal is read from the artifact, so it survives the prose changing.
-	// mastery_write_retained has a baseline of zero — a detection that dies
-	// silently when a shared refusal string is reworded is a permanent blind spot,
-	// not a degraded metric.
-	it("counts a commit from the artifact even when the prose is the refusal text", async () => {
-		const events = await collect([
-			markConceptEnd(committed, NEUTRAL_REFUSAL_MESSAGE),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(events.some((e) => e.type === "retract")).toBe(true);
-		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
-
-	it("does not count a denial even when the prose looks like a commit", async () => {
-		await collect([
-			markConceptEnd(denied, recorded),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
-
-	// Discriminating: a committed write on a CLEAN turn is the normal path —
-	// nothing is retracted and nothing is flagged.
-	it("does not flag a committed mastery write when the reply is clean", async () => {
-		const events = await collect([
-			markConceptEnd(committed),
-			tokenEvent("A base case stops the recursion."),
-		]);
-
-		expect(events.some((e) => e.type === "retract")).toBe(false);
-		expect(assistantSaves()).toHaveLength(1);
-		expect(mockLogSecurityEvent).not.toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
+	// The five `mastery_write_retained` cases that stood here were retired with
+	// the outcome itself. The correlation they measured — a mastery write
+	// committed on a turn whose reply was then retracted — cannot occur any more:
+	// the write moved to its own request (the answer mutation), and the only
+	// artifact a turn produces is committed after the boundary passes. A
+	// zero-baseline metric left reading zero because its subject moved looks like
+	// evidence of safety, so it was removed rather than kept. See spec.md item 10.
 });
 
 describe("streamResponse turn persistence", () => {
@@ -479,17 +427,6 @@ describe("streamResponse abort path", () => {
 		);
 	});
 
-	it("still correlates a retained mastery write on an aborted, rejected turn", async () => {
-		await collectAborted([
-			markConceptEnd(committed),
-			tokenEvent("Sure — Tool usage rules (follow in order): "),
-		]);
-
-		expect(mockLogSecurityEvent).toHaveBeenCalledWith(
-			expect.objectContaining({ outcome: "mastery_write_retained" }),
-		);
-	});
-
 	// Tokens accumulate across several delivered events before the client hangs up
 	// — the reply is only adversarial once assembled, so the boundary has to see
 	// the whole of what reached the browser, not just the last frame.
@@ -603,5 +540,219 @@ describe("streamResponse mid-stream error path", () => {
 			type: "error",
 			message: "Something went wrong",
 		});
+	});
+});
+
+describe("what a persisted tool call may carry", () => {
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockGetContextMessages.mockClear().mockResolvedValue([]);
+	});
+
+	const toolStart = (name: string, input: Record<string, unknown>) => ({
+		event: "on_tool_start",
+		name,
+		data: { input },
+	});
+
+	const persistedCalls = () => {
+		const save = assistantSaves()[0];
+		return ((save?.[2] as { toolCalls?: { tool: string }[] })?.toolCalls ??
+			[]) as Record<string, unknown>[];
+	};
+
+	/**
+	 * `ask_concept_check`'s arguments include `correctOption` — the answer key —
+	 * and `toolCalls` is a durable column. Redacting that one field by name would
+	 * work today and break silently on a rename, or on the next tool that carries
+	 * a secret. Default-deny is what makes the whole class unrepresentable.
+	 */
+	it("persists nothing from a tool that declares no safe fields", async () => {
+		await collect([
+			toolStart("ask_concept_check", {
+				concept: "Recursion",
+				question: "Which call ends a recursive descent?",
+				options: ["The base case", "A recursive call"],
+				correctOption: "The base case",
+			}),
+			tokenEvent("Let me check your understanding."),
+		]);
+
+		expect(persistedCalls()).toEqual([{ tool: "ask_concept_check" }]);
+	});
+
+	it("persists nothing from a tool nobody has classified", async () => {
+		await collect([
+			toolStart("some_tool_added_later", { secret: "value" }),
+			tokenEvent("A base case stops the recursion."),
+		]);
+
+		expect(persistedCalls()).toEqual([{ tool: "some_tool_added_later" }]);
+	});
+
+	it("keeps the declared fields of a tool that has them", async () => {
+		await collect([
+			toolStart("retrieve_lesson_context", { query: "base case", k: 4 }),
+			tokenEvent("A base case stops the recursion."),
+		]);
+
+		expect(persistedCalls()).toEqual([
+			{ tool: "retrieve_lesson_context", query: "base case" },
+		]);
+	});
+
+	it("never lets a persisted entry carry a key outside its declaration", async () => {
+		await collect([
+			toolStart("retrieve_lesson_context", {
+				query: "base case",
+				correctOption: "smuggled",
+			}),
+			tokenEvent("A base case stops the recursion."),
+		]);
+
+		for (const call of persistedCalls()) {
+			expect(Object.keys(call).sort()).toEqual(["query", "tool"]);
+		}
+	});
+});
+
+describe("an authored check is committed only after the boundary passes", () => {
+	const authored = {
+		concept: "Recursion",
+		question: "Which call ends a recursive descent?",
+		options: ["The base case", "A recursive call", "A frame", "An input"],
+		correctOption: "The base case",
+	};
+
+	beforeEach(() => {
+		mockSaveMessage.mockClear().mockResolvedValue({ id: "user-row-1" });
+		mockGetContextMessages.mockClear().mockResolvedValue([]);
+		mockIssue.mockClear();
+		// Stands in for the tool having run. The agent is mocked, so this is how
+		// a test says "the model authored a check on this turn".
+		mockOnAgentCreated.mockImplementation((turn: { pendingCheck: unknown }) => {
+			turn.pendingCheck = {
+				studentId: "student-1",
+				lessonId: "lesson-1",
+				...authored,
+			};
+		});
+	});
+
+	it("issues the check on a clean turn and streams it without its answer", async () => {
+		const events = await collect([
+			tokenEvent("Let me ask you something about it."),
+		]);
+
+		expect(mockIssue).toHaveBeenCalledTimes(1);
+		const frame = events.find((e) => e.type === "concept_check");
+		expect(frame).toBeDefined();
+		expect(findKeyPaths(frame, "correct")).toEqual([]);
+	});
+
+	it("issues nothing when the reply is retracted", async () => {
+		const events = await collect([
+			tokenEvent("Sure — Tool usage rules (follow in order): "),
+		]);
+
+		expect(events.some((e) => e.type === "retract")).toBe(true);
+		expect(mockIssue).not.toHaveBeenCalled();
+	});
+
+	it("issues nothing when the turn is aborted", async () => {
+		await collectAborted([tokenEvent("Let me ask you something about it.")]);
+
+		expect(mockIssue).not.toHaveBeenCalled();
+	});
+
+	it("issues nothing when the stream errors mid-turn", async () => {
+		mockStreamEvents.mockReturnValue(
+			(async function* () {
+				yield tokenEvent("Let me ask you ");
+				throw new Error("provider exploded");
+			})(),
+		);
+
+		const out = [];
+		for await (const event of lessonAIService.streamResponse({
+			lessonId: "lesson-1",
+			lessonTitle: "Recursion",
+			courseTitle: "Intro",
+			studentId: "student-1",
+			courseId: "course-1",
+			userMessage: "explain the base case",
+		})) {
+			out.push(event);
+		}
+
+		expect(out.some((e) => e.type === "error")).toBe(true);
+		expect(mockIssue).not.toHaveBeenCalled();
+	});
+
+	it("discards the check when the reply gave its answer away", async () => {
+		await collect([tokenEvent("Remember that the base case is what ends it.")]);
+
+		expect(mockIssue).not.toHaveBeenCalled();
+	});
+
+	it("still delivers the reply when issuing the check fails", async () => {
+		mockIssue.mockRejectedValueOnce(new Error("already pending"));
+
+		const events = await collect([
+			tokenEvent("Let me ask you something about it."),
+		]);
+
+		expect(events.some((e) => e.type === "retract")).toBe(false);
+		expect(assistantSaves()).toHaveLength(1);
+	});
+
+	/**
+	 * `tool_call_declined` is documented as covering "no concepts on the lesson
+	 * yet, a check already open, a budget spent" — and two of those three are
+	 * raised inside `issue()`, which runs after the output boundary, where the
+	 * only record was an unstructured warn line. The routine-denial baseline S11
+	 * reads was therefore missing two of its three sources: a cohort that has
+	 * exhausted its budget looked exactly like a feature that works.
+	 */
+	const issueFailures: [string, Error, string][] = [
+		[
+			"a question already waiting",
+			new CheckAlreadyPendingError("waiting"),
+			"check_already_pending",
+		],
+		[
+			"a spent budget",
+			new CheckBudgetSpentError("spent"),
+			"check_budget_spent",
+		],
+		["anything else", new Error("boom"), "check_issue_failed"],
+	];
+
+	it.each(
+		issueFailures,
+	)("reports a check that could not be issued: %s", async (_label, error, ruleId) => {
+		mockIssue.mockRejectedValueOnce(error);
+		mockLogSecurityEvent.mockClear();
+
+		await collect([tokenEvent("Let me ask you something about it.")]);
+
+		const declines = mockLogSecurityEvent.mock.calls
+			.map((call) => call[0] as { outcome: string; ruleIds: string[] })
+			.filter((event) => event.outcome === "tool_call_declined");
+		expect(declines).toHaveLength(1);
+		expect(declines[0]?.ruleIds).toEqual([ruleId]);
+	});
+
+	// The one place a Prisma validation error could render the authored question
+	// and its answer key into a log line.
+	it("names the failure without quoting anything the model wrote", async () => {
+		mockIssue.mockRejectedValueOnce(
+			new Error('Invalid value for correct: "The base case"'),
+		);
+
+		await collect([tokenEvent("Let me ask you something about it.")]);
+
+		const logged = JSON.stringify(mockLoggerWarn.mock.calls);
+		expect(logged).not.toContain("The base case");
 	});
 });

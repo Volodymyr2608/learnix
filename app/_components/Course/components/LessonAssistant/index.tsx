@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { SafeAnchor } from "@/app/_components/_shared/markdown/SafeAnchor";
 import { modelOutputUrlPolicy } from "@/app/_components/_shared/markdown/urlPolicy";
+import { ConceptCheckPanel } from "./components/ConceptCheckPanel";
 import { useLessonAssistant } from "./hooks/useLessonAssistant";
 
 export function LessonAssistant({ lessonId }: { lessonId: string }) {
@@ -33,6 +34,7 @@ export function LessonAssistant({ lessonId }: { lessonId: string }) {
 
 	return (
 		<div className="flex flex-col gap-3">
+			<ConceptCheckPanel lessonId={lessonId} />
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2 font-medium text-sm">
 					<Bot className="h-4 w-4" />

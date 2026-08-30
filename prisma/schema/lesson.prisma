@@ -22,6 +22,7 @@ model Lesson {
   lessonInsights   LessonInsights?
   chunkEmbeddings              LessonChunkEmbedding[]
   lessonAssistantConversations LessonAssistantConversation[]
+  conceptChecks                ConceptCheck[]
 
   @@index([deletedAt])
   @@map("lessons")

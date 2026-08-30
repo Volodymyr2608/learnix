@@ -524,6 +524,25 @@ which is the same cross-tenant tail the finalize exclusion already flags.
 
   quizAI's `exclusions` entry was therefore narrowed, not dropped: deleting it would have the matrix
   certify a guarantee that does not hold. The second claim keeps its tracking here.
+
+  **Amended again 2026-08-30 (mastery-scale).** The second claim now has a sibling on a different
+  surface, and the two must not be conflated:
+
+  - **quizAI** — the key is model-authored from lesson content, and a poisoned lesson can steer which
+    option is marked correct. **Unchanged, still open.** What did change is the blast radius: a quiz
+    pass now promotes only the concepts its questions were *tagged* with, and those tags are
+    re-resolved against the lesson's allowlist at both boundaries (generation and instructor upsert),
+    so a poisoned tag is dropped rather than stored.
+  - **lessonAI (`ConceptCheck`)** — a second model-authored answer key, on a second surface. It is
+    *better* guarded than quizAI's: the key is never loaded on a read path, the option order is a
+    server CSPRNG shuffle so positional dictation is a no-op, and grading compares option text rather
+    than an index. It is not *fully* guarded: grounding means "lesson text reached the model this
+    turn", not "the answer came from it", so a payload delivered through retrieval satisfies the one
+    control against a dictated answer (`ai-tutor-guardrails/security.md` S13 §35).
+
+  Neither is blocking here. Both are the same underlying gap — **nothing checks whether a
+  model-authored correct answer is the right one** — and closing it needs an instrument that does not
+  exist yet: a rate, not an event (S13 §13).
 - **C5 (content length caps)** — the URL-field caps are folded in here (AC 57) because this feature
   already edits those three lines; `content` / `title` / `description` remain C5's.
 - **S13 §13 (event sink)** — not blocking, cost raised (S16 §8).

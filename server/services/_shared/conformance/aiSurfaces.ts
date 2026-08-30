@@ -82,7 +82,14 @@ export const AI_SURFACES: SurfaceConformance[] = [
 	{
 		feature: "lessonAI",
 		modelCallers: ["server/services/lessonAI/lessonAI.agent.ts"],
-		trpcProcedures: [],
+		// The answer path is out of band: it reaches the same feature's data
+		// through tRPC rather than through the SSE route, and constructs no model,
+		// so it needs no GUARDED_ENTRY_POINTS entry. Declared here so the surface's
+		// reachable procedures are the ones an audit actually finds.
+		trpcProcedures: [
+			"lessonAssistant.pendingCheck",
+			"lessonAssistant.answerConceptCheck",
+		],
 		rawRoutes: ["app/api/chat/lesson/route.ts"],
 		inputGuard: APPLIED,
 		wrapping: APPLIED,

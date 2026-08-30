@@ -15,7 +15,6 @@ const FORWARD_TO_SENTRY: Record<SecurityOutcome, boolean> = {
 	// Zero-baseline: normal rate is zero, so any occurrence is the signal.
 	unsafe_tool_call: true,
 	fallback_triggered: true,
-	mastery_write_retained: true,
 	content_revised_retained: true,
 	// Rate-based and attacker-triggerable — forwarding would hand out the
 	// throttle's quota lever (AC 24).
@@ -26,6 +25,10 @@ const FORWARD_TO_SENTRY: Record<SecurityOutcome, boolean> = {
 	// flood Sentry with normal behaviour. Nothing consumes it yet (security.md
 	// S10 item 4) — it is evidence for a later investigation, not detection.
 	mastery_promoted: false,
+	// Normal operation: a student who already has a question waiting, or a lesson
+	// whose insights have not generated. Its baseline is NOT zero, which is
+	// precisely why it exists as its own outcome.
+	tool_call_declined: false,
 	// Report-only, ~10% measured false-positive rate over every persisted
 	// model-authored field — conformance/aiSurfaces.ts:72. Highest-volume
 	// outcome in the taxonomy; forwarding it is the S6 flood pattern.
@@ -54,9 +57,28 @@ export const logSecurityEvent = (event: SecurityEvent): void => {
 	);
 
 	if (FORWARD_TO_SENTRY[event.outcome]) {
-		reportMessage(`aiGuard:${event.outcome}`, ["aiGuard", event.outcome], {
-			feature: event.feature,
-			userId: event.userId,
-		});
+		// The forward is telemetry; the caller is an authorization decision.
+		// This function runs synchronously inside `deny()`, which runs inside the
+		// tool, so a throwing sink would not merely lose an event — it would
+		// propagate out of the policy and fail the student's turn. The alert path
+		// must not be able to break the path it is watching.
+		//
+		// The event itself is already in the log line above, so nothing is lost
+		// but the Sentry copy, and that loss is reported rather than swallowed.
+		try {
+			reportMessage(`aiGuard:${event.outcome}`, ["aiGuard", event.outcome], {
+				feature: event.feature,
+				userId: event.userId,
+			});
+		} catch (error) {
+			// `warn`, not `error`: the error level forwards to the same sink that
+			// just failed (logger.ts routes it through reportError), so reporting
+			// the failure there re-enters the broken path and throws out of the
+			// catch that exists to prevent exactly that.
+			logger.warn(
+				{ err: error instanceof Error ? error.name : "unknown" },
+				"[aiGuard] security event could not be forwarded",
+			);
+		}
 	}
 };

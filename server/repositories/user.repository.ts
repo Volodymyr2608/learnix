@@ -80,6 +80,31 @@ export default class UserRepository extends BaseRepository<
 				// Private authored content. The two message deletes are redundant with the
 				// `Cascade` on their parent — they are kept deliberately so that a future
 				// downgrade of either cascade cannot silently strand the transcripts.
+				// Model-authored questions about this student, with their answer keys.
+				// The FK cascade is defence in depth and NOT the control: ADR-025 never
+				// deletes the `User` row (`databaseHooks.user.delete.before` returns
+				// false), so `onDelete` never fires on this path. `ConceptCheck` is in
+				// the destroyed class, like the assistant transcripts, which is why the
+				// relation is declared `Cascade` — but the delete below is what
+				// actually runs.
+				await tx.conceptCheck.deleteMany({ where: { studentId: userId } });
+
+				// The two archive tables the mastery migrations wrote. They hold this
+				// student's educational record — studentId, courseId, concept, level —
+				// but they are not in `prisma/schema`, carry no foreign key, and are
+				// therefore reached by nothing else: no cascade, no Restrict, no
+				// Prisma model. Without these two statements an erased account leaves
+				// its mastery history behind in tables nobody is looking at.
+				//
+				// These lines are deleted together with the tables, on the dated drop
+				// recorded in account-deletion-data-retention/spec.md.
+				await tx.$executeRaw`
+				DELETE FROM "concept_mastery_archive_merge" WHERE "studentId" = ${userId}
+			`;
+				await tx.$executeRaw`
+				DELETE FROM "concept_mastery_archive_le2" WHERE "studentId" = ${userId}
+			`;
+
 				await tx.lessonAssistantMessage.deleteMany({
 					where: { conversation: { studentId: userId } },
 				});

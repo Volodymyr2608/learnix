@@ -64,6 +64,8 @@ Destroyed outright:
 | `Session`, `Account` | credentials — retaining them would make the anonymisation reversible |
 | `Verification` | pending password-reset and verification tokens are credentials; a live token outliving the account is a path back in |
 | `LessonAssistantConversation` + its messages | free text the student wrote to the tutor, including anything disclosed about themselves |
+| `ConceptCheck` | model-authored questions **about this student**, each carrying an answer key. Sibling of the conversation it was asked in; the relation is `Cascade` because the row is in this class, but the cascade never fires — see below |
+| `concept_mastery_archive_merge`, `concept_mastery_archive_le2` | educational records this student earned, archived by the mastery-scale migrations before those rows were merged or deleted. **Not Prisma models**, so they carry no foreign key and nothing reaches them implicitly |
 | `CourseGeneration` + `CourseGenerationMessage` | same, for the instructor's AI course-builder chat |
 | `UserInterestEmbedding` | a behavioural profile, derived solely from this person |
 | `LearningPathCache` | a per-student, regenerable AI cache derived solely from that student's behaviour (`steps`, `summary`, `weakConcepts`, `staleAt`); sibling of `UserInterestEmbedding` |
@@ -85,6 +87,22 @@ Retained or scrubbed, now pointing at an anonymous principal:
 `enrollmentRepository.findByIdWithRelations`, and `findCompletedByStudent` lists them. Retaining
 `Enrollment` is therefore the mechanism by which an already-issued certificate stays verifiable;
 there is no certificate row to anonymise.
+
+**3a. A table outside the schema is reached by nothing, so it must be named explicitly.** Because
+anonymisation never deletes the `User` row, no `onDelete` action fires on this path at all — a
+`Cascade` on a destroyed-class relation is defence in depth, never the control. A table Prisma does
+not model has neither, which is why the two mastery archives above are raw `DELETE` statements in
+`anonymiseAccount`. They were invisible to every other mechanism in this design: no model, no
+foreign key, no cascade, no `Restrict`.
+
+**Dated drop, with an owner.** The two archive tables exist to make the mastery-scale migrations
+reversible, and that need expires. They are to be dropped **on or after 2026-11-30** (three months
+after the migration landed on 2026-08-30) by **the owner of the `ai-tutor-guardrails` feature** —
+whoever ships the next change to the tutor's prompt, tools, or guard, per that feature's
+`manual-qa.md`. Dropping them also deletes the two `DELETE` statements in `anonymiseAccount` and this
+table's second row; until then, both stay. Note that the documented rollback in each migration cannot
+run as written against the post-migration schema — the `CHECK` and the unique index have to be
+dropped first, and `concept_mastery_archive_le2` holds rows at `level <= 1` despite its name.
 
 **4. Cascades that must never fire again are downgraded to `Restrict`.** Every relation in the
 "retained" table above moves from `onDelete: Cascade` to `onDelete: Restrict`. Deletion is now an
@@ -129,7 +147,8 @@ before this ships (there are none in production).
 
 **Private authored content is destroyed**
 
-- No `LessonAssistantConversation`, `LessonAssistantMessage`, `CourseGeneration`, `CourseGenerationMessage`, `UserInterestEmbedding`, `LearningPathCache`, or `NotificationLog` row referencing the deleted user survives.
+- No `LessonAssistantConversation`, `LessonAssistantMessage`, `ConceptCheck`, `CourseGeneration`, `CourseGenerationMessage`, `UserInterestEmbedding`, `LearningPathCache`, or `NotificationLog` row referencing the deleted user survives.
+- No row in `concept_mastery_archive_merge` or `concept_mastery_archive_le2` carries the deleted user's `studentId`. Asserted directly against the tables, because neither is a Prisma model and nothing else in the codebase names them.
 - In particular a `CourseGeneration` row is destroyed (which is only reachable once its foreign key exists).
 
 **Instructor profile is scrubbed, not destroyed**

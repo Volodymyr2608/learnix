@@ -3,6 +3,7 @@ import { EnrollmentStatus, MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import {
@@ -10,6 +11,11 @@ import {
 	quizAttemptRepository,
 } from "@/server/repositories/quizAttempt.repository";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import {
+	conceptKey,
+	resolveAllowlistedConcept,
+	retagWithAllowlist,
+} from "@/server/services/_shared/concepts/conceptKey";
 import {
 	canonicalConceptName,
 	QUIZ_MASTERY_LEVEL,
@@ -25,7 +31,7 @@ import {
 
 type QuizInput = Pick<
 	Prisma.QuizUncheckedCreateInput,
-	"question" | "options" | "correct"
+	"question" | "options" | "correct" | "concept"
 >;
 
 /**
@@ -95,18 +101,75 @@ const evidenceFor = (attemptCounts: (number | null)[]): MasteryEvidence => {
 		: MasteryEvidence.QUIZ_RETRIED;
 };
 
+/**
+ * What a finished lesson promotes, and with what provenance.
+ *
+ * A tagged question says which concept it tested, so passing it is evidence
+ * about that concept and nothing else. Only when NO question on the lesson
+ * carries a tag does the old lesson-wide rule apply — that is a legacy quiz set,
+ * written before the column existed, and there is nothing better to fall back
+ * on.
+ *
+ * A partly tagged lesson promotes only its tagged concepts. The untagged
+ * question tested something, but nothing records what, and manufacturing
+ * lesson-wide coverage out of it is exactly the claim `Quiz.concept` exists to
+ * stop the platform making. Under-granting is the safe direction here: a missing
+ * level 3 shows up as a review step the student does not need, while a false one
+ * is monotonic and cannot be taken back.
+ */
+const promotionsFor = (
+	quizzes: { id: string; concept: string | null }[],
+	attemptCounts: Map<string, number | null>,
+	lessonConcepts: string[],
+): { concept: string; evidence: MasteryEvidence }[] => {
+	const countOf = (quizId: string) => attemptCounts.get(quizId) ?? null;
+	const tagged = quizzes.filter((quiz) => quiz.concept !== null);
+
+	if (tagged.length === 0) {
+		const evidence = evidenceFor(quizzes.map((quiz) => countOf(quiz.id)));
+		return lessonConcepts.map((concept) => ({ concept, evidence }));
+	}
+
+	// Grouped by the stored key so two spellings of one concept score together,
+	// and resolved back to the lesson's spelling so the tag cannot introduce a
+	// name the allowlist does not hold.
+	const byKey = new Map<string, (number | null)[]>();
+	for (const quiz of tagged) {
+		if (quiz.concept === null) continue;
+		const key = conceptKey(quiz.concept);
+		byKey.set(key, [...(byKey.get(key) ?? []), countOf(quiz.id)]);
+	}
+
+	const promotions: { concept: string; evidence: MasteryEvidence }[] = [];
+	for (const [key, counts] of byKey) {
+		const resolved = resolveAllowlistedConcept(key, lessonConcepts);
+		if (resolved === null) continue;
+		promotions.push({
+			concept: resolved.concept,
+			evidence: evidenceFor(counts),
+		});
+	}
+	return promotions;
+};
+
 class QuizService {
+	/**
+	 * Returns the lesson's concept allowlist, read from the row the ownership
+	 * check returned. The query that authorizes is the query that reads, so a
+	 * caller who fails the check never reaches an allowlist at all — and a caller
+	 * who passes it cannot be handed one belonging to a different lesson.
+	 */
 	private async verifyInstructorOwnership(
 		lessonId: string,
 		instructorId: string,
-	) {
+	): Promise<string[]> {
 		const lesson = await lessonRepository.findFirst({
 			where: {
 				id: lessonId,
 				deletedAt: null,
 				section: { course: { instructorId } },
 			},
-			select: { id: true },
+			select: { id: true, lessonInsights: { select: { concepts: true } } },
 		});
 
 		if (!lesson) {
@@ -115,6 +178,10 @@ class QuizService {
 				"FORBIDDEN",
 			);
 		}
+
+		return parseStoredConcepts(lesson.lessonInsights?.concepts, {
+			lessonId,
+		}).map((c) => c.name);
 	}
 
 	private async verifyEnrollment(lessonId: string, studentId: string) {
@@ -273,20 +340,21 @@ class QuizService {
 		lessonId: string,
 		studentId: string,
 	): Promise<void> {
-		const quizzes = await quizRepository.findByLesson(lessonId);
+		const quizzes = await quizRepository.findConceptTagsByLesson(lessonId);
 		if (quizzes.length === 0) return;
 
+		const quizIds = quizzes.map((quiz) => quiz.id);
 		const correctCount = await quizAttemptRepository.countDistinctCorrectAmong(
-			quizzes.map((quiz) => quiz.id),
+			quizIds,
 			studentId,
 		);
 		if (correctCount < quizzes.length) return;
 
-		const attemptCounts = await quizAttemptRepository.correctAttemptCountsAmong(
-			quizzes.map((quiz) => quiz.id),
-			studentId,
-		);
-		const evidence = evidenceFor(attemptCounts);
+		const attemptCounts =
+			await quizAttemptRepository.correctAttemptCountsByQuiz(
+				quizIds,
+				studentId,
+			);
 
 		const lesson = await lessonRepository.findFirst({
 			where: { id: lessonId, deletedAt: null },
@@ -296,12 +364,15 @@ class QuizService {
 		if (!courseId) return;
 
 		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
-		const concepts = canonicalConceptNames(insights?.concepts);
+		const lessonConcepts = canonicalConceptNames(insights?.concepts);
 
-		if (concepts.length === 0) return;
+		if (lessonConcepts.length === 0) return;
+
+		const promotions = promotionsFor(quizzes, attemptCounts, lessonConcepts);
+		if (promotions.length === 0) return;
 
 		await Promise.all(
-			concepts.map((concept) =>
+			promotions.map(({ concept, evidence }) =>
 				conceptMasteryRepository.upsertMastery(
 					studentId,
 					courseId,
@@ -332,8 +403,19 @@ class QuizService {
 		instructorId: string,
 	) {
 		try {
-			await this.verifyInstructorOwnership(lessonId, instructorId);
-			return await quizRepository.replaceForLesson(lessonId, questions);
+			const allowlist = await this.verifyInstructorOwnership(
+				lessonId,
+				instructorId,
+			);
+			// The questions arrive from the client, which means the tag does too —
+			// including on the path where the instructor edits generated questions
+			// before saving. Resolving again here is what stops a hand-crafted
+			// request from tagging a question with any concept it likes and
+			// promoting it to level 3 on the first pass.
+			return await quizRepository.replaceForLesson(
+				lessonId,
+				retagWithAllowlist(questions, allowlist),
+			);
 		} catch (error) {
 			if (error instanceof QuizForbiddenError) throw error;
 			logger.error("Failed to save quizzes:", error);

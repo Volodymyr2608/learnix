@@ -2,6 +2,7 @@ import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { Role } from "@/generated/prisma";
 import { testDb } from "@/test/db";
 import {
+	makeConceptMastery,
 	makeCourse,
 	makeEnrollment,
 	makeLesson,
@@ -100,22 +101,22 @@ async function seedScenario() {
 		],
 	});
 
-	// Low mastery on Next.js and Prisma (level < 3) → identifyWeakSignals flags lessonA.
-	await testDb.conceptMastery.createMany({
-		data: [
-			{
-				studentId: student.id,
-				courseId: course.id,
-				concept: "Next.js",
-				level: 1,
-			},
-			{
-				studentId: student.id,
-				courseId: course.id,
-				concept: "Prisma",
-				level: 2,
-			},
-		],
+	// Evidence below mastery on Next.js and Prisma (level < 3) → identifyWeakSignals
+	// flags lessonA. Level 2 is the floor: 0 and 1 recorded exposure, which the
+	// node now derives from the completed lesson instead of reading from a row.
+	// Seeded through the factory so `conceptKey` is derived from the spelling
+	// rather than asserted twice.
+	await makeConceptMastery({
+		studentId: student.id,
+		courseId: course.id,
+		concept: "Next.js",
+		level: 2,
+	});
+	await makeConceptMastery({
+		studentId: student.id,
+		courseId: course.id,
+		concept: "Prisma",
+		level: 2,
 	});
 
 	// Failed quiz on lessonB (different lesson from weak-concept lesson) so the
@@ -284,6 +285,8 @@ describe("LearningPathAIService", () => {
 
 			expect(cached).not.toBeNull();
 			expect(cached?.staleAt).toBeNull();
+			// The model's own `weakConcepts`, not the derived set: this asserts the
+			// cache stores what mergeAndExplain returned.
 			expect(cached?.weakConcepts).toEqual(["Next.js", "Prisma"]);
 		});
 	});

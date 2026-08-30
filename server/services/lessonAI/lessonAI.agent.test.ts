@@ -22,6 +22,7 @@ vi.mock("@langchain/openai", () => ({
 const { createLessonAgent, buildTutorSystemPrompt } = await import(
 	"./lessonAI.agent"
 );
+const { newTurnState } = await import("./turnState");
 
 const build = (over: Partial<Parameters<typeof createLessonAgent>[0]> = {}) => {
 	mockCreateAgent.mockReset().mockReturnValue({});
@@ -31,6 +32,7 @@ const build = (over: Partial<Parameters<typeof createLessonAgent>[0]> = {}) => {
 		courseTitle: "Intro to Python",
 		studentId: "s1",
 		courseId: "c1",
+		turn: newTurnState(),
 		...over,
 	});
 	return mockCreateAgent.mock.calls[0]?.[0].systemPrompt as string;
@@ -162,11 +164,24 @@ describe("lessonAI system prompt", () => {
 	});
 
 	/** The positive trigger must survive: refusing everything is the other failure. */
-	it("still tells the model to mark a concept the student demonstrates", () => {
+	it("still tells the model to check a concept the student claims", () => {
 		const prompt = build();
 
-		expect(prompt).toContain("mark_concept_understood");
-		expect(prompt).toMatch(/correct (definition|example)/i);
+		expect(prompt).toContain("ask_concept_check");
+		expect(prompt).toMatch(/claims? they understand/i);
+	});
+
+	/**
+	 * The prompt must not offer to record understanding on request, because the
+	 * tutor cannot record it at all any more. A rule that still described marking
+	 * would be asking the model for a tool it does not hold — which reads to the
+	 * model as a capability it should improvise.
+	 */
+	it("never offers to record understanding", () => {
+		const prompt = build();
+
+		expect(prompt).not.toContain("mark_concept_understood");
+		expect(prompt).toMatch(/cannot record, mark or credit understanding/i);
 	});
 
 	it("binds exactly the four allowlisted tools", () => {

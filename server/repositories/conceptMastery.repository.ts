@@ -4,6 +4,8 @@ import type {
 	MasteryEvidence,
 	Prisma,
 } from "@/generated/prisma";
+import type { db } from "@/server/db";
+import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
 import type { MasteryRow } from "@/server/services/learningPathAI/learningPathAI.state";
 import { BaseRepository } from "./base/base.repository";
 
@@ -19,12 +21,22 @@ class ConceptMasteryRepository extends BaseRepository<
 > {
 	protected readonly modelName = "conceptMastery" as const;
 
+	/**
+	 * `client` lets this join a caller's transaction. It is not a convenience:
+	 * `BaseRepository` exposes `db` and never `tx`, so a repository singleton
+	 * called from inside `$transaction` issues its statement on a DIFFERENT
+	 * connection and commits independently — two writes behind a comment claiming
+	 * atomicity. `user.repository.ts` documents the same trap from the other side.
+	 * The concept-check answer path passes its `tx` so the claim that authorised
+	 * the write and the write itself succeed or fail together.
+	 */
 	async upsertMastery(
 		studentId: string,
 		courseId: string,
 		concept: string,
 		level: number,
 		evidence: MasteryEvidence,
+		client: Prisma.TransactionClient | typeof db = this.db,
 	): Promise<ConceptMastery> {
 		// Monotonic by construction: a later, lower write cannot undo an earlier,
 		// higher one. The level-3-by-quiz rule depends on this and nothing else
@@ -34,20 +46,27 @@ class ConceptMasteryRepository extends BaseRepository<
 		// describe the level the row actually holds, so a level-2 write over a
 		// level-3 row leaves both alone — including a NULL, which says the row
 		// predates the column and must not be given a story it did not earn.
+		// The conflict target is the KEY, not the spelling: two callers that
+		// disagree about case or whitespace are talking about one concept, and the
+		// old target let the second of them insert a second row. The stored
+		// spelling stays whichever one arrived first — presentation, not identity.
 		const id = randomUUID();
-		const rows = await this.db.$queryRaw<ConceptMastery[]>`
-			INSERT INTO concept_mastery (id, "studentId", "courseId", concept, level, evidence, "updatedAt")
-			VALUES (${id}, ${studentId}, ${courseId}, ${concept}, ${level}, ${evidence}::"MasteryEvidence", NOW())
-			ON CONFLICT ("studentId", "courseId", concept)
+		const key = conceptKey(concept);
+		const rows = await client.$queryRaw<ConceptMastery[]>`
+			INSERT INTO concept_mastery (id, "studentId", "courseId", concept, "conceptKey", level, evidence, "updatedAt")
+			VALUES (${id}, ${studentId}, ${courseId}, ${concept}, ${key}, ${level}, ${evidence}::"MasteryEvidence", NOW())
+			ON CONFLICT ("studentId", "courseId", "conceptKey")
 			DO UPDATE SET
 				level = GREATEST(concept_mastery.level, EXCLUDED.level),
 				evidence = CASE
 					WHEN EXCLUDED.level > concept_mastery.level THEN EXCLUDED.evidence
-					-- A row written before this column existed, re-earned at the level it
-					-- already holds: its provenance is now known, and leaving it NULL
-					-- would keep counting it in the unattributed population it has just
-					-- left. Never overwrites an evidence value that already says something.
-					WHEN concept_mastery.evidence IS NULL AND EXCLUDED.level = concept_mastery.level
+					-- A row whose provenance was never knowable, re-earned at the level it
+					-- already holds: it is now known, and leaving it LEGACY would keep
+					-- counting it in the unattributed population it has just left. This
+					-- read IS NULL until the evidence column became NOT NULL; LEGACY is
+					-- what those rows were backfilled to and is the same population under
+					-- a name. Never overwrites evidence that already says something.
+					WHEN concept_mastery.evidence = 'LEGACY' AND EXCLUDED.level = concept_mastery.level
 						THEN EXCLUDED.evidence
 					ELSE concept_mastery.evidence
 				END,

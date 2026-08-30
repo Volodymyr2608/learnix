@@ -3,6 +3,12 @@ export type EditableQuestion = {
 	question: string;
 	options: [string, string, string, string];
 	correctIndex: number;
+	/**
+	 * The concept the generator tagged this question with. Carried through the
+	 * dialog untouched and never edited here — the server resolves it again on
+	 * save, so the form has no reason to offer it.
+	 */
+	concept?: string;
 };
 
 export type DialogState =

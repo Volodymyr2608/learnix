@@ -48,6 +48,22 @@ export default class QuizRepository extends BaseRepository<
 	}
 
 	/**
+	 * The promotion accessor: which concept each live question tests, and nothing
+	 * else. Separate from `findByLesson` so the student payload does not grow a
+	 * field only the grader needs, and separate from the author's accessor so it
+	 * never loads the answer key.
+	 */
+	async findConceptTagsByLesson(
+		lessonId: string,
+	): Promise<{ id: string; concept: string | null }[]> {
+		return this.findMany({
+			where: { lessonId, deletedAt: null },
+			orderBy: { id: "asc" },
+			select: { id: true, concept: true },
+		}) as unknown as Promise<{ id: string; concept: string | null }[]>;
+	}
+
+	/**
 	 * The author's field set — the whole row, answer key included, for the
 	 * instructor who owns the lesson. A separate method rather than a flag on
 	 * `findByLesson`: the audience is then chosen at the call site and visible in
@@ -75,7 +91,7 @@ export default class QuizRepository extends BaseRepository<
 		lessonId: string,
 		questions: Pick<
 			Prisma.QuizUncheckedCreateInput,
-			"question" | "options" | "correct"
+			"question" | "options" | "correct" | "concept"
 		>[],
 	): Promise<Quiz[]> {
 		return this.transaction(async (tx) => {

@@ -4,8 +4,14 @@ import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.r
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { traced } from "@/server/services/_shared/tracing";
+import {
+	CheckAlreadyPendingError,
+	CheckBudgetSpentError,
+} from "@/server/services/conceptCheck/conceptCheck.errors";
+import { conceptCheckService } from "@/server/services/conceptCheck/conceptCheck.service";
 import { logger } from "@/server/utils/logger";
 import { createLessonAgent } from "./lessonAI.agent";
+import { newTurnState } from "./turnState";
 import type { ReplyValidationResult } from "./types";
 import { validateReply } from "./validateReply";
 
@@ -36,7 +42,57 @@ const toolOutputText = (output: unknown): string => {
  */
 const AGENT_RECURSION_LIMIT = 12;
 
-export class LessonAIService {
+export /**
+ * What each tool is allowed to leave behind in the durable `toolCalls` column,
+ * by name. Default-deny: a tool that is not listed persists its name and
+ * nothing else.
+ *
+ * The alternative — redacting the one field that is currently a secret — works
+ * exactly until someone renames `correctOption`, or adds a second tool that
+ * carries something. Naming what may be KEPT makes the class of leak
+ * unrepresentable rather than patched: `ask_concept_check` appears here with an
+ * empty list precisely so that reading this table answers "what does the tutor
+ * store about a check?" with "its name".
+ */
+const PERSISTABLE_TOOL_FIELDS: Record<string, readonly string[]> = {
+	retrieve_lesson_context: ["query"],
+	search_across_course: ["query"],
+	get_student_progress: [],
+	// Its arguments are the question, the options and the answer key.
+	ask_concept_check: [],
+};
+
+const summariseToolCall = (
+	tool: string,
+	input: unknown,
+): Record<string, unknown> => {
+	const allowed = PERSISTABLE_TOOL_FIELDS[tool] ?? [];
+	const summary: Record<string, unknown> = { tool };
+	if (allowed.length === 0) return summary;
+
+	const args = (input ?? {}) as Record<string, unknown>;
+	for (const field of allowed) {
+		if (args[field] !== undefined) summary[field] = args[field];
+	}
+	return summary;
+};
+
+/**
+ * Which routine denial this was, from the error's class alone.
+ *
+ * Never from its message: the message on this path can carry the authored
+ * question and its answer key.
+ */
+const declineRuleId = (error: unknown): string => {
+	if (error instanceof CheckAlreadyPendingError) return "check_already_pending";
+	if (error instanceof CheckBudgetSpentError) return "check_budget_spent";
+	return "check_issue_failed";
+};
+
+const errorName = (error: unknown): string =>
+	error instanceof Error ? error.constructor.name : "unknown";
+
+class LessonAIService {
 	async *streamResponse(params: {
 		lessonId: string;
 		lessonTitle: string;
@@ -88,6 +144,10 @@ export class LessonAIService {
 				: new AIMessage(msg.content),
 		);
 
+		// One per turn, never shared: it carries this turn's grounding and, once
+		// authored, this turn's un-committed check.
+		const turn = newTurnState();
+
 		// Layer 1: ReAct agent
 		const agent = createLessonAgent({
 			lessonId,
@@ -96,6 +156,7 @@ export class LessonAIService {
 			studentId,
 			courseId,
 			lessonConcepts,
+			turn,
 		});
 
 		const tracedStream = traced(
@@ -113,14 +174,8 @@ export class LessonAIService {
 		);
 
 		let fullReply = "";
-		const toolCallsSummary: Array<{ tool: string; input: unknown }> = [];
+		const toolCallsSummary: Array<Record<string, unknown>> = [];
 		const retrievedContent: string[] = [];
-		// Tracks whether a mark_concept_understood call actually committed this
-		// turn (vs. being denied by toolPolicy, which returns the neutral refusal
-		// and writes nothing). Used only to correlate a retained write with a
-		// retracted reply — never to claim a write that never landed.
-		let masteryCommitted = false;
-
 		// The output boundary, callable from every exit. validateReply emits its own
 		// output_validation_failed via reject(), so this must not log that outcome a
 		// second time — it only handles the validator itself throwing.
@@ -129,6 +184,7 @@ export class LessonAIService {
 				return validateReply(fullReply, {
 					userId: studentId,
 					retrievedContent,
+					pendingCheckAnswer: turn.pendingCheck?.correctOption ?? null,
 				});
 			} catch {
 				logSecurityEvent({
@@ -175,18 +231,6 @@ export class LessonAIService {
 			boundaryRun = true;
 			const validation = runOutputBoundary();
 			if (validation.valid) return;
-			// Emitted BEFORE the write, not after: this is the zero-baseline signal
-			// that S13 §24 traded against, so it must not sit behind anything fallible.
-			if (masteryCommitted) {
-				logSecurityEvent({
-					feature: "lessonAI",
-					userId: studentId,
-					layer: "output_validation",
-					outcome: "mastery_write_retained",
-					ruleIds: [validation.ruleId],
-					score: 0,
-				});
-			}
 			await retireRejectedPrompt();
 		};
 
@@ -214,27 +258,14 @@ export class LessonAIService {
 				}
 
 				if (event.event === "on_tool_start") {
-					toolCallsSummary.push({
-						tool: event.name ?? "unknown",
-						input: event.data?.input,
-					});
+					toolCallsSummary.push(
+						summariseToolCall(event.name ?? "unknown", event.data?.input),
+					);
 				}
 
 				if (event.event === "on_tool_end") {
 					const text = toolOutputText(event.data?.output);
 					if (text) retrievedContent.push(text);
-					// Read the commit from the tool's artifact, never from its prose.
-					// The prose is a user-facing string shared with two other refusal
-					// paths; rewording it is a product change nobody would expect to
-					// touch telemetry, and this signal's baseline is zero.
-					if (event.name === "mark_concept_understood") {
-						const artifact = (
-							event.data?.output as
-								| { artifact?: { committed?: boolean } }
-								| undefined
-						)?.artifact;
-						if (artifact?.committed === true) masteryCommitted = true;
-					}
 				}
 			}
 		} catch (error) {
@@ -290,19 +321,6 @@ export class LessonAIService {
 			// stochastic model, with the previous attempt replayed as ordinary
 			// conversation. The turn stays visible in the thread.
 			//
-			// Event first, then the write, then the retraction — the write is the only
-			// fallible step here, and neither the signal nor the refusal may depend on
-			// it succeeding.
-			if (masteryCommitted) {
-				logSecurityEvent({
-					feature: "lessonAI",
-					userId: studentId,
-					layer: "output_validation",
-					outcome: "mastery_write_retained",
-					ruleIds: [validation.ruleId],
-					score: 0,
-				});
-			}
 			await retireRejectedPrompt();
 			yield { type: "retract" as const, message: NEUTRAL_REFUSAL_MESSAGE };
 			return;
@@ -313,6 +331,53 @@ export class LessonAIService {
 			content: fullReply,
 			toolCalls: toolCallsSummary.length > 0 ? toolCallsSummary : undefined,
 		});
+
+		// The authored check is committed HERE and nowhere else — after the reply
+		// has been judged valid, alongside the only write of model text.
+		//
+		// This is what makes "a rejected turn leaves no artifact" true by
+		// construction rather than by a compensating delete: every earlier exit
+		// (retraction, abort, mid-stream error, consumer abandonment) returns
+		// before this line, and the buffered check simply goes out of scope. It is
+		// also what retired `mastery_write_retained` rather than reinventing it.
+		const check = turn.pendingCheck;
+		if (check && !validation.suppressCheck) {
+			try {
+				const issued = await conceptCheckService.issue(check);
+				// Typed as the keyless projection, so this frame cannot carry the
+				// answer even if someone widens the query behind it.
+				yield { type: "concept_check" as const, check: issued };
+			} catch (error) {
+				// A check that cannot be issued — one already open, a budget spent,
+				// an enrollment that ended mid-turn — must not take the reply down
+				// with it. The student has already read the answer; losing the
+				// question is the smaller failure, and it is recoverable by asking
+				// again.
+				//
+				// It is still a denial, and two of the three reasons the taxonomy
+				// lists for `tool_call_declined` are raised here rather than in
+				// toolPolicy — `issue()` runs after the output boundary. Without
+				// this the routine-denial baseline S11 reads is missing two of its
+				// three sources, and a cohort that has exhausted its budget is
+				// indistinguishable from a feature that works.
+				logSecurityEvent({
+					feature: "lessonAI",
+					userId: check.studentId,
+					layer: "tool_policy",
+					outcome: "tool_call_declined",
+					ruleIds: [declineRuleId(error)],
+					score: 0,
+				});
+				// The class and nothing else. A Prisma validation error renders its
+				// `data` argument into `message`, which on this path is the authored
+				// question, its options and its answer key — the one plausible way
+				// any of them reaches a log line.
+				logger.warn(
+					{ err: errorName(error), lessonId },
+					"[lessonAI] authored check was not issued",
+				);
+			}
+		}
 	}
 }
 

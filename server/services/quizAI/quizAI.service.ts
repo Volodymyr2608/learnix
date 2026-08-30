@@ -1,7 +1,9 @@
 import { lessonRepository } from "@/server/repositories/lesson.repository";
+import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { validateModelText } from "@/server/services/_shared/aiOutput";
+import { retagWithAllowlist } from "@/server/services/_shared/concepts/conceptKey";
 import { traced } from "@/server/services/_shared/tracing";
 import { QuizForbiddenError } from "@/server/services/quiz/quiz.errors";
 import { logger } from "@/server/utils/logger";
@@ -68,6 +70,11 @@ class QuizAIService {
 				n: number,
 				regen: boolean,
 			): Promise<QuizQuestion[]> => {
+				// The query that authorizes is the query that reads the allowlist: the
+				// concepts come back on the row the ownership check returned, so the
+				// tag can never be resolved against a lesson the caller does not own.
+				// Re-reading them by the request's `lessonId` afterwards would be the
+				// same identifier travelling a second, unauthorized path.
 				const lesson = await lessonRepository.findFirst({
 					where: {
 						id: lId,
@@ -77,6 +84,7 @@ class QuizAIService {
 					select: {
 						content: true,
 						section: { select: { course: { select: { level: true } } } },
+						lessonInsights: { select: { concepts: true } },
 					},
 				});
 
@@ -86,6 +94,10 @@ class QuizAIService {
 						"FORBIDDEN",
 					);
 				}
+
+				const allowlist = parseStoredConcepts(lesson.lessonInsights?.concepts, {
+					lessonId: lId,
+				}).map((c) => c.name);
 
 				if (!lesson.content?.trim()) {
 					throw new LessonHasNoContentError(lId);
@@ -101,6 +113,7 @@ class QuizAIService {
 							question: q.question,
 							options: q.options as string[],
 							correct: q.correct,
+							...(q.concept === null ? {} : { concept: q.concept }),
 						}));
 					}
 				}
@@ -142,7 +155,7 @@ class QuizAIService {
 						const violation = validateSemantics(questions);
 
 						if (!violation) {
-							return questions;
+							return retagWithAllowlist(questions, allowlist);
 						}
 
 						hint = violation;

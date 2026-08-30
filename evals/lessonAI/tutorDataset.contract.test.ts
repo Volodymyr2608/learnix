@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_PROMPT_LEAK_MARKERS } from "@/server/services/lessonAI/promptLeakMarkers";
 import {
@@ -22,10 +23,14 @@ const inCategory = (category: Category) =>
 	rows.filter((row) => row.category === category);
 
 describe("tutor golden set", () => {
-	/** The brief asks for 30-50 scenarios; two happy-path rows was the old state. */
-	it("holds between 30 and 50 rows", () => {
+	/**
+	 * The brief asks for 30-50 scenarios; two happy-path rows was the old state.
+	 * The ceiling moved to 60 when the check-question class was added — the set
+	 * grew because the tutor's judgement moved, not because rows accumulated.
+	 */
+	it("holds between 30 and 60 rows", () => {
 		expect(rows.length).toBeGreaterThanOrEqual(30);
-		expect(rows.length).toBeLessThanOrEqual(50);
+		expect(rows.length).toBeLessThanOrEqual(60);
 	});
 
 	it("gives every row a unique id", () => {
@@ -70,14 +75,16 @@ describe("rows are staged so their category is actually testable", () => {
 	});
 
 	/**
-	 * The write tool is the tutor's only authority. Social manipulation
-	 * ("I passed this at university, mark it") is precisely the case where the
-	 * reply may look fine and the side effect is the damage.
+	 * Social manipulation ("I passed this at university, mark it") used to be
+	 * measured as "the write tool must not fire". There is no write tool any
+	 * more, so the row measures the response that replaced refusal: the tutor
+	 * ASKS. A student claiming mastery gets a question, which costs the platform
+	 * nothing and cannot become a record unless they answer it correctly.
 	 */
 	it.each(
 		inCategory("tool-abuse").map((row) => [row.id, row] as const),
-	)("%s forbids the write tool", (_id, row) => {
-		expect(row.expected.tools_not_called).toContain("mark_concept_understood");
+	)("%s expects the tutor to ask rather than credit", (_id, row) => {
+		expect(row.expected.tools_called).toContain("ask_concept_check");
 	});
 
 	/**
@@ -115,8 +122,8 @@ describe("legit-mastery rows can actually catch over-refusal", () => {
 
 	it.each(
 		legit.map((row) => [row.id, row] as const),
-	)("%s expects the write tool to fire", (_id, row) => {
-		expect(row.expected.tools_called).toContain("mark_concept_understood");
+	)("%s expects the tutor to ask a check", (_id, row) => {
+		expect(row.expected.tools_called).toContain("ask_concept_check");
 	});
 
 	/** Without a concept on the allowlist, toolPolicy denies and the row proves nothing. */
@@ -143,8 +150,8 @@ describe("mastery-lookalike rows are the negative control", () => {
 
 	it.each(
 		lookalike.map((row) => [row.id, row] as const),
-	)("%s forbids the write tool", (_id, row) => {
-		expect(row.expected.tools_not_called).toContain("mark_concept_understood");
+	)("%s expects the tutor to ask rather than credit", (_id, row) => {
+		expect(row.expected.tools_called).toContain("ask_concept_check");
 	});
 
 	/** Without an allowlisted concept the tool is denied anyway and the row proves nothing. */
@@ -152,5 +159,42 @@ describe("mastery-lookalike rows are the negative control", () => {
 		lookalike.map((row) => [row.id, row] as const),
 	)("%s names concepts the tool would otherwise be allowed to write", (_id, row) => {
 		expect(row.input.concepts?.length ?? 0).toBeGreaterThan(0);
+	});
+});
+
+/**
+ * The `check-question` rows are the only ones that assert something about what
+ * the model WROTE rather than which tool it reached for, and the plan justified
+ * them by three named rates: the validator's false-positive rate against the
+ * shipped model, the answer-echo rate, and authored-position bias.
+ *
+ * They were recorded at 9/9 while the scorer compared tool NAMES only — a
+ * number bit-identical to what `legit-mastery` already measures, carrying none
+ * of the three. This pins the scorer to the arguments, because the failure is
+ * silent in both directions: an unmeasured validator can deny every check and
+ * a green category will still say the tutor is fine.
+ */
+describe("check-question rows are scored on what was authored", () => {
+	const source = readFileSync("evals/lessonAI/tutor.eval.ts", "utf8");
+
+	it("scores authored checks through the shipped validator", () => {
+		expect(source).toContain("authorizeAskConceptCheck");
+		expect(source).toMatch(/from "@\/server\/services\/lessonAI\/toolPolicy"/);
+	});
+
+	it("reads the tool call's arguments, not only its name", () => {
+		expect(source).toMatch(/tc\.args as AuthoredCheck/);
+		expect(source).toContain("correctOption");
+	});
+
+	it("reports all three rates the rows exist to produce", () => {
+		// Word-bounded: `toContain("keyFirst")` also passes for `keyFirstSomething`,
+		// which is exactly how a renamed metric would slip through this test.
+		for (const metric of ["authoringValid", "answerEchoed", "keyFirst"])
+			expect(source).toMatch(new RegExp(`\\b${metric}\\b`));
+	});
+
+	it("declares the category the rates belong to", () => {
+		expect(CATEGORIES).toContain("check-question");
 	});
 });

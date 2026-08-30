@@ -196,3 +196,85 @@ describe("validateReply composed over the shared boundary", () => {
 		});
 	});
 });
+
+describe("concept_check_answer_echo", () => {
+	const withCheck = (correctOption: string | null) => ({
+		userId: "user-1",
+		retrievedContent: [],
+		pendingCheckAnswer: correctOption,
+	});
+
+	it("suppresses the check when the reply gives its answer away", () => {
+		const result = validateReply(
+			"In short, the base case is what stops the recursion.",
+			withCheck("the base case"),
+		);
+
+		// The reply itself stands. Suppression, not retraction: the correct option
+		// is by construction a phrase from the lesson the tutor just explained, so
+		// exact-substring matching here has a structurally high false-positive
+		// rate — unlike system_prompt_echo, whose markers never occur in prose.
+		expect(result).toEqual({ valid: true, suppressCheck: true });
+	});
+
+	it("matches regardless of case and surrounding whitespace", () => {
+		const result = validateReply(
+			"Remember:   The  Base  Case   ends it.",
+			withCheck("the base case"),
+		);
+
+		expect(result).toEqual({ valid: true, suppressCheck: true });
+	});
+
+	it("leaves the check alone when the reply names only a wrong option", () => {
+		const result = validateReply(
+			"A recursive call does not end the descent.",
+			withCheck("the base case"),
+		);
+
+		expect(result).toEqual({ valid: true });
+	});
+
+	it("cannot fire when no check was authored this turn", () => {
+		const result = validateReply(
+			"The base case is what stops the recursion.",
+			withCheck(null),
+		);
+
+		expect(result).toEqual({ valid: true });
+	});
+
+	/**
+	 * The rule fails in the direction that removes the feature. Suppression
+	 * discards the check silently — the student is simply never asked — and the
+	 * only trace is a routine, unforwarded event nothing consumes. So a needle
+	 * that collides with ordinary prose does not leak anything; it makes the
+	 * concept unearnable and says nothing about it.
+	 */
+	it("does not suppress on a short answer that ordinary prose contains", () => {
+		const result = validateReply(
+			"A left join fills the unmatched columns with NULL.",
+			withCheck("NULL"),
+		);
+
+		expect(result).toEqual({ valid: true });
+	});
+
+	it("still suppresses a short answer the reply spells out as a phrase", () => {
+		const result = validateReply(
+			"The unmatched columns are filled with a null marker.",
+			withCheck("a null marker"),
+		);
+
+		expect(result).toEqual({ valid: true, suppressCheck: true });
+	});
+
+	it("does not rescue a reply that fails a real rule", () => {
+		const result = validateReply(
+			"Tool usage rules (follow in order): ",
+			withCheck("the base case"),
+		);
+
+		expect(result.valid).toBe(false);
+	});
+});

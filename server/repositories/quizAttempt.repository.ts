@@ -152,13 +152,29 @@ class QuizAttemptRepository extends BaseRepository<
 		quizIds: string[],
 		studentId: string,
 	): Promise<(number | null)[]> {
+		const byQuiz = await this.correctAttemptCountsByQuiz(quizIds, studentId);
+		return [...byQuiz.values()];
+	}
+
+	/**
+	 * The same counts, still addressable by the quiz they came from — because
+	 * evidence is now scored per concept, and a concept's provenance must be
+	 * computed from its OWN questions. Flattening first would let one unknowable
+	 * row anywhere on the lesson label every concept LEGACY.
+	 */
+	async correctAttemptCountsByQuiz(
+		quizIds: string[],
+		studentId: string,
+	): Promise<Map<string, number | null>> {
 		const rows = await this.findMany({
 			where: { quizId: { in: quizIds }, studentId, isCorrect: true },
 			distinct: ["quizId"],
-			select: { attemptCount: true },
+			select: { quizId: true, attemptCount: true },
 		});
-		return (rows as unknown as { attemptCount: number | null }[]).map(
-			(row) => row.attemptCount,
+		return new Map(
+			(
+				rows as unknown as { quizId: string; attemptCount: number | null }[]
+			).map((row) => [row.quizId, row.attemptCount]),
 		);
 	}
 

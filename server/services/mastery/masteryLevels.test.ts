@@ -1,8 +1,28 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { authorizeMarkConceptUnderstood } from "@/server/services/lessonAI/toolPolicy";
+import { describe, expect, it, vi } from "vitest";
 import { canonicalConceptNames } from "@/server/services/quiz/quiz.service";
 import { CONVERSATION_MAX_LEVEL, QUIZ_MASTERY_LEVEL } from "./masteryLevels";
+
+vi.mock("@/server/services/_shared/aiGuard/securityLog", () => ({
+	logSecurityEvent: vi.fn(),
+}));
+
+const { authorizeAskConceptCheck } = await import(
+	"@/server/services/lessonAI/toolPolicy"
+);
+
+/** A check that violates no structural rule, so only the concept is under test. */
+const checkFor = (concept: string) => ({
+	concept,
+	question: "Which call ends a recursive descent?",
+	options: [
+		"The base case",
+		"The first recursive call",
+		"The outermost frame",
+		"The largest input",
+	],
+	correctOption: "The base case",
+});
 
 describe("the two mastery ceilings", () => {
 	// The whole argument for letting the tutor write mastery at all: what it can
@@ -45,10 +65,11 @@ describe("the two mastery ceilings", () => {
 		const stored = [{ name: "  Recursion " }];
 
 		const fromQuiz = canonicalConceptNames(stored);
-		const fromTool = authorizeMarkConceptUnderstood(
-			{ concept: "recursion", level: 2 },
-			{ userId: "u1", lessonConcepts: stored.map((c) => c.name) },
-		);
+		const fromTool = authorizeAskConceptCheck(checkFor("recursion"), {
+			userId: "u1",
+			lessonConcepts: stored.map((c) => c.name),
+			groundedByRetrieval: true,
+		});
 
 		expect(fromTool.authorized).toBe(true);
 		expect(fromTool.authorized && fromTool.canonicalConcept).toBe(fromQuiz[0]);
@@ -58,10 +79,11 @@ describe("the two mastery ceilings", () => {
 	it("refuses a name that cannot be stored at all", () => {
 		const tooLong = "R".repeat(81);
 
-		const fromTool = authorizeMarkConceptUnderstood(
-			{ concept: tooLong, level: 2 },
-			{ userId: "u1", lessonConcepts: [tooLong] },
-		);
+		const fromTool = authorizeAskConceptCheck(checkFor(tooLong), {
+			userId: "u1",
+			lessonConcepts: [tooLong],
+			groundedByRetrieval: true,
+		});
 
 		expect(fromTool.authorized).toBe(false);
 		expect(canonicalConceptNames([{ name: tooLong }])).toEqual([]);

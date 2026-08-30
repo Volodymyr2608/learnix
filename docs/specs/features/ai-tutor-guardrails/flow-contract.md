@@ -36,25 +36,43 @@ Read top to bottom: this is one turn, from HTTP request to persisted row.
 | 15 | `retrieve_lesson_context` | `tools/retrieveLessonContext.tool.ts` | fetch chunks of this lesson | `lessonId` (bound at construction) | lesson text | id bound server-side, not model-supplied | embeddings | output is untrusted; it lands in `retrievedContent` for station 19 |
 | 16 | `search_across_course` | `tools/searchAcrossCourse.tool.ts` | find where a topic was covered | `courseId` (bound) | lesson names + text | id bound server-side | embeddings | as above |
 | 17 | `get_student_progress` | `tools/getStudentProgress.tool.ts` | personalise to what the student has seen | `studentId`, `courseId` (bound) | progress summary | ids bound server-side | none | read-only |
-| 18 | **`mark_concept_understood`** | `tools/markConceptUnderstood.tool.ts` → `toolPolicy.ts:47` | the one tool that **writes an educational record** | `{ concept, level }` from the model | `ConceptMastery` upsert + `artifact.committed` | `authorizeMarkConceptUnderstood`: empty allowlist → deny; `level > 2` → deny; concept not in allowlist → deny. Zod validates *shape*; this validates whether the call may proceed at all | none | denial returns `NEUTRAL_REFUSAL_MESSAGE` and writes nothing; first failing rule wins and is the only id logged |
+| 18 | **`ask_concept_check`** | `tools/askConceptCheck.tool.ts` → `toolPolicy.ts` `authorizeAskConceptCheck` | the tool that **authors a question**, and writes nothing at all | `{ concept, question, options, correctOption }` from the model | the check **buffered on `TutorTurnState`** — no row | `authorizeAskConceptCheck`, first failing rule wins: empty allowlist → *decline*; concept not allowlisted → deny; turn not grounded → deny; question length; option count; option length; option markup; options not distinct; correct option not offered; question reveals answer. Zod validates *shape*; this validates whether the call may proceed at all | none | two denial classes: adversarial → `unsafe_tool_call` + `NEUTRAL_REFUSAL_MESSAGE`; benign → `tool_call_declined` + an explanatory result. The tool result is a bare acknowledgement, so the answer key never re-enters the model's context |
 | 19 | **output boundary** | `lessonAI.service.ts:127` `runOutputBoundary` → `validateReply.ts:74` | fail-closed check over the assembled reply | `fullReply`, `retrievedContent` | `{ valid }` or `{ valid: false, ruleId }` | `system_prompt_echo` → `untrusted_data_echo` → `verbatim_chunk_echo` → `off_origin_link`, in that precedence | none | **a validator that throws is a rejection**, logged as `validator_error` |
 | 20 | early exits | `lessonAI.service.ts:173` `finishWithoutDelivery` | abort, mid-stream error, consumer abandonment | `fullReply` so far | security events | runs station 19 | none | idempotent; reachable from the in-loop check, the `catch`, and the `finally` — the `finally` is what actually closes the abandonment bypass |
-| 21 | retract | `lessonAI.service.ts:296` | tokens already left; nothing enters the thread or future context | rejection `ruleId` | `retract` event with `NEUTRAL_REFUSAL_MESSAGE` | — | none | a mastery write from this turn **stands** (it passed its own authorization) and is correlated via `mastery_write_retained` |
+| 21 | retract | `lessonAI.service.ts` | tokens already left; nothing enters the thread or future context | rejection `ruleId` | `retract` event with `NEUTRAL_REFUSAL_MESSAGE` | — | none | the turn leaves **no artifact**: the buffered check is discarded unwritten, and mastery is not written by a turn at all any more. `mastery_write_retained` was retired with the coupling it measured |
 | 22 | retire prompt | `lessonAI.service.ts:150` `retireRejectedPrompt` | flip the eliciting prompt out of model context | `userRow.id` | `contextEligible: false` | — | none | **never allowed to abort the turn** — letting it throw would take the security event and the retraction down with it |
-| 23 | **persist assistant turn** | `lessonAI.service.ts:311` | the only write of model text | `fullReply`, `toolCallsSummary` | `LessonAssistantMessage` row | reached **only** when station 19 returned valid | none | propagates |
+| 23 | **persist assistant turn** | `lessonAI.service.ts` | the only write of model text, and where the buffered check is committed | `fullReply`, `toolCallsSummary`, `turn.pendingCheck` | `LessonAssistantMessage` row + `ConceptCheck` row | reached **only** when station 19 returned valid; `toolCalls` is built by a per-tool field allowlist, default-deny | none | propagates |
 | 24 | security logging | `logSecurityEvent` throughout | detection without storing payload text | feature, userId, layer, outcome, ruleIds | log event | — | none | events carry rule ids and scores, **never the message text** |
+
+### The answer path is out of band, and that is the design
+
+Stations 1–24 describe one streamed turn. Answering a check is **not** part of one: it is a separate
+tRPC mutation, on a separate request, with no model in it anywhere.
+
+| # | station | module | purpose | input | output | validation | model | failure |
+|---|---|---|---|---|---|---|---|---|
+| A1 | `lessonAssistant.pendingCheck` | `conceptCheckRepository.findPendingPublic` | show the student the question waiting for them | `studentId`, `lessonId` | `ConceptCheckPublic` or null | explicit column list; `correct` is not selected, and expiry is compared against the database clock | none | null when absent, answered, or expired — the three are indistinguishable |
+| A2 | `lessonAssistant.answerConceptCheck` | `conceptCheck.service.ts` `answer()` | grade, once | `{ checkId, optionIndex }` | `{ isCorrect, correctOption }` | the claim's `WHERE` asks every authorising question at once — id, owner, `PENDING`, unexpired, live enrollment | none | absent / foreign / answered / expired all raise one `CheckUnavailableError` with one message: four causes, no oracle |
+| A3 | the write of authority | `conceptCheckRepository.claimForAnswer` + `conceptMasteryRepository.upsertMastery` | record level 2 with `APPLIED_CHECK` | the **claimed row**, never the request | `ConceptMastery` upsert | claim and write share one transaction, so a failed write leaves the check `PENDING` and no row | none | grading is string equality against the stored option text; no index into the authored array is ever consulted |
 
 ## Where an AI result may be persisted
 
-Two writes, two different rules, and the asymmetry is deliberate:
+One rule now, where there used to be two:
 
-- **Model text** (station 23) is persisted **only after** the output boundary passes. A rejected
-  reply is retracted, not stored — the tokens already reached the browser, but nothing enters the
-  thread or the model's future context.
-- **The educational record** (station 18) is persisted **when its own authorization passes**, before
-  the reply exists. It is not coupled to the reply text, so a later retraction does not undo it;
-  instead `mastery_write_retained` correlates the two so a human can review a turn adversarial
-  enough to be retracted that still wrote to a mastery record.
+- **Everything model-authored** — the reply text and the concept check written on the same turn — is
+  persisted **only after** the output boundary passes, at one place in `lessonAI.service.ts`. A
+  rejected reply is retracted and stored nowhere; the check authored alongside it goes out of scope
+  unwritten. The tokens already reached the browser, but nothing enters the thread, the model's
+  future context, or the database.
+
+- **The educational record is not written by a model turn at all.** `ConceptMastery` is written when
+  the *student* answers the check, in the transaction that claims it, on a different request
+  entirely. Nothing model-authored is on that path.
+
+The asymmetry this section used to describe — a mastery write that committed before the reply
+existed and survived its retraction — is gone, and `mastery_write_retained` was retired with it
+rather than reinvented. "A rejected turn leaves no artifact" is true by construction now, not by a
+compensating alert.
 
 ## Failure matrix
 
@@ -98,8 +116,10 @@ knowing *why* a step is missing matters more than having it.
 ## Extending this safely
 
 - **A new tool** is new authority. It needs a row here, a place in the closed literal at
-  `lessonAI.agent.ts:74`, an entry in `ALLOWED_TOOL_NAMES`, and — if it writes anything — an
-  authority check beside `authorizeMarkConceptUnderstood`, not just a Zod schema. `pnpm classify`
+  `lessonAI.agent.ts:74`, an entry in `ALLOWED_TOOL_NAMES`, and — if it writes or authors anything —
+  an authority check beside `authorizeAskConceptCheck`, not just a Zod schema. If it produces content
+  a student will see or be graded on, it also needs a `PERSISTABLE_TOOL_FIELDS` entry (default-deny)
+  and a commit placed after the output boundary, not inside the tool. `pnpm classify`
   reports it as new authority (ADR-030) and `flowContract.contract.test.ts` fails until the row
   exists.
 - **A new output rule** belongs in `_shared/aiOutput` if it is surface-independent, and in

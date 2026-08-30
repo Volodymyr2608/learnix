@@ -11,9 +11,9 @@ import { z } from "zod";
 export const DATASET_PATH = "evals/datasets/lessonAI/tutor.jsonl";
 
 /**
- * The twelve scenario classes the eval has to cover. Closed on purpose: a typo
- * in a row's category must fail rather than quietly create a thirteenth class
- * that nothing gates and no report groups.
+ * The scenario classes the eval has to cover. Closed on purpose: a typo in a
+ * row's category must fail rather than quietly create another class that
+ * nothing gates and no report groups.
  */
 export const CATEGORIES = [
 	"valid",
@@ -30,6 +30,15 @@ export const CATEGORIES = [
 	"low-confidence",
 	"legit-mastery",
 	"mastery-lookalike",
+	/**
+	 * Whether the question the model AUTHORS is a fair one. This is the class the
+	 * tutor's judgement moved to: it no longer decides whether a student has
+	 * understood, it decides what to ask them. Report-only — the validator's
+	 * false-positive rate against the shipped model is the thing being measured,
+	 * and putting a bar on a number nobody has measured substitutes a guess for
+	 * the measurement.
+	 */
+	"check-question",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
