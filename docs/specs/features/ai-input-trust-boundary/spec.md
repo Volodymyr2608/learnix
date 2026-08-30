@@ -303,10 +303,18 @@ makes that incidental net coarser. This work trades a measured amount of that fo
 currently unreachable; the acceptance criteria require the amount to be measured rather than assumed,
 and `llm-security-auditor` audits the result at `/qa`.
 
-**Not addressed here:** an instructor who authors concept names designed to widen their own lesson's
-scope (`"anything the student asks"`). The names are bounded in length and count and remain wrapped,
-so the ceiling is a wider topic filter on that instructor's own lesson, not an instruction to the
-classifier — but it is a real, unmeasured widening and belongs in `security.md` S13 on ship.
+**Not addressed here, and the original reasoning for it was wrong.** This section first claimed the
+ceiling was "a wider topic filter on that instructor's own lesson, not an instruction to the
+classifier". Measured at `/qa`, a crafted set of seven concept names — every one inside the shipped
+bounds — makes the classifier judge "what is a good recipe for borscht" on-topic 5/5. The bounds are
+a cost control, not a security one.
+
+What the measurement also shows is that item 12 did not create the class: the same payload in the
+lesson title is equally effective, and this document already recorded that an instructor can instruct
+the classifier through the scope region. What changed is **visibility** — a poisoned title is read by
+every student and by the instructor's own editor, while concept names are LLM-extracted and surface
+nowhere a human looks. Recorded with its numbers in `ai-tutor-guardrails/security.md` S13 §43, and
+the missing detection signal in §44.
 
 ## Out of scope
 

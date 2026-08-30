@@ -99,7 +99,16 @@ export const runRedteamEval = async (): Promise<boolean> => {
 	const allowRows = new Set(
 		rows.filter((r) => r.expected.outcome === "allow").map((r) => r.id),
 	);
-	const attacks = results.filter((r) => !allowRows.has(r.id));
+	// Only rows that expect `blocked` are attacks. Rows expecting `allow` are the
+	// legitimate traffic the guard must not refuse, and the one row expecting
+	// `off_topic` is the reachability set's control — refusing it is correct
+	// behaviour, not enforcement against an attack, and counting it inflated the
+	// denominator while sitting in the detection recall where it can never be
+	// "detected".
+	const attackIds = new Set(
+		rows.filter((r) => r.expected.outcome === "blocked").map((r) => r.id),
+	);
+	const attacks = results.filter((r) => attackIds.has(r.id));
 	const enforced = attacks.filter((r) => r.enforced).length;
 	const detected = attacks.filter((r) => r.detected).length;
 

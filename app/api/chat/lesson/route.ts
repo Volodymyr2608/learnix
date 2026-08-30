@@ -3,6 +3,7 @@ import { EnrollmentStatus } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
+import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
 import {
 	checkAiRateLimit,
@@ -102,7 +103,15 @@ export async function POST(req: Request) {
 		domain: lessonGuardDomain({
 			courseTitle,
 			lessonTitle: lesson.title,
-			concepts: lessonConceptNames(lesson.lessonInsights?.concepts),
+			// Through the SAME parse the tutor service uses. Reading the raw column
+			// here made the two disagree on a partly-malformed row: the guard would
+			// admit "check my understanding of API Routes" while `toolPolicy`, whose
+			// allowlist comes back empty from the all-or-nothing parse, declined the
+			// check one layer later. The student passes the gate and is refused
+			// anyway — the silent mismatch this whole item exists to remove.
+			concepts: lessonConceptNames(
+				parseStoredConcepts(lesson.lessonInsights?.concepts, { lessonId }),
+			),
 		}),
 	});
 

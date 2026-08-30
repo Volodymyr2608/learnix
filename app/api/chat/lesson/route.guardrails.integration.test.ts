@@ -176,7 +176,11 @@ describe("tutor guardrails, end to end", () => {
 		const domain = mockCheckTopicRelevance.mock.calls[0]?.[1] as {
 			description: string;
 		};
-		expect(domain.description).not.toContain("concepts");
+		// Byte for byte, not merely "no concept clause": a builder emitting an
+		// empty list with its separator intact would pass a `not.toContain`.
+		expect(domain.description).toMatch(
+			/^the course "[^"]+" and its lesson "[^"]+"$/,
+		);
 		// And the turn still works — no insights is an ordinary state, not an error.
 		expect(await readSse(res)).toContain("Sure.");
 	});

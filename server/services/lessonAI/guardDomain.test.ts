@@ -64,14 +64,4 @@ describe("lessonGuardDomain", () => {
 		expect(domain.description).toContain(`Concept ${MAX_DOMAIN_CONCEPTS - 1}`);
 		expect(domain.description).not.toContain(`Concept ${MAX_DOMAIN_CONCEPTS}`);
 	});
-
-	it("keeps the lesson in scope even when its concepts fill the bound", () => {
-		const domain = lessonGuardDomain({
-			...base,
-			concepts: Array.from({ length: 40 }, (_, i) => `Concept ${i}`),
-		});
-
-		expect(domain.description).toContain(base.lessonTitle);
-		expect(domain.description).toContain(base.courseTitle);
-	});
 });

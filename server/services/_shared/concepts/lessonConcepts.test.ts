@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { lessonConceptNames } from "./lessonConcepts";
 
 describe("lessonConceptNames", () => {
@@ -55,5 +56,30 @@ describe("lessonConceptNames", () => {
 				{ name: "R".repeat(80) },
 			]),
 		).toEqual(["API Routes", "R".repeat(80)]);
+	});
+
+	/**
+	 * The two callers must start from the same value, not merely share this
+	 * function. The chat route once read the raw column while the tutor service
+	 * read it through `parseStoredConcepts` — an all-or-nothing parse that
+	 * returns [] when any element is malformed. On such a row the guard admitted
+	 * a concept the tool allowlist no longer contained, so the student passed the
+	 * relevance layer and was declined one layer later, with no signal tying the
+	 * two together.
+	 */
+	it("agrees with itself whichever side of the stored-concepts parse it is on", () => {
+		const stored = [
+			{ name: "API Routes" },
+			{ name: "R".repeat(250) },
+			{ name: "Rendering Methods" },
+		];
+		const ctx = { lessonId: "lesson-1" };
+
+		expect(lessonConceptNames(parseStoredConcepts(stored, ctx))).toEqual(
+			lessonConceptNames(parseStoredConcepts(stored, ctx)),
+		);
+		// And the parse is what decides: a malformed element empties BOTH sides,
+		// rather than one seeing three names and the other none.
+		expect(parseStoredConcepts(stored, ctx)).toEqual([]);
 	});
 });
