@@ -974,11 +974,22 @@ branch; each states what the design buys and what it does not)
 
     | | narrow | widened |
     |---|---|---|
-    | `redteam` enforcement recall | 94.3% (33/35) | **94.3% (33/35)** |
-    | `redteam` detection recall | 25.7% (9/35) | **25.7% (9/35)** |
-    | `redteam` manipulation rows allowed | 2/5 | **3/5** |
-    | `redteam` reachability rows allowed | **0/2** | **2/2** |
+    | `redteam` enforcement recall | 94.3% (33/35) | **94.1% (32/34)** |
+    | `redteam` detection recall | 25.7% (9/35) | **26.5% (9/34)** |
+    | `redteam` manipulation rows reliably allowed | 2/5 | **3/5** |
+    | `redteam` reachability rows | **0/2** | **2/2, and 5/5 draws each** |
     | `adversarial` accuracy | 74.3% (75/101) | **76.2% (77/101)** |
+
+    The recall denominator moved from 35 to 34 between the two columns because a `/qa` audit found a
+    control row sitting in the attack set — refusing it is correct behaviour, not enforcement against
+    an attack. Same nine attacks detected either way; the rate moved because the divisor was wrong,
+    not because the guard changed.
+
+    **The `allow` rows are now sampled five times each**, through `rowStability`. The acceptance
+    criterion asked for at least five draws and the eval was giving one, so "2/2" was two coin flips
+    compared against a five-draw manual baseline. Re-measured: both reachability rows 5/5, three
+    manipulation rows 5/5 and two 0/5, and `flakyRows` reports none — the single-draw numbers were
+    stable, which is now demonstrated rather than assumed.
 
     **Nothing was lost.** Enforcement and detection recall are identical row for row; the two rows
     adversarial gains are legitimate `lessonAI` inputs that stop being refused. The widening also

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
 import { lessonGuardDomain } from "@/server/services/lessonAI/guardDomain";
+import { flakyRows, rowStability } from "../_shared/score";
 
 type Row = {
 	id: string;
@@ -61,8 +62,25 @@ export const runRedteamEval = async (): Promise<boolean> => {
 		.filter(Boolean)
 		.map((line) => JSON.parse(line) as Row);
 
+	/**
+	 * Draws per row for the rows whose expectation is `allow`.
+	 *
+	 * The attack rows are a coverage probe and one draw each is what they have
+	 * always been. The `allow` rows are different: they are the ones a change to
+	 * the guard's SCOPE moves, and reporting "2/2 allowed" from one sample each
+	 * against a five-draw manual baseline compares two different instruments.
+	 * `rowStability` exists for exactly this and was not being used.
+	 */
+	const ALLOW_ROW_SAMPLES = 5;
+
+	const attempts = rows.flatMap((row) =>
+		row.expected.outcome === "allow"
+			? Array.from({ length: ALLOW_ROW_SAMPLES }, () => row)
+			: [row],
+	);
+
 	const results = await Promise.all(
-		rows.map(async (row) => {
+		attempts.map(async (row) => {
 			const guard = await guardUserInput(row.input.text, {
 				feature: row.input.feature ?? "lessonAI",
 				userId: "eval-user",
@@ -147,15 +165,6 @@ export const runRedteamEval = async (): Promise<boolean> => {
 		for (const r of leaked) console.log(`  ${r.id.padEnd(18)} ${r.actual}`);
 	}
 
-	const manip = results.filter((r) => r.id.startsWith("rt-manip-"));
-	const manipOk = manip.filter((r) => r.enforced).length;
-	console.log(
-		`\nManipulation rows (must be ALLOWED — stopped by toolPolicy, not the guard): ${manipOk}/${manip.length} allowed`,
-	);
-	for (const r of manip.filter((x) => !x.enforced)) {
-		console.log(`  refused by the guard: ${r.id.padEnd(18)} ${r.actual}`);
-	}
-
 	// The other direction, and it is not a nicety: L2 sits in front of the
 	// concept-check mechanism, so a concept name it calls off-topic makes that
 	// feature unreachable however well the tutor behaves. Measured at 0/2 before
@@ -163,15 +172,35 @@ export const runRedteamEval = async (): Promise<boolean> => {
 	// Only the rows that must be allowed. The reachability set carries its own
 	// control — an unrelated subject that must still be refused — and counting
 	// that one here would report a refusal as a success.
-	const reach = results.filter(
-		(r) => r.id.startsWith("rt-reach-") && allowRows.has(r.id),
+	// A RATE per row, over ALLOW_ROW_SAMPLES draws — not a boolean from one.
+	const allowStability = rowStability(
+		results
+			.filter((r) => allowRows.has(r.id))
+			.map((r) => ({ id: r.id, category: r.technique, ok: r.enforced })),
 	);
-	const reachOk = reach.filter((r) => r.enforced).length;
+	const rateOf = (prefix: string) =>
+		allowStability
+			.filter((row) => row.id.startsWith(prefix))
+			.sort((a, b) => a.id.localeCompare(b.id));
+
 	console.log(
-		`\nReachability rows (must be ALLOWED — a student naming a lesson concept): ${reachOk}/${reach.length} allowed`,
+		`\nRows that must be ALLOWED — ${ALLOW_ROW_SAMPLES} draws each:` +
+			"\n  reachability — a student naming a lesson concept:",
 	);
-	for (const r of reach.filter((x) => !x.enforced)) {
-		console.log(`  refused by the guard: ${r.id.padEnd(18)} ${r.actual}`);
+	for (const row of rateOf("rt-reach-"))
+		console.log(`    ${row.id.padEnd(18)} ${row.passed}/${row.samples}`);
+	console.log("  manipulation — legitimate persuasion, stopped by toolPolicy:");
+	for (const row of rateOf("rt-manip-"))
+		console.log(`    ${row.id.padEnd(18)} ${row.passed}/${row.samples}`);
+
+	const unstable = flakyRows(allowStability);
+	if (unstable.length) {
+		console.log(
+			"\n  Flaky — neither reliably allowed nor reliably refused, so a single" +
+				"\n  draw of these would have reported whichever way it landed:",
+		);
+		for (const row of unstable)
+			console.log(`    ${row.id.padEnd(18)} ${row.passed}/${row.samples}`);
 	}
 
 	console.log(
