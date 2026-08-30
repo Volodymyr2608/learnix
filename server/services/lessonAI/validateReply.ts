@@ -50,13 +50,30 @@ const containsVerbatimChunk = (
 const fold = (value: string): string =>
 	value.toLowerCase().replace(/\s+/g, " ").trim();
 
+/**
+ * Below this, containment is coincidence rather than a giveaway.
+ *
+ * The rule fails in the direction that removes the feature: it discards the
+ * check silently, and the only trace is a routine unforwarded event nothing
+ * consumes. So a correct option like "NULL", "true", "4" or "once" — each of
+ * which appears in almost any honest reply about the lesson that taught it —
+ * would make every check on that concept vanish, with no signal at all.
+ *
+ * Eight characters keeps real answers in scope ("route.ts" is eight) while
+ * dropping the bare keywords. The residual is the mirror image: a reply that
+ * names a very short answer still leaves a gradable check. That is the cheaper
+ * failure — a lucky guess buys a label, an undetectable outage buys nothing —
+ * and it is stated in security.md S13.
+ */
+const MIN_ECHO_NEEDLE_LENGTH = 8;
+
 const revealsCheckAnswer = (
 	reply: string,
 	correctOption?: string | null,
 ): boolean => {
 	if (!correctOption) return false;
 	const needle = fold(correctOption);
-	if (needle.length === 0) return false;
+	if (needle.length < MIN_ECHO_NEEDLE_LENGTH) return false;
 	return fold(reply).includes(needle);
 };
 

@@ -244,6 +244,31 @@ describe("concept_check_answer_echo", () => {
 		expect(result).toEqual({ valid: true });
 	});
 
+	/**
+	 * The rule fails in the direction that removes the feature. Suppression
+	 * discards the check silently — the student is simply never asked — and the
+	 * only trace is a routine, unforwarded event nothing consumes. So a needle
+	 * that collides with ordinary prose does not leak anything; it makes the
+	 * concept unearnable and says nothing about it.
+	 */
+	it("does not suppress on a short answer that ordinary prose contains", () => {
+		const result = validateReply(
+			"A left join fills the unmatched columns with NULL.",
+			withCheck("NULL"),
+		);
+
+		expect(result).toEqual({ valid: true });
+	});
+
+	it("still suppresses a short answer the reply spells out as a phrase", () => {
+		const result = validateReply(
+			"The unmatched columns are filled with a null marker.",
+			withCheck("a null marker"),
+		);
+
+		expect(result).toEqual({ valid: true, suppressCheck: true });
+	});
+
 	it("does not rescue a reply that fails a real rule", () => {
 		const result = validateReply(
 			"Tool usage rules (follow in order): ",
