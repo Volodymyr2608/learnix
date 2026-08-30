@@ -6,7 +6,6 @@ import { CONVERSATION_MAX_LEVEL } from "@/server/services/mastery/masteryLevels"
 import type {
 	ConceptCheckPolicyContext,
 	ConceptCheckRequest,
-	MarkConceptRequest,
 	ToolAuthorization,
 	ToolPolicyContext,
 } from "./types";
@@ -89,39 +88,6 @@ const decline = (
 ): ToolAuthorization => {
 	emitDenial(ctx, ruleId, "tool_call_declined");
 	return { authorized: false, message };
-};
-
-/**
- * Zod on the tool schema validates shape (string 1-80, int 0-3). This validates
- * whether THIS call may proceed at all. Checks run in a fixed order; when more
- * than one would deny, the first wins and is the only rule id logged.
- */
-export const authorizeMarkConceptUnderstood = (
-	request: MarkConceptRequest,
-	ctx: ToolPolicyContext,
-): ToolAuthorization => {
-	if (ctx.lessonConcepts.length === 0) return deny(ctx, "empty_allowlist");
-	if (request.level > CONVERSATION_MAX_LEVEL) {
-		return deny(ctx, "level_exceeds_conversation_ceiling");
-	}
-
-	// One comparison rule, shared with `identifyWeakSignals` and with the SQL that
-	// backfilled `conceptKey`. The inline `trim().toLowerCase()` this replaces
-	// normalised the ends and the case but not internal runs, so it disagreed with
-	// the reader on exactly the inputs the allowlist carries: model-authored
-	// insights JSON, padding and all.
-	//
-	// The resolver returns the ALLOWLIST's spelling, never the model's — storing
-	// the model's would put one concept in the table under two names. A name that
-	// is not allowlisted and one whose allowlist entry is unstorable are the same
-	// refusal on purpose: neither is distinguishable to the caller.
-	const resolved = resolveAllowlistedConcept(
-		request.concept,
-		ctx.lessonConcepts,
-	);
-	if (!resolved) return deny(ctx, "concept_not_allowlisted");
-
-	return { authorized: true, canonicalConcept: resolved.concept };
 };
 
 /**

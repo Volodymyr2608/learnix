@@ -31,11 +31,6 @@ export type ConceptCheckRequest = {
 	correctOption: string;
 };
 
-export type MarkConceptRequest = {
-	concept: string;
-	level: number;
-};
-
 export type ToolAuthorization =
 	| { authorized: true; canonicalConcept: string }
 	| { authorized: false; message: string };
