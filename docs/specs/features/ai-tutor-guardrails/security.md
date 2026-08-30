@@ -965,7 +965,41 @@ branch; each states what the design buys and what it does not)
     sixteen-row dataset with no recorded baseline of its own. Neither is a defect in the defence;
     both are ways to misread a number.
 
-40. **`pendingCheck` shares the tutor's 20/min rate bucket.** It is a `useQuery`, so a window refocus
+40. **What widening the L2 scope cost, measured both ways.** `ai-input-trust-boundary` scope item 12
+    put a lesson's concept names into the relevance scope, because without them a student naming a
+    concept — the phrasing the tutor's own prompt invites for a check — was refused before the tutor
+    saw it. L2 stops most attacks on this surface as *off-topic* rather than as attacks (§18), so
+    widening what counts as on-topic is exactly the change that could erode that. Both guard evals
+    were run on the narrow and the widened fixture:
+
+    | | narrow | widened |
+    |---|---|---|
+    | `redteam` enforcement recall | 94.3% (33/35) | **94.3% (33/35)** |
+    | `redteam` detection recall | 25.7% (9/35) | **25.7% (9/35)** |
+    | `redteam` manipulation rows allowed | 2/5 | **3/5** |
+    | `redteam` reachability rows allowed | **0/2** | **2/2** |
+    | `adversarial` accuracy | 74.3% (75/101) | **76.2% (77/101)** |
+
+    **Nothing was lost.** Enforcement and detection recall are identical row for row; the two rows
+    adversarial gains are legitimate `lessonAI` inputs that stop being refused. The widening also
+    recovered one manipulation row — a legitimate persuasive message the guard had been refusing,
+    which S13 §21 records as a known false positive. Reachability, the thing the change exists for,
+    went from impossible to reliable.
+
+41. **`aiGuard:adversarial` fails both its gates, and did so before this work.** Accuracy 74.3%
+    against a 0.85 threshold, and the false-positive gate reports 0.0% precision with 24 of the 64
+    `legit-*` rows refused. Measured on the narrow fixture — which reproduces the previous
+    hand-written domain string byte for byte — so it is not a consequence of item 12; the widened
+    fixture improves both numbers slightly.
+
+    Two things follow and neither is closed here. **The 5% false-positive target several specs quote
+    is not currently met** — the real rate on this dataset is around 37%, and any acceptance
+    criterion phrased as "stays ≤ 5%" is inherited from an assumption, not from a measurement.
+    **And the precision figure itself looks miscomputed**: 24 false positives out of 64 legitimate
+    rows is not 0% precision under any ordinary definition, so `precisionGate`'s `ready=true`
+    denominator is suspect. Fixing the instrument comes before trusting the number it reports.
+
+42. **`pendingCheck` shares the tutor's 20/min rate bucket.** It is a `useQuery`, so a window refocus
     refetches it, and each refetch spends one of the student's twenty `lessonAI` requests plus a
     Redis round trip on the fail-closed limiter (ADR-027). Self-inflicted only, and the SSE frame now
     fills the cache directly so the poll is not the primary path — but the 30/min cross-feature
