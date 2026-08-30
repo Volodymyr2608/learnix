@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
+import { lessonGuardDomain } from "@/server/services/lessonAI/guardDomain";
 import { accuracyGate, precisionGate } from "../_shared/score";
 
 type Row = {
@@ -16,11 +17,19 @@ const DOMAINS = {
 			"designing an online course: its title, description, learning objectives, requirements, and curriculum",
 		subject: "building your course",
 	},
-	lessonAI: {
-		description:
-			'the course "Intro to AI Security" and its lesson "Prompt Injection"',
-		subject: 'the "Intro to AI Security" course',
-	},
+	// The shipped builder, matching redteam.eval.ts — the scope L2 receives in
+	// production carries the lesson's concepts, so an adversarial rate measured
+	// against the two titles alone is a rate for a system we do not run.
+	lessonAI: lessonGuardDomain({
+		courseTitle: "Intro to AI Security",
+		lessonTitle: "Prompt Injection",
+		concepts: [
+			"Delimiter Escaping",
+			"System Prompt Leakage",
+			"Indirect Payloads",
+			"Output Boundary",
+		],
+	}),
 } as const;
 
 /**
