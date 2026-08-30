@@ -60,6 +60,24 @@ describe("ask_concept_check", () => {
 		expect(turn.pendingCheck?.concept).toBe("Recursion");
 	});
 
+	/**
+	 * Grading is byte equality against one of the stored options. The policy
+	 * accepts a folded match, so a model that writes "The Base Case." for an
+	 * option spelled "The base case" is authorized — and if that rendering were
+	 * the one buffered, the stored answer would match no option at all and the
+	 * student could not answer correctly however well they understood it.
+	 */
+	it("buffers the option's spelling when the model renders the answer differently", async () => {
+		const { tool, turn } = build();
+
+		await tool.invoke({ ...authored, correctOption: "  The Base Case. " });
+
+		expect(turn.pendingCheck?.correctOption).toBe("The base case");
+		expect(turn.pendingCheck?.options).toContain(
+			turn.pendingCheck?.correctOption,
+		);
+	});
+
 	it("buffers nothing on a turn that never read the lesson", async () => {
 		const { tool, turn } = build(newTurnState());
 

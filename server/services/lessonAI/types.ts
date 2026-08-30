@@ -32,7 +32,21 @@ export type ConceptCheckRequest = {
 };
 
 export type ToolAuthorization =
-	| { authorized: true; canonicalConcept: string }
+	| {
+			authorized: true;
+			canonicalConcept: string;
+			/**
+			 * The correct answer as it appears in `options`, byte for byte.
+			 *
+			 * The policy matches `correctOption` against the options after folding,
+			 * so the model may hand back "The Base Case." for an option spelled
+			 * "The base case". Grading is byte equality against a stored option, so
+			 * the caller must persist THIS string: storing the model's rendering
+			 * would store an answer none of the offered options match, and the
+			 * check could never be answered correctly.
+			 */
+			canonicalCorrectOption: string;
+	  }
 	| { authorized: false; message: string };
 
 export type ReplyValidationRuleId =

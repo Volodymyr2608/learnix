@@ -54,7 +54,11 @@ describe("authorizeAskConceptCheck", () => {
 	it("authorizes a well-formed check on a grounded turn", () => {
 		const result = authorizeAskConceptCheck(wellFormed, checkCtx());
 
-		expect(result).toEqual({ authorized: true, canonicalConcept: "Recursion" });
+		expect(result).toEqual({
+			authorized: true,
+			canonicalConcept: "Recursion",
+			canonicalCorrectOption: "The base case",
+		});
 		expect(mockLogSecurityEvent).not.toHaveBeenCalled();
 	});
 
@@ -64,7 +68,37 @@ describe("authorizeAskConceptCheck", () => {
 			checkCtx(),
 		);
 
-		expect(result).toEqual({ authorized: true, canonicalConcept: "Recursion" });
+		expect(result).toEqual({
+			authorized: true,
+			canonicalConcept: "Recursion",
+			canonicalCorrectOption: "The base case",
+		});
+	});
+
+	/**
+	 * The near-miss this rule exists for. `correctOption` is matched against the
+	 * options AFTER folding, so a trailing period or a capital letter passes —
+	 * which is the tolerance the fold was written to provide. Grading, though, is
+	 * byte equality against a stored option. Handing the caller the model's
+	 * spelling would store an answer that is not any of the offered options, and
+	 * the check becomes unanswerable-correct: the student picks the right one, is
+	 * told they are wrong, spends an attempt and earns a cooldown.
+	 */
+	it("returns the option's own spelling, not the model's rendering of it", () => {
+		const result = authorizeAskConceptCheck(
+			{ ...wellFormed, correctOption: "  The Base Case. " },
+			checkCtx(),
+		);
+
+		expect(result).toEqual({
+			authorized: true,
+			canonicalConcept: "Recursion",
+			canonicalCorrectOption: "The base case",
+		});
+		expect(
+			result.authorized &&
+				wellFormed.options.includes(result.canonicalCorrectOption),
+		).toBe(true);
 	});
 
 	/**

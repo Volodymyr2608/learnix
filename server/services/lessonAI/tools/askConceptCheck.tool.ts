@@ -79,7 +79,11 @@ export const buildAskConceptCheckTool = (
 				concept: authorization.canonicalConcept,
 				question,
 				options,
-				correctOption,
+				// The option's own spelling. The policy accepts a folded match, so
+				// the model's `correctOption` may differ from the option it names by
+				// case or punctuation; storing that difference would make the check
+				// unanswerable-correct.
+				correctOption: authorization.canonicalCorrectOption,
 			};
 
 			return PREPARED;

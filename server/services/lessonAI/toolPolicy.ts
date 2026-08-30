@@ -190,7 +190,8 @@ export const authorizeAskConceptCheck = (
 	}
 
 	const correct = foldOption(request.correctOption);
-	if (!folded.includes(correct)) {
+	const correctIndex = folded.indexOf(correct);
+	if (correctIndex < 0) {
 		return deny(ctx, "correct_option_not_offered");
 	}
 
@@ -201,5 +202,13 @@ export const authorizeAskConceptCheck = (
 		return deny(ctx, "question_reveals_answer");
 	}
 
-	return { authorized: true, canonicalConcept: resolved.concept };
+	return {
+		authorized: true,
+		canonicalConcept: resolved.concept,
+		// The OPTION's spelling, never the model's rendering of it — the same rule
+		// as the concept, and for the same reason. Grading compares bytes against
+		// a stored option, so an answer that differs from its option by a trailing
+		// period is an answer no student can select.
+		canonicalCorrectOption: request.options[correctIndex] as string,
+	};
 };
