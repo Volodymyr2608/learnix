@@ -4,6 +4,10 @@ import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.r
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { traced } from "@/server/services/_shared/tracing";
+import {
+	CheckAlreadyPendingError,
+	CheckBudgetSpentError,
+} from "@/server/services/conceptCheck/conceptCheck.errors";
 import { conceptCheckService } from "@/server/services/conceptCheck/conceptCheck.service";
 import { logger } from "@/server/utils/logger";
 import { createLessonAgent } from "./lessonAI.agent";
@@ -72,6 +76,21 @@ const summariseToolCall = (
 	}
 	return summary;
 };
+
+/**
+ * Which routine denial this was, from the error's class alone.
+ *
+ * Never from its message: the message on this path can carry the authored
+ * question and its answer key.
+ */
+const declineRuleId = (error: unknown): string => {
+	if (error instanceof CheckAlreadyPendingError) return "check_already_pending";
+	if (error instanceof CheckBudgetSpentError) return "check_budget_spent";
+	return "check_issue_failed";
+};
+
+const errorName = (error: unknown): string =>
+	error instanceof Error ? error.constructor.name : "unknown";
 
 class LessonAIService {
 	async *streamResponse(params: {
@@ -334,8 +353,27 @@ class LessonAIService {
 				// with it. The student has already read the answer; losing the
 				// question is the smaller failure, and it is recoverable by asking
 				// again.
+				//
+				// It is still a denial, and two of the three reasons the taxonomy
+				// lists for `tool_call_declined` are raised here rather than in
+				// toolPolicy — `issue()` runs after the output boundary. Without
+				// this the routine-denial baseline S11 reads is missing two of its
+				// three sources, and a cohort that has exhausted its budget is
+				// indistinguishable from a feature that works.
+				logSecurityEvent({
+					feature: "lessonAI",
+					userId: check.studentId,
+					layer: "tool_policy",
+					outcome: "tool_call_declined",
+					ruleIds: [declineRuleId(error)],
+					score: 0,
+				});
+				// The class and nothing else. A Prisma validation error renders its
+				// `data` argument into `message`, which on this path is the authored
+				// question, its options and its answer key — the one plausible way
+				// any of them reaches a log line.
 				logger.warn(
-					{ err: error, lessonId },
+					{ err: errorName(error), lessonId },
 					"[lessonAI] authored check was not issued",
 				);
 			}

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
+import {
+	CheckAlreadyPendingError,
+	CheckBudgetSpentError,
+} from "@/server/services/conceptCheck/conceptCheck.errors";
 import { findKeyPaths } from "@/test/deepKeys";
 
 const {
@@ -12,7 +16,9 @@ const {
 	mockMarkContextIneligible,
 	mockIssue,
 	mockOnAgentCreated,
+	mockLoggerWarn,
 } = vi.hoisted(() => ({
+	mockLoggerWarn: vi.fn(),
 	mockSaveMessage: vi.fn().mockResolvedValue({}),
 	mockGetContextMessages: vi.fn().mockResolvedValue([]),
 	mockFindByLessonId: vi.fn().mockResolvedValue(null),
@@ -41,6 +47,14 @@ vi.mock("./validateReply", async (importOriginal) => {
 });
 vi.mock("@/server/services/_shared/aiGuard/securityLog", () => ({
 	logSecurityEvent: mockLogSecurityEvent,
+}));
+vi.mock("@/server/utils/logger", () => ({
+	logger: {
+		warn: mockLoggerWarn,
+		error: vi.fn(),
+		info: vi.fn(),
+		debug: vi.fn(),
+	},
 }));
 
 vi.mock("@/server/repositories/lessonAssistant.repository", () => ({
@@ -690,5 +704,55 @@ describe("an authored check is committed only after the boundary passes", () => 
 
 		expect(events.some((e) => e.type === "retract")).toBe(false);
 		expect(assistantSaves()).toHaveLength(1);
+	});
+
+	/**
+	 * `tool_call_declined` is documented as covering "no concepts on the lesson
+	 * yet, a check already open, a budget spent" — and two of those three are
+	 * raised inside `issue()`, which runs after the output boundary, where the
+	 * only record was an unstructured warn line. The routine-denial baseline S11
+	 * reads was therefore missing two of its three sources: a cohort that has
+	 * exhausted its budget looked exactly like a feature that works.
+	 */
+	const issueFailures: [string, Error, string][] = [
+		[
+			"a question already waiting",
+			new CheckAlreadyPendingError("waiting"),
+			"check_already_pending",
+		],
+		[
+			"a spent budget",
+			new CheckBudgetSpentError("spent"),
+			"check_budget_spent",
+		],
+		["anything else", new Error("boom"), "check_issue_failed"],
+	];
+
+	it.each(
+		issueFailures,
+	)("reports a check that could not be issued: %s", async (_label, error, ruleId) => {
+		mockIssue.mockRejectedValueOnce(error);
+		mockLogSecurityEvent.mockClear();
+
+		await collect([tokenEvent("Let me ask you something about it.")]);
+
+		const declines = mockLogSecurityEvent.mock.calls
+			.map((call) => call[0] as { outcome: string; ruleIds: string[] })
+			.filter((event) => event.outcome === "tool_call_declined");
+		expect(declines).toHaveLength(1);
+		expect(declines[0]?.ruleIds).toEqual([ruleId]);
+	});
+
+	// The one place a Prisma validation error could render the authored question
+	// and its answer key into a log line.
+	it("names the failure without quoting anything the model wrote", async () => {
+		mockIssue.mockRejectedValueOnce(
+			new Error('Invalid value for correct: "The base case"'),
+		);
+
+		await collect([tokenEvent("Let me ask you something about it.")]);
+
+		const logged = JSON.stringify(mockLoggerWarn.mock.calls);
+		expect(logged).not.toContain("The base case");
 	});
 });
