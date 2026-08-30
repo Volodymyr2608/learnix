@@ -903,6 +903,27 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-manyshot-01 pro
 }
 `;
 
+exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-01 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-02 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-03 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
 exports[`detectInjection — English corpus baseline (AC-1) > rt-residual-uk-02 produces a stable verdict and score 1`] = `
 {
   "score": 0,

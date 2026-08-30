@@ -3,6 +3,7 @@ import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import { lessonConceptNames } from "@/server/services/_shared/concepts/lessonConcepts";
 import { traced } from "@/server/services/_shared/tracing";
 import {
 	CheckAlreadyPendingError,
@@ -127,16 +128,11 @@ class LessonAIService {
 			studentId,
 			{ role: "user", content: userMessage },
 		);
-		// LLM-generated JSON with no schema behind it, and this becomes the
-		// toolPolicy allowlist — a non-string entry would throw inside the policy's
-		// trim(), turning a denial into an unhandled error.
-		const lessonConcepts = (
-			(lessonInsights?.concepts as { name?: unknown }[] | null) ?? []
-		)
-			.map((concept) => concept?.name)
-			.filter(
-				(name): name is string => typeof name === "string" && name.length > 0,
-			);
+		// One rule, shared with the chat route's guard scope. Deriving it twice is
+		// how the allowlist the tutor may author against and the scope the
+		// classifier accepts come to disagree — silently, since a concept missing
+		// from the allowlist reads as a model that chose not to ask.
+		const lessonConcepts = lessonConceptNames(lessonInsights?.concepts);
 
 		const langchainHistory = history.map((msg) =>
 			msg.role === "user"

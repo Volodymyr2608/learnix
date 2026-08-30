@@ -12,14 +12,12 @@ import {
 } from "@/server/repositories/quizAttempt.repository";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import {
+	canonicalConceptSpelling,
 	conceptKey,
 	resolveAllowlistedConcept,
 	retagWithAllowlist,
 } from "@/server/services/_shared/concepts/conceptKey";
-import {
-	canonicalConceptName,
-	QUIZ_MASTERY_LEVEL,
-} from "@/server/services/mastery/masteryLevels";
+import { QUIZ_MASTERY_LEVEL } from "@/server/services/mastery/masteryLevels";
 import { logger } from "@/server/utils/logger";
 import {
 	AlreadyAttemptedError,
@@ -77,7 +75,7 @@ export const canonicalConceptNames = (raw: unknown): string[] => {
 
 	for (const entry of entries) {
 		if (typeof entry?.name !== "string") continue;
-		const name = canonicalConceptName(entry.name);
+		const name = canonicalConceptSpelling(entry.name);
 		if (!name) continue;
 		const key = name.toLowerCase();
 		if (!canonical.has(key)) canonical.set(key, name);

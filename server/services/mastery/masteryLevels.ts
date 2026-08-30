@@ -28,8 +28,9 @@ export const MAX_CONCEPT_NAME_LENGTH = 80;
  * Returns null when the name cannot be stored at all, so a caller has to decide
  * what to do rather than write an empty or oversized concept.
  */
-export const canonicalConceptName = (raw: string): string | null => {
-	const name = raw.trim();
-	if (name.length === 0 || name.length > MAX_CONCEPT_NAME_LENGTH) return null;
-	return name;
-};
+// REMOVED 2026-08-30. It trimmed the ends and left internal whitespace runs
+// alone, while `canonicalConceptSpelling` collapses them — so quiz promotion and
+// the tutor produced two spellings of "API   Routes" for one concept. `conceptKey`
+// collapses runs, so they resolved to one ROW; whichever writer arrived first
+// named it, and the student saw whichever spelling that was. One rule now:
+// `canonicalConceptSpelling` in `_shared/concepts/conceptKey.ts`.
