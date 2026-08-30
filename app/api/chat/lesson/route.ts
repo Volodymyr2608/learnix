@@ -8,6 +8,8 @@ import {
 	checkAiRateLimit,
 	validateMessageLength,
 } from "@/server/services/_shared/aiLimits";
+import { lessonConceptNames } from "@/server/services/_shared/concepts/lessonConcepts";
+import { lessonGuardDomain } from "@/server/services/lessonAI/guardDomain";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
 import { logger } from "@/server/utils/logger";
 
@@ -58,7 +60,17 @@ export async function POST(req: Request) {
 						select: {
 							lessons: {
 								where: { id: lessonId, deletedAt: null },
-								select: { id: true, title: true },
+								select: {
+									id: true,
+									title: true,
+									// Joined here rather than fetched after: the concepts scope
+									// the relevance guard, and the guard runs before anything
+									// else, so a second query would be a round trip on every
+									// turn. It also keeps ADR-023 intact — these come back from
+									// the statement that proved enrollment, not from a lookup
+									// keyed by an id the request supplied.
+									lessonInsights: { select: { concepts: true } },
+								},
 							},
 						},
 					},
@@ -83,10 +95,15 @@ export async function POST(req: Request) {
 	const guard = await guardUserInput(message, {
 		feature: "lessonAI",
 		userId: session.user.id,
-		domain: {
-			description: `the course "${courseTitle}" and its lesson "${lesson.title}"`,
-			subject: `the "${courseTitle}" course`,
-		},
+		// The lesson's concepts are part of what counts as on-topic. Without them
+		// a student naming one — the phrasing the tutor's own prompt invites for a
+		// concept check — was refused as a different subject before the tutor ever
+		// saw it. See ai-input-trust-boundary/spec.md, scope item 12.
+		domain: lessonGuardDomain({
+			courseTitle,
+			lessonTitle: lesson.title,
+			concepts: lessonConceptNames(lesson.lessonInsights?.concepts),
+		}),
 	});
 
 	const oneShot = (event: Record<string, unknown>) =>

@@ -9,14 +9,16 @@ import {
 	makeUser,
 } from "@/test/factories";
 
-const { mockGetSession, mockStreamEvents } = vi.hoisted(() => ({
-	mockGetSession: vi.fn(),
-	mockStreamEvents: vi.fn(),
-}));
+const { mockGetSession, mockStreamEvents, mockCheckTopicRelevance } =
+	vi.hoisted(() => ({
+		mockGetSession: vi.fn(),
+		mockStreamEvents: vi.fn(),
+		mockCheckTopicRelevance: vi.fn().mockResolvedValue({ onTopic: true }),
+	}));
 
 vi.mock("@/server/better-auth/server", () => ({ getSession: mockGetSession }));
 vi.mock("@/server/services/_shared/aiGuard/topicRelevance", () => ({
-	checkTopicRelevance: vi.fn().mockResolvedValue({ onTopic: true }),
+	checkTopicRelevance: mockCheckTopicRelevance,
 }));
 vi.mock(
 	"@/server/services/lessonAI/lessonAI.agent",
@@ -139,5 +141,43 @@ describe("tutor guardrails, end to end", () => {
 			orderBy: { createdAt: "asc" },
 		});
 		expect(rows.map((row) => row.role)).toEqual(["user", "assistant"]);
+	});
+
+	/**
+	 * The scope L2 is handed decides whether a turn ever reaches the tutor, and
+	 * it used to name the course and lesson titles only. A student naming one of
+	 * the lesson's own concepts — the phrasing the tutor's prompt invites for a
+	 * concept check — was therefore judged to be a different subject: measured
+	 * 5/5 refusals on a lesson whose title shares no vocabulary with the concept.
+	 */
+	it("tells the relevance layer which concepts the lesson covers", async () => {
+		mockCheckTopicRelevance.mockClear();
+		mockStreamEvents.mockReturnValue(streamOf([tokenEvent("Sure.")]));
+
+		await post("Can you check my understanding of Recursion?");
+
+		const domain = mockCheckTopicRelevance.mock.calls[0]?.[1] as {
+			description: string;
+			subject: string;
+		};
+		expect(domain.description).toContain("Recursion");
+		// The refusal a student reads names the course, never the lesson's
+		// internals.
+		expect(domain.subject).not.toContain("Recursion");
+	});
+
+	it("scopes to the titles alone when the lesson has no insights yet", async () => {
+		await testDb.lessonInsights.deleteMany({ where: { lessonId } });
+		mockCheckTopicRelevance.mockClear();
+		mockStreamEvents.mockReturnValue(streamOf([tokenEvent("Sure.")]));
+
+		const res = await post("How does recursion end?");
+
+		const domain = mockCheckTopicRelevance.mock.calls[0]?.[1] as {
+			description: string;
+		};
+		expect(domain.description).not.toContain("concepts");
+		// And the turn still works — no insights is an ordinary state, not an error.
+		expect(await readSse(res)).toContain("Sure.");
 	});
 });
