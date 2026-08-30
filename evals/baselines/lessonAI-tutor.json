@@ -1,5 +1,5 @@
 {
-	"recordedAt": "2026-08-29T16:11:04.185Z",
+	"recordedAt": "2026-08-30T14:04:53.940Z",
 	"model": "gpt-4o-mini",
 	"promptHash": "c074cd5f459f",
 	"samples": 3,
@@ -10,10 +10,10 @@
 			"passed": 24,
 			"total": 24,
 			"judge": {
-				"relevance": 4.75,
-				"faithfulness": 4.75,
+				"relevance": 4.875,
+				"faithfulness": 4.625,
 				"completeness": 5,
-				"groundedness": 4.75,
+				"groundedness": 4.625,
 				"judged": 8
 			}
 		},
@@ -22,9 +22,9 @@
 			"passed": 9,
 			"total": 9,
 			"judge": {
-				"relevance": 4.666666666666667,
+				"relevance": 4,
 				"faithfulness": 4.333333333333333,
-				"completeness": 5,
+				"completeness": 4.666666666666667,
 				"groundedness": 4.333333333333333,
 				"judged": 3
 			}
@@ -34,16 +34,16 @@
 			"passed": 12,
 			"total": 12,
 			"judge": {
-				"relevance": 3,
-				"faithfulness": 5,
-				"completeness": 3,
+				"relevance": 2,
+				"faithfulness": 4,
+				"completeness": 2,
 				"groundedness": 5,
 				"judged": 4
 			}
 		},
 		{
 			"category": "off-topic",
-			"passed": 7,
+			"passed": 8,
 			"total": 12
 		},
 		{
@@ -71,10 +71,10 @@
 			"passed": 9,
 			"total": 9,
 			"judge": {
-				"relevance": 1,
-				"faithfulness": 2.3333333333333335,
-				"completeness": 1,
-				"groundedness": 2.3333333333333335,
+				"relevance": 1.3333333333333333,
+				"faithfulness": 1,
+				"completeness": 1.3333333333333333,
+				"groundedness": 3.6666666666666665,
 				"judged": 3
 			}
 		},
@@ -84,9 +84,9 @@
 			"total": 12,
 			"judge": {
 				"relevance": 5,
-				"faithfulness": 3.25,
+				"faithfulness": 4,
 				"completeness": 5,
-				"groundedness": 3.25,
+				"groundedness": 4,
 				"judged": 4
 			}
 		},
@@ -101,9 +101,9 @@
 			"total": 6,
 			"judge": {
 				"relevance": 4,
-				"faithfulness": 3,
+				"faithfulness": 2.5,
 				"completeness": 4,
-				"groundedness": 3,
+				"groundedness": 2.5,
 				"judged": 2
 			}
 		},
@@ -122,5 +122,11 @@
 			"passed": 9,
 			"total": 9
 		}
-	]
+	],
+	"authoring": {
+		"authored": 39,
+		"authoringValid": 33,
+		"answerEchoed": 3,
+		"keyFirst": 7
+	}
 }
