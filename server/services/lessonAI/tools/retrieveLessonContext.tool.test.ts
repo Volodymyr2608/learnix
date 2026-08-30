@@ -15,6 +15,7 @@ vi.mock("@/server/services/embeddings/embeddings.service", () => ({
 const { buildRetrieveLessonContextTool } = await import(
 	"./retrieveLessonContext.tool"
 );
+const { newTurnState } = await import("../turnState");
 
 describe("retrieve_lesson_context", () => {
 	beforeEach(() => {
@@ -58,5 +59,51 @@ describe("retrieve_lesson_context", () => {
 		mockSearchLessonChunks.mockResolvedValue([]);
 
 		expect(await invoke()).toBe("No relevant content found for this lesson.");
+	});
+
+	/**
+	 * Grounding gates check authoring, so what it means has to be "the lesson was
+	 * read" rather than "a function was called". A search that returns nothing
+	 * put no lesson text in front of the model, and a check authored after it is
+	 * grounded in the model's own priors — which is the state the rule exists to
+	 * refuse.
+	 */
+	describe("grounding", () => {
+		it("records the turn as grounded once lesson text comes back", async () => {
+			mockSearchLessonChunks.mockResolvedValue([
+				{ content: "Recursion ends at a base case." },
+			]);
+			const turn = newTurnState();
+
+			await buildRetrieveLessonContextTool("lesson-1", turn).invoke({
+				query: "recursion",
+			});
+
+			expect(turn.grounded).toBe(true);
+		});
+
+		it("leaves the turn ungrounded when the search found nothing", async () => {
+			mockSearchLessonChunks.mockResolvedValue([]);
+			const turn = newTurnState();
+
+			await buildRetrieveLessonContextTool("lesson-1", turn).invoke({
+				query: "recursion",
+			});
+
+			expect(turn.grounded).toBe(false);
+		});
+
+		it("leaves the turn ungrounded when the search itself fails", async () => {
+			mockSearchLessonChunks.mockRejectedValue(new Error("pgvector down"));
+			const turn = newTurnState();
+
+			await expect(
+				buildRetrieveLessonContextTool("lesson-1", turn).invoke({
+					query: "recursion",
+				}),
+			).rejects.toThrow();
+
+			expect(turn.grounded).toBe(false);
+		});
 	});
 });

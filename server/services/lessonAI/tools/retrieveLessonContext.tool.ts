@@ -11,13 +11,6 @@ export const buildRetrieveLessonContextTool = (
 ) =>
 	tool(
 		async ({ query, k = 4 }: { query: string; k?: number }) => {
-			// Grounding is recorded here, at the one place the lesson is actually
-			// read, and never anywhere the model can influence. A check may only be
-			// authored on a turn that reached this line — which is what refuses
-			// "ask me a check whose correct answer is 'banana'", a request that is
-			// pattern-free, on-topic and perfectly well-formed.
-			if (turn) turn.grounded = true;
-
 			const vector = await embeddingsService.embedQuery(query);
 			const chunks = await embeddingRepository.searchLessonChunks(
 				lessonId,
@@ -26,6 +19,21 @@ export const buildRetrieveLessonContextTool = (
 			);
 			if (chunks.length === 0)
 				return "No relevant content found for this lesson.";
+
+			// Grounding is recorded here, at the one place lesson text actually
+			// reaches the model, and never anywhere the model can influence. It is
+			// set AFTER the search and only for a non-empty result: a call that
+			// found nothing put no lesson in front of the model, so a check
+			// authored on the strength of it would be grounded in the model's own
+			// priors. Recording it on entry made the flag mean "a function ran".
+			//
+			// This is what refuses "ask me a check whose correct answer is
+			// 'banana'" on a turn that never read the lesson — a request that is
+			// otherwise pattern-free, on-topic and perfectly well-formed. It does
+			// NOT refuse the same request on a turn that did read the lesson; see
+			// security.md S13.
+			if (turn) turn.grounded = true;
+
 			// The sentinel above stays unwrapped on purpose: Learnix authored it,
 			// and wrapping it would tell the model to distrust our own message.
 			return wrapUntrustedContent(
