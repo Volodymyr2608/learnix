@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { PathState } from "../learningPathAI.state";
-import { identifyWeakSignals } from "./identifyWeakSignals.node";
+import {
+	identifyWeakSignals,
+	MAX_WEAK_CONCEPTS,
+} from "./identifyWeakSignals.node";
 
 const state = (overrides: Partial<PathState>): PathState =>
 	({
@@ -182,5 +185,55 @@ describe("identifyWeakSignals", () => {
 			{ lessonId: "lesson-1", quizId: "q1" },
 			{ lessonId: "lesson-2", quizId: "q3" },
 		]);
+	});
+
+	/**
+	 * The list is now derived from every concept of every completed lesson, so
+	 * the sparse rows that record something the student DID would otherwise sit
+	 * behind hundreds of bare "encountered" entries — past the cap, past the
+	 * three reviews `proposeReviews` takes, and past anything the prompt shows.
+	 */
+	it("puts what the student did before what they merely saw", () => {
+		const result = identifyWeakSignals(
+			state({
+				completedLessonIds: ["lesson-1", "lesson-2"],
+				mastery: [{ concept: "Server Components", level: 2 }],
+				lessonOrder: [
+					lesson("lesson-1", ["Recursion", "Base case"]),
+					lesson("lesson-2", ["Server Components"]),
+				],
+			}),
+		);
+
+		expect(result.weakConcepts?.[0]).toEqual({
+			concept: "Server Components",
+			evidence: "applied",
+			firstLessonId: "lesson-2",
+		});
+	});
+
+	/**
+	 * `weakConcepts` is JSON.stringify'd into the merge prompt and again into
+	 * every reflection retry. Before it was derived it was bounded by the number
+	 * of persisted rows, which is small; a 40-lesson course at 5 concepts each
+	 * now makes it 200 objects on every path generation, with no ceiling anyone
+	 * chose.
+	 */
+	it("caps the derived list so it cannot grow with the course", () => {
+		const lessons = Array.from({ length: 40 }, (_, i) =>
+			lesson(
+				`lesson-${i}`,
+				Array.from({ length: 5 }, (_, c) => `Concept ${i}-${c}`),
+			),
+		);
+
+		const result = identifyWeakSignals(
+			state({
+				completedLessonIds: lessons.map((l) => l.id),
+				lessonOrder: lessons,
+			}),
+		);
+
+		expect(result.weakConcepts?.length).toBe(MAX_WEAK_CONCEPTS);
 	});
 });

@@ -37,6 +37,46 @@ describe("proposeReviews", () => {
 		}
 	});
 
+	/**
+	 * `weakConcepts` is now derived from every concept of every completed lesson,
+	 * grouped lesson by lesson, so the first entries all share a lesson. Taking
+	 * the first three and THEN deduplicating by lesson collapsed the whole list
+	 * to a single review step for any student whose first completed lesson had
+	 * three concepts — which is most of them. The dedupe has to run while
+	 * walking the list, not after a slice of it.
+	 */
+	it("spreads reviews across lessons rather than stopping at the first", () => {
+		const { candidateSteps } = proposeReviews(
+			state({
+				weakConcepts: [
+					weak("Recursion", "encountered", "lesson-1"),
+					weak("Base case", "encountered", "lesson-1"),
+					weak("Stack frame", "encountered", "lesson-1"),
+					weak("API Routes", "encountered", "lesson-2"),
+					weak("Server Components", "encountered", "lesson-3"),
+				],
+			}),
+		);
+
+		const lessonIds = (candidateSteps ?? []).map((step) => step.lessonId);
+		expect(lessonIds).toEqual(["lesson-1", "lesson-2", "lesson-3"]);
+	});
+
+	it("still proposes at most three reviews", () => {
+		const { candidateSteps } = proposeReviews(
+			state({
+				weakConcepts: [
+					weak("A", "encountered", "lesson-1"),
+					weak("B", "encountered", "lesson-2"),
+					weak("C", "encountered", "lesson-3"),
+					weak("D", "encountered", "lesson-4"),
+				],
+			}),
+		);
+
+		expect(candidateSteps).toHaveLength(3);
+	});
+
 	it("says which of the two things the student actually did", () => {
 		const { candidateSteps } = proposeReviews(
 			state({

@@ -28,6 +28,18 @@ import type {
  * step; it is retained rather than destroyed, because a model rewording a
  * heading must not erase evidence a student earned.
  */
+/**
+ * A ceiling on the derived list, because it is `JSON.stringify`'d into the merge
+ * prompt and again into every reflection retry.
+ *
+ * While weak concepts came from persisted rows the list was small by
+ * construction. Derived from completed lessons it is not: a 40-lesson course at
+ * five concepts each is 200 objects per generation, a cost nobody chose. Two
+ * dozen is more than `proposeReviews` can use (three lessons) and more than the
+ * model's own output schema allows back (eight).
+ */
+export const MAX_WEAK_CONCEPTS = 24;
+
 export function identifyWeakSignals(state: PathState): Partial<PathState> {
 	const completedSet = new Set(state.completedLessonIds);
 
@@ -84,7 +96,18 @@ export function identifyWeakSignals(state: PathState): Partial<PathState> {
 	// longer appears in any lesson is still evidence of something the student
 	// did, and it is still weak — it just has no lesson to send them back to, so
 	// `proposeReviews` skips it rather than emitting a step pointing at "".
-	const weakConcepts: WeakConceptRow[] = [...byKey.values()];
+	//
+	// Ordered before it is capped, and `applied` first. The list is derived from
+	// every concept of every completed lesson, so in course order the handful of
+	// rows recording something the student actually DID would sit behind every
+	// bare "encountered" entry — out of the prompt, out of the three reviews, out
+	// of sight. Within each group the derivation order is kept, which is lesson
+	// order.
+	const all = [...byKey.values()];
+	const weakConcepts: WeakConceptRow[] = [
+		...all.filter((row) => row.evidence === "applied"),
+		...all.filter((row) => row.evidence !== "applied"),
+	].slice(0, MAX_WEAK_CONCEPTS);
 
 	// Accumulated in one pass: `.filter()` runs to completion before `.map()`
 	// begins, so a `seen` set populated in the map is still empty for every
