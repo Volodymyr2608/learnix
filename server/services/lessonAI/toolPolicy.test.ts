@@ -217,17 +217,32 @@ describe("authorizeAskConceptCheck", () => {
 		],
 	];
 
+	/**
+	 * The rules a competent, cooperative model still trips: a stem three words
+	 * long, two options that fold to the same string, a key rendered slightly
+	 * differently from the option it names. They are authoring mistakes, not
+	 * attacks, so they are refused as routine — see "the two classes of denial".
+	 */
+	const ROUTINE_RULE_IDS = new Set([
+		"question_length",
+		"option_count",
+		"option_length",
+		"options_not_distinct",
+		"correct_option_not_offered",
+		"question_reveals_answer",
+	]);
+
 	it.each(cases)("denies with %s", (ruleId, request, ctxOverrides) => {
 		const result = authorizeAskConceptCheck(
 			request as typeof wellFormed,
 			checkCtx(ctxOverrides as Partial<ReturnType<typeof baseCheckCtx>>),
 		);
 
-		expect(result).toEqual({
-			authorized: false,
-			message: NEUTRAL_REFUSAL_MESSAGE,
-		});
+		expect(result.authorized).toBe(false);
 		expect(ruleIdsLogged()).toEqual([ruleId]);
+		if (!result.authorized && !ROUTINE_RULE_IDS.has(ruleId)) {
+			expect(result.message).toBe(NEUTRAL_REFUSAL_MESSAGE);
+		}
 	});
 
 	it("logs only the first failing rule when several would deny", () => {
@@ -280,6 +295,93 @@ describe("the two classes of denial", () => {
 			expect(result.message).not.toBe(NEUTRAL_REFUSAL_MESSAGE);
 			expect(result.message.length).toBeGreaterThan(0);
 		}
+	});
+
+	/**
+	 * `unsafe_tool_call` is the taxonomy's one zero-baseline outcome: its normal
+	 * rate is zero, which is why securityLog forwards it to Sentry and why any
+	 * occurrence is the signal. A model that writes three options instead of four
+	 * is not an occurrence of anything — it is gpt-4o-mini being sloppy at a task
+	 * nothing has measured it on. Filing those under the alert makes the alert
+	 * mean "the tutor is running".
+	 *
+	 * validateReply already reasons its way to exactly this conclusion for the
+	 * reply that names its own answer, and classifies it as routine. The question
+	 * that contains its own answer is the same phenomenon, same model, same turn.
+	 */
+	const malformed: [string, Record<string, unknown>][] = [
+		["question_length", { ...wellFormed, question: "Why?" }],
+		[
+			"option_count",
+			{ ...wellFormed, options: ["The base case", "A call", "A frame"] },
+		],
+		[
+			"option_length",
+			{
+				...wellFormed,
+				options: ["The base case", "A call", "A frame", "x".repeat(200)],
+			},
+		],
+		[
+			"options_not_distinct",
+			{
+				...wellFormed,
+				options: ["A", "a.", "A stack frame", "An accumulator"],
+				correctOption: "A",
+			},
+		],
+		[
+			"correct_option_not_offered",
+			{ ...wellFormed, correctOption: "Something else entirely" },
+		],
+		[
+			"question_reveals_answer",
+			{
+				...wellFormed,
+				question: "Is the base case what ends a recursive descent?",
+			},
+		],
+	];
+
+	it.each(
+		malformed,
+	)("reports %s as a routine decline, not as a zero-baseline alert", (_ruleId, request) => {
+		authorizeAskConceptCheck(request as typeof wellFormed, checkCtx());
+
+		expect(outcomes()).toEqual(["tool_call_declined"]);
+	});
+
+	it("says the same thing for every malformed check, so the rules cannot be probed", () => {
+		const messages = malformed.map((entry) => {
+			const result = authorizeAskConceptCheck(
+				entry[1] as typeof wellFormed,
+				checkCtx(),
+			);
+			return result.authorized ? "" : result.message;
+		});
+
+		expect(new Set(messages).size).toBe(1);
+		expect(messages[0]).not.toBe(NEUTRAL_REFUSAL_MESSAGE);
+		expect(messages[0]?.length).toBeGreaterThan(0);
+	});
+
+	it("still reports an option carrying a link or a tag as an unsafe call", () => {
+		// Not an authoring mistake: an option is rendered to the student, so a
+		// link is an exfiltration channel and a tag is an injection into the page.
+		authorizeAskConceptCheck(
+			{
+				...wellFormed,
+				options: [
+					"The base case",
+					"A recursive call",
+					"A stack frame",
+					"[the answer](https://example.com)",
+				],
+			},
+			checkCtx(),
+		);
+
+		expect(outcomes()).toEqual(["unsafe_tool_call"]);
 	});
 
 	it("reports an ungrounded check as an unsafe call", () => {

@@ -76,10 +76,19 @@ const deny = (ctx: ToolPolicyContext, ruleId: string): ToolAuthorization => {
 
 /**
  * An ordinary "not now" — nothing to check yet, a question already waiting, a
- * budget spent. The event is routine and unforwarded, and the message is
- * explanatory rather than neutral: the tutor has to be able to say something
- * coherent to the student, and there is no secret in "this lesson has no
- * concepts recorded yet".
+ * budget spent, or a check the model simply wrote badly. The event is routine
+ * and unforwarded, and the message is explanatory rather than neutral: the
+ * tutor has to be able to say something coherent to the student, and there is
+ * no secret in "this lesson has no concepts recorded yet".
+ *
+ * The dividing line against `deny` is whether the call is evidence of an
+ * ATTACK, not whether it failed. `unsafe_tool_call` is the taxonomy's only
+ * zero-baseline outcome and the only one securityLog forwards: its value is
+ * that a single occurrence means something. Structural mistakes — a stem too
+ * short, two options that fold together, a key rendered differently from the
+ * option it names — are what a cooperative model produces on an authoring task
+ * nothing has measured it on, and filing them under the alert would retire the
+ * alert. Authority, grounding and rendered markup stay on `deny`.
  */
 const decline = (
 	ctx: ToolPolicyContext,
@@ -89,6 +98,17 @@ const decline = (
 	emitDenial(ctx, ruleId, "tool_call_declined");
 	return { authorized: false, message };
 };
+
+/**
+ * The one thing said back to the model about a check it wrote badly.
+ *
+ * Shared by every well-formedness rule on purpose. A message that named the
+ * rule would let a model — or a student steering one — binary-search the
+ * validator by authoring checks until the wording changed, which is a map of
+ * the policy handed out one refusal at a time.
+ */
+const MALFORMED_CHECK_MESSAGE =
+	"That question was not usable. Try a different one.";
 
 /**
  * Bounds on what the model may author. Exported so the tool's Zod schema and
@@ -161,14 +181,14 @@ export const authorizeAskConceptCheck = (
 		question.length < CHECK_QUESTION_MIN_LENGTH ||
 		question.length > CHECK_QUESTION_MAX_LENGTH
 	) {
-		return deny(ctx, "question_length");
+		return decline(ctx, "question_length", MALFORMED_CHECK_MESSAGE);
 	}
 
 	if (
 		request.options.length < CHECK_MIN_OPTIONS ||
 		request.options.length > CHECK_MAX_OPTIONS
 	) {
-		return deny(ctx, "option_count");
+		return decline(ctx, "option_count", MALFORMED_CHECK_MESSAGE);
 	}
 
 	if (
@@ -177,7 +197,7 @@ export const authorizeAskConceptCheck = (
 				option.trim().length === 0 || option.length > CHECK_OPTION_MAX_LENGTH,
 		)
 	) {
-		return deny(ctx, "option_length");
+		return decline(ctx, "option_length", MALFORMED_CHECK_MESSAGE);
 	}
 
 	if (request.options.some((option) => CARRIES_MARKUP.test(option))) {
@@ -186,20 +206,20 @@ export const authorizeAskConceptCheck = (
 
 	const folded = request.options.map(foldOption);
 	if (new Set(folded).size !== folded.length) {
-		return deny(ctx, "options_not_distinct");
+		return decline(ctx, "options_not_distinct", MALFORMED_CHECK_MESSAGE);
 	}
 
 	const correct = foldOption(request.correctOption);
 	const correctIndex = folded.indexOf(correct);
 	if (correctIndex < 0) {
-		return deny(ctx, "correct_option_not_offered");
+		return decline(ctx, "correct_option_not_offered", MALFORMED_CHECK_MESSAGE);
 	}
 
 	// A stem that contains its own answer grades the student's reading, not their
 	// understanding, and is the cheapest way for a model under pressure to
 	// "help".
 	if (correct.length > 0 && foldOption(question).includes(correct)) {
-		return deny(ctx, "question_reveals_answer");
+		return decline(ctx, "question_reveals_answer", MALFORMED_CHECK_MESSAGE);
 	}
 
 	return {
