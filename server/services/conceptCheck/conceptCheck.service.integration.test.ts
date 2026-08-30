@@ -243,6 +243,35 @@ describe("conceptCheckService.issue", () => {
 		).resolves.toBe(0);
 	});
 
+	/**
+	 * `ConceptMastery` is keyed (studentId, courseId, conceptKey), so evidence is
+	 * per course — two courses teaching "Closures" record it twice, on purpose.
+	 * The budget that decides whether a check may be issued has to be read at the
+	 * same grain, or a student who spent their three attempts in one course can
+	 * never earn the concept in the other, and a wrong answer in one silences the
+	 * other for 24 hours.
+	 */
+	it("counts the budget per course, not across everything the student studies", async () => {
+		const s = await seed();
+		const other = await seed();
+		// Same student, a second course.
+		await testDb.enrollment.create({
+			data: { studentId: s.studentId, courseId: other.courseId },
+		});
+		for (const hoursAgo of [72, 60, 1]) {
+			await answeredCheck(s, { isCorrect: false, hoursAgo });
+		}
+
+		await expect(
+			conceptCheckService.issue({
+				studentId: s.studentId,
+				lessonId: other.lessonId,
+				...authored,
+				question: "Which file name marks a handler in the App Router?",
+			}),
+		).resolves.toBeTruthy();
+	});
+
 	it("counts the budget per concept, not per student", async () => {
 		const s = await seed();
 		for (const hoursAgo of [72, 60, 48]) {

@@ -173,8 +173,8 @@ class ConceptCheckService {
 					where: { studentId, courseId, conceptKey: key },
 					select: { level: true },
 				}) as Promise<{ level: number } | null>,
-				conceptCheckRepository.countForConcept(studentId, key),
-				conceptCheckRepository.lastWrongAnsweredAt(studentId, key),
+				conceptCheckRepository.countForConcept(studentId, courseId, key),
+				conceptCheckRepository.lastWrongAnsweredAt(studentId, courseId, key),
 				conceptCheckRepository.countForLesson(studentId, lessonId),
 				conceptCheckRepository.hasAskedQuestion(studentId, key, questionKey),
 			]);

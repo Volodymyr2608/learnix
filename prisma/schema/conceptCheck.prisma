@@ -64,9 +64,11 @@ model ConceptCheck {
   lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
-  /// The per-concept budget counts on this pair, and the repeat lookup extends
-  /// it with `questionKey`.
-  @@index([studentId, conceptKey])
+  /// The per-concept budget and the cooldown count on this triple: evidence is
+  /// written per course, so the budget that gates it is read per course.
+  @@index([studentId, courseId, conceptKey])
+  /// The repeat lookup, deliberately NOT course-scoped — being shown the answer
+  /// you got wrong is a disclosure that does not stop at a course boundary.
   @@index([studentId, conceptKey, questionKey])
   @@map("concept_checks")
 }

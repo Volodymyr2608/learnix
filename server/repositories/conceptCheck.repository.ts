@@ -74,15 +74,21 @@ class ConceptCheckRepository extends BaseRepository<
 	}
 
 	/**
-	 * How many checks this student has ever been issued on this concept, in any
-	 * status. Swept and abandoned ones count: the budget prices the authoring,
-	 * which is where the model spend and the enumeration risk both sit.
+	 * How many checks this student has ever been issued on this concept in this
+	 * course, in any status. Swept and abandoned ones count: the budget prices
+	 * the authoring, which is where the model spend and the enumeration risk both
+	 * sit.
+	 *
+	 * Course-scoped because `ConceptMastery` is: evidence for "Closures" is
+	 * recorded once per course, so the budget that gates earning it is counted
+	 * once per course too.
 	 */
 	async countForConcept(
 		studentId: string,
+		courseId: string,
 		conceptKey: string,
 	): Promise<number> {
-		return this.count({ studentId, conceptKey });
+		return this.count({ studentId, courseId, conceptKey });
 	}
 
 	/**
@@ -115,10 +121,11 @@ class ConceptCheckRepository extends BaseRepository<
 	 */
 	async lastWrongAnsweredAt(
 		studentId: string,
+		courseId: string,
 		conceptKey: string,
 	): Promise<Date | null> {
 		const rows = await this.findMany({
-			where: { studentId, conceptKey, isCorrect: false },
+			where: { studentId, courseId, conceptKey, isCorrect: false },
 			orderBy: { answeredAt: "desc" },
 			take: 1,
 			select: { answeredAt: true },
