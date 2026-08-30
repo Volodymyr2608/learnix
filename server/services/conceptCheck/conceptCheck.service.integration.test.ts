@@ -89,6 +89,7 @@ const answeredCheck = (
 			concept,
 			conceptKey: conceptKey(concept),
 			question: authored.question,
+			questionKey: conceptKey(authored.question),
 			options: authored.options,
 			correct: authored.correctOption,
 			status: ConceptCheckStatus.ANSWERED,
@@ -190,7 +191,11 @@ describe("conceptCheckService.issue", () => {
 			data: { expiresAt: new Date(Date.now() - 1000) },
 		});
 
-		const fresh = await issue(s);
+		const fresh = await issue(s, {
+			// A question is asked once, so the check that replaces a swept one is a
+			// new question — as it would be in a real turn.
+			question: "Which App Router file name marks a route handler?",
+		});
 
 		expect(fresh.id).not.toBe(stale.id);
 		const sweptRow = await testDb.conceptCheck.findUniqueOrThrow({
@@ -198,6 +203,32 @@ describe("conceptCheckService.issue", () => {
 		});
 		expect(sweptRow.status).toBe(ConceptCheckStatus.EXPIRED);
 		expect(sweptRow.answeredAt).toBeNull();
+	});
+
+	/**
+	 * spec.md's acceptance criterion for the retry: "a retry after 24 hours is
+	 * allowed and its question is not normalisation-equal to any previous one."
+	 *
+	 * It cannot be the model's job, and the design is what makes that so: the
+	 * tool result is a bare acknowledgement, `PERSISTABLE_TOOL_FIELDS` keeps the
+	 * authored check out of `toolCalls`, and `getContextMessages` replays content
+	 * only — so on the retry turn the model has no memory of what it asked. The
+	 * wrong answer, meanwhile, is disclosed to the student. Without this rule the
+	 * three attempts the budget allows are not three independent draws; the
+	 * second is a repeat of a question whose answer the student was handed.
+	 */
+	it("refuses a question the student has already been asked, however it is respelled", async () => {
+		const s = await seed();
+		await answeredCheck(s, { isCorrect: false, hoursAgo: 25 });
+
+		await expect(
+			issue(s, {
+				question: `  ${authored.question.toUpperCase()}  `,
+			}),
+		).rejects.toBeInstanceOf(CheckBudgetSpentError);
+		await expect(
+			testDb.conceptCheck.count({ where: { status: "PENDING" } }),
+		).resolves.toBe(0);
 	});
 
 	it("refuses a fourth check on the same concept", async () => {
@@ -234,7 +265,14 @@ describe("conceptCheckService.issue", () => {
 		const s = await seed();
 		await answeredCheck(s, { isCorrect: false, hoursAgo: 25 });
 
-		await expect(issue(s)).resolves.toBeTruthy();
+		// A different question, because a question is asked once. The pair with
+		// the repeat test above is the point: the rule must refuse repeats without
+		// refusing retries.
+		await expect(
+			issue(s, {
+				question: "Which file name does the App Router treat as a handler?",
+			}),
+		).resolves.toBeTruthy();
 	});
 
 	/**

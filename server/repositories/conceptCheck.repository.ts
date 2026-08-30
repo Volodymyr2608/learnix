@@ -94,6 +94,22 @@ class ConceptCheckRepository extends BaseRepository<
 	}
 
 	/**
+	 * Whether this student has ever been asked this exact question about this
+	 * concept, in any status.
+	 *
+	 * The comparison is on the stored key, so padding and case cannot make a
+	 * repeat look new. It counts swept and expired rows too: the student saw the
+	 * question either way, and a wrong answer disclosed its answer.
+	 */
+	async hasAskedQuestion(
+		studentId: string,
+		conceptKey: string,
+		questionKey: string,
+	): Promise<boolean> {
+		return (await this.count({ studentId, conceptKey, questionKey })) > 0;
+	}
+
+	/**
 	 * When this student last answered a check on this concept wrongly, or null.
 	 * The cooldown reads it; nothing else does.
 	 */
@@ -135,6 +151,7 @@ class ConceptCheckRepository extends BaseRepository<
 			| "concept"
 			| "conceptKey"
 			| "question"
+			| "questionKey"
 			| "options"
 			| "correct"
 			| "expiresAt"

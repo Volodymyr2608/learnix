@@ -176,6 +176,7 @@ describe("userRepository.anonymiseAccount", () => {
 				concept: "Recursion",
 				conceptKey: "recursion",
 				question: "Which call ends a recursive descent?",
+				questionKey: "which call ends a recursive descent?",
 				options: ["The base case", "A recursive call"],
 				correct: "The base case",
 				expiresAt: new Date(Date.now() + 60_000),

@@ -49,8 +49,11 @@ export const MAX_CHECKS_PER_LESSON = 12;
 
 /**
  * A wrong answer is not a permanent denial — the same reasoning as the quiz cap.
- * The next question must also be a different one, which is the authoring rule's
- * job, not this one's.
+ * The next question must also be a DIFFERENT one, which `assertBudget` enforces
+ * on `questionKey` below. It cannot be asked of the model: the authored check is
+ * kept out of `toolCalls` and the tool result is a bare acknowledgement, so on
+ * the retry turn the model has no memory of what it asked — while the student
+ * was shown the answer they got wrong.
  */
 const WRONG_ANSWER_COOLDOWN_HOURS = 24;
 
@@ -162,16 +165,19 @@ class ConceptCheckService {
 		courseId: string,
 		lessonId: string,
 		key: string,
+		questionKey: string,
 	): Promise<void> {
-		const [mastery, spent, lastWrongAt, spentOnLesson] = await Promise.all([
-			conceptMasteryRepository.findFirst({
-				where: { studentId, courseId, conceptKey: key },
-				select: { level: true },
-			}) as Promise<{ level: number } | null>,
-			conceptCheckRepository.countForConcept(studentId, key),
-			conceptCheckRepository.lastWrongAnsweredAt(studentId, key),
-			conceptCheckRepository.countForLesson(studentId, lessonId),
-		]);
+		const [mastery, spent, lastWrongAt, spentOnLesson, alreadyAsked] =
+			await Promise.all([
+				conceptMasteryRepository.findFirst({
+					where: { studentId, courseId, conceptKey: key },
+					select: { level: true },
+				}) as Promise<{ level: number } | null>,
+				conceptCheckRepository.countForConcept(studentId, key),
+				conceptCheckRepository.lastWrongAnsweredAt(studentId, key),
+				conceptCheckRepository.countForLesson(studentId, lessonId),
+				conceptCheckRepository.hasAskedQuestion(studentId, key, questionKey),
+			]);
 
 		// Evidence already earned is not re-earned. A concept at the conversation
 		// ceiling has nothing a check could add, and asking again would let a
@@ -185,6 +191,15 @@ class ConceptCheckService {
 		}
 
 		if (spentOnLesson >= MAX_CHECKS_PER_LESSON) {
+			throw new CheckBudgetSpentError("No check is available for this concept");
+		}
+
+		// A question is asked once. Re-asking one whose answer the student was
+		// already shown turns the second of three attempts into a free pass, which
+		// is what makes the accepted "three independent draws" residual true.
+		// Same error as every other budget refusal: the tutor's decline stays one
+		// message, and the denial classes do not grow an oracle.
+		if (alreadyAsked) {
 			throw new CheckBudgetSpentError("No check is available for this concept");
 		}
 
@@ -215,7 +230,14 @@ class ConceptCheckService {
 			input.studentId,
 		);
 		const key = conceptKey(input.concept);
-		await this.assertBudget(input.studentId, courseId, input.lessonId, key);
+		const questionKey = conceptKey(input.question);
+		await this.assertBudget(
+			input.studentId,
+			courseId,
+			input.lessonId,
+			key,
+			questionKey,
+		);
 
 		const expiresAt = new Date(Date.now() + CHECK_TTL_MINUTES * 60_000);
 
@@ -227,6 +249,7 @@ class ConceptCheckService {
 				concept: input.concept,
 				conceptKey: key,
 				question: input.question,
+				questionKey,
 				options: shuffled(input.options),
 				correct: input.correctOption,
 				expiresAt,

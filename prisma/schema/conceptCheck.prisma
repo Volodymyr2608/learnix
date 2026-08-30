@@ -36,6 +36,11 @@ model ConceptCheck {
   conceptKey String
 
   question String   @db.Text
+  /// `conceptKey()` of `question`, by the same rule that keys concept identity.
+  /// A question is asked once: the model cannot remember what it asked — the
+  /// design keeps the authored check out of `toolCalls` and replays content only
+  /// — so the repeat rule is a server-side lookup on this column.
+  questionKey String
   /// Shuffled by the server's CSPRNG before the row is written. Grading reads
   /// option text, never an index into the order the model authored.
   options  String[]
@@ -59,8 +64,10 @@ model ConceptCheck {
   lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
-  /// The per-concept budget counts on this pair.
+  /// The per-concept budget counts on this pair, and the repeat lookup extends
+  /// it with `questionKey`.
   @@index([studentId, conceptKey])
+  @@index([studentId, conceptKey, questionKey])
   @@map("concept_checks")
 }
 

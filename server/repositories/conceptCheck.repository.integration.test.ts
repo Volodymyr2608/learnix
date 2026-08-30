@@ -58,6 +58,7 @@ const insertPending = (s: Seed, overrides: Record<string, unknown> = {}) =>
 			concept: CONCEPT,
 			conceptKey: conceptKey(CONCEPT),
 			question: "Which file exports a route handler?",
+			questionKey: conceptKey("Which file exports a route handler?"),
 			options: ["route.ts", "page.tsx", "layout.tsx", "loading.tsx"],
 			correct: "route.ts",
 			expiresAt: new Date(Date.now() + 60 * 60 * 1000),
@@ -159,6 +160,7 @@ const READ_DOORS = [
 	"countForConcept",
 	"countForLesson",
 	"lastWrongAnsweredAt",
+	"hasAskedQuestion",
 	"insertSweepingExpired",
 ];
 
