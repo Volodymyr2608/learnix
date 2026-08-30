@@ -1,6 +1,6 @@
 ---
 feature: ai-input-trust-boundary
-status: in-progress
+status: stable
 models: []
 depends-on: [ai-course-builder, auth]
 ---
@@ -95,8 +95,10 @@ is treated as data, never as instructions.
   and the instructions. The concept names come from an LLM extraction of the same instructor-authored
   lesson body, so they are the same channel and share the same wrapper.
 - **L2's own prompt is wrapped.** `topicRelevance.ts` wraps the message it classifies but interpolates
-  `domain.description` raw, and for `lessonAI` that description is built from the course and lesson
-  titles. An instructor could therefore instruct the *classifier* — the cheapest outcome being "always
+  `domain.description` raw, and for `lessonAI` that description is built by `lessonGuardDomain` from
+  the course title, the lesson title and the lesson's own concept names (scope item 12; the concepts
+  were added on 2026-08-30 because without them a student naming one was refused before the tutor
+  saw it). An instructor could therefore instruct the *classifier* — the cheapest outcome being "always
   answer on-topic", which disables L2 for that lesson. The scope region is wrapped like any other
   untrusted text, and the prompt's bespoke closing paragraph is replaced by `UNTRUSTED_DATA_CLAUSE`,
   which covers every wrapped region rather than only the message.
