@@ -87,10 +87,23 @@ describe("proposeReviews", () => {
 			}),
 		);
 
-		expect(candidateSteps?.[0]?.reasonSeed).toContain(
-			"answered correctly once",
-		);
+		expect(candidateSteps?.[0]?.reasonSeed).toContain("partly demonstrated");
 		expect(candidateSteps?.[1]?.reasonSeed).toContain("has not been checked");
+	});
+
+	/**
+	 * `applied` is derived from level alone — any row below 3 — so it covers rows
+	 * whose `evidence` is `LEGACY` or `CONVERSATION`, written before a check
+	 * existed and, in the CONVERSATION case, on a student's say-so. Text claiming
+	 * they "answered correctly once" is false for exactly the population this
+	 * feature was built to stop overclaiming about, and it is student-facing.
+	 */
+	it("claims no answer the row may not record", () => {
+		const { candidateSteps } = proposeReviews(
+			state({ weakConcepts: [weak("Recursion", "applied", "lesson-1")] }),
+		);
+
+		expect(candidateSteps?.[0]?.reasonSeed).not.toMatch(/answered correctly/i);
 	});
 
 	it("proposes at most three reviews", () => {

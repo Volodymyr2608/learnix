@@ -11,8 +11,13 @@ const REVIEW_REASON: Record<
 > = {
 	encountered: (concept) =>
 		`"${concept}" appeared in a lesson you completed but has not been checked yet — review recommended`,
+	// Deliberately does NOT say "answered correctly": `applied` is derived from
+	// level alone, so it also covers rows whose evidence is LEGACY or
+	// CONVERSATION — written before a check existed, the latter on a student's
+	// say-so. This text reaches the student, and claiming an answer the row may
+	// not record is the exact overclaim the evidence scale exists to stop.
 	applied: (concept) =>
-		`"${concept}" was answered correctly once but has not been confirmed by the lesson's quizzes — review recommended`,
+		`"${concept}" has been partly demonstrated but not confirmed by the lesson's quizzes — review recommended`,
 };
 
 /** One per lesson, and never more than the path has room to explain. */

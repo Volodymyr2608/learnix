@@ -8,7 +8,7 @@ import { createTRPCRouter, studentProcedure } from "../trpc";
 
 export const lessonAssistantRouter = createTRPCRouter({
 	getHistory: studentProcedure
-		.input(z.object({ lessonId: z.string() }))
+		.input(z.object({ lessonId: z.string().max(64) }))
 		.query(async ({ input, ctx }) => {
 			try {
 				return await lessonAssistantRepository.getMessages(
@@ -34,7 +34,7 @@ export const lessonAssistantRouter = createTRPCRouter({
 	 */
 	pendingCheck: studentProcedure
 		.use(aiRateLimit("lessonAI"))
-		.input(z.object({ lessonId: z.string() }))
+		.input(z.object({ lessonId: z.string().max(64) }))
 		.query(async ({ input, ctx }) => {
 			try {
 				return await conceptCheckRepository.findPendingPublic(
@@ -60,7 +60,7 @@ export const lessonAssistantRouter = createTRPCRouter({
 		.use(aiRateLimit("lessonAI"))
 		.input(
 			z.object({
-				checkId: z.string(),
+				checkId: z.string().max(64),
 				optionIndex: z.number().int().min(0).max(4),
 			}),
 		)
@@ -77,7 +77,7 @@ export const lessonAssistantRouter = createTRPCRouter({
 		}),
 
 	clearHistory: studentProcedure
-		.input(z.object({ lessonId: z.string() }))
+		.input(z.object({ lessonId: z.string().max(64) }))
 		.mutation(async ({ input, ctx }) => {
 			try {
 				await lessonAssistantRepository.clearMessages(

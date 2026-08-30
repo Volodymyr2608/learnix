@@ -944,6 +944,20 @@ branch; each states what the design buys and what it does not)
     signal is a *rate* — first-answer-correct distribution against a platform baseline — and there is
     still no sink for rate-based metrics (§13, §18). Unmeasured, and the echo rule does not cover it.
 
+38. **Two measurement caveats, recorded so the numbers are not read as more than they are.** The four
+    `aiGuard:indirect` rows added for check authoring (`ind-13`–`ind-16`) run in a harness with **no
+    tools and its own prompt**, so they measure prose-level compliance rather than the controls they
+    name — grounding, the allowlist and the shuffle cannot be exercised by a model with no tool to
+    call. And S13 §3's headline ("twelve indirect payloads, raw 6/12, wrapped 5/12") now describes a
+    sixteen-row dataset with no recorded baseline of its own. Neither is a defect in the defence;
+    both are ways to misread a number.
+
+39. **`pendingCheck` shares the tutor's 20/min rate bucket.** It is a `useQuery`, so a window refocus
+    refetches it, and each refetch spends one of the student's twenty `lessonAI` requests plus a
+    Redis round trip on the fail-closed limiter (ADR-027). Self-inflicted only, and the SSE frame now
+    fills the cache directly so the poll is not the primary path — but the 30/min cross-feature
+    aggregate is now shared with a read. Give it its own feature key if the aggregate starts binding.
+
 **Reopened and re-priced 2026-08-30.** The residual that a lucky guesser reaches level 2 was stated
 as "three independent 1-in-4 draws, roughly 58% over a week". That arithmetic was priced on a rule
 that did not exist: nothing stopped the second question being the first one again, with its answer
