@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConceptCheckStatus } from "@/generated/prisma";
 import { conceptCheckRepository } from "@/server/repositories/conceptCheck.repository";
 import { conceptKey } from "@/server/services/_shared/concepts/conceptKey";
@@ -163,6 +163,60 @@ const READ_DOORS = [
 	"hasAskedQuestion",
 	"insertSweepingExpired",
 ];
+
+describe("conceptCheckRepository.insertSweepingExpired", () => {
+	beforeEach(async () => {
+		await truncateAll();
+	});
+
+	afterAll(async () => {
+		vi.useRealTimers();
+		await testDb.$disconnect();
+	});
+
+	/**
+	 * Every other `expiresAt` comparison — the pending read and the claim — is
+	 * against `NOW()`, and the schema says so. The sweep compared against the
+	 * application's clock, so a skewed app process and Postgres could disagree
+	 * about whether a row is expired: Postgres calls it expired, the sweep does
+	 * not clear it, the insert then trips the partial unique index, and
+	 * `findPendingPublic` returns null. The student is shown no question and
+	 * cannot obtain one — the exact state the sweep exists to make unreachable.
+	 */
+	it("sweeps against the database clock, not the application's", async () => {
+		const s = await seed();
+		const stale = await insertPending(s);
+		await testDb.$executeRaw`UPDATE concept_checks SET "expiresAt" = NOW() - INTERVAL '1 second' WHERE id = ${stale.id}`;
+
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(Date.now() - 60 * 60 * 1000));
+		try {
+			await expect(
+				conceptCheckRepository.insertSweepingExpired({
+					studentId: s.studentId,
+					lessonId: s.lessonId,
+					courseId: s.courseId,
+					concept: CONCEPT,
+					conceptKey: conceptKey(CONCEPT),
+					question: "Which App Router file name marks a handler?",
+					questionKey: conceptKey(
+						"Which App Router file name marks a handler?",
+					),
+					options: ["route.ts", "page.tsx", "layout.tsx", "loading.tsx"],
+					correct: "route.ts",
+					expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+				}),
+			).resolves.toBeDefined();
+		} finally {
+			vi.useRealTimers();
+		}
+
+		const swept = await testDb.conceptCheck.findUniqueOrThrow({
+			where: { id: stale.id },
+		});
+		expect(swept.status).toBe(ConceptCheckStatus.EXPIRED);
+	});
+});
 
 describe("conceptCheckRepository.findPendingPublic", () => {
 	beforeEach(async () => {

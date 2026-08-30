@@ -165,15 +165,19 @@ class ConceptCheckRepository extends BaseRepository<
 		>,
 	): Promise<ConceptCheckPublic> {
 		return this.db.$transaction(async (tx) => {
-			await tx.conceptCheck.updateMany({
-				where: {
-					studentId: data.studentId,
-					lessonId: data.lessonId,
-					status: "PENDING",
-					expiresAt: { lte: new Date() },
-				},
-				data: { status: "EXPIRED" },
-			});
+			// `NOW()`, not `new Date()`. The pending read and the claim both compare
+			// `expiresAt` against the database clock, and a sweep on the
+			// application's would let the two disagree under clock skew: Postgres
+			// calls the row expired, the sweep leaves it PENDING, the insert trips
+			// the partial unique index, and the student is left with a question
+			// `findPendingPublic` will not return and no way to get another.
+			await tx.$executeRaw`
+				UPDATE "concept_checks"
+				SET status = 'EXPIRED'::"ConceptCheckStatus"
+				WHERE "studentId" = ${data.studentId}
+					AND "lessonId" = ${data.lessonId}
+					AND status = 'PENDING'::"ConceptCheckStatus"
+					AND "expiresAt" <= NOW()`;
 
 			return tx.conceptCheck.create({
 				data,
