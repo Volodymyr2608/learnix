@@ -6,6 +6,18 @@ import type {
 } from "../learningPathAI.state";
 
 /**
+ * A ceiling on the derived list, because it is `JSON.stringify`'d into the merge
+ * prompt and again into every reflection retry.
+ *
+ * While weak concepts came from persisted rows the list was small by
+ * construction. Derived from completed lessons it is not: a 40-lesson course at
+ * five concepts each is 200 objects per generation, a cost nobody chose. Two
+ * dozen is more than `proposeReviews` can use (three lessons) and more than the
+ * model's own output schema allows back (eight).
+ */
+export const MAX_WEAK_CONCEPTS = 24;
+
+/**
  * Purpose: derives the weak concepts and the deduplicated failed quizzes.
  * Reads: completedLessonIds, mastery, lessonOrder, quizAttempts.
  * Writes: weakConcepts, failedQuizzes.
@@ -28,18 +40,6 @@ import type {
  * step; it is retained rather than destroyed, because a model rewording a
  * heading must not erase evidence a student earned.
  */
-/**
- * A ceiling on the derived list, because it is `JSON.stringify`'d into the merge
- * prompt and again into every reflection retry.
- *
- * While weak concepts came from persisted rows the list was small by
- * construction. Derived from completed lessons it is not: a 40-lesson course at
- * five concepts each is 200 objects per generation, a cost nobody chose. Two
- * dozen is more than `proposeReviews` can use (three lessons) and more than the
- * model's own output schema allows back (eight).
- */
-export const MAX_WEAK_CONCEPTS = 24;
-
 export function identifyWeakSignals(state: PathState): Partial<PathState> {
 	const completedSet = new Set(state.completedLessonIds);
 
