@@ -61,6 +61,8 @@ describe("the two mastery ceilings", () => {
 	// then recommends reviewing what the student has demonstrably mastered. The
 	// allowlist is model-authored insights JSON, which is where the padding comes
 	// from.
+	// Padding at the ends only. The pair below is the case that actually
+	// separates the two canonicalisers.
 	it("stores the same string from either writer for the same concept", () => {
 		const stored = [{ name: "  Recursion " }];
 
@@ -74,6 +76,28 @@ describe("the two mastery ceilings", () => {
 		expect(fromTool.authorized).toBe(true);
 		expect(fromTool.authorized && fromTool.canonicalConcept).toBe(fromQuiz[0]);
 		expect(fromQuiz).toEqual(["Recursion"]);
+	});
+
+	/**
+	 * An internal whitespace RUN, not padding. `conceptKey` collapses runs, so
+	 * both spellings resolve to one row — but whichever writer gets there first
+	 * names it, and a student then sees "API   Routes" or "API Routes" depending
+	 * on whether a quiz or a concept check was answered first. Two writers, two
+	 * spellings, one concept is the shape the whole conceptKey design exists to
+	 * remove.
+	 */
+	it("agrees on spelling when the name has an internal whitespace run", () => {
+		const stored = [{ name: "API   Routes" }];
+
+		const fromQuiz = canonicalConceptNames(stored);
+		const fromTool = authorizeAskConceptCheck(checkFor("api routes"), {
+			userId: "u1",
+			lessonConcepts: stored.map((c) => c.name),
+			groundedByRetrieval: true,
+		});
+
+		expect(fromTool.authorized).toBe(true);
+		expect(fromTool.authorized && fromTool.canonicalConcept).toBe(fromQuiz[0]);
 	});
 
 	it("refuses a name that cannot be stored at all", () => {
