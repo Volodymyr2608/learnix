@@ -24,7 +24,7 @@ a concept still at mastery level < 3. Without personalisation, the platform's ow
 `ConceptMastery`, `QuizAttempt`, lesson completion — exist and steer nothing, and the student's next
 step is whatever is next in the list.
 
-The path is also the consumer that gives `ai-tutor-guardrails`' level-3 rule its teeth: mastery
+The path is also the consumer that gives `ai-tutor-guardrails`' level-3 rule its teeth: anything
 below 3 reads as *weak* here, so a concept a student never demonstrated keeps coming back as review.
 
 ## Supported use cases
@@ -40,8 +40,10 @@ below 3 reads as *weak* here, so a concept a student never demonstrated keeps co
   - `learningPath.regenerate` (`studentProcedure`) returns the finished path;
   - `POST /api/chat/learning-path` streams **progress frames only** (`"Analyzing your progress…"`,
     `"Identifying weak areas…"`, …) followed by one `done` frame carrying the persisted result.
-- **Deterministic candidate generation.** `identifyWeakSignals` derives weak concepts (mastery < 3)
-  and failed quizzes; `proposeReviews` offers up to 3 reviews and 2 quiz retries; `proposeNewLessons`
+- **Deterministic candidate generation.** `identifyWeakSignals` derives weak concepts as the union of
+  *every concept of every completed lesson* and *every persisted mastery row below level 3*, keyed
+  through the one shared `conceptKey` rule; `proposeReviews` offers up to 3 reviews and 2 quiz
+  retries; `proposeNewLessons`
   offers up to 3 next-in-sequence lessons. `decideStrategy` routes on what the student actually has:
   `hasWeak` → reviews first, `ready` → new lessons, `empty` → the no-history path.
 - **A no-history student skips the model entirely.** `setSkipLLM` marks a student with no completed
@@ -338,10 +340,32 @@ critic still rejects the paths it should. The adversarial side is the shared `ai
 - **`mergeAndExplain` is called more than once per run by design**, and it rebuilds its prompt each
   time. Anything expensive added to `gatherEnrichment` is paid on every attempt — it is currently
   computed once, before the retry loop, and it should stay that way.
-- **Weak means `level < 3`, and that threshold is shared.** `ai-tutor-guardrails` caps
-  conversation-granted mastery at 2 precisely so that concepts a student only *talked* about keep
+- **Weak is derived, not read, and it says WHAT the student did rather than a number.** Since
+  2026-08-30 a `WeakConceptRow` carries `evidence: "encountered" | "applied"` instead of a `level`.
+  `encountered` is computed at read time — the concept appears in a completed lesson and no mastery
+  row exists — and is deliberately **not stored**: "has seen a lesson mentioning X" was never
+  evidence about X, and storing it made "has mastery" and "has been exposed" the same query.
+  `applied` means a row at the conversation ceiling: the student answered a concept check about it.
+  A level-3 row is dropped from the union entirely, so a student is never sent to review what they
+  have demonstrably mastered.
+
+  The label reaches a human twice — the reason seed goes into `mergeAndExplain`'s prompt *and*
+  surfaces in the path's reason text — so it has to be true for both readers. A bare "2/3" was
+  neither: meaningless outside this codebase, and a misdescription of what the row recorded.
+
+  **Weak still means `level < 3`, and that threshold is shared.** `ai-tutor-guardrails` caps
+  conversation-earned mastery at 2 precisely so that concepts a student only *talked* about keep
   reading as weak here. Changing either number without the other silently changes what the platform
   recommends.
+
+- **The derived union is ordered and capped, and both matter.** `applied` rows come first, then
+  `encountered`, then the list is cut at `MAX_WEAK_CONCEPTS`. Ordering, because the sparse rows
+  recording something the student actually *did* would otherwise sit behind every bare `encountered`
+  entry and be truncated away. Capping, because the list is `JSON.stringify`'d into the merge prompt
+  and again into every reflection retry: bounded by persisted rows it was small, derived from
+  completed lessons it grows with the course. And `proposeReviews` deduplicates by lesson **while
+  walking** the list rather than after slicing it — slicing first collapsed every review onto the
+  first completed lesson.
 - **Concept names arriving here are LLM-authored** (`lessonInsightsAI` extracted them from lesson
   text) and are bounded at the repository read boundary. This surface consumes them; it is not where
   they are validated.

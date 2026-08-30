@@ -57,15 +57,22 @@ tRPC mutation, on a separate request, with no model in it anywhere.
 
 ## Where an AI result may be persisted
 
-Two writes, two different rules, and the asymmetry is deliberate:
+One rule now, where there used to be two:
 
-- **Model text** (station 23) is persisted **only after** the output boundary passes. A rejected
-  reply is retracted, not stored — the tokens already reached the browser, but nothing enters the
-  thread or the model's future context.
-- **The educational record** (station 18) is persisted **when its own authorization passes**, before
-  the reply exists. It is not coupled to the reply text, so a later retraction does not undo it;
-  instead `mastery_write_retained` correlates the two so a human can review a turn adversarial
-  enough to be retracted that still wrote to a mastery record.
+- **Everything model-authored** — the reply text and the concept check written on the same turn — is
+  persisted **only after** the output boundary passes, at one place in `lessonAI.service.ts`. A
+  rejected reply is retracted and stored nowhere; the check authored alongside it goes out of scope
+  unwritten. The tokens already reached the browser, but nothing enters the thread, the model's
+  future context, or the database.
+
+- **The educational record is not written by a model turn at all.** `ConceptMastery` is written when
+  the *student* answers the check, in the transaction that claims it, on a different request
+  entirely. Nothing model-authored is on that path.
+
+The asymmetry this section used to describe — a mastery write that committed before the reply
+existed and survived its retraction — is gone, and `mastery_write_retained` was retired with it
+rather than reinvented. "A rejected turn leaves no artifact" is true by construction now, not by a
+compensating alert.
 
 ## Failure matrix
 
@@ -109,8 +116,10 @@ knowing *why* a step is missing matters more than having it.
 ## Extending this safely
 
 - **A new tool** is new authority. It needs a row here, a place in the closed literal at
-  `lessonAI.agent.ts:74`, an entry in `ALLOWED_TOOL_NAMES`, and — if it writes anything — an
-  authority check beside `authorizeMarkConceptUnderstood`, not just a Zod schema. `pnpm classify`
+  `lessonAI.agent.ts:74`, an entry in `ALLOWED_TOOL_NAMES`, and — if it writes or authors anything —
+  an authority check beside `authorizeAskConceptCheck`, not just a Zod schema. If it produces content
+  a student will see or be graded on, it also needs a `PERSISTABLE_TOOL_FIELDS` entry (default-deny)
+  and a commit placed after the output boundary, not inside the tool. `pnpm classify`
   reports it as new authority (ADR-030) and `flowContract.contract.test.ts` fails until the row
   exists.
 - **A new output rule** belongs in `_shared/aiOutput` if it is surface-independent, and in

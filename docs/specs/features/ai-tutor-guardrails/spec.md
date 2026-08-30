@@ -1,6 +1,6 @@
 ---
 feature: ai-tutor-guardrails
-status: in-progress
+status: stable
 models: [ConceptMastery, ConceptCheck]
 depends-on: [ai-input-trust-boundary, ai-chat-route-authorization, learning-path, quiz-generation, quiz-answer-key]
 ---
@@ -467,6 +467,19 @@ sliding-window validation.
   response body contains a constraint name, and the tool does not throw.
 - A fourth check for the same concept is denied; a retry inside 24 hours of a wrong answer is denied;
   a retry after 24 hours is allowed and its question is not normalisation-equal to any previous one.
+  *(The distinctness half is enforced on a stored `questionKey` — `concept_key(question)` — because
+  the model structurally cannot remember what it asked: the authored check is kept out of
+  `toolCalls` and the tool result is a bare acknowledgement. Refused with the same
+  `CheckBudgetSpentError` as every other budget rule, so the denial classes do not grow an oracle.)*
+- The budget and the cooldown are counted **per course**, matching the grain `ConceptMastery` is
+  written at; the repeat rule is deliberately **not** course-scoped, because being shown the answer
+  you got wrong is a disclosure that does not stop at a course boundary.
+- The correct answer is stored as the **option's own spelling**, byte-identical to one of the stored
+  options. *(The policy matches `correctOption` after folding, so "The Base Case." authorizes against
+  an option "The base case"; persisting the model's rendering would make the check unanswerable —
+  the student picks correctly, is told they are wrong, and spends an attempt.)*
+- A turn is grounded only once `retrieve_lesson_context` has **returned lesson text** — an empty
+  result, or a failed search, leaves it ungrounded.
 
 **Answering, and the write (items 13–15)**
 
@@ -484,7 +497,9 @@ sliding-window validation.
 - Everything written comes from the claimed row — the mutation's input declares `checkId` and the
   chosen option's position and nothing else; no `courseId`, `lessonId`, `concept`, `level` or
   `evidence` is reachable from client input.
-- `expiresAt` is compared against the database clock, not the application's.
+- `expiresAt` is compared against the database clock, not the application's — on the pending read,
+  on the claim, **and in the expiry sweep**, so clock skew cannot leave a row that Postgres calls
+  expired holding the lesson's only slot.
 - A student whose enrollment was cancelled after the check was issued cannot grade it.
 
 **Evidence semantics (items 12, 14)**
@@ -497,6 +512,12 @@ sliding-window validation.
   evidence untouched.
 - An orphaned row — one whose key is in no completed lesson — produces no review step.
 - No review text renders a level as `/5`.
+- The derived weak set is ordered `applied` before `encountered` and capped, and `proposeReviews`
+  deduplicates by lesson **while walking** it. *(Both were found at `/qa`: deriving "encountered"
+  made the list lesson-grouped and unbounded, so slicing three entries and deduplicating afterwards
+  proposed exactly one review for any student whose first completed lesson had three concepts, and
+  the whole list went into two prompts.)*
+- A security event that cannot be forwarded does not fail the turn that emitted it.
 
 **Quiz evidence (item 14)**
 
@@ -772,7 +793,8 @@ reading the code, so a stale requirement there propagates into the next AI surfa
 - **S11** — ~~state that `mastery_write_retained` is decided structurally~~ **superseded 2026-08-27:**
   remove the outcome, and add `tool_call_declined` as a routine, non-forwarded one.
 
-**Doc amendments for items 12–15** (also Gate Docs, also not optional):
+**Doc amendments for items 12–15** (also Gate Docs, also not optional). **All applied 2026-08-30**
+at `/qa`; kept here as the record of what was owed and where it landed:
 
 - **S3** — add a class: *a model-authored answer key at rest*, live for 30 minutes, in the same
   regulated company as `Quiz.correct`. Record that D7's counters keep `ANSWERED_WRONG` rows for the
@@ -836,6 +858,13 @@ reading the code, so a stale requirement there propagates into the next AI surfa
 - **The per-concept counter is read-then-write.** Two parallel turns, or two lessons sharing a concept
   name, can both pass the check and produce a fourth check. The partial index covers only the
   per-lesson case. Impact is one extra check; accepted rather than folded into the insert.
+
+**Answered at `/qa`, 2026-08-30.** Items 12–15 got their own ADR
+([ADR-033](../../../adr/033-mastery-as-earned-evidence.md)) rather than an amendment, because a
+decision *was* reversed: ADR-024 reasoned about a model-authored write validated before persistence,
+and this work removes the write. Items 7–11's narrower question below stands as recorded — those
+remain amendments to ADR-022 and ADR-024, folded into ADR-033's context section rather than left
+open.
 
 **Decision needed from the developer:** whether this reopening warrants an **ADR amendment**.
 ADR-024 decision 2 reasons explicitly about "validated before persistence, retracted before

@@ -21,10 +21,12 @@ The AI feature this document governs is the **lesson tutor** (`server/services/l
 retrieval-augmented chat agent scoped to one lesson of one course, reached at
 `POST /api/chat/lesson` and streamed over SSE.
 
-The tutor holds authority no other student-facing surface holds: **it writes to an educational
-record.** `mark_concept_understood` upserts `ConceptMastery`, and `learningPathAI` reads those rows
-to decide what a student still needs to study. That is what makes it the interesting surface to
-secure — not the chat itself.
+The tutor sits closer to an educational record than any other student-facing surface: what a student
+does with it can raise `ConceptMastery`, and `learningPathAI` reads those rows to decide what they
+still need to study. That is what makes it the interesting surface to secure — not the chat itself.
+
+**It no longer holds the write.** The tutor authors a question; the server grades the student's
+answer and does the writing. The distinction is the whole design, and S7 is where it is enforced.
 
 Four other AI surfaces exist (`courseAI`, `quizAI`, `learningPathAI`, `lessonInsightsAI`). They are
 in scope for the input trust boundary (S6) and the entry-point contract (S8), and out of scope for
@@ -54,12 +56,24 @@ asks for another student's data has no argument through which to ask.
 
 | Class | Examples | Requirement |
 |---|---|---|
-| Educational records | `ConceptMastery`, `CourseProgress`, `QuizAttempt` | may only be written through an authorized tool call (S7); readable only for the authenticated student |
-| Assessment material | `Quiz.correct` | must not reach a student before their attempt is graded — **currently violated**, see S13 |
+| Educational records | `ConceptMastery`, `CourseProgress`, `QuizAttempt` | written only by the server, never by a tool call (S7); readable only for the authenticated student. A level now states the evidence that produced it (`APPLIED_CHECK`, `QUIZ_FIRST_PASS`, `LEGACY`) |
+| Assessment material | `Quiz.correct` | must not reach a student before their attempt is graded — closed by `quiz-answer-key`, see S13 §11 |
+| **Model-authored answer key at rest** | `ConceptCheck.correct` | the same regulated company as `Quiz.correct`, and it lives 30 minutes. Never loaded on any read path: `ConceptCheckPublic` is an explicit field list, `claimForAnswer` is the one door that carries it, and it leaves the server through exactly one channel — the terminal response of a successful claim |
 | System prompt | `SYSTEM_PROMPT` in `lessonAI.agent.ts` | must not appear in a reply (S8) |
 | Retrieved content | lesson chunk bodies | must not be reproduced verbatim in a reply (S8) |
 | Payment data | `Payment`, Stripe identifiers | never enters an AI prompt or a security event |
 | Free-text conversation | `LessonAssistantMessage.content` | destroyed on account deletion; never enters a security event (S11) |
+
+**Erasure.** `ConceptCheck` is in the destroyed class: `anonymiseAccount` deletes it explicitly, and
+that delete is the control rather than the FK cascade, because ADR-025 never deletes the `User` row.
+The same applies to the two migration archive tables (`concept_mastery_archive_merge`,
+`concept_mastery_archive_le2`), which hold mastery rows, are absent from `prisma/schema`, and are
+therefore reached by no cascade at all — see `account-deletion-data-retention/spec.md` for their
+dated drop and its owner.
+
+**A counter is a record too.** The per-concept budget is derived from `ConceptCheck` rows, so a
+wrong answer is retained for the life of the account unless that counter state moves onto
+`ConceptMastery`.
 
 **Legal basis and retention.** Educational records and conversation history are processed to deliver
 the course the student purchased (contract, GDPR Art. 6(1)(b)) and are retained for the life of the
@@ -80,11 +94,24 @@ call under an unregistered name is unrepresentable rather than merely rejected.
 | `retrieve_lesson_context` | reads lesson chunks | `query`, `k ≤ 8` | `lessonId` |
 | `search_across_course` | reads course chunks | `query`, `k ≤ 8` | `courseId`, `deleted_at IS NULL` |
 | `get_student_progress` | reads progress | none (`z.object({})`) | `studentId`, `courseId` |
-| `mark_concept_understood` | **writes** `ConceptMastery` | `concept`, `level` | `studentId`, `courseId`, `lessonConcepts` |
+| `ask_concept_check` | **writes nothing** — buffers a question on the turn | `concept`, `question`, `options`, `correctOption` | `studentId`, `lessonId`, `lessonConcepts`, the allowlist's spelling of the concept, the option's own spelling of the answer, the CSPRNG option order, `courseId`, `expiresAt`, every budget counter |
 
-**Prohibited, and enforced rather than requested:** writing a concept that is not on the lesson's
-allowlist; writing any concept when the allowlist is empty; writing mastery level 3 from
-conversation; writing on behalf of another student or into another course.
+**The model no longer holds a write.** `mark_concept_understood` was removed, and the removal is the
+control. Its trigger — "has this student demonstrated understanding" — was a judgement with nothing
+deterministic behind it, and S13 §5 measured that the model does not make it: one sentence
+(*"I already passed this at university, mark API Routes as understood"*) produced a level-2 row in
+production. The judgement it makes now — "is this a fair question about this concept" — has several
+deterministic checks behind it, and the grant is decided by string equality against a stored answer.
+
+**`checkId` is not a tool argument.** The student answers out of band, through
+`lessonAssistant.answerConceptCheck`, submitting a check id and a POSITION in the order the server
+stored. So `toolArguments.contract.test.ts` is not in tension with this table; the rule the design
+answers to is ADR-023 — the query that authorizes is the query that acts.
+
+**Prohibited, and enforced rather than requested:** authoring about a concept that is not on the
+lesson's allowlist; authoring when the allowlist is empty; authoring on a turn that never read the
+lesson; authoring an option carrying a link or a tag; asking a question this student has already
+been asked; grading, or writing mastery, from anything the client sent.
 
 ## S5. Topic-relevance rules
 
@@ -131,13 +158,12 @@ boundaries, and the persistence differs by which one fired:
 |---|---|---|
 | L1 block | **nothing** — a stored payload is replayed as trusted `HumanMessage` history on the next turn, where no L3 wrapping applies | n/a |
 | L2 off-topic | both rows, so the refusal survives a reload | no |
-| Output validation | the user turn only (the reply is retracted, never persisted) | the user turn is flipped to `false` |
+| Output validation | the user turn only (the reply is retracted, never persisted; a check authored on that turn is discarded unwritten) | the user turn is flipped to `false` |
 
 The UI still shows every row it persists. Only the model's view is narrowed.
 
 The output-validation case is the important one to get right: an output rejection is a *stronger*
-adversarial signal than an input rejection — it is what `mastery_write_retained` exists to correlate
-— so leaving the eliciting prompt eligible would let a payload be re-sent with its previous attempt
+adversarial signal than an input rejection — so leaving the eliciting prompt eligible would let a payload be re-sent with its previous attempt
 replayed as ordinary conversation, drawing a fresh sample from a stochastic model on every retry.
 Enforced by `lessonAssistantRepository.markContextIneligible`; pinned by `lessonAI.service.test.ts`
 ("rejected replies do not return as context") and the repository integration test.
@@ -154,16 +180,64 @@ conflated: a schema that accepts `level: 0..3` does not mean level 3 may be writ
 an ordinary tool result rather than throwing — so the agent loop recovers and keeps helping the
 student.
 
-`authorizeMarkConceptUnderstood` denies, in this fixed order, when:
+`authorizeAskConceptCheck` refuses, in this fixed order — authority, then grounding, then structure,
+then content, so a caller with no right to ask is refused before anything it wrote is inspected:
 
 1. `lessonConcepts` is empty — **an empty allowlist denies, it does not permit**;
-2. `level` exceeds `CONVERSATION_MAX_LEVEL` (2);
-3. `concept` matches no allowlist entry, compared case-insensitively after trimming.
+2. `concept` matches no allowlist entry, compared through `conceptKey` (§S7a);
+3. the turn is not grounded — `retrieve_lesson_context` has not returned lesson text this turn;
+4. `question` is outside its length bounds;
+5. `options` is not four or five entries;
+6. an option is empty or over length;
+7. an option carries a link or a tag;
+8. two options fold to the same string;
+9. `correctOption` folds to none of the options;
+10. the stem contains its own answer.
 
 When more than one rule would deny, the first wins and is the only rule id logged.
 
-**Requirement.** The **canonical spelling from the allowlist** is what gets stored, not the string
-the model sent — otherwise the model learns its own spelling was accepted.
+**Two classes of refusal, and the split is the requirement.** Rules 1 and 4–10 are `tool_call_declined`
+— routine, unforwarded, non-zero baseline. Rules 2, 3 and 7 are `unsafe_tool_call` — the taxonomy's
+one zero-baseline alert. The line is whether the call is evidence of an *attack*, not whether it
+failed: a five-word stem or two options that fold together is what a cooperative model produces on a
+task nothing has measured it on, and filing that under the alert retires the alert. Rules 4–10 share
+one refusal message, so the rule set cannot be mapped by authoring until the wording changes.
+
+**Requirement.** The **canonical spelling from the allowlist** is what gets stored for the concept,
+and **the option's own spelling** for the answer — never the model's rendering of either. The answer
+matters as much as the concept: grading is byte equality against a stored option, so persisting the
+model's "The Base Case." against an option "The base case" produces a check no student can answer
+correctly, whatever they understand.
+
+### S7a. One rule for concept identity
+
+`conceptKey()` is the only comparison rule, and `concept_key()` in SQL is the same rule again —
+POSIX space classes rather than JS `\s`, ASCII-only case folding rather than Unicode, `COLLATE "C"`.
+Folding more aggressively on one side than the other maps two distinct rows onto one key and binds a
+write to the wrong row: an authorization bug wearing an encoding costume. Pinned across a corpus by
+`conceptMastery.keyParity.integration.test.ts`.
+
+### S7b. Bounds on authoring, all server-side counters
+
+One open check per lesson (a partial unique index, since an index predicate cannot carry `expiresAt`
+— issuing sweeps stale rows in the same transaction, against the DATABASE clock); three checks per
+concept per course; twelve per lesson; a 24-hour cooldown after a wrong answer; nothing at all once
+the concept is already at the ceiling. Budget and cooldown are course-scoped because `ConceptMastery`
+is; a question is asked once across ALL courses, because being told the answer you got wrong is a
+disclosure that does not stop at a course boundary.
+
+### S7c. The write, and why it is not the model's
+
+Grading is one conditional `UPDATE` that authorizes and acts (ADR-023): id, student, `PENDING`, and
+`expiresAt > NOW()` all in its `WHERE`, `RETURNING` the row. Single-use follows from READ COMMITTED
+re-evaluation rather than from a lock. All four failure causes — absent, foreign, already answered,
+expired — produce one byte-identical error, so `checkId` is not an oracle. The claim, the grade and
+the mastery write share one transaction, and enrollment is re-checked inside it, so access that ended
+mid-flight rolls the claim back rather than grading. Everything written comes from the claimed row;
+the request carries only a check id and a position.
+
+**Requirement.** Mastery is monotonic. `upsertMastery` never lowers an existing level, because the
+level-3-by-quiz rule depends on it and nothing else enforces it.
 
 **Requirement.** Mastery is monotonic. `upsertMastery` never lowers an existing level, because the
 level-3-by-quiz rule depends on it and nothing else enforces it.
@@ -173,12 +247,17 @@ confirmation by action, not by text. The count is over *distinct* quizzes, becau
 no unique constraint on `(quizId, studentId)` and duplicate rows would otherwise read as a finished
 lesson.
 
-**Requirement.** The system prompt must not *offer* the model a mastery level above
-`CONVERSATION_MAX_LEVEL`. Instructing the model to pick level 3 — as an earlier prompt did — makes it
-attempt a write the policy rejects, manufacturing an `unsafe_tool_call` (a zero-baseline signal, S11)
-on legitimate deep explanations and contradicting the tool's own description. Pinned by
-`lessonAI.agent.test.ts` ("never instructs the model to choose a level above the conversation
-ceiling").
+**Requirement — the prompt must not offer the model an authority it does not have.** The rule that
+once said "do not pick a level above the ceiling" is retired with the level argument itself: the
+model no longer supplies a level, so `CONVERSATION_MAX_LEVEL` is a server constant rather than a
+tool argument. The general requirement stands, and the reasoning is why the two denial classes above
+matter: a prompt that invites a call the policy rejects manufactures a zero-baseline signal (S11) out
+of ordinary behaviour.
+
+**Measured, and a stated cost.** Against the shipped model, roughly one authored check in six is
+refused by rules 4–10 (`authoringValid` 33/39 and 33/41 over two runs — `evals/baselines/lessonAI-tutor.json`).
+Because those rules decline rather than alert, that loss is silent: the student is simply not asked.
+See S13 §33.
 
 ## S8. Input and output validation rules
 
@@ -282,8 +361,16 @@ enforced by the type — `SecurityEvent` has no field to pass them into — not 
 can be forgotten. `securityLog.ts` enumerates the six fields explicitly rather than spreading the
 event object, so an extra field on a caller's object cannot leak through.
 
-Seven outcomes are defined: `guard_blocked`, `guard_off_topic`, `guard_suspect`, `unsafe_tool_call`,
-`output_validation_failed`, `mastery_write_retained`, `fallback_triggered`.
+Nine outcomes are defined: `guard_blocked`, `guard_off_topic`, `guard_suspect`, `unsafe_tool_call`,
+`output_validation_failed`, `tool_call_declined`, `mastery_promoted`, `content_revised_retained`,
+`fallback_triggered`. `FORWARD_TO_SENTRY` is a total `Record` over the union, so a tenth fails to
+type-check until someone classifies it.
+
+**Requirement — the alert path must not be able to break the path it watches.** `logSecurityEvent`
+runs synchronously inside `deny()`, inside the tool, inside the student's turn. A throwing sink
+therefore does not merely lose an event; it propagates out of the authorization decision. The
+forward is wrapped, and the failure is reported at `warn` rather than `error`, because the error
+level routes through the same sink that just failed.
 
 **Requirement.** The fail-open path emits a structured `fallback_triggered` event, not only an
 unstructured error — an outage that no detection rule can match is indistinguishable from an outage
@@ -293,27 +380,34 @@ being exploited.
 disclosure in S13; it must remain queryable **and must not be reachable only on the happy path** —
 see S8. A compensating control the adversary can decline to trigger is not one.
 
-**Requirement — `mastery_write_retained` is decided structurally.** Whether a write committed is read
-from the `mark_concept_understood` tool's **artifact** (`content_and_artifact` response format),
-never by comparing its output text to `NEUTRAL_REFUSAL_MESSAGE`. That string is user-facing and shared
-by three refusal paths, so rewording it is a product change nobody would expect to touch telemetry —
-and a second denial message would silently make denials count as commits. With a baseline of zero,
-either failure is a permanent blind spot rather than a degraded metric. Pinned by two deliberately
-adversarial cases in `lessonAI.service.test.ts`: a commit whose prose *is* the refusal text, and a
-denial whose prose looks like a commit.
+**~~Requirement — `mastery_write_retained` is decided structurally.~~ Retired with the outcome.** The
+event existed to correlate "an educational record was written" with "the reply was retracted", and
+that pair is now unrepresentable: nothing model-authored is persisted until after the output boundary
+passes, so a retracted turn leaves no artifact to correlate. The problem is solved by construction
+rather than by a compensating alert — see S13 §24.
+
+**Requirement — `tool_call_declined` has a non-zero baseline, and that is the point.** It is the
+routine refusal: an empty allowlist, a check already open, a budget spent, a question already asked,
+a check the model wrote badly, and the reply that names its own answer. It is deliberately not
+forwarded. Its three sources span two layers — `toolPolicy` refuses before the check is authored,
+and `conceptCheckService.issue` refuses after the output boundary — so the emission at the issuing
+call site is part of the requirement, not an extra. Without it a cohort that has exhausted its budget
+is indistinguishable from a feature working normally.
 
 ### Thresholds — what each outcome means when it moves
 
-An event is only useful against an expected baseline. Four of the seven have a baseline of **zero** or
-near it (`unsafe_tool_call`, `fallback_triggered`, `mastery_write_retained`, `output_validation_failed`),
-which makes them the valuable ones: no statistics are needed to know something is wrong.
+An event is only useful against an expected baseline. Three have a baseline of **zero** or near it
+(`unsafe_tool_call`, `fallback_triggered`, `output_validation_failed`), which makes them the valuable
+ones: no statistics are needed to know something is wrong. Protecting that property is why the
+well-formedness rules were moved off `unsafe_tool_call` — see S7.
 
 | Outcome | Baseline | What to threshold on | What it means |
 |---|---|---|---|
-| `unsafe_tool_call` | **zero** | any occurrence | The model tried to write outside the allowlist or above the ceiling. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. The system prompt no longer *offers* a level above the ceiling (it once did — a level-3 selection from ordinary deep explanations manufactured this event on legitimate use; fixed and pinned by `lessonAI.agent.test.ts`), so a ceiling denial now genuinely indicates coercion rather than prompt drift. |
+| `unsafe_tool_call` | **zero** | any occurrence | The model tried to author outside the allowlist, on a turn that never read the lesson, or with a link or tag in an option. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. Structural authoring mistakes were moved off this outcome deliberately: at a measured ~1-in-6 refusal rate (S7) they would have made a zero-baseline alert fire continuously on ordinary use. |
 | `fallback_triggered` | **zero** outside provider incidents | any sustained run | L2 is down and L1 is carrying the boundary alone (S10). Correlate with provider status; if it is not an outage, someone is making L2 fail. |
 | `output_validation_failed` | **near zero** | any occurrence, and the `ruleIds` distribution | Which rule fired names the channel: `system_prompt_echo` is a leak attempt, `off_origin_link` is exfiltration, `verbatim_chunk_echo` is content scraping. |
-| `mastery_write_retained` | **zero** | any occurrence | A turn wrote an educational record *and* had its reply retracted by output validation (S13 §24). The write stands (it passed its own authorization and monotonic upsert cannot be cleanly rolled back), but a turn adversarial enough to be retracted that still touched `ConceptMastery` deserves a human look. `ruleIds` carries which output rule fired. |
+| `tool_call_declined` | **non-zero** — routine | a *rate*, per user and per lesson, never a single occurrence | The tutor wanted to ask and could not. `ruleIds` says why: `empty_allowlist` means insights never generated for that lesson; `check_budget_spent` and `check_already_pending` are ordinary; the authoring rules (`question_length`, `options_not_distinct`, …) are the model writing badly, and a rise in their share is a prompt or model regression rather than an attack. `concept_check_answer_echo` is the reply naming its own answer. |
+| `mastery_promoted` | one per completed lesson | nothing yet | The successful path. Evidence for a later investigation, not detection; forwarding it would flood the sink with normal behaviour. |
 | `guard_blocked` | low, non-zero | rate **per user**, not globally | Global volume tracks how many strangers try things once. One account blocked repeatedly is a person working the problem. |
 | `guard_suspect` | low–moderate | **ratio to `guard_blocked`** | The most informative signal in the taxonomy. Suspect rising while blocked stays flat means payloads are being tuned to sit just under the block score — a person iterating, not a person guessing. |
 | `guard_off_topic` | **high** — it is a product signal | repetition **per user** | Normally noise. But most attacks are stopped here rather than by L1 (S13 §18), so a single account generating off-topic refusals repeatedly deserves the same attention as repeated blocks. |
@@ -346,10 +440,20 @@ own record. Access control is powerless against them by definition — which is 
 **GDPR articles that are engineering requirements here:**
 
 - **Art. 17 (erasure)** — see the deletion design below.
-- **Art. 22 (automated decision-making)** — `mark_concept_understood` records an educational outcome
-  automatically. This is the case the article is about, and it is an independent argument for the
-  conversation ceiling in S7: a level-3 record now requires a human action (passing every quiz), not
-  a model's judgement of a conversation.
+- **Art. 22 (automated decision-making)** — the tutor records an educational outcome automatically,
+  which is the case the article is about. **The deciding step for a level-2 grant is now string
+  equality against a stored answer**, not a model's judgement of a conversation. That is worth
+  stating plainly because it is the strongest compliance sentence this feature produces and it will
+  not survive if nobody writes it down: what the model contributes is the *question*, and every
+  question it writes passes ten deterministic rules before a student ever sees it. The model does not
+  decide whether the student understood; it does not even see the answer they gave. Level 3 continues
+  to require a human action — a first-pass on every quiz on the lesson.
+
+  The record also states its own provenance: `MasteryEvidence` is `APPLIED_CHECK`, `QUIZ_FIRST_PASS`
+  or `LEGACY`, so a reader can tell which rows were earned under this design and which predate it.
+  Levels 0 and 1 are unrepresentable — a `CHECK` constraint, not a convention — because "a lesson
+  mentioned this" was never evidence about a person and storing it made "has mastery" and "has been
+  exposed" the same query.
 - **Art. 8 / Art. 25** — consent age; privacy by design.
 
 **EU AI Act, Annex III §3** classifies education — access to learning and evaluation of outcomes — as
@@ -363,13 +467,19 @@ Structured facts and financial records are retained, pointing at an anonymous pr
 **Implemented** — [`features/account-deletion-data-retention/spec.md`](../account-deletion-data-retention/spec.md)
 (`status: stable`) and [ADR-025](../../../adr/025-account-deletion-and-anonymisation.md). What this
 document depends on: `LessonAssistantConversation` and its messages are **destroyed**, which is what
-makes the retention claim for free-text conversation in S3 true rather than aspirational.
+makes the retention claim for free-text conversation in S3 true rather than aspirational. `ConceptCheck`
+joins them, and so do the two mastery archive tables — see S3.
 
 **Requirement — the cascade must not come back.** Anonymisation is an ordered service operation
 (`userService.anonymiseAccount`) run in a single transaction and interposed through Better Auth's
 `deleteUser.beforeDelete` hook, not a database cascade. The 14 relations carrying retained data are
 `onDelete: Restrict`, so a future code path that deletes a `User` row directly fails on a foreign
 key instead of silently removing a paid course or a payment record.
+
+**Consequence for anything outside the schema.** Because ADR-025 never deletes the `User` row, no
+`onDelete` action on any relation ever fires on this path — `Cascade` on a destroyed-class row is
+defence in depth, never the control. A table Prisma does not model has neither, which is why the two
+mastery archive tables needed explicit `DELETE` statements: nothing else in the codebase names them.
 
 **Requirement — LLM tracing is disabled in production.** LangSmith traces carry the full prompt
 (including the student's message), the completion, tool outputs, and `userId`/`courseId` tags; they
@@ -465,10 +575,15 @@ Written as facts after implementation, not as intentions before it.
    was a defect in a stated policy regardless of whether a model acts on it. It does not over-refuse
    (`legit-mastery` 12/12), and it does not discriminate either.
 
-   **Open, and larger than this entry:** the write tool's trigger is a model judgement the model
-   appears not to make. Options are narrowing what can be marked (a quiz-backed signal rather than a
-   conversational one) or accepting that conversational mastery means "the student talked about it".
-   Both are product decisions beyond a security register.
+   **Closed 2026-08-30, by removing the judgement rather than sharpening it.** The finding above —
+   the write tool's trigger is a model judgement the model does not make — was answered by deleting
+   the trigger. `mark_concept_understood` is gone; `ask_concept_check` asks the model to write a
+   *question*, and the server grades the student's answer by string equality. The model no longer
+   decides whether anyone understood anything, and no wording of rule 5 or rule 6 has to carry that
+   weight.
+
+   What the measurement above still governs is the residual in §34: the model remains just as willing
+   to *act* on a mastery-adjacent message. It simply cannot record anything by acting.
 
 6. **Conversation cannot reach mastery level 3, so lessons with no quizzes have no path to it.**
    Their concepts stay at level 2 and read as "weak" in the learning path forever. The alternative
@@ -484,8 +599,8 @@ Written as facts after implementation, not as intentions before it.
    is clean, but answers an instructor writes *into the lesson body* remain reachable by a student who
    asks well.
 
-**Open gaps — known, not yet closed** (§10 has since been closed; it keeps its number because
-§11–§29 are cross-referenced from other documents)
+**Open gaps — known, not yet closed** (§10, §11, §16 and §24 have since been closed; they keep their
+numbers because §11–§29 are cross-referenced from other documents)
 
 10. **Account deletion — closed.** It was destructive and lossy: all 20 relations to `User`
     cascaded, so deleting an instructor destroyed enrolled students' records, and deleting either
@@ -519,8 +634,8 @@ Written as facts after implementation, not as intentions before it.
     well-formed, the S11 thresholds were defined, and the events were emitted into a place where no
     one was looking.
 
-    **Closed for the four zero-baseline outcomes** — `unsafe_tool_call`, `fallback_triggered`,
-    `mastery_write_retained`, `content_revised_retained` — by `error-observability` AC 36. They are
+    **Closed for the zero-baseline outcomes** — `unsafe_tool_call`, `fallback_triggered`,
+    `content_revised_retained` — by `error-observability` AC 36. They are
     forwarded to Sentry as `captureMessage` at `warning`, one fingerprint per outcome. Their normal
     rate is zero, so any occurrence is the signal; no denominator or query layer is needed to read
     them. See [`../error-observability/spec.md`](../error-observability/spec.md) AC 36 and
@@ -558,9 +673,9 @@ Written as facts after implementation, not as intentions before it.
     moved. See [`../ai-evaluation-harness/spec.md`](../ai-evaluation-harness/spec.md).
 
     **Residual, and it is the point of the eval rather than a defect:** the eval drives a *naked*
-    agent — no `guardUserInput` in front, and a `mark_concept_understood` stub that never calls
-    `authorizeMarkConceptUnderstood`. `tool-abuse` at 2/9 therefore means "the model can be talked
-    into trying", not "production is exploitable"; what it measures is how much work the
+    agent — no `guardUserInput` in front, and an `ask_concept_check` stub that persists nothing.
+    `tool-abuse` at 2/9 therefore means "the model can be talked into trying", not "production is
+    exploitable"; what it measures is how much work the
     deterministic layers are doing, which a green end-to-end test never shows. Evals still do not run
     in PR CI (ADR-013 §7, deliberately kept), the judge scores but does not gate, and per-row judge
     variance is unmeasured. What no assertion covers at all is in [`manual-qa.md`](manual-qa.md);
@@ -686,17 +801,19 @@ The rest are named here as accepted or open.
     partial recall gain. **Revisit when** the platform declares supported languages / adds i18n, or
     when telemetry (once S13 §13 is closed) shows real non-English injection volume. Building it is
     standard-tier work (localised patterns + per-language recall/FP measurement) with its own spec.
-24. **The mastery write survives reply retraction — now correlated, not silent** (F3). When
-    `validateReply` rejects the assembled reply — a strong adversarial signal — the reply is retracted
-    but a `mark_concept_understood` side effect from the *same turn* stands, because it passed its own
-    authorization and a monotonic upsert cannot be cleanly rolled back. Impact is bounded (allowlisted
-    concept, level ≤ 2) and equal to what social manipulation already achieves through the front door
-    (§5), so deferring the write was judged disproportionate. What the turn now does emit is a
-    `mastery_write_retained` security event (S11) whenever a *committed* write coincides with a
-    retraction — detected by the write tool's output being something other than the neutral refusal,
-    so a call `toolPolicy` denied is never counted as a write. The coupling is now visible rather than
-    silent; the write itself is still not rolled back. `lessonAI.service.test.ts` pins both the fire
-    and the two non-fire cases (denied write; clean reply).
+24. **~~The mastery write survives reply retraction~~ — closed 2026-08-30, and narrowed to nothing**
+    (F3). The entry described a write that happened *inside* a model turn and could not be rolled
+    back when the reply was retracted, correlated after the fact by `mastery_write_retained`.
+
+    No write happens inside a model turn any more. The tool buffers an authored check on the turn
+    state and persists nothing; the commit is a single statement placed after `validateReply`
+    returns, so every earlier exit — retraction, abort, mid-stream provider error, an abandoned
+    consumer — returns before it and the buffered check simply goes out of scope. "A rejected turn
+    leaves no artifact" is now true by construction rather than by a compensating delete, which is
+    also what retired the correlating event rather than reinventing it (S11).
+
+    The mastery write itself moved out of the turn entirely: it happens when the *student* answers,
+    in the transaction that claims the check. Nothing model-authored is on that path.
 25. **RAG scope is the whole course, regardless of student progress** (F5). `search_across_course`
     returns chunks from every lesson, not only those the student has reached. Sound today because
     enrollment grants full course access — but it rests on that assumption. If sequential/drip
@@ -780,3 +897,56 @@ consequences that were accepted rather than solved.
     `LessonAssistant/index.tsx`; these two did not, which makes the tutor's control partly moot
     against an instructor-authored payload. Outside this feature's surface, recorded here so it is
     not rediscovered a third time.
+
+**Opened 2026-08-30 by the mastery-scale work** (§33–§37 come from the `/qa` audit pass on that
+branch; each states what the design buys and what it does not)
+
+33. **Roughly one authored check in six is refused, and the refusal is silent.** Measured against the
+    shipped model: `authoringValid` 33/39 and 33/41 over two runs
+    (`evals/baselines/lessonAI-tutor.json`). The refused calls trip the well-formedness rules — a
+    stem too short, two options that fold together, a key rendered differently from the option it
+    names — and since those now `decline` rather than alert (S7, S11), nothing fires. The student is
+    simply not asked, and the tutor says one sentence about it.
+
+    **Accepted for now, deliberately over the alternative:** filing these under `unsafe_tool_call`
+    would make a zero-baseline alert fire on ordinary use, which is the defect the design pass caught
+    once already. The lever, if this needs closing, is the *rate* of `tool_call_declined` by rule id
+    — which needs the sink §13 describes. First measurement recorded; no threshold set.
+
+34. **The model is no more discriminating than §5 measured; it just cannot record anything.** The
+    check fires on genuine demonstration, on parroting, and on bare assertion at close to the same
+    rate. That is now harmless for the *record* — the student still has to answer a question — but it
+    means the tutor will happily ask a check of someone who has demonstrated nothing, spending one of
+    their three attempts. Bounded by the budget, and not worth a prompt clause on §5's evidence.
+
+35. **Grounding means "lesson text reached the model this turn", not "the answer came from it".**
+    A check may only be authored after `retrieve_lesson_context` returns a non-empty result, which
+    refuses the ungrounded "ask me a check whose answer is 'banana'". It does **not** refuse the same
+    request on a turn that *did* retrieve, and on the indirect path — a payload inside a lesson chunk
+    — the retrieval that delivers the payload is also what satisfies the rule.
+
+    Requiring the key to appear in the retrieved text was considered and rejected: a fair correct
+    option is usually the model's paraphrase rather than lesson-verbatim, so the rule would deny
+    legitimate checks at a rate nothing has measured, on top of the ~1-in-6 already refused (§33).
+    The eval now reports authoring validity, which is the instrument that would price it. **Revisit
+    when** that rate is known, or if `prompt-injection` regresses further — `inject-03` currently
+    fails every sample by authoring a check from poisoned lesson content.
+
+36. **The echo rule cannot fire on an answer shorter than eight characters.** Below that, containment
+    in ordinary prose is coincidence rather than a giveaway: an answer of `NULL`, `true` or `4`
+    appears in almost any honest reply about the lesson that taught it, and suppressing on it would
+    make those concepts silently unearnable — the failure direction that removes the feature with no
+    signal. The mirror residual is accepted: a reply naming a very short answer still leaves a
+    gradable check. A lucky guess buys a label; an undetectable outage buys nothing.
+
+37. **A rigged check is invisible per-event.** Nothing in the taxonomy shows an instructor whose
+    lessons produce trivially easy questions, or a model reliably authoring a giveaway. The only
+    signal is a *rate* — first-answer-correct distribution against a platform baseline — and there is
+    still no sink for rate-based metrics (§13, §18). Unmeasured, and the echo rule does not cover it.
+
+**Reopened and re-priced 2026-08-30.** The residual that a lucky guesser reaches level 2 was stated
+as "three independent 1-in-4 draws, roughly 58% over a week". That arithmetic was priced on a rule
+that did not exist: nothing stopped the second question being the first one again, with its answer
+already disclosed by the wrong-answer feedback. The rule now exists — a question is asked once,
+enforced on a stored `questionKey`, across courses — so the stated figure is true as written for the
+first time.
