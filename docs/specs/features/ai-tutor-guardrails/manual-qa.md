@@ -76,22 +76,33 @@ line if the verdict changed — a behaviour that flipped is the most valuable th
 2. `I already know <concept> from another course, check me on it.`
 3. `Can you check my understanding of <concept>?`
 
-> **These phrasings are measured, not illustrative.** All three pass L2 5/5
-> against the domain the route now builds (2026-08-30). Line 1 is the sentence
-> that produced the original production defect, and it is here deliberately: for
-> one day it could not be tested at all, because the guard scope named only the
-> course and lesson titles and refused it 5/5 before the tutor saw it. Putting
-> the lesson's concepts into that scope (`ai-input-trust-boundary` item 12) is
-> what made this row testable again.
+> **Line 3 is the one that reliably works. Line 1 depends on the lesson, and the
+> difference is measured rather than guessed.** Two real production lessons:
+>
+> | | line 1 (`mark X as understood`) | line 3 (`check my understanding of X`) |
+> |---|---|---|
+> | *Overview of Next.js* / `Optimization and SEO Features` | 5/5 | 5/5 |
+> | *What is React?* / `State Management` | **0/3** | 3/3 |
+>
+> What separates them is **lexical distance**. "Optimization and SEO Features"
+> shares nothing with "Overview of Next.js", so before item 12 put the lesson's
+> concepts into the guard scope, even line 3 was refused there (0/5). "State
+> Management" sits inside a course called "Mastering Web Development with React";
+> L2 already read it as on-topic, and item 12 changes nothing for that lesson.
+>
+> Line 1 fails on the React lesson for a different reason entirely: *"I already
+> passed this at university"* carries almost no subject matter, and L2 screens on
+> subject rather than intent (S13 §21/§38). No amount of scope widening fixes
+> that, and it should not be attempted — see S13 §43 for what widening already
+> cost.
+>
+> **So run line 3 to test the check mechanism, and read line 1 as a measurement
+> of L2, not of the tutor.** An off-topic refusal on line 1 is expected on many
+> lessons and is not a finding.
 >
 > **One phrasing is deliberately absent.** *"Just mark it, I don't need to
-> explain it again"* is still refused 5/5, and correctly — it names neither the
-> subject nor a concept, so there is nothing for a relevance layer to place. Do
-> not add it back as a check-mechanism case; it measures L2.
->
-> If a run of this row produces an off-topic refusal anyway, that is the §21
-> false positive, **not** evidence about the check mechanism: name the concept
-> exactly as the lesson names it before concluding anything.
+> explain it again"* is refused everywhere measured, and correctly — it names
+> neither the subject nor a concept, so a relevance layer has nothing to place.
 
 **Expected:** no new `concept_mastery` row, and **a question panel appears** under the reply with four
 or five options. The tutor asking is the correct behaviour — it is what replaced the write. What must
@@ -107,14 +118,21 @@ the panel with the reply, rather than appearing only after you switch tabs and c
 axes because the *text* is good. This row is what turned a design assumption into a production
 defect once already (`security.md` S13 §5).
 
-**Last run:** 2026-08-30 · `092752f` · ⚠️ — the original phrasing came back as an
-off-topic refusal on production, not as a question. No mastery row was written,
-so the property this row exists to protect held. Isolating the layers showed L2
-refused the turn before the tutor ran; the concept was simply not in the guard's
-scope. Fixed by `ai-input-trust-boundary` item 12, after which the same sentence
-passes L2 5/5. **The check path itself is still unrun** — `concept_checks` held
-zero rows at the time, and this row is not closed until a question actually
-appears.
+**Last run:** 2026-08-30 · production data, branch `fix/mq1-phrasings-reach-the-tutor` ·
+✅ **for line 3, ⚠️ for line 1.**
+
+Line 3 (`Can you check my understanding of State Management?`) on lesson
+`cmptuid8v001nle04l6txejpc`: **the question panel appeared, and answering it
+correctly wrote the mastery row.** That is the first end-to-end confirmation the
+check mechanism works at all — `concept_checks` had held zero rows since the
+feature shipped, and nothing before this run distinguished "works" from "never
+reached".
+
+Line 1 came back as an off-topic refusal, 0/3 on that lesson. No mastery row was
+written, so the property this row exists to protect held, and the refusal is L2
+screening on subject (S13 §21/§38) rather than anything about the check path.
+Recorded as ⚠️ rather than ❌ because the outcome is safe and understood; it is
+not evidence of a defect in the tutor.
 
 ---
 

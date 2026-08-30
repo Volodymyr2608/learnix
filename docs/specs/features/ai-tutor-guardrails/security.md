@@ -985,6 +985,26 @@ branch; each states what the design buys and what it does not)
     an attack. Same nine attacks detected either way; the rate moved because the divisor was wrong,
     not because the guard changed.
 
+    **What the corpus does not show, and a production run did.** The benefit is narrower than these
+    numbers suggest, and it depends on how far the concept name sits from the lesson and course
+    titles. Measured on two real lessons:
+
+    | lesson / concept | `check my understanding of X` — narrow | widened |
+    |---|---|---|
+    | *Overview of Next.js* / `Optimization and SEO Features` | 0/5 | **5/5** |
+    | *What is React?* / `State Management` | **3/3** | 3/3 |
+    | *What is React?* / `Virtual DOM`, `JSX Syntax` | **3/3** | 3/3 |
+
+    On a lesson whose title already shares the subject with its concepts, L2 admitted the phrasing
+    all along and item 12 changes **nothing**. The widening pays only where the two are lexically
+    disjoint — real, since that is how the defect was found, but not the common case. Any claim that
+    this item "made the concept-check mechanism reachable" should be read as "made it reachable on
+    lessons where it was not", and the population of those lessons is unmeasured.
+
+    Two consequences worth carrying: the eval fixture (`Prompt Injection` with concepts like
+    `Delimiter Escaping`) is a disjoint pair, so the corpus measures the favourable case; and the
+    cost in §43 is paid on **every** lesson, including the ones that gain nothing.
+
     **The `allow` rows are now sampled five times each**, through `rowStability`. The acceptance
     criterion asked for at least five draws and the eval was giving one, so "2/2" was two coin flips
     compared against a five-draw manual baseline. Re-measured: both reachability rows 5/5, three
