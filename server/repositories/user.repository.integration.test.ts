@@ -186,6 +186,17 @@ describe("userRepository.anonymiseAccount", () => {
 			INSERT INTO user_interest_embeddings ("userId", embedding, "updatedAt")
 			VALUES (${user.id}, ${`[${Array(1536).fill(0).join(",")}]`}::vector, NOW())
 		`;
+		// The two archive tables the mastery migrations wrote. They hold this
+		// student's educational record, carry no foreign key, and are invisible to
+		// the schema — so nothing cascades and nothing else names them.
+		await testDb.$executeRaw`
+			INSERT INTO "concept_mastery_archive_merge" ("id", "studentId", "courseId", concept, level, "updatedAt")
+			VALUES ('archived-merge', ${user.id}, ${course.id}, 'Recursion', 2, NOW())
+		`;
+		await testDb.$executeRaw`
+			INSERT INTO "concept_mastery_archive_le2" ("id", "studentId", "courseId", concept, level, "conceptKey", "updatedAt")
+			VALUES ('archived-le2', ${user.id}, ${course.id}, 'Recursion', 1, 'recursion', NOW())
+		`;
 
 		await userRepository.anonymiseAccount(user.id);
 
@@ -203,6 +214,18 @@ describe("userRepository.anonymiseAccount", () => {
 		expect(
 			await testDb.conceptCheck.count({ where: { studentId: user.id } }),
 		).toBe(0);
+		// Erasure has to reach the archives too, or anonymisation leaves the
+		// student's mastery history sitting in two tables nothing else knows about.
+		for (const table of [
+			"concept_mastery_archive_merge",
+			"concept_mastery_archive_le2",
+		]) {
+			const rows = await testDb.$queryRawUnsafe<{ count: bigint }[]>(
+				`SELECT count(*) AS count FROM "${table}" WHERE "studentId" = $1`,
+				user.id,
+			);
+			expect(Number(rows[0]?.count)).toBe(0);
+		}
 		expect(
 			await testDb.courseGeneration.count({ where: { instructorId: user.id } }),
 		).toBe(0);
