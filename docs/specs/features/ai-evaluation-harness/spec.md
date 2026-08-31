@@ -235,6 +235,7 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Concurrency limiter: order preserved, ceiling respected | `evals/_shared/concurrency.test.ts` |
 | Rubric axes match the judge's schema, in both directions | `evals/_shared/judgeRubric.contract.test.ts` |
 | A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
+| Documented figures match the dataset and the baseline; every document quoting the baseline is dated no earlier than it | `evals/_shared/docFigures.contract.test.ts` |
 
 Online, `pnpm eval`, never in CI: `lessonAI:tutor` (52 rows × 3 samples, 15 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
