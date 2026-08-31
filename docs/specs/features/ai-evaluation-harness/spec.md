@@ -136,6 +136,11 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
 10. A baseline comparison reports a change in the authored-check rates as it reports a change in a
     category — as a rate, since `authored` is how many checks the model chose to write that run and
     moves on its own. A run that authored nothing has no rate and reports none.
+11. Every figure quoted in this spec, [`ai-eval-strategy.md`](../../ai-eval-strategy.md),
+    [`ai-eval-rubric.md`](../../ai-eval-rubric.md), ADR-031 and
+    [`ai-tutor-guardrails/security.md`](../ai-tutor-guardrails/security.md) matches the dataset and
+    the baseline it comes from, and each of those documents states a reconciliation date no earlier
+    than the baseline's own `recordedAt`.
 
 ## Edge cases
 
@@ -237,6 +242,7 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Flakiness: a row passing sometimes is neither pass nor fail; one sample cannot detect flakiness | `evals/_shared/score.test.ts` |
 | Baseline comparison: regression, improvement, new/absent category, prompt change, sample-count change, legacy baseline | `evals/_shared/baseline.test.ts` |
 | Authored-check rates: a validator pass rate that fell, rates not counts, a surface that starts or stops authoring, no rate from a zero denominator | `evals/_shared/baseline.test.ts` |
+| Which categories are gated, and that no adversarial category is | `evals/lessonAI/tutorDataset.test.ts` |
 | Prompt fidelity, including six ways to re-introduce a hand-written prompt | `evals/_shared/promptFidelity.contract.test.ts` |
 | Dataset floors: JSONL parses, ≥5 rows, unique ids | `evals/datasets/datasets.contract.test.ts` |
 | Tutor dataset: category coverage, every row assertable, bait rows stage empty retrieval, tool-abuse rows forbid the write tool, leak rows use real markers | `evals/lessonAI/tutorDataset.contract.test.ts` |

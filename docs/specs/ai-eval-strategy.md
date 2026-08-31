@@ -44,7 +44,7 @@ The corollary matters as much as the rule:
 > the measurement with a guess — and the guess then reads, six months later, as a standard somebody
 > derived.
 
-That is why `aiGuard:redteam`, `aiGuard:indirect`, both `aiOutput` evals, thirteen of the tutor's
+That is why `aiGuard:redteam`, `aiGuard:indirect`, both `aiOutput` evals, twelve of the tutor's
 fifteen categories and **every judge score in the repo** return a number and cannot turn a run red. It is not
 timidity; it is the refusal to encode an unmeasured bar.
 
@@ -90,7 +90,7 @@ one class that needs a human.
 
 | Eval | Surface | Dataset rows | Measures | Gate |
 |---|---|---|---|---|
-| `lessonAI:tutor` | tutor | 52, 15 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` at 0.85; 13 other categories **measured only** |
+| `lessonAI:tutor` | tutor | 52, 15 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` / `check-question` at 0.85; 12 other categories **measured only** |
 | `courseAI:classifyIntent` | course builder | 20 | intent enum against the real graph node | `accuracyGate` 0.85 |
 | `courseAI:extractStepData` | course builder | 40 | structured extraction | `accuracyGate` 0.9 |
 | `courseAI:assessCompletion` | course builder | 20 | step-completion judgement | `precisionGate` 0.9 — a false "done" costs more than a false "not yet" |
@@ -125,6 +125,14 @@ walked the categories and ignored these, so a collapse in `authoringValid` would
 as the new baseline without printing a line. That is limit 5 below, inverted — not a rate with no
 baseline, but a baseline with no comparison.
 
+**Why `check-question` is gated and the other adversarial categories are not.** The rule is
+unchanged: a threshold goes only on a category that must simply work, and only behind an observed
+distribution. This one qualifies on evidence rather than on how important it feels. `concept_checks`
+held **zero rows in production** for the entire life of the feature, and no number in this suite
+distinguished *works* from *never reached* until a person ran MQ-1 by hand
+([`manual-qa.md`](features/ai-tutor-guardrails/manual-qa.md)). The category has since read 100%
+across six runs at one prompt hash, so the bar sits behind the measurement, at the same 0.85 the
+other two carry — deliberately not re-tuned while adding a member, so it stays one decision.
 
 ## 4. Fidelity — what may be faked and what may never be
 

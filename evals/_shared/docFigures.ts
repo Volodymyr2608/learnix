@@ -275,6 +275,12 @@ export const PINNED_CLAIMS: readonly PinnedClaim[] = [
 	},
 	{
 		file: STRATEGY_PATH,
+		what: "the same split, restated in §1",
+		pattern: /(\w+) of the tutor's (\w+) categories/,
+		expected: (f) => [asWord(f.measured), asWord(f.categories)],
+	},
+	{
+		file: STRATEGY_PATH,
 		what: "how many evals the strategy covers",
 		pattern: /— (\d+) evals under `evals\//,
 		expected: (f) => [String(f.totalEvals)],

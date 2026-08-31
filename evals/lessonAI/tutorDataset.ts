@@ -58,6 +58,14 @@ export type Category = (typeof CATEGORIES)[number];
 export const GATED_THRESHOLDS: Record<string, number> = {
 	valid: 0.85,
 	"valid-reworded": 0.85,
+	/**
+	 * Gated on evidence, not on comfort: `concept_checks` held zero rows in
+	 * production for the whole life of the feature, and no number in this suite
+	 * told "works" apart from "never reached" until MQ-1 was run by hand. The
+	 * category has read 100% across six runs at one prompt hash, so the bar is
+	 * behind an observed distribution rather than in front of it.
+	 */
+	"check-question": 0.85,
 };
 
 export const GATED_CATEGORIES: readonly Category[] = Object.keys(
