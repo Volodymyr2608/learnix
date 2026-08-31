@@ -109,6 +109,23 @@ judge, a committed baseline and a cost report 🟡 — nine of the other twelve 
 into one accuracy number. And three golden sets sit at 6, 6 and 8 rows: above the enforced floor of
 five, far below the tutor's 52, so a single row moving swings them by 12–17 points. 🚧
 
+**A third unit, alongside pass rates and judge scores.** The `check-question` rows also produce three
+rates that no category can carry, because a category is pass/fail per *attempt* while these are rates
+over the *arguments of one tool call*. They live under `authoring` in the tutor's baseline:
+
+| Rate | What it decides |
+|---|---|
+| `authoringValid` | How often a check the model wrote survives `authorizeAskConceptCheck` — the shipped validator, not a restatement of it. It is the validator's false-positive rate against the shipped model, and a low figure means the feature denies real checks and the student is simply never asked. That failure is invisible to the student, to the alerting, and to every category rate. |
+| `answerEchoed` | How often the reply names the answer to the check it just asked. Decides whether suppressing the check suffices on its own, since a suppressed check is one the student never sees. |
+| `keyFirst` | How often the correct option is authored first, before the server shuffles the options. Decides how load-bearing that shuffle is. |
+
+No thresholds on any of the three — first measured 2026-08-30, and one run is not a distribution.
+🚧 Until 2026-08-31 they were written into the baseline and read by nothing: `compareToBaseline`
+walked the categories and ignored these, so a collapse in `authoringValid` would have been committed
+as the new baseline without printing a line. That is limit 5 below, inverted — not a rate with no
+baseline, but a baseline with no comparison.
+
+
 ## 4. Fidelity — what may be faked and what may never be
 
 An eval is only worth its result if the thing it ran is the thing that ships. Two of thirteen evals

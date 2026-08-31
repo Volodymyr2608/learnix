@@ -123,6 +123,50 @@ const rate = (count: CategoryCount): number =>
 const percent = (count: CategoryCount): string =>
 	`${(rate(count) * 100).toFixed(1)}%`;
 
+/**
+ * The three authored-check rates, with the labels the runner prints. Rates
+ * rather than counts: `authored` is how many checks the model chose to write
+ * this run, which moves on its own, so a count comparison would report noise as
+ * a change and a real shift as none.
+ */
+const AUTHORING_RATES: { key: keyof AuthoringMetrics; label: string }[] = [
+	{ key: "authoringValid", label: "survives the validator" },
+	{ key: "answerEchoed", label: "answer named in the reply" },
+	{ key: "keyFirst", label: "key authored first" },
+];
+
+/** `null` where nothing was authored — a run with no checks has no rate. */
+const authoringRate = (
+	metrics: AuthoringMetrics,
+	key: keyof AuthoringMetrics,
+): number | null => (metrics.authored ? metrics[key] / metrics.authored : null);
+
+const authoringLines = (
+	before: AuthoringMetrics | undefined,
+	after: AuthoringMetrics | undefined,
+): string[] => {
+	if (!before && !after) return [];
+	if (!before && after)
+		return [`authored checks — new, ${after.authored} calls measured`];
+	if (before && !after)
+		return [
+			`authored checks no longer measured (was ${before.authored} calls)`,
+		];
+	if (!before || !after) return [];
+
+	return AUTHORING_RATES.flatMap(({ key, label }) => {
+		const was = authoringRate(before, key);
+		const now = authoringRate(after, key);
+		if (was === null || now === null || was === now) return [];
+
+		const asPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
+		return [
+			`  ${label.padEnd(26)} ${(now > was ? "up" : "down").padEnd(4)} ` +
+				`${asPercent(was)} → ${asPercent(now)} (${after[key]}/${after.authored})`,
+		];
+	});
+};
+
 export const compareToBaseline = (
 	before: Baseline,
 	after: RunMetrics,
@@ -186,6 +230,8 @@ export const compareToBaseline = (
 				`${percent(was)} → ${percent(now)} (${now.passed}/${now.total})`,
 		);
 	}
+
+	lines.push(...authoringLines(before.authoring, after.authoring));
 
 	return {
 		changed: lines.length > 0,

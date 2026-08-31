@@ -34,7 +34,13 @@ assert on stops being invisible.
 - Sample each dataset row several times at the temperature production uses, and report which rows
   are flaky rather than reporting one draw as the answer (`rowStability`, `flakyRows`).
 - Record a run as the committed baseline (`pnpm eval <name> --baseline`) and, on later runs, print
-  what moved (`evals/baselines/<name>.json`).
+  what moved (`evals/baselines/<name>.json`) — per category, and for a surface that authors
+  structured content, per authored-check rate as well.
+- Measure what a model **authored**, not only which tool it reached for: for the tutor's
+  `ask_concept_check` calls, how many survive the shipped validator, how many have their answer named
+  in the reply that follows, and how many put the correct option first before the server shuffles
+  (`authoring` in the baseline). These are rates over the arguments of one tool call, so no category
+  pass rate can express them.
 - Refuse to present non-comparable runs as a delta: a baseline taken under a different prompt,
   model, or sample count says so on its first line.
 - Hold every eval to the prompt production actually ships, enforced by
@@ -127,6 +133,9 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
    `HAND_WRITTEN_BY_DESIGN` with a stated reason.
 9. Every `evals/datasets/**/*.jsonl` parses, holds at least five rows, and gives every row a unique
    id.
+10. A baseline comparison reports a change in the authored-check rates as it reports a change in a
+    category — as a rate, since `authored` is how many checks the model chose to write that run and
+    moves on its own. A run that authored nothing has no rate and reports none.
 
 ## Edge cases
 
@@ -227,6 +236,7 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Category gating: separate thresholds, ungated categories cannot fail a run, per-category rather than pooled | `evals/_shared/score.test.ts` |
 | Flakiness: a row passing sometimes is neither pass nor fail; one sample cannot detect flakiness | `evals/_shared/score.test.ts` |
 | Baseline comparison: regression, improvement, new/absent category, prompt change, sample-count change, legacy baseline | `evals/_shared/baseline.test.ts` |
+| Authored-check rates: a validator pass rate that fell, rates not counts, a surface that starts or stops authoring, no rate from a zero denominator | `evals/_shared/baseline.test.ts` |
 | Prompt fidelity, including six ways to re-introduce a hand-written prompt | `evals/_shared/promptFidelity.contract.test.ts` |
 | Dataset floors: JSONL parses, ≥5 rows, unique ids | `evals/datasets/datasets.contract.test.ts` |
 | Tutor dataset: category coverage, every row assertable, bait rows stage empty retrieval, tool-abuse rows forbid the write tool, leak rows use real markers | `evals/lessonAI/tutorDataset.contract.test.ts` |
