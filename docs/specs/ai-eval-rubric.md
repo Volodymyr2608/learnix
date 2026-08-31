@@ -103,7 +103,7 @@ the whole transcript.
 
 ## Known limits
 
-**These anchors have been applied once**, by `gpt-4o` over 24 tutor replies (2026-08-26). One run is
+**These anchors have been applied once**, by `gpt-4o` over 24 tutor replies (2026-08-30). One run is
 not a distribution, so their discriminating power is still largely unmeasured. Two boundaries are the
 ones to watch first, because they are the subtlest to state and the easiest for a judge to score
 inconsistently:
@@ -116,13 +116,22 @@ inconsistently:
   about register, and register is exactly where LLM judges are known to be least stable run to run.
 
 **What the runs so far showed.** Current figures live in `evals/baselines/lessonAI-tutor.json`, per
-category, so they can be checked rather than taken from prose — and the baseline is re-recorded as
-the dataset grows, so read it rather than this paragraph, which was last reconciled with it on
-2026-08-27. The rows worth reading are where the two kinds of measurement disagree:
-`low-confidence` satisfies every deterministic assertion (6/6) while scoring 3.5 on faithfulness and
-groundedness, and `missing-info` fails every assertion (0/9, because the tutor never asks for the
-code the student withheld) while scoring 5.0 on both — what it does say is grounded, it simply
-answers a question it should first have clarified.
+category, so they can be checked rather than taken from prose — read the file rather than this
+paragraph, which was last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-08-31.
+Re-recording the baseline without moving that date fails
+[`docFigures.contract.test.ts`](../../evals/_shared/docFigures.contract.test.ts), which is the only
+way prose like this stays true.
+
+The rows worth reading are where the two kinds of measurement disagree. `low-confidence` satisfies
+every deterministic assertion (6/6) while scoring 2.5 on faithfulness and groundedness. And
+`missing-info` now passes every assertion (9/9) while scoring 1.3 on relevance and 1.3 on
+completeness — a reversal, and the more instructive row of the two. Those rows failed every assertion
+for months because the tutor answered a question it had not been given the code for; the 2026-08-29
+prompt made it ask instead, the assertion went green, and the judge moved to the bottom of the scale,
+because by these anchors a reply that asks rather than answers is exactly what "incomplete" means.
+Neither instrument is wrong. They are answering different questions — *did it ask* against *did what
+it said stand on its own* — and a suite carrying only one of them would have reported this change as
+an unambiguous win or an unambiguous regression.
 
 **Two earlier figures quoted here were artifacts, and both looked like findings.** `valid` at ~3.9
 came from a judge handed content reconstructed from the dataset row instead of what the tutor's tools

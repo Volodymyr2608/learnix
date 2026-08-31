@@ -392,7 +392,7 @@ export const runTutorEval = async (): Promise<boolean> => {
 	// Judge only where quality is a judgement. The boundary categories already
 	// have an exact answer above, so a second, larger model re-reading them adds
 	// cost and noise to a number that is currently precise.
-	// One sample per row, not all three. 43 rows x 3 samples of judged categories
+	// One sample per row, not all three. Every sample of every judged category
 	// is ~71k tokens of judge prompt, and this account's gpt-4o ceiling is 30k
 	// tokens per minute — no ordering fits that inside one minute. Judging the
 	// first draw of each row costs ~29k and does fit. The price is that judge

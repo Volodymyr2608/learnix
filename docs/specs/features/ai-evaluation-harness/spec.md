@@ -184,13 +184,14 @@ complex-tier change with its own ADR.
 
 ## Performance
 
-- **Cost per tutor run: $0.14 and 54 seconds**, measured, printed by the runner and recorded per
-  model. Of that, `gpt-4o-mini` is 265 calls / 251k tokens / **$0.044** and the `gpt-4o` judge is
-  24 calls / 31k tokens / **$0.093**.
+- **Cost per tutor run: $0.14 and 54 seconds**, measured on the 49-row run of 2026-08-26, printed by
+  the runner and recorded per model. Of that, `gpt-4o-mini` is 265 calls / 251k tokens / **$0.044**
+  and the `gpt-4o` judge is 24 calls / 31k tokens / **$0.093**. The set is 52 rows now, so read these
+  as that run's figures rather than today's.
 - **The judge is 9% of the calls and 67% of the cost**, which is why a call count was the wrong unit
-  to reason about — it inverts the ranking. Note also that 49 rows × 3 samples is 147 *attempts* but
-  265 *model calls*: a ReAct turn is one completion per tool round trip, so attempts and calls are
-  not interchangeable either.
+  to reason about — it inverts the ranking. Note also that on that run 49 rows × 3 samples was 147
+  *attempts* but **265 model calls**: a ReAct turn is one completion per tool round trip, so attempts
+  and calls are not interchangeable either.
 - **The judge is rate-limited, not merely expensive.** Its prompt carries the rubric, so each call is
   an order of magnitude larger than a generator call. Judging all three samples of every judged row
   is ~71k tokens of prompt against this account's **30k tokens-per-minute** ceiling for `gpt-4o`: no
@@ -235,13 +236,18 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Rubric axes match the judge's schema, in both directions | `evals/_shared/judgeRubric.contract.test.ts` |
 | A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
 
-Online, `pnpm eval`, never in CI: `lessonAI:tutor` (49 rows × 3 samples, 14 categories),
+Online, `pnpm eval`, never in CI: `lessonAI:tutor` (52 rows × 3 samples, 15 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
 `courseAI:*`, `aiGuard:*`, `aiOutput:*`.
 
 ## Source of truth
 
 - Behavior now: this file.
+- **Figures:** every count and score quoted above was last reconciled with
+  `evals/baselines/lessonAI-tutor.json` on 2026-08-31. Re-recording the baseline or growing the
+  golden set without moving that date fails
+  [`docFigures.contract.test.ts`](../../../../evals/_shared/docFigures.contract.test.ts) — the
+  measured figures in this spec drifted three times in two weeks before that check existed.
 - Why this harness measures what it measures, across all surfaces — the assert/judge/human line, gate
   policy, cost and known limits: [`docs/specs/ai-eval-strategy.md`](../../ai-eval-strategy.md).
 - Scoring definitions: [`docs/specs/ai-eval-rubric.md`](../../ai-eval-rubric.md).

@@ -78,20 +78,26 @@ ADR-013 §5 asked each structured-output feature to own; none existed until now.
 - The question "did this change make anything worse" is answerable from the diff, by anyone, later.
 - Judge scores make visible what the deterministic suite cannot. `low-confidence` satisfies every
   assertion in the suite — 6/6 samples — while the judge scores its faithfulness and groundedness at
-  3.5: replies that pick the right tool and avoid every forbidden phrase while being only partly
+  2.5: replies that pick the right tool and avoid every forbidden phrase while being only partly
   grounded in what retrieval returned. `hallucination-bait` is 12/12 with both axes at 4.0. No
   assertion in the suite can express either gap. (These are measured categories, not gated ones —
   see Decision 5.)
 - The two measurements can disagree without either being wrong, which is the case worth understanding
-  before trusting a single number. `missing-info` fails every deterministic assertion (0/9 — the
-  tutor never asks for the code the student withheld) while the judge scores faithfulness and
-  groundedness at 5.0, because what it *does* say is grounded in the lesson. The assertion measures
-  whether it asked; the judge measures whether what it said was true. A suite carrying only one of
-  them reports a confident half-answer.
+  before trusting a single number, and `missing-info` has now demonstrated it in both directions. It
+  failed every deterministic assertion for months — 0/9, the tutor answering a question it had not
+  been given the student's code for — while the judge scored what it *did* say as grounded in the
+  lesson. The 2026-08-29 prompt made it ask instead: the assertion is 9/9 and the judge dropped to
+  1.3 relevance and 1.3 completeness, because a reply that asks rather than answers is what the
+  rubric's anchors call incomplete. The assertion measures whether it asked; the judge measures
+  whether what it said stood on its own. A suite carrying only one of them would have called this
+  change an unambiguous win or an unambiguous regression, and it is neither.
 - **Every figure above is in `evals/baselines/lessonAI-tutor.json`**, per category, alongside the
   deterministic counts — see the retraction below for why that matters more than it looks. The
   baseline is re-recorded as the dataset grows, so it, not this prose, is the number: the figures
-  here were last reconciled with it on 2026-08-27.
+  here were last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-08-31, and
+  `evals/_shared/docFigures.contract.test.ts` now fails this ADR if the baseline moves and that date
+  does not. That check exists because this reconciliation was done by hand three times in two weeks
+  and missed something each time.
 - Three checks that used to require a careful reader are now contract tests, so the next feature does
   not pay for them again (`docs/constitution.md` §Agent economics).
 

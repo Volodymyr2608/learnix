@@ -1,6 +1,9 @@
 # AI eval strategy — how this system's AI is measured
 
-**Status:** living document · **Last reviewed:** 2026-08-27 ·
+**Status:** living document · **Last reviewed:** 2026-08-31 ·
+**Figures:** last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-08-31 —
+`evals/_shared/docFigures.contract.test.ts` turns this document red when the baseline is re-recorded
+and this line is not. ·
 **Scope:** `lessonAI` (tutor), `courseAI`, `quizAI`, `lessonInsightsAI`, `learningPathAI`, plus the two
 shared defence layers (`aiGuard` input guard, `aiOutput` output boundary) — 13 evals under `evals/`,
 as one system.
@@ -41,8 +44,8 @@ The corollary matters as much as the rule:
 > the measurement with a guess — and the guess then reads, six months later, as a standard somebody
 > derived.
 
-That is why `aiGuard:redteam`, `aiGuard:indirect`, both `aiOutput` evals, ten of the tutor's fourteen
-categories and **every judge score in the repo** return a number and cannot turn a run red. It is not
+That is why `aiGuard:redteam`, `aiGuard:indirect`, both `aiOutput` evals, thirteen of the tutor's
+fifteen categories and **every judge score in the repo** return a number and cannot turn a run red. It is not
 timidity; it is the refusal to encode an unmeasured bar.
 
 ## 2. The three levels
@@ -87,7 +90,7 @@ one class that needs a human.
 
 | Eval | Surface | Dataset rows | Measures | Gate |
 |---|---|---|---|---|
-| `lessonAI:tutor` | tutor | 49, 14 categories | tool selection, refusals, write-tool abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` at 0.85; twelve other categories **measured only** |
+| `lessonAI:tutor` | tutor | 52, 15 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` at 0.85; 13 other categories **measured only** |
 | `courseAI:classifyIntent` | course builder | 20 | intent enum against the real graph node | `accuracyGate` 0.85 |
 | `courseAI:extractStepData` | course builder | 40 | structured extraction | `accuracyGate` 0.9 |
 | `courseAI:assessCompletion` | course builder | 20 | step-completion judgement | `precisionGate` 0.9 — a false "done" costs more than a false "not yet" |
@@ -96,15 +99,15 @@ one class that needs a human.
 | `lessonInsightsAI:lessonInsights` | insights | 6 | concepts / summary / glossary shape | `accuracyGate` 0.9 |
 | `learningPathAI:learningPath` | path | 8 | step plan against server-side state | `accuracyGate` 0.8 |
 | `aiGuard:adversarial` | shared L1/L2 | 101 | block rate across attack techniques, plus false positives on legitimate rows | `accuracyGate` 0.85 **and** `precisionGate` 0.95 |
-| `aiGuard:redteam` | shared L1/L2 | 39 | enforcement recall and detection recall, per technique | **none** — coverage probe |
-| `aiGuard:indirect` | shared L3 | 12 | the same payload raw vs `wrapUntrustedContent`-wrapped | **none** — before/after measurement |
+| `aiGuard:redteam` | shared L1/L2 | 42 | enforcement recall and detection recall, per technique | **none** — coverage probe |
+| `aiGuard:indirect` | shared L3 | 16 | the same payload raw vs `wrapUntrustedContent`-wrapped | **none** — before/after measurement |
 | `aiOutput:falsePositive` | shared L5 | 42 × 5 surfaces × 3 samples | how often the output boundary refuses legitimate model text | **none** — deliberate ([`security.md`](features/ai-tutor-guardrails/security.md) S11) |
 | `aiOutput:leak` | shared L5 | in-file payloads × surfaces × 3 samples | recall of the prompt-recital rule | **none** |
 
 **Two things this table is honest about.** The tutor is the only surface with categories, sampling, a
-judge, a committed baseline and a cost report 🟡 — the other twelve evals are single-sample, pooled
+judge, a committed baseline and a cost report 🟡 — nine of the other twelve are single-sample, pooled
 into one accuracy number. And three golden sets sit at 6, 6 and 8 rows: above the enforced floor of
-five, far below the tutor's 49, so a single row moving swings them by 12–17 points. 🚧
+five, far below the tutor's 52, so a single row moving swings them by 12–17 points. 🚧
 
 ## 4. Fidelity — what may be faked and what may never be
 
@@ -156,14 +159,17 @@ CI; the measurement that costs money does not** (§8).
 | *(none)* | prints, returns true | the distribution has not been observed, or the eval is a coverage probe |
 
 **A category with no threshold is a measurement.** `tool-abuse`, `missing-info`, `off-topic`,
-`mastery-lookalike` and the rest are read as ranges across runs, not as bars. The unchanged tutor
-prompt has produced `tool-abuse` at 0/9, 2/9 and 3/9 across runs; a bar anywhere in that band would
-fail on noise, and a bar below it would certify nothing.
+`mastery-lookalike` and the rest are read as ranges across runs, not as bars. Held at one prompt
+hash, `tool-abuse` produced 0/9, 2/9 and 3/9 across runs; a bar anywhere in that band would fail on
+noise, and a bar below it would certify nothing. The 2026-08-29 prompt then moved the same category
+to 9/9 — the second half of the argument rather than a reason to gate it now. A class whose rate goes
+from a third to all of it on one prompt edit has a distribution that belongs to the prompt, so a bar
+written today would encode *this* prompt's behaviour and read, later, as a standard.
 
 **The judge never gates** ✅, and this is now empirical rather than cautious. Three structurally
 identical `missing-info` rows — a question that cannot be answered without information the student
-withheld — were scored 5, 1 and 1 on completeness by the same judge in the same run, and relevance 5
-against 1. The rubric says such a question must be clarified, so `missing-01` scoring **5** is the
+withheld — were scored 5, 1 and 1 on completeness by the same judge in one run (2026-08-26), and
+relevance 5 against 1. The rubric says such a question must be clarified, so `missing-01` scoring **5** is the
 judge rewarding thoroughness in direct violation of its own anchors. A gate at "completeness ≥ 4"
 would have passed exactly the row that behaved worst. Variance *inside* a class exceeded variance
 *between* classes; that is the definition of an instrument not yet ready to be a threshold.
@@ -261,8 +267,9 @@ Two things this changed, both about units:
 - **The judge is 9% of the calls and 67% of the cost.** Counted by calls, the generator looks eleven
   times more expensive; counted in money, it is half the price. A call count did not merely lose
   precision, it **inverted the ranking**.
-- **A ReAct turn is not one call.** 49 rows × 3 samples is 147 *attempts* but **265 model calls** —
-  one completion per tool round trip. Attempts and calls are not interchangeable either.
+- **A ReAct turn is not one call.** The set was 49 rows on that run and is 52 now, so read these as
+  that run's figures: 49 rows × 3 samples is 147 *attempts* but **265 model calls** — one completion
+  per tool round trip. Attempts and calls are not interchangeable either.
 
 **The binding constraint is not money, it is the per-minute token ceiling.** The judge prompt carries
 the rubric, so judging all three samples of every judged row is ~71k tokens against this account's
@@ -313,19 +320,25 @@ Ordered by how much they would mislead a reader who did not know them.
    false-positive eval is ungated by design — 🚧 that one has no committed baseline yet, so its rate
    is printed per run and compared to nothing.
 6. **The tutor eval is not an end-to-end test.** ⚠️ It drives the agent with the real prompt but
-   stubbed tools, without `guardUserInput` (L1/L2) in front and with a `mark_concept_understood` stub
-   that does **not** call `toolPolicy`. `tool-abuse` at 2/9 means *the model can be talked into
-   trying*, not *production is exploitable*. That is the measurement's purpose, not its flaw: it shows
-   how much work the deterministic layers are doing, which a green end-to-end test never reveals.
+   stubbed tools, without `guardUserInput` (L1/L2) in front and with an `ask_concept_check` stub that
+   does **not** call `authorizeAskConceptCheck` the way the real tool does. `prompt-injection` at 9/12
+   means *the model can be talked into it*, not *production is exploitable*. That is the
+   measurement's purpose, not its flaw: it shows how much work the deterministic layers are doing,
+   which a green end-to-end test never reveals.
 7. **An assertion can encode an assumption the prompt never made.** `lp6` in the learningPath set was
    labelled valid; the critic rejected it 3/3 with a consistent reason, because `REFLECT_SYSTEM_PROMPT`
    never says how `RETRY_QUIZ` counts against "review steps". The label was wrong *and* the prompt is
    ambiguous — recorded in that row's `note` rather than fixed by changing either.
-8. **A proxy assertion is not the dimension it stands for.** The tutor's `missing-info` and half its
-   `ambiguous` rows assert on `answer_contains: ["?"]` — "did it ask for clarification" measured by a
-   question mark. Kept red rather than tuned green: the assertion does catch a real behaviour (the
-   tutor answers instead of asking), and the fix is a better dimension, not a looser string.
-9. **Twelve of thirteen evals are single-sample and pooled.** 🚧 §3. Everything §6 says about
+8. **A proxy assertion is not the dimension it stands for.** 🚧 The tutor's `missing-info` and half
+   its `ambiguous` rows assert on `answer_contains: ["?"]` — "did it ask for clarification" measured
+   by a question mark. They were red for months; the 2026-08-29 prompt turned both green, and that is
+   the weakest green available, because the assertion cannot tell *asked for the missing detail* from
+   *asked anything at all*. The judge now reads those same rows at 1.3 relevance and 1.3 completeness
+   — consistent with its anchors, which score a reply that asks rather than answers as incomplete. So
+   the two instruments still disagree about these rows, in the opposite direction from before, and
+   the dimension itself is still not being measured. The fix remains a better dimension, not a looser
+   string.
+9. **Nine of thirteen evals are single-sample and pooled.** 🚧 §3. Everything §6 says about
    distributions applies to them too; it just has not been instrumented yet.
 
 ## 10. What goes to a human, and why
