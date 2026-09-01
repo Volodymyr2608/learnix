@@ -31,7 +31,9 @@ const question = (text: string, concept?: string) => ({
 	question: text,
 	options: ["a", "b", "c", "d"],
 	correct: "a",
-	...(concept === undefined ? {} : { concept }),
+	// Always present: the response schema is strict, so the model cannot omit
+	// the key — it says "untagged" with null.
+	concept: concept ?? null,
 });
 
 const seed = async (concepts: string[]) => {
@@ -139,11 +141,7 @@ describe("quizAI tags a generated question with the concept it tests", () => {
 			true,
 		);
 
-		expect(result.map((q) => q.concept)).toEqual([
-			"Recursion",
-			undefined,
-			undefined,
-		]);
+		expect(result.map((q) => q.concept)).toEqual(["Recursion", null, null]);
 	});
 
 	it("tags nothing when the lesson has no insights at all", async () => {
@@ -167,7 +165,7 @@ describe("quizAI tags a generated question with the concept it tests", () => {
 			true,
 		);
 
-		expect(result.every((q) => q.concept === undefined)).toBe(true);
+		expect(result.every((q) => q.concept === null)).toBe(true);
 	});
 
 	it("tags nothing for a request naming another instructor's lesson", async () => {
@@ -215,6 +213,6 @@ describe("quizAI tags a generated question with the concept it tests", () => {
 		);
 
 		expect(mockAgentInvoke).not.toHaveBeenCalled();
-		expect(result.map((q) => q.concept)).toEqual(["Recursion", undefined]);
+		expect(result.map((q) => q.concept)).toEqual(["Recursion", null]);
 	});
 });

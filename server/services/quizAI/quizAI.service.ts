@@ -155,7 +155,14 @@ class QuizAIService {
 						const violation = validateSemantics(questions);
 
 						if (!violation) {
-							return retagWithAllowlist(questions, allowlist);
+							// One spelling of "untagged" on both return paths.
+							// `retagWithAllowlist` drops the key, the stored column
+							// yields null, and the schema declares it required and
+							// nullable — so the caller never has to test for both.
+							return retagWithAllowlist(questions, allowlist).map((q) => ({
+								...q,
+								concept: q.concept ?? null,
+							}));
 						}
 
 						hint = violation;
