@@ -191,3 +191,110 @@ describe("compareToBaseline across judges", () => {
 		expect(report.lines.join("\n")).not.toContain("undefined");
 	});
 });
+
+/**
+ * The authoring rates were recorded into the baseline and read by nothing: a
+ * run where `authoringValid` collapsed from 85% to 25% — the feature denying
+ * almost every check it writes, so students stop being asked at all — wrote a
+ * new baseline and printed no line about it. A number the comparison cannot
+ * contradict lives on the author's confidence, which is the thing ADR-031
+ * Decision 3 exists to stop.
+ */
+describe("compareToBaseline — authored checks", () => {
+	const withAuthoring = (
+		authored: number,
+		authoringValid: number,
+		answerEchoed = 0,
+		keyFirst = 0,
+	) => ({
+		authored,
+		authoringValid,
+		answerEchoed,
+		keyFirst,
+	});
+
+	it("reports a validator pass rate that fell", () => {
+		const report = compareToBaseline(
+			{ ...baseline({ valid: [8, 8] }), authoring: withAuthoring(40, 34) },
+			{ ...metrics({ valid: [8, 8] }), authoring: withAuthoring(40, 10) },
+		);
+
+		expect(report.changed).toBe(true);
+		expect(report.lines.join("\n")).toContain("survives the validator");
+		expect(report.lines.join("\n")).toMatch(/85\.0%.*25\.0%/);
+	});
+
+	it("reads rates, not counts, because the denominator moves on its own", () => {
+		const report = compareToBaseline(
+			{ ...baseline({ valid: [8, 8] }), authoring: withAuthoring(40, 20) },
+			{ ...metrics({ valid: [8, 8] }), authoring: withAuthoring(20, 10) },
+		);
+
+		expect(report.changed).toBe(false);
+	});
+
+	it("reports the answer-echo rate rising", () => {
+		const report = compareToBaseline(
+			{ ...baseline({ valid: [8, 8] }), authoring: withAuthoring(40, 40, 2) },
+			{ ...metrics({ valid: [8, 8] }), authoring: withAuthoring(40, 40, 20) },
+		);
+
+		expect(report.lines.join("\n")).toContain("answer named in the reply");
+		expect(report.lines.join("\n")).toMatch(/5\.0%.*50\.0%/);
+	});
+
+	it("reports the key-first rate, which decides how load-bearing the shuffle is", () => {
+		const report = compareToBaseline(
+			{
+				...baseline({ valid: [8, 8] }),
+				authoring: withAuthoring(40, 40, 0, 8),
+			},
+			{
+				...metrics({ valid: [8, 8] }),
+				authoring: withAuthoring(40, 40, 0, 40),
+			},
+		);
+
+		expect(report.lines.join("\n")).toContain("key authored first");
+	});
+
+	it("says so when a surface starts authoring checks", () => {
+		const report = compareToBaseline(baseline({ valid: [8, 8] }), {
+			...metrics({ valid: [8, 8] }),
+			authoring: withAuthoring(40, 34),
+		});
+
+		expect(report.changed).toBe(true);
+		expect(report.lines.join("\n")).toContain("authored checks");
+	});
+
+	it("says so when a surface stops authoring them", () => {
+		const report = compareToBaseline(
+			{ ...baseline({ valid: [8, 8] }), authoring: withAuthoring(40, 34) },
+			metrics({ valid: [8, 8] }),
+		);
+
+		expect(report.changed).toBe(true);
+		expect(report.lines.join("\n")).toContain("no longer");
+	});
+
+	it("stays quiet when neither run authored anything", () => {
+		const report = compareToBaseline(
+			baseline({ valid: [8, 8] }),
+			metrics({ valid: [8, 8] }),
+		);
+
+		expect(report.lines.join("\n")).not.toContain("authored");
+	});
+
+	/** A run that wrote no checks has no rate — dividing by it would invent one. */
+	it("does not compute a rate from a zero denominator", () => {
+		const report = compareToBaseline(
+			{ ...baseline({ valid: [8, 8] }), authoring: withAuthoring(0, 0) },
+			{ ...metrics({ valid: [8, 8] }), authoring: withAuthoring(40, 34) },
+		);
+
+		expect(report.lines.join("\n")).not.toContain("NaN");
+		expect(report.lines.join("\n")).not.toContain("Infinity");
+	});
+});

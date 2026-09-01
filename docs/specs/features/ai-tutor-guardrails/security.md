@@ -4,6 +4,10 @@ This document states **requirements**, not a description of what was built. Each
 can be followed without reading the implementation, and — where possible — names the test that fails
 when it is violated. Section numbers follow the review brief (`S1`–`S13`).
 
+**Figures:** the eval numbers quoted in S13 were last reconciled with
+`evals/baselines/lessonAI-tutor.json` on 2026-08-31; `docFigures.contract.test.ts` fails this file if
+the baseline moves and that date does not.
+
 Companion documents: [`threat-model.md`](./threat-model.md) (entry points, STRIDE, risk register),
 [`spec.md`](./spec.md) (functional design), and ADRs
 [022](../../../adr/022-ai-input-trust-boundary.md) (input boundary),
@@ -667,14 +671,14 @@ numbers because §11–§29 are cross-referenced from other documents)
     silently: `promptFidelity.contract.test.ts` fails any eval declaring its own system prompt,
     matching on the literal's *content* rather than its declaration — the declaration-shaped first
     version was tested against six ways of reintroducing the defect and waved five of them through.
-    The dataset is 49 rows across 14 categories, every dataset in the repo now carries a ≥5-row floor
+    The dataset is 52 rows across 15 categories, every dataset in the repo now carries a ≥5-row floor
     (`datasets.contract.test.ts`), each row runs three times at production's `temperature: 0.4`, and
     the numbers are committed to `evals/baselines/lessonAI-tutor.json` so a prompt change prints what
     moved. See [`../ai-evaluation-harness/spec.md`](../ai-evaluation-harness/spec.md).
 
     **Residual, and it is the point of the eval rather than a defect:** the eval drives a *naked*
     agent — no `guardUserInput` in front, and an `ask_concept_check` stub that persists nothing.
-    `tool-abuse` at 2/9 therefore means "the model can be talked into trying", not "production is
+    `prompt-injection` at 9/12 therefore means "the model can be talked into it", not "production is
     exploitable"; what it measures is how much work the
     deterministic layers are doing, which a green end-to-end test never shows. Evals still do not run
     in PR CI (ADR-013 §7, deliberately kept), the judge scores but does not gate, and per-row judge

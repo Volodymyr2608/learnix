@@ -34,7 +34,13 @@ assert on stops being invisible.
 - Sample each dataset row several times at the temperature production uses, and report which rows
   are flaky rather than reporting one draw as the answer (`rowStability`, `flakyRows`).
 - Record a run as the committed baseline (`pnpm eval <name> --baseline`) and, on later runs, print
-  what moved (`evals/baselines/<name>.json`).
+  what moved (`evals/baselines/<name>.json`) — per category, and for a surface that authors
+  structured content, per authored-check rate as well.
+- Measure what a model **authored**, not only which tool it reached for: for the tutor's
+  `ask_concept_check` calls, how many survive the shipped validator, how many have their answer named
+  in the reply that follows, and how many put the correct option first before the server shuffles
+  (`authoring` in the baseline). These are rates over the arguments of one tool call, so no category
+  pass rate can express them.
 - Refuse to present non-comparable runs as a delta: a baseline taken under a different prompt,
   model, or sample count says so on its first line.
 - Hold every eval to the prompt production actually ships, enforced by
@@ -127,6 +133,14 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
    `HAND_WRITTEN_BY_DESIGN` with a stated reason.
 9. Every `evals/datasets/**/*.jsonl` parses, holds at least five rows, and gives every row a unique
    id.
+10. A baseline comparison reports a change in the authored-check rates as it reports a change in a
+    category — as a rate, since `authored` is how many checks the model chose to write that run and
+    moves on its own. A run that authored nothing has no rate and reports none.
+11. Every figure quoted in this spec, [`ai-eval-strategy.md`](../../ai-eval-strategy.md),
+    [`ai-eval-rubric.md`](../../ai-eval-rubric.md), ADR-031 and
+    [`ai-tutor-guardrails/security.md`](../ai-tutor-guardrails/security.md) matches the dataset and
+    the baseline it comes from, and each of those documents states a reconciliation date no earlier
+    than the baseline's own `recordedAt`.
 
 ## Edge cases
 
@@ -184,13 +198,14 @@ complex-tier change with its own ADR.
 
 ## Performance
 
-- **Cost per tutor run: $0.14 and 54 seconds**, measured, printed by the runner and recorded per
-  model. Of that, `gpt-4o-mini` is 265 calls / 251k tokens / **$0.044** and the `gpt-4o` judge is
-  24 calls / 31k tokens / **$0.093**.
+- **Cost per tutor run: $0.14 and 54 seconds**, measured on the 49-row run of 2026-08-26, printed by
+  the runner and recorded per model. Of that, `gpt-4o-mini` is 265 calls / 251k tokens / **$0.044**
+  and the `gpt-4o` judge is 24 calls / 31k tokens / **$0.093**. The set is 52 rows now, so read these
+  as that run's figures rather than today's.
 - **The judge is 9% of the calls and 67% of the cost**, which is why a call count was the wrong unit
-  to reason about — it inverts the ranking. Note also that 49 rows × 3 samples is 147 *attempts* but
-  265 *model calls*: a ReAct turn is one completion per tool round trip, so attempts and calls are
-  not interchangeable either.
+  to reason about — it inverts the ranking. Note also that on that run 49 rows × 3 samples was 147
+  *attempts* but **265 model calls**: a ReAct turn is one completion per tool round trip, so attempts
+  and calls are not interchangeable either.
 - **The judge is rate-limited, not merely expensive.** Its prompt carries the rubric, so each call is
   an order of magnitude larger than a generator call. Judging all three samples of every judged row
   is ~71k tokens of prompt against this account's **30k tokens-per-minute** ceiling for `gpt-4o`: no
@@ -226,6 +241,8 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Category gating: separate thresholds, ungated categories cannot fail a run, per-category rather than pooled | `evals/_shared/score.test.ts` |
 | Flakiness: a row passing sometimes is neither pass nor fail; one sample cannot detect flakiness | `evals/_shared/score.test.ts` |
 | Baseline comparison: regression, improvement, new/absent category, prompt change, sample-count change, legacy baseline | `evals/_shared/baseline.test.ts` |
+| Authored-check rates: a validator pass rate that fell, rates not counts, a surface that starts or stops authoring, no rate from a zero denominator | `evals/_shared/baseline.test.ts` |
+| Which categories are gated, and that no adversarial category is | `evals/lessonAI/tutorDataset.test.ts` |
 | Prompt fidelity, including six ways to re-introduce a hand-written prompt | `evals/_shared/promptFidelity.contract.test.ts` |
 | Dataset floors: JSONL parses, ≥5 rows, unique ids | `evals/datasets/datasets.contract.test.ts` |
 | Tutor dataset: category coverage, every row assertable, bait rows stage empty retrieval, tool-abuse rows forbid the write tool, leak rows use real markers | `evals/lessonAI/tutorDataset.contract.test.ts` |
@@ -234,14 +251,20 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Concurrency limiter: order preserved, ceiling respected | `evals/_shared/concurrency.test.ts` |
 | Rubric axes match the judge's schema, in both directions | `evals/_shared/judgeRubric.contract.test.ts` |
 | A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
+| Documented figures match the dataset and the baseline; every document quoting the baseline is dated no earlier than it | `evals/_shared/docFigures.contract.test.ts` |
 
-Online, `pnpm eval`, never in CI: `lessonAI:tutor` (49 rows × 3 samples, 14 categories),
+Online, `pnpm eval`, never in CI: `lessonAI:tutor` (52 rows × 3 samples, 15 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
 `courseAI:*`, `aiGuard:*`, `aiOutput:*`.
 
 ## Source of truth
 
 - Behavior now: this file.
+- **Figures:** every count and score quoted above was last reconciled with
+  `evals/baselines/lessonAI-tutor.json` on 2026-08-31. Re-recording the baseline or growing the
+  golden set without moving that date fails
+  [`docFigures.contract.test.ts`](../../../../evals/_shared/docFigures.contract.test.ts) — the
+  measured figures in this spec drifted three times in two weeks before that check existed.
 - Why this harness measures what it measures, across all surfaces — the assert/judge/human line, gate
   policy, cost and known limits: [`docs/specs/ai-eval-strategy.md`](../../ai-eval-strategy.md).
 - Scoring definitions: [`docs/specs/ai-eval-rubric.md`](../../ai-eval-rubric.md).
