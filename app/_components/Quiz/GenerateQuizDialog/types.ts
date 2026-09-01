@@ -8,7 +8,7 @@ export type EditableQuestion = {
 	 * dialog untouched and never edited here — the server resolves it again on
 	 * save, so the form has no reason to offer it.
 	 */
-	concept?: string;
+	concept?: string | null;
 };
 
 export type DialogState =

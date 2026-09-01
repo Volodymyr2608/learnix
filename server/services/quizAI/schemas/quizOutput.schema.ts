@@ -10,8 +10,14 @@ export const QuizQuestionSchema = z.object({
 	 * with the allowlist's spelling, or drops it. Nothing the model writes here
 	 * reaches the column unchecked — the value decides which concept a pass
 	 * promotes, so it is authority, not description.
+	 *
+	 * Nullable, never optional: this schema is sent as a strict `json_schema`
+	 * response format, and strict mode requires every key in `properties` to be
+	 * listed in `required`. An `.optional()` here 400s the request before a token
+	 * is generated. `null` is how the model says "untagged"; `retagWithAllowlist`
+	 * drops the key for it, exactly as it does for a name off the allowlist.
 	 */
-	concept: z.string().max(200).optional(),
+	concept: z.string().max(200).nullable(),
 });
 
 export const QuizOutputSchema = z.object({
