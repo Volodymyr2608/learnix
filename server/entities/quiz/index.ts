@@ -16,8 +16,12 @@ export const QuizItemDto = z.object({
 	 * Echoed back from generation, never authored in the form. Accepted here only
 	 * so the tag survives the round trip; `upsertMany` resolves it against the
 	 * lesson's allowlist again, so what arrives is a proposal, not a decision.
+	 *
+	 * Nullish, because both spellings of "untagged" reach here: the generator
+	 * returns `null` (its schema is strict — see quizOutput.schema.ts) and
+	 * `retagWithAllowlist` drops the key outright.
 	 */
-	concept: z.string().max(200).optional(),
+	concept: z.string().max(200).nullish(),
 });
 
 export type QuizItemDto = z.infer<typeof QuizItemDto>;

@@ -113,7 +113,7 @@ class QuizAIService {
 							question: q.question,
 							options: q.options as string[],
 							correct: q.correct,
-							...(q.concept === null ? {} : { concept: q.concept }),
+							concept: q.concept,
 						}));
 					}
 				}
