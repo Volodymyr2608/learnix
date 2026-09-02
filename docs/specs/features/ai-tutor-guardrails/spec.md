@@ -518,12 +518,31 @@ sliding-window validation.
   quietly widen this.
 - Rule **order** is unchanged: authority is still decided before grounding, so a call naming a
   concept outside the allowlist is still an `unsafe_tool_call` and never reports on grounding.
-- Eval row — **recovery**: on a turn where the model authors without retrieving, is declined, and
-  then retrieves and authors again, a check is issued. This is the change's whole premise and it is
-  model behaviour, so it is measured as a rate, not asserted.
+- **Recovery is not measurable offline, and this criterion is retired rather than left open.** It
+  asked for an eval row where the model authors without retrieving, is declined, and then retrieves
+  and authors again. The harness cannot produce it honestly: the `ask_concept_check` stub does not
+  call `authorizeAskConceptCheck` at all, so no decline occurs; teaching it the grounding rule only
+  declines when the model authors *before* retrieving, which it does not do offline (both rows below
+  scored 3/3 with retrieval first); declining unconditionally measures the reaction to an
+  unconditional refusal, not to this rule; and serving empty retrieval reproduces the un-indexed
+  lesson instead. **Where the claim is checked instead:** `security.md` S11's `tool_call_declined`
+  row now carries the prediction that `check_not_grounded`'s share falls toward zero as turns
+  recover, and a flat share is the falsifiable evidence that they do not. Plus MQ-2 by hand.
 - Eval row — **the false-positive check the guarded track requires**: over a thread grown past the
   length at which MQ-2 measured the failure, the share of turns that ask for a check and receive one
-  does not fall. A rule that stops denying but also stops working has not been fixed.
+  does not fall. A rule that stops denying but also stops working has not been fixed. **Measured
+  2026-09-02: it does not reproduce offline** — `legit-16a` and `legit-16b` both 3/3 — so the row
+  guards the model half without currently biting, and MQ-2 stays the only end-to-end evidence.
+- A committed baseline's per-category totals match the dataset rows they were recorded against.
+  *(Added after the audit: `compareToBaseline` reports by rate, so a category that grew from four
+  rows to six while both runs scored 100% prints nothing at all — this branch grew one by half and
+  the diff was silent.)*
+- An ungrounded refusal on a turn whose retrieval already returned nothing does **not** instruct the
+  model to retrieve again. *(Same rule id and class; the actionable message is unsatisfiable on a
+  lesson with no indexed chunks, and repeating it loops to `AGENT_RECURSION_LIMIT`.)*
+- One decline does not suppress the event for a **different** rule in the same turn. *(The ledger
+  keys on outcome and rule; S11 triages `tool_call_declined` by rule id, and item 16 made
+  "declined, retrieve, author again" the intended path.)*
 - After this change, no occurrence of `check_not_grounded` appears in `unsafe_tool_call` counts, so
   that outcome's zero baseline is restored and S11's "any occurrence is the signal" threshold means
   what it says again.

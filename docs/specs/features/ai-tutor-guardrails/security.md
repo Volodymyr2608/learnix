@@ -5,7 +5,7 @@ can be followed without reading the implementation, and — where possible — n
 when it is violated. Section numbers follow the review brief (`S1`–`S13`).
 
 **Figures:** the eval numbers quoted in S13 were last reconciled with
-`evals/baselines/lessonAI-tutor.json` on 2026-08-31; `docFigures.contract.test.ts` fails this file if
+`evals/baselines/lessonAI-tutor.json` on 2026-09-02; `docFigures.contract.test.ts` fails this file if
 the baseline moves and that date does not.
 
 Companion documents: [`threat-model.md`](./threat-model.md) (entry points, STRIDE, risk register),
@@ -409,7 +409,7 @@ well-formedness rules were moved off `unsafe_tool_call` — see S7.
 
 | Outcome | Baseline | What to threshold on | What it means |
 |---|---|---|---|
-| `unsafe_tool_call` | **zero** | any occurrence | The model tried to author outside the allowlist, or with a link or tag in an option. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. Structural authoring mistakes were moved off this outcome deliberately: at a measured ~1-in-6 refusal rate (S7) they would have made a zero-baseline alert fire continuously on ordinary use. |
+| `unsafe_tool_call` | **zero** | any occurrence | The model tried to author outside the allowlist, or with a link or tag in an option. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. Structural authoring mistakes were moved off this outcome deliberately: at a measured ~1-in-7 refusal rate (S7) they would have made a zero-baseline alert fire continuously on ordinary use. |
 | `fallback_triggered` | **zero** outside provider incidents | any sustained run | L2 is down and L1 is carrying the boundary alone (S10). Correlate with provider status; if it is not an outage, someone is making L2 fail. |
 | `output_validation_failed` | **near zero** | any occurrence, and the `ruleIds` distribution | Which rule fired names the channel: `system_prompt_echo` is a leak attempt, `off_origin_link` is exfiltration, `verbatim_chunk_echo` is content scraping. |
 | `tool_call_declined` | **non-zero** — routine | a *rate*, per user and per lesson, never a single occurrence | The tutor wanted to ask and could not. `ruleIds` says why: `empty_allowlist` means insights never generated for that lesson; `check_budget_spent` and `check_already_pending` are ordinary; the authoring rules (`question_length`, `options_not_distinct`, …) are the model writing badly, and a rise in their share is a prompt or model regression rather than an attack. `check_not_grounded` is the one to watch after ADR-034, and it carries a prediction: its share should **fall toward zero** as the model recovers inside the turn on the message it is now given. A flat share is the falsifiable evidence that recovery is not happening — the claim no offline harness in this repo can reach. `concept_check_answer_echo` is the reply naming its own answer. |
@@ -933,7 +933,7 @@ branch; each states what the design buys and what it does not)
 
     Requiring the key to appear in the retrieved text was considered and rejected: a fair correct
     option is usually the model's paraphrase rather than lesson-verbatim, so the rule would deny
-    legitimate checks at a rate nothing has measured, on top of the ~1-in-6 already refused (§33).
+    legitimate checks at a rate nothing has measured, on top of the ~1-in-7 already refused (§33).
     The eval now reports authoring validity, which is the instrument that would price it. **Revisit
     when** that rate is known, or if `prompt-injection` regresses further — `inject-03` currently
     fails every sample by authoring a check from poisoned lesson content.
@@ -1134,6 +1134,14 @@ branch; each states what the design buys and what it does not)
     attacker. **Nothing replaces it on the security side**, and MQ-7 remains defended only by the
     model declining — a residual this pass measured at n=1 in the model's favour while the eval row
     `inject-03` fails every sample.
+
+**The `off-topic` rate moves run to run, and this is where that is written down.** Across three runs
+of the unchanged suite it read 66.7% (baseline 2026-08-30), 50.0% and 58.3% (both 2026-09-02, the
+second recorded). Twelve samples over four rows, so one row flipping is 8.3 points. It is recorded
+here because re-recording a baseline erases the previous figure from the diff, and a swing that only
+ever existed in two superseded runs is indistinguishable afterwards from a regression nobody caught.
+Nothing on the branch that observed it touches that path — `guardUserInput` does not run in this eval
+and `toolPolicy` is not on the off-topic route.
 
 **Reopened and re-priced 2026-08-30.** The residual that a lucky guesser reaches level 2 was stated
 as "three independent 1-in-4 draws, roughly 58% over a week". That arithmetic was priced on a rule

@@ -3,7 +3,7 @@
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session — the warm
 > context is the cheapest place to run TDD loops (ADR-030). Dispatch a subagent only for work that
 > *reads a lot and returns little*; reconnaissance goes to `Explore`, never `general-purpose`.
-> Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
+> Steps use checkbox (`- [x]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
 > criteria — scope item 16, "Grounding's denial class".
 
 **Goal:** stop `check_not_grounded` from firing the zero-baseline security alert on cooperative
@@ -91,8 +91,8 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
 - **AC:** spec.md item 16, bullets 1–2
 - **Commit:** `fix(tutor): decline an ungrounded check instead of alerting on it`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (`:387` expects `unsafe_tool_call`) · [ ] Implement
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (`:387` expects `unsafe_tool_call`) · [ ] Implement
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 > Update `decline`'s docstring at `:93` in the same commit — it currently names grounding as staying
 > on `deny`, and a comment that contradicts the code beneath it is how the next reader re-introduces
@@ -114,8 +114,8 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
 - **AC:** spec.md item 16, bullet 3
 - **Commit:** `test(tutor): pin every authoring rule to the outcome it emits`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (before Task 1 lands, or by flipping one row) · [ ] Implement
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (before Task 1 lands, or by flipping one row) · [ ] Implement
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -130,8 +130,8 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
 - **AC:** spec.md item 16, bullet 4
 - **Commit:** `test(tutor): assert authority is still decided before grounding`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (temporarily reorder the two rules to prove it) · [ ] Implement
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (temporarily reorder the two rules to prove it) · [ ] Implement
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -150,8 +150,8 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
 - **AC:** spec.md item 16, bullets 5–6
 - **Commit:** `test(evals): measure whether a grown thread can still reach a concept check`
 
-- [ ] Write the rows · [ ] Run the eval, record both rates · [ ] Update the baseline
-- [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the rows · [ ] Run the eval, record both rates · [ ] Update the baseline
+- [x] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 > **What these rows cannot do, and it must be said in the note field.** The eval never runs
 > `authorizeAskConceptCheck` on the live turn — the `ask_concept_check` stub does not call it
@@ -177,7 +177,7 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
   `/spec`.
 - **Commit:** `docs(adr): record grounding as a quality control, not a security one`
 
-- [ ] Write the ADR · [ ] `pnpm spec:sync` · [ ] Commit
+- [x] Write the ADR · [ ] `pnpm spec:sync` · [ ] Commit
 
 ---
 
@@ -201,8 +201,11 @@ the stronger form of approval.
 | Message names `retrieve_lesson_context`; is not `NEUTRAL_REFUSAL_MESSAGE` or `MALFORMED_CHECK_MESSAGE` | 1 |
 | Nothing else moves class; full rule→outcome mapping pinned | 2 |
 | Rule order unchanged — authority decided before grounding | 3 |
-| Eval row: recovery after a decline | 4 |
+| ~~Eval row: recovery after a decline~~ — **retired**, see below | — |
 | Eval row: false-positive check on a grown thread | 4 |
+| Baseline category totals match the dataset | audit, task 6 |
+| Ungrounded refusal does not ask for a retrieval already tried | audit, task 7 |
+| One decline does not suppress a different rule's event | audit, task 7 |
 | No `check_not_grounded` occurrence in `unsafe_tool_call` counts | 1 + 2 |
 | Complex tier — ADR | 5 |
 
@@ -213,6 +216,44 @@ the stronger form of approval.
   returns, which order holds.
 - **Type consistency:** no new types. `ToolAuthorization`, `SecurityOutcome` and `TurnDenialLedger`
   are unchanged; only which existing helper the call site uses changes.
+
+## After the audit — what this plan did not foresee
+
+Written after the fact, deliberately not folded back into Tasks 1–5 as though it
+had been planned. `/qa` ran one code review and one `llm-security-auditor` pass
+(`GUARDED`, control change), and between them they moved three things.
+
+**Task 6 — the baseline, and the test that should have caught it.** Task 4 listed
+`evals/baselines/lessonAI-tutor.json` in its Files and left the checkbox unticked.
+The reasoning was recorded in the commit and not here, which was the actual
+mistake: a plan step skipped silently is indistinguishable from one forgotten.
+The reasoning was that re-recording freezes an unexplained `off-topic` drop
+(66.7% → 50.0%) that nothing on this branch can cause — `guardUserInput` does not
+run in this eval and `toolPolicy` is not on that path.
+
+The audit answered it. `compareToBaseline` reports a category by its **rate**, so
+`legit-mastery` growing from four rows to six while both runs score 100% produces
+12/12 against 18/18 and prints **nothing**. The category grew by half and the diff
+was silent, and no contract test noticed: `docFigures` pins `rows × samples` and
+the prose row count, never the per-category totals a comparison is made of. So the
+baseline is re-recorded, the drop is written into `security.md` where prose
+survives what a diff cannot, and `datasets.contract.test.ts` now asserts every
+committed baseline's category totals against the dataset rows they were recorded
+against — derivable from files already in the repo, and red on this branch before
+the re-record.
+
+**Task 7 — two consequences of the change itself**, both from the audit, both now
+in `spec.md`'s acceptance criteria: the denial ledger keyed on outcome alone, so
+the recovery path this change makes common swallowed the second attempt's
+structural rule; and the actionable message is unsatisfiable on a lesson with no
+indexed chunks, where it instructs a retry that loops to `AGENT_RECURSION_LIMIT`.
+
+**The recovery criterion is retired, not deferred.** It asked for an eval row
+measuring "author ungrounded → declined → retrieve → author again". The harness
+cannot produce it honestly, and the reasons are in `spec.md`. The claim is checked
+in production instead, by the prediction added to S11: `check_not_grounded`'s share
+should fall toward zero, and a flat share falsifies it. Leaving the criterion
+written and unbuilt was the one option the gate does not allow.
 
 ## Final verification
 

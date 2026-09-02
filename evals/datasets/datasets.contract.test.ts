@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -62,5 +62,67 @@ describe("every eval dataset", () => {
 
 		expect(ids).toHaveLength(rowsOf(file).length);
 		expect(new Set(ids).size).toBe(ids.length);
+	});
+});
+
+/**
+ * A baseline whose category totals no longer match the dataset it was recorded
+ * against.
+ *
+ * `compareToBaseline` reports a category by its RATE, so a category that grew
+ * from four rows to six while both runs scored 100% produces 12/12 against
+ * 18/18 and prints nothing at all. The set got half as big again and the diff
+ * stayed silent — which happened on the branch that added this test. Nothing
+ * else notices: `docFigures` pins `rows × samples` in prose and the total row
+ * count, never the per-category totals a comparison is actually made of.
+ *
+ * Derivable from two files already in the repo, so it costs a run of nothing.
+ */
+// `evals/datasets/<surface>/<name>.jsonl` is recorded as `<surface>-<name>.json`,
+// which is `baselinePath`'s `evalName.replace(/:/g, "-")` seen from the other
+// end — the eval is registered as `<surface>:<name>`.
+const baselineFor = (dataset: string): string =>
+	join(
+		"evals/baselines",
+		`${basename(dirname(dataset))}-${basename(dataset, ".jsonl")}.json`,
+	);
+
+type Baseline = {
+	samples: number;
+	categories: { category: string; total: number }[];
+};
+
+const withBaselines = files.filter((file) => existsSync(baselineFor(file)));
+
+describe("every committed baseline", () => {
+	it("finds baselines to check", () => {
+		expect(withBaselines.length).toBeGreaterThan(0);
+	});
+
+	it.each(
+		withBaselines,
+	)("%s has a baseline whose category totals match the rows it was recorded against", (file) => {
+		const baseline = JSON.parse(
+			readFileSync(baselineFor(file), "utf-8"),
+		) as Baseline;
+
+		const rowsPerCategory = new Map<string, number>();
+		for (const row of rowsOf(file)) {
+			const category = (row as { category?: unknown }).category;
+			if (typeof category !== "string") continue;
+			rowsPerCategory.set(category, (rowsPerCategory.get(category) ?? 0) + 1);
+		}
+
+		const expected = Object.fromEntries(
+			[...rowsPerCategory].map(([category, rows]) => [
+				category,
+				rows * baseline.samples,
+			]),
+		);
+		const recorded = Object.fromEntries(
+			baseline.categories.map((c) => [c.category, c.total]),
+		);
+
+		expect(recorded).toEqual(expected);
 	});
 });

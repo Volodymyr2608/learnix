@@ -261,7 +261,7 @@ Online, `pnpm eval`, never in CI: `lessonAI:tutor` (54 rows × 3 samples, 15 cat
 
 - Behavior now: this file.
 - **Figures:** every count and score quoted above was last reconciled with
-  `evals/baselines/lessonAI-tutor.json` on 2026-08-31. Re-recording the baseline or growing the
+  `evals/baselines/lessonAI-tutor.json` on 2026-09-02. Re-recording the baseline or growing the
   golden set without moving that date fails
   [`docFigures.contract.test.ts`](../../../../evals/_shared/docFigures.contract.test.ts) — the
   measured figures in this spec drifted three times in two weeks before that check existed.

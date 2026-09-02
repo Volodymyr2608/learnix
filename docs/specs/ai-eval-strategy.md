@@ -1,7 +1,7 @@
 # AI eval strategy — how this system's AI is measured
 
 **Status:** living document · **Last reviewed:** 2026-08-31 ·
-**Figures:** last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-08-31 —
+**Figures:** last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-09-02 —
 `evals/_shared/docFigures.contract.test.ts` turns this document red when the baseline is re-recorded
 and this line is not. ·
 **Scope:** `lessonAI` (tutor), `courseAI`, `quizAI`, `lessonInsightsAI`, `learningPathAI`, plus the two

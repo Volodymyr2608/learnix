@@ -78,9 +78,11 @@ ADR-013 §5 asked each structured-output feature to own; none existed until now.
 - The question "did this change make anything worse" is answerable from the diff, by anyone, later.
 - Judge scores make visible what the deterministic suite cannot. `low-confidence` satisfies every
   assertion in the suite — 6/6 samples — while the judge scores its faithfulness and groundedness at
-  2.5: replies that pick the right tool and avoid every forbidden phrase while being only partly
-  grounded in what retrieval returned. `hallucination-bait` is 12/12 with both axes at 4.0. No
-  assertion in the suite can express either gap. (These are measured categories, not gated ones —
+  3.0: replies that pick the right tool and avoid every forbidden phrase while being only partly
+  grounded in what retrieval returned. `hallucination-bait` is 12/12 with both axes at 3.25. No
+  assertion in the suite can express either gap. *(Both were 2.5 and 4.0 on the 2026-08-30 baseline.
+  The gap is the point, not its width: on two and four judged samples these move run to run, which is
+  why they are measured and never gated.)* (These are measured categories, not gated ones —
   see Decision 5.)
 - The two measurements can disagree without either being wrong, which is the case worth understanding
   before trusting a single number, and `missing-info` has now demonstrated it in both directions. It
@@ -94,7 +96,7 @@ ADR-013 §5 asked each structured-output feature to own; none existed until now.
 - **Every figure above is in `evals/baselines/lessonAI-tutor.json`**, per category, alongside the
   deterministic counts — see the retraction below for why that matters more than it looks. The
   baseline is re-recorded as the dataset grows, so it, not this prose, is the number: the figures
-  here were last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-08-31, and
+  here were last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-09-02, and
   `evals/_shared/docFigures.contract.test.ts` now fails this ADR if the baseline moves and that date
   does not. That check exists because this reconciliation was done by hand three times in two weeks
   and missed something each time.

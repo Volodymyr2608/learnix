@@ -117,7 +117,7 @@ inconsistently:
 
 **What the runs so far showed.** Current figures live in `evals/baselines/lessonAI-tutor.json`, per
 category, so they can be checked rather than taken from prose — read the file rather than this
-paragraph, which was last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-08-31.
+paragraph, which was last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-09-02.
 Re-recording the baseline without moving that date fails
 [`docFigures.contract.test.ts`](../../evals/_shared/docFigures.contract.test.ts), which is the only
 way prose like this stays true.
