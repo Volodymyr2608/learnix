@@ -1,6 +1,6 @@
 ---
 feature: ai-tutor-guardrails
-status: in-progress
+status: stable
 models: [ConceptMastery, ConceptCheck]
 depends-on: [ai-input-trust-boundary, ai-chat-route-authorization, learning-path, quiz-generation, quiz-answer-key]
 ---
