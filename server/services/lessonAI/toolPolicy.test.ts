@@ -48,6 +48,11 @@ const ruleIdsLogged = () =>
 		(call) => (call[0] as { ruleIds: string[] }).ruleIds,
 	);
 
+const outcomes = () =>
+	mockLogSecurityEvent.mock.calls.map(
+		(call) => (call[0] as { outcome: string }).outcome,
+	);
+
 describe("authorizeAskConceptCheck", () => {
 	beforeEach(() => mockLogSecurityEvent.mockClear());
 
@@ -233,6 +238,62 @@ describe("authorizeAskConceptCheck", () => {
 		"question_reveals_answer",
 	]);
 
+	/**
+	 * Item 16. Which class each rule refuses through, written out rather than
+	 * derived from `ROUTINE_RULE_IDS` — deriving it would make this test agree
+	 * with the set it is supposed to check.
+	 *
+	 * It exists for the edit that has not happened yet. Moving one more rule off
+	 * `unsafe_tool_call` is how that outcome's zero baseline is lost for good,
+	 * and the loss is invisible per-commit: nothing else in the suite reads the
+	 * emitted outcome for more than one rule at a time.
+	 */
+	const RULE_OUTCOMES: Record<string, string> = {
+		// Evidence of an attack: a caller with no right to ask, or authored text
+		// that turns an option into something to click or render.
+		concept_not_allowlisted: "unsafe_tool_call",
+		option_markup: "unsafe_tool_call",
+		// Everything a cooperative model produces on a task nothing has measured
+		// it on — plus, since item 16, a turn that did not retrieve.
+		empty_allowlist: "tool_call_declined",
+		check_not_grounded: "tool_call_declined",
+		question_length: "tool_call_declined",
+		option_count: "tool_call_declined",
+		option_length: "tool_call_declined",
+		options_not_distinct: "tool_call_declined",
+		correct_option_not_offered: "tool_call_declined",
+		question_reveals_answer: "tool_call_declined",
+	};
+
+	it.each(
+		cases,
+	)("emits the %s class its rule was assigned", (ruleId, request, ctxOverrides) => {
+		authorizeAskConceptCheck(
+			request as typeof wellFormed,
+			checkCtx(ctxOverrides as Partial<ReturnType<typeof baseCheckCtx>>),
+		);
+
+		expect(outcomes()).toEqual([RULE_OUTCOMES[ruleId]]);
+	});
+
+	it("emits the class assigned to empty_allowlist", () => {
+		authorizeAskConceptCheck(wellFormed, checkCtx({ lessonConcepts: [] }));
+
+		expect(outcomes()).toEqual([RULE_OUTCOMES.empty_allowlist]);
+	});
+
+	/**
+	 * A rule added to the policy with no class assigned here fails loudly rather
+	 * than silently inheriting one. `cases` is the inventory of triggers, so this
+	 * inherits its one limitation: a rule with no case is invisible to both.
+	 */
+	it("assigns a class to every rule the cases exercise", () => {
+		const exercised = new Set(cases.map(([ruleId]) => ruleId));
+		exercised.add("empty_allowlist");
+
+		expect(new Set(Object.keys(RULE_OUTCOMES))).toEqual(exercised);
+	});
+
 	it.each(cases)("denies with %s", (ruleId, request, ctxOverrides) => {
 		const result = authorizeAskConceptCheck(
 			request as typeof wellFormed,
@@ -276,11 +337,6 @@ describe("authorizeAskConceptCheck", () => {
 
 describe("the two classes of denial", () => {
 	beforeEach(() => mockLogSecurityEvent.mockClear());
-
-	const outcomes = () =>
-		mockLogSecurityEvent.mock.calls.map(
-			(call) => (call[0] as { outcome: string }).outcome,
-		);
 
 	it("declines an empty allowlist as routine, not as an attack", () => {
 		const result = authorizeAskConceptCheck(
