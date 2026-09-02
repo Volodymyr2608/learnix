@@ -17,6 +17,13 @@ export const buildRetrieveLessonContextTool = (
 				vector,
 				k,
 			);
+
+			// Recorded after the search returns, so a thrown search is not an
+			// attempt: the policy uses this to stop instructing a retry, and a
+			// transient pgvector failure is exactly the case where retrying is
+			// the right advice.
+			if (turn) turn.retrievalAttempted = true;
+
 			if (chunks.length === 0)
 				return "No relevant content found for this lesson.";
 

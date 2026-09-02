@@ -1,7 +1,7 @@
 # AI eval strategy — how this system's AI is measured
 
 **Status:** living document · **Last reviewed:** 2026-08-31 ·
-**Figures:** last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-08-31 —
+**Figures:** last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-09-02 —
 `evals/_shared/docFigures.contract.test.ts` turns this document red when the baseline is re-recorded
 and this line is not. ·
 **Scope:** `lessonAI` (tutor), `courseAI`, `quizAI`, `lessonInsightsAI`, `learningPathAI`, plus the two
@@ -90,7 +90,7 @@ one class that needs a human.
 
 | Eval | Surface | Dataset rows | Measures | Gate |
 |---|---|---|---|---|
-| `lessonAI:tutor` | tutor | 52, 15 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` / `check-question` at 0.85; 12 other categories **measured only** |
+| `lessonAI:tutor` | tutor | 54, 15 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` / `check-question` at 0.85; 12 other categories **measured only** |
 | `courseAI:classifyIntent` | course builder | 20 | intent enum against the real graph node | `accuracyGate` 0.85 |
 | `courseAI:extractStepData` | course builder | 40 | structured extraction | `accuracyGate` 0.9 |
 | `courseAI:assessCompletion` | course builder | 20 | step-completion judgement | `precisionGate` 0.9 — a false "done" costs more than a false "not yet" |
@@ -107,7 +107,7 @@ one class that needs a human.
 **Two things this table is honest about.** The tutor is the only surface with categories, sampling, a
 judge, a committed baseline and a cost report 🟡 — nine of the other twelve are single-sample, pooled
 into one accuracy number. And three golden sets sit at 6, 6 and 8 rows: above the enforced floor of
-five, far below the tutor's 52, so a single row moving swings them by 12–17 points. 🚧
+five, far below the tutor's 54, so a single row moving swings them by 12–17 points. 🚧
 
 **A third unit, alongside pass rates and judge scores.** The `check-question` rows also produce three
 rates that no category can carry, because a category is pass/fail per *attempt* while these are rates
@@ -292,7 +292,7 @@ Two things this changed, both about units:
 - **The judge is 9% of the calls and 67% of the cost.** Counted by calls, the generator looks eleven
   times more expensive; counted in money, it is half the price. A call count did not merely lose
   precision, it **inverted the ranking**.
-- **A ReAct turn is not one call.** The set was 49 rows on that run and is 52 now, so read these as
+- **A ReAct turn is not one call.** The set was 49 rows on that run and is 54 now, so read these as
   that run's figures: 49 rows × 3 samples is 147 *attempts* but **265 model calls** — one completion
   per tool round trip. Attempts and calls are not interchangeable either.
 

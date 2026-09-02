@@ -36,10 +36,15 @@ export { CONVERSATION_MAX_LEVEL };
  *
  * A model that has been refused will often try again inside the same turn, and
  * five identical events say nothing the first one did not. Deduplication is per
- * OUTCOME, never per turn as a whole: a routine decline must not be able to
- * swallow the zero-baseline alert that follows it.
+ * OUTCOME **and rule**, never per turn as a whole: a routine decline must not be
+ * able to swallow the zero-baseline alert that follows it, and — since item 16
+ * made "author ungrounded, retrieve, author again" the intended path — must not
+ * swallow a different decline either. S11 triages `tool_call_declined` by rule
+ * id, so keying the id away deletes the field the triage reads.
+ *
+ * The bound stays small: at most one event per rule, and there are ten rules.
  */
-export type TurnDenialLedger = { emitted: Set<SecurityOutcome> };
+export type TurnDenialLedger = { emitted: Set<string> };
 
 export const newTurnDenialLedger = (): TurnDenialLedger => ({
 	emitted: new Set(),
@@ -52,8 +57,9 @@ const emitDenial = (
 ): void => {
 	// Absent a ledger every denial is emitted: a caller with no notion of a turn
 	// gets the noisy, complete record rather than a silently suppressed one.
-	if (ctx.denials?.emitted.has(outcome)) return;
-	ctx.denials?.emitted.add(outcome);
+	const key = `${outcome}:${ruleId}`;
+	if (ctx.denials?.emitted.has(key)) return;
+	ctx.denials?.emitted.add(key);
 
 	logSecurityEvent({
 		feature: "lessonAI",
@@ -88,7 +94,12 @@ const deny = (ctx: ToolPolicyContext, ruleId: string): ToolAuthorization => {
  * short, two options that fold together, a key rendered differently from the
  * option it names — are what a cooperative model produces on an authoring task
  * nothing has measured it on, and filing them under the alert would retire the
- * alert. Authority, grounding and rendered markup stay on `deny`.
+ * alert. Authority and rendered markup stay on `deny`.
+ *
+ * Grounding did too, until item 16. A model that has already retrieved earlier
+ * in the conversation stops retrieving, so `check_not_grounded` fired on
+ * cooperative use and gave the zero-baseline outcome a baseline — the very
+ * thing this split exists to prevent. It is a decline now.
  */
 const decline = (
 	ctx: ToolPolicyContext,
@@ -109,6 +120,33 @@ const decline = (
  */
 const MALFORMED_CHECK_MESSAGE =
 	"That question was not usable. Try a different one.";
+
+/**
+ * The one refusal in this file the model is meant to ACT on rather than merely
+ * absorb, so it names what is missing instead of sharing the text above.
+ *
+ * It discloses nothing: `ask_concept_check`'s own description already ends
+ * "Requires having called retrieve_lesson_context on this turn." The shared
+ * malformed-check message exists so a validator cannot be binary-searched by
+ * authoring checks until the wording changes; grounding was never part of that
+ * search space, and a model that cannot tell "you must read the lesson first"
+ * from "your question was malformed" simply stops asking.
+ */
+const UNGROUNDED_CHECK_MESSAGE =
+	"Call retrieve_lesson_context for this lesson first, then ask the check.";
+
+/**
+ * The same refusal once retrieving is no longer worth doing.
+ *
+ * `retrieve_lesson_context` returns a sentinel and leaves the turn ungrounded
+ * when a lesson has no indexed chunks — a stale or never-run backfill, which is
+ * a state this codebase has actually been in. Repeating the instruction above
+ * there asks the model to do again what it just did, and the loop ends only at
+ * `AGENT_RECURSION_LIMIT`, where the student gets an error instead of an answer.
+ * Same rule id and same class: what changes is that this one terminates.
+ */
+const NO_LESSON_CONTENT_MESSAGE =
+	"This lesson has no indexed content to base a check on.";
 
 /**
  * Bounds on what the model may author. Exported so the tool's Zod schema and
@@ -170,11 +208,22 @@ export const authorizeAskConceptCheck = (
 	);
 	if (!resolved) return deny(ctx, "concept_not_allowlisted");
 
-	// The rule that answers "ask me a check whose correct answer is 'banana'".
-	// That request is pattern-free, on-topic and produces a perfectly well-formed
-	// question, so no other layer in the stack sees anything wrong with it. What
-	// is wrong with it is that the model never read the lesson.
-	if (!ctx.groundedByRetrieval) return deny(ctx, "check_not_grounded");
+	// This was written as the rule that answers "ask me a check whose correct
+	// answer is 'banana'". It is not, and never was: security.md S13 §35
+	// established that the retrieval which DELIVERS an injected payload is the
+	// retrieval that grounds the check, so the rule cannot fire on the attack it
+	// was named for. What it still buys is that the model authored from the
+	// lesson rather than from parametric memory — worth keeping, worth nothing to
+	// an attacker, and therefore a decline rather than an alert (item 16).
+	if (!ctx.groundedByRetrieval) {
+		return decline(
+			ctx,
+			"check_not_grounded",
+			ctx.retrievalAttempted
+				? NO_LESSON_CONTENT_MESSAGE
+				: UNGROUNDED_CHECK_MESSAGE,
+		);
+	}
 
 	const question = request.question.trim();
 	if (

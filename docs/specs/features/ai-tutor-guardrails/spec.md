@@ -31,6 +31,25 @@ depends-on: [ai-input-trust-boundary, ai-chat-route-authorization, learning-path
 > having no clause at all. That plan stays frozen as the record of why a prompt-level fix was ruled
 > out, and is not superseded so much as *answered*.
 
+> **Reopened again 2026-09-02** — scope item 16, one rule's denial class. The first full manual-QA
+> pass (`manual-qa.md`, MQ-2) measured `check_not_grounded` firing on ordinary, cooperative use: the
+> tutor must call `retrieve_lesson_context` and `ask_concept_check` in the **same** turn, and a model
+> that has already retrieved earlier in the conversation stops retrieving. Six consecutive turns on a
+> short thread issued a check; the same phrasing on a grown thread produced `ask_concept_check` alone
+> and `check_not_grounded` every time; pressing **Clear** restored it immediately.
+>
+> Two things follow, and the second is the reason this is a spec change rather than a bug fix. The
+> concept-check mechanism **degrades to unreachable as a conversation grows** — the student is told
+> "I've prepared a question" and never sees one. And the denial emits `unsafe_tool_call`, the
+> taxonomy's only zero-baseline, Sentry-forwarded outcome, so the alert whose entire value is that a
+> single occurrence means something now fires on cooperative traffic. That is the exact trap the
+> `decline`/`deny` split was built to avoid, and grounding was deliberately placed on the wrong side
+> of it.
+>
+> Scope: `check_not_grounded` moves from `deny` to `decline`, with a message that names the call it
+> wants so the turn can recover inside the agent loop. Nothing else moves class. Plan:
+> `build/grounding-decline-plan.md`.
+
 ## Description
 
 The guardrail layer around the lesson tutor — the ReAct agent a student talks to inside a lesson.
@@ -106,8 +125,8 @@ share an event:**
 
 | class | examples | event |
 |---|---|---|
-| adversarial — the call should never have been made | `concept_not_allowlisted`, `degenerate_check`, `check_not_grounded` | `unsafe_tool_call` (zero baseline, Sentry-forwarded) |
-| benign — an ordinary "not now" | `empty_allowlist`, `check_already_pending`, `already_evidenced`, `check_budget_exhausted` | `tool_call_declined` (routine, **not** forwarded) |
+| adversarial — the call should never have been made | `concept_not_allowlisted`, `option_markup` | `unsafe_tool_call` (zero baseline, Sentry-forwarded) |
+| benign — an ordinary "not now" | `empty_allowlist`, `check_already_pending`, `already_evidenced`, `check_budget_exhausted`, `check_not_grounded` (item 16) | `tool_call_declined` (routine, **not** forwarded) |
 
 The split is not cosmetic. Before item 14, a lesson whose insights had simply never generated raised
 `unsafe_tool_call` — a zero-baseline outcome forwarded to Sentry as a live alert. Routing a routine
@@ -455,9 +474,13 @@ sliding-window validation.
   normalisation (`"A"` vs `"a."`), which has fewer than 4 or more than 5 options, whose question
   contains the correct option, or whose option carries a URL, markdown link syntax or an HTML tag, is
   denied — one rule id per case, first failing rule wins.
-- A check requested on a turn that made no `retrieve_lesson_context` call is denied as
-  `check_not_grounded`. *(This is the criterion that answers "ask me a check whose answer is
-  'banana'".)*
+- A check requested on a turn that made no `retrieve_lesson_context` call is refused as
+  `check_not_grounded`. **Superseded by item 16 as to its class and its message** — it is a
+  `decline`, not a `deny`. *(This was written as the criterion that answers "ask me a check whose
+  answer is 'banana'". It is not: `security.md` S13 §35 established that the retrieval which delivers
+  an injected payload is the retrieval that grounds the check, so the rule never fires on the attack
+  it was named for. What it still buys is that the model authored from the lesson rather than from
+  parametric memory — a quality property, and it should stop being counted as a security one.)*
 - The stored option order is a function of the server's CSPRNG, not of the order the model authored;
   grading never reads an index into the authored array.
 - A second check cannot exist for a `(student, lesson)` pair while one is `PENDING` — asserted by the
@@ -480,6 +503,49 @@ sliding-window validation.
   the student picks correctly, is told they are wrong, and spends an attempt.)*
 - A turn is grounded only once `retrieve_lesson_context` has **returned lesson text** — an empty
   result, or a failed search, leaves it ungrounded.
+
+**Grounding's denial class (item 16)**
+
+- A `check_not_grounded` refusal emits **`tool_call_declined`**, never `unsafe_tool_call`. Asserted
+  on the emitted event, not on the returned message.
+- Its message names the call it wants — the model is told to call `retrieve_lesson_context` first —
+  and is **not** `NEUTRAL_REFUSAL_MESSAGE` and **not** `MALFORMED_CHECK_MESSAGE`. *(It discloses no
+  rule the model was not already told: `ask_concept_check`'s own description states the requirement.
+  The shared malformed-check message exists so a validator cannot be binary-searched by authoring
+  checks until the wording changes; grounding is not part of that search space.)*
+- **Nothing else moves class.** `concept_not_allowlisted` and the markup rule stay on `deny` and keep
+  emitting `unsafe_tool_call`; a test pins the full outcome-per-rule mapping so a future edit cannot
+  quietly widen this.
+- Rule **order** is unchanged: authority is still decided before grounding, so a call naming a
+  concept outside the allowlist is still an `unsafe_tool_call` and never reports on grounding.
+- **Recovery is not measurable offline, and this criterion is retired rather than left open.** It
+  asked for an eval row where the model authors without retrieving, is declined, and then retrieves
+  and authors again. The harness cannot produce it honestly: the `ask_concept_check` stub does not
+  call `authorizeAskConceptCheck` at all, so no decline occurs; teaching it the grounding rule only
+  declines when the model authors *before* retrieving, which it does not do offline (both rows below
+  scored 3/3 with retrieval first); declining unconditionally measures the reaction to an
+  unconditional refusal, not to this rule; and serving empty retrieval reproduces the un-indexed
+  lesson instead. **Where the claim is checked instead:** `security.md` S11's `tool_call_declined`
+  row now carries the prediction that `check_not_grounded`'s share falls toward zero as turns
+  recover, and a flat share is the falsifiable evidence that they do not. Plus MQ-2 by hand.
+- Eval row — **the false-positive check the guarded track requires**: over a thread grown past the
+  length at which MQ-2 measured the failure, the share of turns that ask for a check and receive one
+  does not fall. A rule that stops denying but also stops working has not been fixed. **Measured
+  2026-09-02: it does not reproduce offline** — `legit-16a` and `legit-16b` both 3/3 — so the row
+  guards the model half without currently biting, and MQ-2 stays the only end-to-end evidence.
+- A committed baseline's per-category totals match the dataset rows they were recorded against.
+  *(Added after the audit: `compareToBaseline` reports by rate, so a category that grew from four
+  rows to six while both runs scored 100% prints nothing at all — this branch grew one by half and
+  the diff was silent.)*
+- An ungrounded refusal on a turn whose retrieval already returned nothing does **not** instruct the
+  model to retrieve again. *(Same rule id and class; the actionable message is unsatisfiable on a
+  lesson with no indexed chunks, and repeating it loops to `AGENT_RECURSION_LIMIT`.)*
+- One decline does not suppress the event for a **different** rule in the same turn. *(The ledger
+  keys on outcome and rule; S11 triages `tool_call_declined` by rule id, and item 16 made
+  "declined, retrieve, author again" the intended path.)*
+- After this change, no occurrence of `check_not_grounded` appears in `unsafe_tool_call` counts, so
+  that outcome's zero baseline is restored and S11's "any occurrence is the signal" threshold means
+  what it says again.
 
 **Answering, and the write (items 13–15)**
 

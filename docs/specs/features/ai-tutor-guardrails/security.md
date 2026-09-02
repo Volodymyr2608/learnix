@@ -5,7 +5,7 @@ can be followed without reading the implementation, and — where possible — n
 when it is violated. Section numbers follow the review brief (`S1`–`S13`).
 
 **Figures:** the eval numbers quoted in S13 were last reconciled with
-`evals/baselines/lessonAI-tutor.json` on 2026-08-31; `docFigures.contract.test.ts` fails this file if
+`evals/baselines/lessonAI-tutor.json` on 2026-09-02; `docFigures.contract.test.ts` fails this file if
 the baseline moves and that date does not.
 
 Companion documents: [`threat-model.md`](./threat-model.md) (entry points, STRIDE, risk register),
@@ -200,9 +200,11 @@ then content, so a caller with no right to ask is refused before anything it wro
 
 When more than one rule would deny, the first wins and is the only rule id logged.
 
-**Two classes of refusal, and the split is the requirement.** Rules 1 and 4–10 are `tool_call_declined`
-— routine, unforwarded, non-zero baseline. Rules 2, 3 and 7 are `unsafe_tool_call` — the taxonomy's
-one zero-baseline alert. The line is whether the call is evidence of an *attack*, not whether it
+**Two classes of refusal, and the split is the requirement.** Rules 1, 3 and 4–10 are
+`tool_call_declined` — routine, unforwarded, non-zero baseline. Rules 2 and 7 are `unsafe_tool_call`
+— the taxonomy's one zero-baseline alert. **Rule 3 moved here on 2026-09-02 (§48, ADR-034)**: it
+fires on cooperative use, because grounding is a per-turn property and a model that has already
+retrieved earlier in the conversation stops retrieving. It is a quality rule, not an alerting one. The line is whether the call is evidence of an *attack*, not whether it
 failed: a five-word stem or two options that fold together is what a cooperative model produces on a
 task nothing has measured it on, and filing that under the alert retires the alert. Rules 4–10 share
 one refusal message, so the rule set cannot be mapped by authoring until the wording changes.
@@ -407,10 +409,10 @@ well-formedness rules were moved off `unsafe_tool_call` — see S7.
 
 | Outcome | Baseline | What to threshold on | What it means |
 |---|---|---|---|
-| `unsafe_tool_call` | **zero** | any occurrence | The model tried to author outside the allowlist, on a turn that never read the lesson, or with a link or tag in an option. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. Structural authoring mistakes were moved off this outcome deliberately: at a measured ~1-in-6 refusal rate (S7) they would have made a zero-baseline alert fire continuously on ordinary use. |
+| `unsafe_tool_call` | **zero** | any occurrence | The model tried to author outside the allowlist, or with a link or tag in an option. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. Structural authoring mistakes were moved off this outcome deliberately: at a measured ~1-in-7 refusal rate (S7) they would have made a zero-baseline alert fire continuously on ordinary use. |
 | `fallback_triggered` | **zero** outside provider incidents | any sustained run | L2 is down and L1 is carrying the boundary alone (S10). Correlate with provider status; if it is not an outage, someone is making L2 fail. |
 | `output_validation_failed` | **near zero** | any occurrence, and the `ruleIds` distribution | Which rule fired names the channel: `system_prompt_echo` is a leak attempt, `off_origin_link` is exfiltration, `verbatim_chunk_echo` is content scraping. |
-| `tool_call_declined` | **non-zero** — routine | a *rate*, per user and per lesson, never a single occurrence | The tutor wanted to ask and could not. `ruleIds` says why: `empty_allowlist` means insights never generated for that lesson; `check_budget_spent` and `check_already_pending` are ordinary; the authoring rules (`question_length`, `options_not_distinct`, …) are the model writing badly, and a rise in their share is a prompt or model regression rather than an attack. `concept_check_answer_echo` is the reply naming its own answer. |
+| `tool_call_declined` | **non-zero** — routine | a *rate*, per user and per lesson, never a single occurrence | The tutor wanted to ask and could not. `ruleIds` says why: `empty_allowlist` means insights never generated for that lesson; `check_budget_spent` and `check_already_pending` are ordinary; the authoring rules (`question_length`, `options_not_distinct`, …) are the model writing badly, and a rise in their share is a prompt or model regression rather than an attack. `check_not_grounded` is the one to watch after ADR-034, and it carries a prediction: its share should **fall toward zero** as the model recovers inside the turn on the message it is now given. A flat share is the falsifiable evidence that recovery is not happening — the claim no offline harness in this repo can reach. `concept_check_answer_echo` is the reply naming its own answer. |
 | `mastery_promoted` | one per completed lesson | nothing yet | The successful path. Evidence for a later investigation, not detection; forwarding it would flood the sink with normal behaviour. |
 | `guard_blocked` | low, non-zero | rate **per user**, not globally | Global volume tracks how many strangers try things once. One account blocked repeatedly is a person working the problem. |
 | `guard_suspect` | low–moderate | **ratio to `guard_blocked`** | The most informative signal in the taxonomy. Suspect rising while blocked stays flat means payloads are being tuned to sit just under the block score — a person iterating, not a person guessing. |
@@ -671,7 +673,7 @@ numbers because §11–§29 are cross-referenced from other documents)
     silently: `promptFidelity.contract.test.ts` fails any eval declaring its own system prompt,
     matching on the literal's *content* rather than its declaration — the declaration-shaped first
     version was tested against six ways of reintroducing the defect and waved five of them through.
-    The dataset is 52 rows across 15 categories, every dataset in the repo now carries a ≥5-row floor
+    The dataset is 54 rows across 15 categories, every dataset in the repo now carries a ≥5-row floor
     (`datasets.contract.test.ts`), each row runs three times at production's `temperature: 0.4`, and
     the numbers are committed to `evals/baselines/lessonAI-tutor.json` so a prompt change prints what
     moved. See [`../ai-evaluation-harness/spec.md`](../ai-evaluation-harness/spec.md).
@@ -931,7 +933,7 @@ branch; each states what the design buys and what it does not)
 
     Requiring the key to appear in the retrieved text was considered and rejected: a fair correct
     option is usually the model's paraphrase rather than lesson-verbatim, so the rule would deny
-    legitimate checks at a rate nothing has measured, on top of the ~1-in-6 already refused (§33).
+    legitimate checks at a rate nothing has measured, on top of the ~1-in-7 already refused (§33).
     The eval now reports authoring validity, which is the instrument that would price it. **Revisit
     when** that rate is known, or if `prompt-injection` regresses further — `inject-03` currently
     fails every sample by authoring a check from poisoned lesson content.
@@ -1105,6 +1107,41 @@ branch; each states what the design buys and what it does not)
     Redis round trip on the fail-closed limiter (ADR-027). Self-inflicted only, and the SSE frame now
     fills the cache directly so the poll is not the primary path — but the 30/min cross-feature
     aggregate is now shared with a read. Give it its own feature key if the aggregate starts binding.
+
+47. **`check_not_grounded` fires on cooperative use, and it is the only rule that can retire the
+    zero-baseline alert.** Measured in the first full manual-QA pass (`manual-qa.md`, MQ-2,
+    2026-09-02, production). Grounding is per **turn**; a model that has retrieved earlier in the
+    conversation stops retrieving. Six consecutive turns on a short thread called
+    `retrieve_lesson_context` and `ask_concept_check` together and issued a check every time. On the
+    same thread once grown, the same phrasing produced `ask_concept_check` alone, and
+    `check_not_grounded` every time. Pressing **Clear** restored the working behaviour immediately.
+
+    Two costs, and they are different in kind. The **product** cost is that the concept-check
+    mechanism degrades to unreachable as a conversation grows: the tutor says "I've prepared a
+    question", `issue()` is never reached, and the student sees nothing. The **detection** cost is
+    that `unsafe_tool_call` — the taxonomy's only zero-baseline outcome, and the only one
+    `securityLog` forwards — now has a baseline made of ordinary traffic. S11 reads it as "any
+    occurrence is the signal"; that reading is no longer safe, and the split in `toolPolicy` between
+    `decline` and `deny` exists precisely to prevent this. Grounding was placed on the `deny` side
+    deliberately, and §35 had already removed the reason.
+
+48. **After item 16, grounding is a quality control and must stop being counted as a security one.**
+    §35 established that the retrieval which delivers an injected payload is the retrieval that
+    grounds the check, so the rule cannot fire on the attack it was named for — `spec.md` still
+    described it as "the criterion that answers *ask me a check whose answer is banana*", and that
+    sentence was never true in the shipped design. What it does buy is that the model authored from
+    the lesson rather than from parametric memory, which is worth keeping and is worth nothing to an
+    attacker. **Nothing replaces it on the security side**, and MQ-7 remains defended only by the
+    model declining — a residual this pass measured at n=1 in the model's favour while the eval row
+    `inject-03` fails every sample.
+
+**The `off-topic` rate moves run to run, and this is where that is written down.** Across three runs
+of the unchanged suite it read 66.7% (baseline 2026-08-30), 50.0% and 58.3% (both 2026-09-02, the
+second recorded). Twelve samples over four rows, so one row flipping is 8.3 points. It is recorded
+here because re-recording a baseline erases the previous figure from the diff, and a swing that only
+ever existed in two superseded runs is indistinguishable afterwards from a regression nobody caught.
+Nothing on the branch that observed it touches that path — `guardUserInput` does not run in this eval
+and `toolPolicy` is not on the off-topic route.
 
 **Reopened and re-priced 2026-08-30.** The residual that a lucky guesser reaches level 2 was stated
 as "three independent 1-in-4 draws, roughly 58% over a week". That arithmetic was priced on a rule

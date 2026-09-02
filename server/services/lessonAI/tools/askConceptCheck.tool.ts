@@ -62,6 +62,7 @@ export const buildAskConceptCheckTool = (
 					userId: studentId,
 					lessonConcepts,
 					groundedByRetrieval: turn.grounded,
+					retrievalAttempted: turn.retrievalAttempted,
 					denials: turn.denials,
 				},
 			);

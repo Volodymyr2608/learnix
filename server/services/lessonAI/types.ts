@@ -4,12 +4,14 @@ export type ToolPolicyContext = {
 	lessonConcepts: string[];
 	/**
 	 * Per-turn denial bookkeeping, so a model retrying inside one turn produces
-	 * one event per class rather than one per attempt. Optional: a caller that
-	 * has no turn to scope emits every denial.
+	 * one event per outcome and rule rather than one per attempt. Optional: a
+	 * caller that has no turn to scope emits every denial.
+	 *
+	 * Referenced, not restated. This was a structural copy of `TurnDenialLedger`
+	 * and item 16 changed what the set holds — two declarations of one shape are
+	 * how the compiler stops noticing they disagree.
 	 */
-	denials?: {
-		emitted: Set<import("../_shared/aiGuard/types").SecurityOutcome>;
-	};
+	denials?: import("./toolPolicy").TurnDenialLedger;
 };
 
 /**
@@ -21,6 +23,14 @@ export type ToolPolicyContext = {
 export type ConceptCheckPolicyContext = ToolPolicyContext & {
 	/** True only if `retrieve_lesson_context` ran on this turn. */
 	groundedByRetrieval: boolean;
+	/**
+	 * True once retrieval has RUN this turn, whether or not it found anything.
+	 * Distinct from `groundedByRetrieval`, which requires lesson text to have
+	 * come back: on a lesson with no indexed chunks the two disagree, and that
+	 * gap is the only place the tutor can be told to stop retrying. Optional, so
+	 * a caller with no notion of it gets the actionable message as before.
+	 */
+	retrievalAttempted?: boolean;
 };
 
 /** A check exactly as the model authored it, before any server processing. */

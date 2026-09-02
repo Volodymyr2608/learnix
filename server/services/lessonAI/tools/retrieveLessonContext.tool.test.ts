@@ -93,6 +93,24 @@ describe("retrieve_lesson_context", () => {
 			expect(turn.grounded).toBe(false);
 		});
 
+		/**
+		 * The two flags disagree exactly once: a lesson with no indexed chunks.
+		 * That gap is what lets the policy stop telling the model to retrieve
+		 * again — repeating the instruction there is a loop that ends at the
+		 * recursion limit with an error in the student's face.
+		 */
+		it("records the attempt even when the search found nothing", async () => {
+			mockSearchLessonChunks.mockResolvedValue([]);
+			const turn = newTurnState();
+
+			await buildRetrieveLessonContextTool("lesson-1", turn).invoke({
+				query: "recursion",
+			});
+
+			expect(turn.retrievalAttempted).toBe(true);
+			expect(turn.grounded).toBe(false);
+		});
+
 		it("leaves the turn ungrounded when the search itself fails", async () => {
 			mockSearchLessonChunks.mockRejectedValue(new Error("pgvector down"));
 			const turn = newTurnState();

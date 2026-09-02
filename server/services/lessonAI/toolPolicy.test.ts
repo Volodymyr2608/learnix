@@ -39,6 +39,7 @@ function baseCheckCtx() {
 		userId: "user-1",
 		lessonConcepts: CONCEPTS,
 		groundedByRetrieval: true,
+		retrievalAttempted: false,
 		denials: undefined as ReturnType<typeof newTurnDenialLedger> | undefined,
 	};
 }
@@ -46,6 +47,11 @@ function baseCheckCtx() {
 const ruleIdsLogged = () =>
 	mockLogSecurityEvent.mock.calls.flatMap(
 		(call) => (call[0] as { ruleIds: string[] }).ruleIds,
+	);
+
+const outcomes = () =>
+	mockLogSecurityEvent.mock.calls.map(
+		(call) => (call[0] as { outcome: string }).outcome,
 	);
 
 describe("authorizeAskConceptCheck", () => {
@@ -106,6 +112,7 @@ describe("authorizeAskConceptCheck", () => {
 	 * earlier, so the id asserted is the id that fired.
 	 */
 	const cases: [string, Record<string, unknown>, Record<string, unknown>][] = [
+		["empty_allowlist", wellFormed, { lessonConcepts: [] }],
 		[
 			"concept_not_allowlisted",
 			{ ...wellFormed, concept: "Course completed in full" },
@@ -222,8 +229,17 @@ describe("authorizeAskConceptCheck", () => {
 	 * long, two options that fold to the same string, a key rendered slightly
 	 * differently from the option it names. They are authoring mistakes, not
 	 * attacks, so they are refused as routine — see "the two classes of denial".
+	 *
+	 * Two members are not authoring mistakes and belong here anyway. A lesson
+	 * whose insights never generated (`empty_allowlist`) has nothing wrong with
+	 * its request at all. And since item 16, neither has a turn that did not
+	 * retrieve: nothing about the authored text is malformed, the model simply
+	 * relied on context it already had. Not mistakes, but equally not attacks —
+	 * which is the line this set is drawn on.
 	 */
 	const ROUTINE_RULE_IDS = new Set([
+		"empty_allowlist",
+		"check_not_grounded",
 		"question_length",
 		"option_count",
 		"option_length",
@@ -231,6 +247,55 @@ describe("authorizeAskConceptCheck", () => {
 		"correct_option_not_offered",
 		"question_reveals_answer",
 	]);
+
+	/**
+	 * Item 16. Which class each rule refuses through, written out rather than
+	 * derived from `ROUTINE_RULE_IDS` — deriving it would make this test agree
+	 * with the set it is supposed to check.
+	 *
+	 * It exists for the edit that has not happened yet. Moving one more rule off
+	 * `unsafe_tool_call` is how that outcome's zero baseline is lost for good,
+	 * and the loss is invisible per-commit: nothing else in the suite reads the
+	 * emitted outcome for more than one rule at a time.
+	 */
+	const RULE_OUTCOMES: Record<string, string> = {
+		// Evidence of an attack: a caller with no right to ask, or authored text
+		// that turns an option into something to click or render.
+		concept_not_allowlisted: "unsafe_tool_call",
+		option_markup: "unsafe_tool_call",
+		// Everything a cooperative model produces on a task nothing has measured
+		// it on — plus, since item 16, a turn that did not retrieve.
+		empty_allowlist: "tool_call_declined",
+		check_not_grounded: "tool_call_declined",
+		question_length: "tool_call_declined",
+		option_count: "tool_call_declined",
+		option_length: "tool_call_declined",
+		options_not_distinct: "tool_call_declined",
+		correct_option_not_offered: "tool_call_declined",
+		question_reveals_answer: "tool_call_declined",
+	};
+
+	it.each(
+		cases,
+	)("emits the %s class its rule was assigned", (ruleId, request, ctxOverrides) => {
+		authorizeAskConceptCheck(
+			request as typeof wellFormed,
+			checkCtx(ctxOverrides as Partial<ReturnType<typeof baseCheckCtx>>),
+		);
+
+		expect(outcomes()).toEqual([RULE_OUTCOMES[ruleId]]);
+	});
+
+	/**
+	 * A rule added to the policy with no class assigned here fails loudly rather
+	 * than silently inheriting one. `cases` is the inventory of triggers, so this
+	 * inherits its one limitation: a rule with no case is invisible to both.
+	 */
+	it("assigns a class to every rule the cases exercise", () => {
+		const exercised = new Set(cases.map(([ruleId]) => ruleId));
+
+		expect(new Set(Object.keys(RULE_OUTCOMES))).toEqual(exercised);
+	});
 
 	it.each(cases)("denies with %s", (ruleId, request, ctxOverrides) => {
 		const result = authorizeAskConceptCheck(
@@ -259,6 +324,11 @@ describe("authorizeAskConceptCheck", () => {
 		);
 
 		expect(ruleIdsLogged()).toEqual(["concept_not_allowlisted"]);
+		// The outcome, not just the id. Since item 16 the two rules refuse through
+		// different helpers, so reordering them would change what a caller with no
+		// right to ask is REPORTED as — from an attack to routine — and the id
+		// assertion alone would not have noticed.
+		expect(outcomes()).toEqual(["unsafe_tool_call"]);
 	});
 
 	it("names no concept and no authored text in the event it emits", () => {
@@ -275,11 +345,6 @@ describe("authorizeAskConceptCheck", () => {
 
 describe("the two classes of denial", () => {
 	beforeEach(() => mockLogSecurityEvent.mockClear());
-
-	const outcomes = () =>
-		mockLogSecurityEvent.mock.calls.map(
-			(call) => (call[0] as { outcome: string }).outcome,
-		);
 
 	it("declines an empty allowlist as routine, not as an attack", () => {
 		const result = authorizeAskConceptCheck(
@@ -384,17 +449,50 @@ describe("the two classes of denial", () => {
 		expect(outcomes()).toEqual(["unsafe_tool_call"]);
 	});
 
-	it("reports an ungrounded check as an unsafe call", () => {
+	/**
+	 * Item 16. A model that has already retrieved earlier in the conversation
+	 * stops retrieving, so this rule fires on cooperative use — measured in
+	 * production, `manual-qa.md` MQ-2. Routing that into `unsafe_tool_call`, the
+	 * taxonomy's one zero-baseline outcome, gives the alert a baseline made of
+	 * ordinary traffic and retires it.
+	 */
+	it("reports an ungrounded check as a routine decline, not an unsafe call", () => {
 		const result = authorizeAskConceptCheck(
 			wellFormed,
 			checkCtx({ groundedByRetrieval: false }),
 		);
 
-		expect(outcomes()).toEqual(["unsafe_tool_call"]);
-		expect(result).toEqual({
-			authorized: false,
-			message: NEUTRAL_REFUSAL_MESSAGE,
-		});
+		expect(outcomes()).toEqual(["tool_call_declined"]);
+		expect(result.authorized).toBe(false);
+	});
+
+	/**
+	 * The message has to be actionable, because the whole point of the class
+	 * change is that the agent can recover inside the turn. It names the call it
+	 * wants — which discloses nothing: `ask_concept_check`'s own description
+	 * already ends "Requires having called retrieve_lesson_context on this turn."
+	 *
+	 * And it must stay distinct from the shared malformed-check text. That text
+	 * is deliberately identical across every well-formedness rule so a model
+	 * cannot binary-search the validator; collapsing this one into it would hide
+	 * the one refusal the model is supposed to act on.
+	 */
+	it("tells the model which call is missing, in words of its own", () => {
+		const ungrounded = authorizeAskConceptCheck(
+			wellFormed,
+			checkCtx({ groundedByRetrieval: false }),
+		);
+		const malformedResult = authorizeAskConceptCheck(
+			{ ...wellFormed, question: "Why?" },
+			checkCtx(),
+		);
+
+		if (ungrounded.authorized || malformedResult.authorized)
+			throw new Error("both calls must be refused");
+
+		expect(ungrounded.message).toContain("retrieve_lesson_context");
+		expect(ungrounded.message).not.toBe(NEUTRAL_REFUSAL_MESSAGE);
+		expect(ungrounded.message).not.toBe(malformedResult.message);
 	});
 
 	it("emits one event per class per turn, not one per attempt", () => {
@@ -418,13 +516,74 @@ describe("the two classes of denial", () => {
 			checkCtx({ lessonConcepts: [], denials: ledger }),
 		);
 		authorizeAskConceptCheck(
-			wellFormed,
-			checkCtx({ groundedByRetrieval: false, denials: ledger }),
+			{ ...wellFormed, concept: "Course completed in full" },
+			checkCtx({ denials: ledger }),
 		);
 
 		// Suppressing the second because the first already fired would let a
-		// benign denial hide an attack behind it.
+		// benign denial hide an attack behind it. The attack here is a concept
+		// outside the allowlist; it used to be an ungrounded turn, which item 16
+		// reclassified as routine — the property is unchanged, its example moved.
 		expect(outcomes()).toEqual(["tool_call_declined", "unsafe_tool_call"]);
+	});
+
+	/**
+	 * The ledger keys on the rule as well as the outcome, and this is the case
+	 * that forced it. Item 16 made the sequence "author ungrounded, get told to
+	 * retrieve, retrieve, author again" the intended path — and under an
+	 * outcome-only key the second attempt's structural rule was swallowed,
+	 * because `check_not_grounded` had already spent the `tool_call_declined`
+	 * bucket. S13 §33 names the rate of `tool_call_declined` BY RULE ID as the
+	 * lever for closing the authoring-refusal gap, so deduping the id away is
+	 * deduping away the payload.
+	 */
+	/**
+	 * The message that names `retrieve_lesson_context` is only useful while
+	 * retrieving is still worth doing. On a lesson with no indexed chunks the
+	 * retrieval tool returns its sentinel and leaves the turn ungrounded, so the
+	 * instruction asks the model to repeat what it just did — and the loop only
+	 * ends at AGENT_RECURSION_LIMIT, where the student gets an error instead of
+	 * an answer. Same rule, same class, terminal wording.
+	 */
+	it("stops asking for a retrieval that has already returned nothing", () => {
+		const result = authorizeAskConceptCheck(
+			wellFormed,
+			checkCtx({ groundedByRetrieval: false, retrievalAttempted: true }),
+		);
+
+		if (result.authorized) throw new Error("must be refused");
+
+		expect(outcomes()).toEqual(["tool_call_declined"]);
+		expect(ruleIdsLogged()).toEqual(["check_not_grounded"]);
+		expect(result.message).not.toContain("retrieve_lesson_context");
+	});
+
+	it("does not let one decline swallow a different rule in the same turn", () => {
+		const ledger = newTurnDenialLedger();
+
+		authorizeAskConceptCheck(
+			wellFormed,
+			checkCtx({ groundedByRetrieval: false, denials: ledger }),
+		);
+		authorizeAskConceptCheck(
+			{ ...wellFormed, question: "Why?" },
+			checkCtx({ denials: ledger }),
+		);
+
+		expect(ruleIdsLogged()).toEqual(["check_not_grounded", "question_length"]);
+	});
+
+	it("still emits one event when the same rule is tripped twice in a turn", () => {
+		const ledger = newTurnDenialLedger();
+
+		for (let i = 0; i < 3; i++) {
+			authorizeAskConceptCheck(
+				{ ...wellFormed, question: "Why?" },
+				checkCtx({ denials: ledger }),
+			);
+		}
+
+		expect(ruleIdsLogged()).toEqual(["question_length"]);
 	});
 
 	it("emits every denial when no turn ledger is supplied", () => {
