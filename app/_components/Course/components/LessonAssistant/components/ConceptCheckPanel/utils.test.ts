@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ConceptCheckPublic } from "@/server/repositories/conceptCheck.repository";
 import {
+	heldForTurn,
 	isLocked,
 	isSubmitDisabled,
 	selectedOptionIndex,
+	selectionFor,
 	shouldRenderPanel,
+	verdictFor,
 	visibleCheck,
 } from "./utils";
 
@@ -83,5 +86,79 @@ describe("visibleCheck", () => {
 
 	it("shows nothing when there is nothing to show", () => {
 		expect(visibleCheck(null, null)).toBeNull();
+	});
+});
+
+describe("verdictFor", () => {
+	const graded = {
+		checkId: "check-1",
+		result: { isCorrect: false, correctOption: "The base case" },
+	};
+
+	it("shows the verdict under the check it graded", () => {
+		expect(verdictFor(check, graded)).toBe(graded.result);
+	});
+
+	/**
+	 * The regression this exists for: the verdict was read straight off the
+	 * mutation, which outlives the check it graded. A newly issued question
+	 * therefore arrived on screen already locked, with the previous answer's
+	 * result under it and no Submit button — the state MQ-1b needs and could
+	 * never reach.
+	 */
+	it("shows no verdict under a check it did not grade", () => {
+		expect(verdictFor({ ...check, id: "check-2" }, graded)).toBeNull();
+	});
+
+	it("shows nothing when no check is on screen", () => {
+		expect(verdictFor(null, graded)).toBeNull();
+	});
+
+	it("shows nothing before an answer has been graded", () => {
+		expect(verdictFor(check, null)).toBeNull();
+	});
+});
+
+describe("heldForTurn", () => {
+	const held = { check, turn: 3 };
+
+	it("keeps the answered check on screen for the turn it was answered in", () => {
+		expect(heldForTurn(held, 3)).toBe(check);
+	});
+
+	/**
+	 * The regression this exists for: the answered check was held in state that
+	 * nothing ever cleared, so the panel stayed above the thread for the rest of
+	 * the session. The student read the verdict, asked the next question, and the
+	 * graded panel was still there — and still there after that.
+	 */
+	it("drops it once the conversation has moved on", () => {
+		expect(heldForTurn(held, 4)).toBeNull();
+	});
+
+	it("holds nothing when nothing has been answered", () => {
+		expect(heldForTurn(null, 3)).toBeNull();
+	});
+});
+
+describe("selectionFor", () => {
+	const selection = { checkId: "check-1", option: "A frame" };
+
+	it("keeps the option chosen for the check on screen", () => {
+		expect(selectionFor(check, selection)).toBe("A frame");
+	});
+
+	/**
+	 * An option belongs to the question that offered it. Carried across, it sat
+	 * selected against a question whose options never included it —
+	 * `selectedOptionIndex` then resolved it to -1 and Submit did nothing.
+	 */
+	it("forgets it when a different check comes on screen", () => {
+		expect(selectionFor({ ...check, id: "check-2" }, selection)).toBeNull();
+	});
+
+	it("has nothing to keep before anything is chosen", () => {
+		expect(selectionFor(check, null)).toBeNull();
+		expect(selectionFor(null, selection)).toBeNull();
 	});
 });

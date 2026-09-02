@@ -2,7 +2,6 @@
 
 import { Button } from "app/_components/_shared/ui/button";
 import { CircleHelp } from "lucide-react";
-import { useState } from "react";
 import { useConceptCheck } from "../../hooks/useConceptCheck";
 import { CheckOption } from "../CheckOption";
 import type { ConceptCheckPanelProps } from "./types";
@@ -16,16 +15,22 @@ import {
 /**
  * The panel a student answers a concept check in.
  *
- * It renders only when a check is actually open, and it disappears once the
- * answer is in — the tutor asks at most one question at a time, and a stale
- * panel would invite a second submission the server would refuse anyway.
+ * It renders only while there is a check to show: an open one, or one just
+ * answered whose verdict has not yet been overtaken by the next turn. The
+ * tutor asks at most one question at a time, and a panel that outlived its
+ * conversation invited a second submission the server would refuse anyway.
+ *
+ * Every decision about what to show and how long to show it lives in
+ * `useConceptCheck`; this component only draws it.
  *
  * The question, like the options, is plain text. Nothing here is markdown.
  */
-export const ConceptCheckPanel = ({ lessonId }: ConceptCheckPanelProps) => {
-	const { check, isLoading, submit, isSubmitting, result } =
-		useConceptCheck(lessonId);
-	const [selected, setSelected] = useState<string | null>(null);
+export const ConceptCheckPanel = ({
+	lessonId,
+	turn,
+}: ConceptCheckPanelProps) => {
+	const { check, isLoading, selected, select, submit, isSubmitting, result } =
+		useConceptCheck(lessonId, turn);
 
 	if (!shouldRenderPanel(isLoading, check)) return null;
 	if (!check) return null;
@@ -53,7 +58,7 @@ export const ConceptCheckPanel = ({ lessonId }: ConceptCheckPanelProps) => {
 						isLocked={locked}
 						isSelected={selected === option}
 						key={option}
-						onSelect={setSelected}
+						onSelect={select}
 						option={option}
 					/>
 				))}

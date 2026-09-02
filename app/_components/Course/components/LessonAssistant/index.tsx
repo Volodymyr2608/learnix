@@ -15,14 +15,25 @@ export function LessonAssistant({ lessonId }: { lessonId: string }) {
 	const { messages, isLoading, sendMessage, clearHistory, isClearingHistory } =
 		useLessonAssistant(lessonId);
 	const [input, setInput] = useState("");
+	// Bumped whenever the conversation moves on. The concept-check panel holds an
+	// answered check so its verdict can be read, and this is what tells it that
+	// the verdict has been read long enough — without it the answered panel sat
+	// above the thread for the rest of the session.
+	const [turn, setTurn] = useState(0);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	const handleSend = async () => {
 		if (!input.trim() || isLoading) return;
 		const msg = input;
 		setInput("");
+		setTurn((n) => n + 1);
 		await sendMessage(msg);
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+	};
+
+	const handleClearHistory = () => {
+		setTurn((n) => n + 1);
+		clearHistory();
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -34,7 +45,7 @@ export function LessonAssistant({ lessonId }: { lessonId: string }) {
 
 	return (
 		<div className="flex flex-col gap-3">
-			<ConceptCheckPanel lessonId={lessonId} />
+			<ConceptCheckPanel lessonId={lessonId} turn={turn} />
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2 font-medium text-sm">
 					<Bot className="h-4 w-4" />
@@ -43,7 +54,7 @@ export function LessonAssistant({ lessonId }: { lessonId: string }) {
 				{messages.length > 0 && (
 					<Button
 						disabled={isClearingHistory}
-						onClick={clearHistory}
+						onClick={handleClearHistory}
 						size="sm"
 						variant="ghost"
 					>
