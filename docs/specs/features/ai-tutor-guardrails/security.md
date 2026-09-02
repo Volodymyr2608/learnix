@@ -671,7 +671,7 @@ numbers because §11–§29 are cross-referenced from other documents)
     silently: `promptFidelity.contract.test.ts` fails any eval declaring its own system prompt,
     matching on the literal's *content* rather than its declaration — the declaration-shaped first
     version was tested against six ways of reintroducing the defect and waved five of them through.
-    The dataset is 52 rows across 15 categories, every dataset in the repo now carries a ≥5-row floor
+    The dataset is 54 rows across 15 categories, every dataset in the repo now carries a ≥5-row floor
     (`datasets.contract.test.ts`), each row runs three times at production's `temperature: 0.4`, and
     the numbers are committed to `evals/baselines/lessonAI-tutor.json` so a prompt change prints what
     moved. See [`../ai-evaluation-harness/spec.md`](../ai-evaluation-harness/spec.md).

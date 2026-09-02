@@ -200,7 +200,7 @@ complex-tier change with its own ADR.
 
 - **Cost per tutor run: $0.14 and 54 seconds**, measured on the 49-row run of 2026-08-26, printed by
   the runner and recorded per model. Of that, `gpt-4o-mini` is 265 calls / 251k tokens / **$0.044**
-  and the `gpt-4o` judge is 24 calls / 31k tokens / **$0.093**. The set is 52 rows now, so read these
+  and the `gpt-4o` judge is 24 calls / 31k tokens / **$0.093**. The set is 54 rows now, so read these
   as that run's figures rather than today's.
 - **The judge is 9% of the calls and 67% of the cost**, which is why a call count was the wrong unit
   to reason about — it inverts the ranking. Note also that on that run 49 rows × 3 samples was 147
@@ -253,7 +253,7 @@ Offline, in `pnpm test:unit` — no network, no key:
 | A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
 | Documented figures match the dataset and the baseline; every document quoting the baseline is dated no earlier than it | `evals/_shared/docFigures.contract.test.ts` |
 
-Online, `pnpm eval`, never in CI: `lessonAI:tutor` (52 rows × 3 samples, 15 categories),
+Online, `pnpm eval`, never in CI: `lessonAI:tutor` (54 rows × 3 samples, 15 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
 `courseAI:*`, `aiGuard:*`, `aiOutput:*`.
 
