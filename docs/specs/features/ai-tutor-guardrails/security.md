@@ -200,9 +200,11 @@ then content, so a caller with no right to ask is refused before anything it wro
 
 When more than one rule would deny, the first wins and is the only rule id logged.
 
-**Two classes of refusal, and the split is the requirement.** Rules 1 and 4–10 are `tool_call_declined`
-— routine, unforwarded, non-zero baseline. Rules 2, 3 and 7 are `unsafe_tool_call` — the taxonomy's
-one zero-baseline alert. The line is whether the call is evidence of an *attack*, not whether it
+**Two classes of refusal, and the split is the requirement.** Rules 1, 3 and 4–10 are
+`tool_call_declined` — routine, unforwarded, non-zero baseline. Rules 2 and 7 are `unsafe_tool_call`
+— the taxonomy's one zero-baseline alert. **Rule 3 moved here on 2026-09-02 (§48, ADR-034)**: it
+fires on cooperative use, because grounding is a per-turn property and a model that has already
+retrieved earlier in the conversation stops retrieving. It is a quality rule, not an alerting one. The line is whether the call is evidence of an *attack*, not whether it
 failed: a five-word stem or two options that fold together is what a cooperative model produces on a
 task nothing has measured it on, and filing that under the alert retires the alert. Rules 4–10 share
 one refusal message, so the rule set cannot be mapped by authoring until the wording changes.
@@ -407,10 +409,10 @@ well-formedness rules were moved off `unsafe_tool_call` — see S7.
 
 | Outcome | Baseline | What to threshold on | What it means |
 |---|---|---|---|
-| `unsafe_tool_call` | **zero** | any occurrence | The model tried to author outside the allowlist, on a turn that never read the lesson, or with a link or tag in an option. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. Structural authoring mistakes were moved off this outcome deliberately: at a measured ~1-in-6 refusal rate (S7) they would have made a zero-baseline alert fire continuously on ordinary use. |
+| `unsafe_tool_call` | **zero** | any occurrence | The model tried to author outside the allowlist, or with a link or tag in an option. Either an attack, or `lessonConcepts` has drifted from what the prompt shows the model. Both need a human. Structural authoring mistakes were moved off this outcome deliberately: at a measured ~1-in-6 refusal rate (S7) they would have made a zero-baseline alert fire continuously on ordinary use. |
 | `fallback_triggered` | **zero** outside provider incidents | any sustained run | L2 is down and L1 is carrying the boundary alone (S10). Correlate with provider status; if it is not an outage, someone is making L2 fail. |
 | `output_validation_failed` | **near zero** | any occurrence, and the `ruleIds` distribution | Which rule fired names the channel: `system_prompt_echo` is a leak attempt, `off_origin_link` is exfiltration, `verbatim_chunk_echo` is content scraping. |
-| `tool_call_declined` | **non-zero** — routine | a *rate*, per user and per lesson, never a single occurrence | The tutor wanted to ask and could not. `ruleIds` says why: `empty_allowlist` means insights never generated for that lesson; `check_budget_spent` and `check_already_pending` are ordinary; the authoring rules (`question_length`, `options_not_distinct`, …) are the model writing badly, and a rise in their share is a prompt or model regression rather than an attack. `concept_check_answer_echo` is the reply naming its own answer. |
+| `tool_call_declined` | **non-zero** — routine | a *rate*, per user and per lesson, never a single occurrence | The tutor wanted to ask and could not. `ruleIds` says why: `empty_allowlist` means insights never generated for that lesson; `check_budget_spent` and `check_already_pending` are ordinary; the authoring rules (`question_length`, `options_not_distinct`, …) are the model writing badly, and a rise in their share is a prompt or model regression rather than an attack. `check_not_grounded` is the one to watch after ADR-034, and it carries a prediction: its share should **fall toward zero** as the model recovers inside the turn on the message it is now given. A flat share is the falsifiable evidence that recovery is not happening — the claim no offline harness in this repo can reach. `concept_check_answer_echo` is the reply naming its own answer. |
 | `mastery_promoted` | one per completed lesson | nothing yet | The successful path. Evidence for a later investigation, not detection; forwarding it would flood the sink with normal behaviour. |
 | `guard_blocked` | low, non-zero | rate **per user**, not globally | Global volume tracks how many strangers try things once. One account blocked repeatedly is a person working the problem. |
 | `guard_suspect` | low–moderate | **ratio to `guard_blocked`** | The most informative signal in the taxonomy. Suspect rising while blocked stays flat means payloads are being tuned to sit just under the block score — a person iterating, not a person guessing. |

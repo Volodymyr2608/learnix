@@ -125,7 +125,7 @@ share an event:**
 
 | class | examples | event |
 |---|---|---|
-| adversarial — the call should never have been made | `concept_not_allowlisted`, `degenerate_check` | `unsafe_tool_call` (zero baseline, Sentry-forwarded) |
+| adversarial — the call should never have been made | `concept_not_allowlisted`, `option_markup` | `unsafe_tool_call` (zero baseline, Sentry-forwarded) |
 | benign — an ordinary "not now" | `empty_allowlist`, `check_already_pending`, `already_evidenced`, `check_budget_exhausted`, `check_not_grounded` (item 16) | `tool_call_declined` (routine, **not** forwarded) |
 
 The split is not cosmetic. Before item 14, a lesson whose insights had simply never generated raised

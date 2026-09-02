@@ -111,6 +111,7 @@ describe("authorizeAskConceptCheck", () => {
 	 * earlier, so the id asserted is the id that fired.
 	 */
 	const cases: [string, Record<string, unknown>, Record<string, unknown>][] = [
+		["empty_allowlist", wellFormed, { lessonConcepts: [] }],
 		[
 			"concept_not_allowlisted",
 			{ ...wellFormed, concept: "Course completed in full" },
@@ -227,8 +228,16 @@ describe("authorizeAskConceptCheck", () => {
 	 * long, two options that fold to the same string, a key rendered slightly
 	 * differently from the option it names. They are authoring mistakes, not
 	 * attacks, so they are refused as routine — see "the two classes of denial".
+	 *
+	 * Two members are not authoring mistakes and belong here anyway. A lesson
+	 * whose insights never generated (`empty_allowlist`) has nothing wrong with
+	 * its request at all. And since item 16, neither has a turn that did not
+	 * retrieve: nothing about the authored text is malformed, the model simply
+	 * relied on context it already had. Not mistakes, but equally not attacks —
+	 * which is the line this set is drawn on.
 	 */
 	const ROUTINE_RULE_IDS = new Set([
+		"empty_allowlist",
 		"check_not_grounded",
 		"question_length",
 		"option_count",
@@ -276,12 +285,6 @@ describe("authorizeAskConceptCheck", () => {
 		expect(outcomes()).toEqual([RULE_OUTCOMES[ruleId]]);
 	});
 
-	it("emits the class assigned to empty_allowlist", () => {
-		authorizeAskConceptCheck(wellFormed, checkCtx({ lessonConcepts: [] }));
-
-		expect(outcomes()).toEqual([RULE_OUTCOMES.empty_allowlist]);
-	});
-
 	/**
 	 * A rule added to the policy with no class assigned here fails loudly rather
 	 * than silently inheriting one. `cases` is the inventory of triggers, so this
@@ -289,7 +292,6 @@ describe("authorizeAskConceptCheck", () => {
 	 */
 	it("assigns a class to every rule the cases exercise", () => {
 		const exercised = new Set(cases.map(([ruleId]) => ruleId));
-		exercised.add("empty_allowlist");
 
 		expect(new Set(Object.keys(RULE_OUTCOMES))).toEqual(exercised);
 	});
@@ -479,17 +481,17 @@ describe("the two classes of denial", () => {
 			wellFormed,
 			checkCtx({ groundedByRetrieval: false }),
 		);
-		const malformed = authorizeAskConceptCheck(
+		const malformedResult = authorizeAskConceptCheck(
 			{ ...wellFormed, question: "Why?" },
 			checkCtx(),
 		);
 
-		if (ungrounded.authorized || malformed.authorized)
+		if (ungrounded.authorized || malformedResult.authorized)
 			throw new Error("both calls must be refused");
 
 		expect(ungrounded.message).toContain("retrieve_lesson_context");
 		expect(ungrounded.message).not.toBe(NEUTRAL_REFUSAL_MESSAGE);
-		expect(ungrounded.message).not.toBe(malformed.message);
+		expect(ungrounded.message).not.toBe(malformedResult.message);
 	});
 
 	it("emits one event per class per turn, not one per attempt", () => {
