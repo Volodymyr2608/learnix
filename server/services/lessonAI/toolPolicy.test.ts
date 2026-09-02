@@ -224,6 +224,7 @@ describe("authorizeAskConceptCheck", () => {
 	 * attacks, so they are refused as routine — see "the two classes of denial".
 	 */
 	const ROUTINE_RULE_IDS = new Set([
+		"check_not_grounded",
 		"question_length",
 		"option_count",
 		"option_length",
@@ -384,17 +385,50 @@ describe("the two classes of denial", () => {
 		expect(outcomes()).toEqual(["unsafe_tool_call"]);
 	});
 
-	it("reports an ungrounded check as an unsafe call", () => {
+	/**
+	 * Item 16. A model that has already retrieved earlier in the conversation
+	 * stops retrieving, so this rule fires on cooperative use — measured in
+	 * production, `manual-qa.md` MQ-2. Routing that into `unsafe_tool_call`, the
+	 * taxonomy's one zero-baseline outcome, gives the alert a baseline made of
+	 * ordinary traffic and retires it.
+	 */
+	it("reports an ungrounded check as a routine decline, not an unsafe call", () => {
 		const result = authorizeAskConceptCheck(
 			wellFormed,
 			checkCtx({ groundedByRetrieval: false }),
 		);
 
-		expect(outcomes()).toEqual(["unsafe_tool_call"]);
-		expect(result).toEqual({
-			authorized: false,
-			message: NEUTRAL_REFUSAL_MESSAGE,
-		});
+		expect(outcomes()).toEqual(["tool_call_declined"]);
+		expect(result.authorized).toBe(false);
+	});
+
+	/**
+	 * The message has to be actionable, because the whole point of the class
+	 * change is that the agent can recover inside the turn. It names the call it
+	 * wants — which discloses nothing: `ask_concept_check`'s own description
+	 * already ends "Requires having called retrieve_lesson_context on this turn."
+	 *
+	 * And it must stay distinct from the shared malformed-check text. That text
+	 * is deliberately identical across every well-formedness rule so a model
+	 * cannot binary-search the validator; collapsing this one into it would hide
+	 * the one refusal the model is supposed to act on.
+	 */
+	it("tells the model which call is missing, in words of its own", () => {
+		const ungrounded = authorizeAskConceptCheck(
+			wellFormed,
+			checkCtx({ groundedByRetrieval: false }),
+		);
+		const malformed = authorizeAskConceptCheck(
+			{ ...wellFormed, question: "Why?" },
+			checkCtx(),
+		);
+
+		if (ungrounded.authorized || malformed.authorized)
+			throw new Error("both calls must be refused");
+
+		expect(ungrounded.message).toContain("retrieve_lesson_context");
+		expect(ungrounded.message).not.toBe(NEUTRAL_REFUSAL_MESSAGE);
+		expect(ungrounded.message).not.toBe(malformed.message);
 	});
 
 	it("emits one event per class per turn, not one per attempt", () => {
@@ -418,12 +452,14 @@ describe("the two classes of denial", () => {
 			checkCtx({ lessonConcepts: [], denials: ledger }),
 		);
 		authorizeAskConceptCheck(
-			wellFormed,
-			checkCtx({ groundedByRetrieval: false, denials: ledger }),
+			{ ...wellFormed, concept: "Course completed in full" },
+			checkCtx({ denials: ledger }),
 		);
 
 		// Suppressing the second because the first already fired would let a
-		// benign denial hide an attack behind it.
+		// benign denial hide an attack behind it. The attack here is a concept
+		// outside the allowlist; it used to be an ungrounded turn, which item 16
+		// reclassified as routine — the property is unchanged, its example moved.
 		expect(outcomes()).toEqual(["tool_call_declined", "unsafe_tool_call"]);
 	});
 

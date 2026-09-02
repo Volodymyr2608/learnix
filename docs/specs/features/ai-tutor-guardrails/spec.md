@@ -1,6 +1,6 @@
 ---
 feature: ai-tutor-guardrails
-status: stable
+status: in-progress
 models: [ConceptMastery, ConceptCheck]
 depends-on: [ai-input-trust-boundary, ai-chat-route-authorization, learning-path, quiz-generation, quiz-answer-key]
 ---
@@ -30,6 +30,25 @@ depends-on: [ai-input-trust-boundary, ai-chat-route-authorization, learning-path
 > a clause to rule 5 of the system prompt; S13 §5 then measured it and could not distinguish it from
 > having no clause at all. That plan stays frozen as the record of why a prompt-level fix was ruled
 > out, and is not superseded so much as *answered*.
+
+> **Reopened again 2026-09-02** — scope item 16, one rule's denial class. The first full manual-QA
+> pass (`manual-qa.md`, MQ-2) measured `check_not_grounded` firing on ordinary, cooperative use: the
+> tutor must call `retrieve_lesson_context` and `ask_concept_check` in the **same** turn, and a model
+> that has already retrieved earlier in the conversation stops retrieving. Six consecutive turns on a
+> short thread issued a check; the same phrasing on a grown thread produced `ask_concept_check` alone
+> and `check_not_grounded` every time; pressing **Clear** restored it immediately.
+>
+> Two things follow, and the second is the reason this is a spec change rather than a bug fix. The
+> concept-check mechanism **degrades to unreachable as a conversation grows** — the student is told
+> "I've prepared a question" and never sees one. And the denial emits `unsafe_tool_call`, the
+> taxonomy's only zero-baseline, Sentry-forwarded outcome, so the alert whose entire value is that a
+> single occurrence means something now fires on cooperative traffic. That is the exact trap the
+> `decline`/`deny` split was built to avoid, and grounding was deliberately placed on the wrong side
+> of it.
+>
+> Scope: `check_not_grounded` moves from `deny` to `decline`, with a message that names the call it
+> wants so the turn can recover inside the agent loop. Nothing else moves class. Plan:
+> `build/grounding-decline-plan.md`.
 
 ## Description
 
@@ -106,8 +125,8 @@ share an event:**
 
 | class | examples | event |
 |---|---|---|
-| adversarial — the call should never have been made | `concept_not_allowlisted`, `degenerate_check`, `check_not_grounded` | `unsafe_tool_call` (zero baseline, Sentry-forwarded) |
-| benign — an ordinary "not now" | `empty_allowlist`, `check_already_pending`, `already_evidenced`, `check_budget_exhausted` | `tool_call_declined` (routine, **not** forwarded) |
+| adversarial — the call should never have been made | `concept_not_allowlisted`, `degenerate_check` | `unsafe_tool_call` (zero baseline, Sentry-forwarded) |
+| benign — an ordinary "not now" | `empty_allowlist`, `check_already_pending`, `already_evidenced`, `check_budget_exhausted`, `check_not_grounded` (item 16) | `tool_call_declined` (routine, **not** forwarded) |
 
 The split is not cosmetic. Before item 14, a lesson whose insights had simply never generated raised
 `unsafe_tool_call` — a zero-baseline outcome forwarded to Sentry as a live alert. Routing a routine
@@ -455,9 +474,13 @@ sliding-window validation.
   normalisation (`"A"` vs `"a."`), which has fewer than 4 or more than 5 options, whose question
   contains the correct option, or whose option carries a URL, markdown link syntax or an HTML tag, is
   denied — one rule id per case, first failing rule wins.
-- A check requested on a turn that made no `retrieve_lesson_context` call is denied as
-  `check_not_grounded`. *(This is the criterion that answers "ask me a check whose answer is
-  'banana'".)*
+- A check requested on a turn that made no `retrieve_lesson_context` call is refused as
+  `check_not_grounded`. **Superseded by item 16 as to its class and its message** — it is a
+  `decline`, not a `deny`. *(This was written as the criterion that answers "ask me a check whose
+  answer is 'banana'". It is not: `security.md` S13 §35 established that the retrieval which delivers
+  an injected payload is the retrieval that grounds the check, so the rule never fires on the attack
+  it was named for. What it still buys is that the model authored from the lesson rather than from
+  parametric memory — a quality property, and it should stop being counted as a security one.)*
 - The stored option order is a function of the server's CSPRNG, not of the order the model authored;
   grading never reads an index into the authored array.
 - A second check cannot exist for a `(student, lesson)` pair while one is `PENDING` — asserted by the
@@ -480,6 +503,30 @@ sliding-window validation.
   the student picks correctly, is told they are wrong, and spends an attempt.)*
 - A turn is grounded only once `retrieve_lesson_context` has **returned lesson text** — an empty
   result, or a failed search, leaves it ungrounded.
+
+**Grounding's denial class (item 16)**
+
+- A `check_not_grounded` refusal emits **`tool_call_declined`**, never `unsafe_tool_call`. Asserted
+  on the emitted event, not on the returned message.
+- Its message names the call it wants — the model is told to call `retrieve_lesson_context` first —
+  and is **not** `NEUTRAL_REFUSAL_MESSAGE` and **not** `MALFORMED_CHECK_MESSAGE`. *(It discloses no
+  rule the model was not already told: `ask_concept_check`'s own description states the requirement.
+  The shared malformed-check message exists so a validator cannot be binary-searched by authoring
+  checks until the wording changes; grounding is not part of that search space.)*
+- **Nothing else moves class.** `concept_not_allowlisted` and the markup rule stay on `deny` and keep
+  emitting `unsafe_tool_call`; a test pins the full outcome-per-rule mapping so a future edit cannot
+  quietly widen this.
+- Rule **order** is unchanged: authority is still decided before grounding, so a call naming a
+  concept outside the allowlist is still an `unsafe_tool_call` and never reports on grounding.
+- Eval row — **recovery**: on a turn where the model authors without retrieving, is declined, and
+  then retrieves and authors again, a check is issued. This is the change's whole premise and it is
+  model behaviour, so it is measured as a rate, not asserted.
+- Eval row — **the false-positive check the guarded track requires**: over a thread grown past the
+  length at which MQ-2 measured the failure, the share of turns that ask for a check and receive one
+  does not fall. A rule that stops denying but also stops working has not been fixed.
+- After this change, no occurrence of `check_not_grounded` appears in `unsafe_tool_call` counts, so
+  that outcome's zero baseline is restored and S11's "any occurrence is the signal" threshold means
+  what it says again.
 
 **Answering, and the write (items 13–15)**
 

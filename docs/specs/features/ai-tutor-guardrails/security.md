@@ -1106,6 +1106,33 @@ branch; each states what the design buys and what it does not)
     fills the cache directly so the poll is not the primary path — but the 30/min cross-feature
     aggregate is now shared with a read. Give it its own feature key if the aggregate starts binding.
 
+47. **`check_not_grounded` fires on cooperative use, and it is the only rule that can retire the
+    zero-baseline alert.** Measured in the first full manual-QA pass (`manual-qa.md`, MQ-2,
+    2026-09-02, production). Grounding is per **turn**; a model that has retrieved earlier in the
+    conversation stops retrieving. Six consecutive turns on a short thread called
+    `retrieve_lesson_context` and `ask_concept_check` together and issued a check every time. On the
+    same thread once grown, the same phrasing produced `ask_concept_check` alone, and
+    `check_not_grounded` every time. Pressing **Clear** restored the working behaviour immediately.
+
+    Two costs, and they are different in kind. The **product** cost is that the concept-check
+    mechanism degrades to unreachable as a conversation grows: the tutor says "I've prepared a
+    question", `issue()` is never reached, and the student sees nothing. The **detection** cost is
+    that `unsafe_tool_call` — the taxonomy's only zero-baseline outcome, and the only one
+    `securityLog` forwards — now has a baseline made of ordinary traffic. S11 reads it as "any
+    occurrence is the signal"; that reading is no longer safe, and the split in `toolPolicy` between
+    `decline` and `deny` exists precisely to prevent this. Grounding was placed on the `deny` side
+    deliberately, and §35 had already removed the reason.
+
+48. **After item 16, grounding is a quality control and must stop being counted as a security one.**
+    §35 established that the retrieval which delivers an injected payload is the retrieval that
+    grounds the check, so the rule cannot fire on the attack it was named for — `spec.md` still
+    described it as "the criterion that answers *ask me a check whose answer is banana*", and that
+    sentence was never true in the shipped design. What it does buy is that the model authored from
+    the lesson rather than from parametric memory, which is worth keeping and is worth nothing to an
+    attacker. **Nothing replaces it on the security side**, and MQ-7 remains defended only by the
+    model declining — a residual this pass measured at n=1 in the model's favour while the eval row
+    `inject-03` fails every sample.
+
 **Reopened and re-priced 2026-08-30.** The residual that a lucky guesser reaches level 2 was stated
 as "three independent 1-in-4 draws, roughly 58% over a week". That arithmetic was priced on a rule
 that did not exist: nothing stopped the second question being the first one again, with its answer
