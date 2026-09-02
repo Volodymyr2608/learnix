@@ -36,10 +36,15 @@ export { CONVERSATION_MAX_LEVEL };
  *
  * A model that has been refused will often try again inside the same turn, and
  * five identical events say nothing the first one did not. Deduplication is per
- * OUTCOME, never per turn as a whole: a routine decline must not be able to
- * swallow the zero-baseline alert that follows it.
+ * OUTCOME **and rule**, never per turn as a whole: a routine decline must not be
+ * able to swallow the zero-baseline alert that follows it, and — since item 16
+ * made "author ungrounded, retrieve, author again" the intended path — must not
+ * swallow a different decline either. S11 triages `tool_call_declined` by rule
+ * id, so keying the id away deletes the field the triage reads.
+ *
+ * The bound stays small: at most one event per rule, and there are ten rules.
  */
-export type TurnDenialLedger = { emitted: Set<SecurityOutcome> };
+export type TurnDenialLedger = { emitted: Set<string> };
 
 export const newTurnDenialLedger = (): TurnDenialLedger => ({
 	emitted: new Set(),
@@ -52,8 +57,9 @@ const emitDenial = (
 ): void => {
 	// Absent a ledger every denial is emitted: a caller with no notion of a turn
 	// gets the noisy, complete record rather than a silently suppressed one.
-	if (ctx.denials?.emitted.has(outcome)) return;
-	ctx.denials?.emitted.add(outcome);
+	const key = `${outcome}:${ruleId}`;
+	if (ctx.denials?.emitted.has(key)) return;
+	ctx.denials?.emitted.add(key);
 
 	logSecurityEvent({
 		feature: "lessonAI",
@@ -130,6 +136,19 @@ const UNGROUNDED_CHECK_MESSAGE =
 	"Call retrieve_lesson_context for this lesson first, then ask the check.";
 
 /**
+ * The same refusal once retrieving is no longer worth doing.
+ *
+ * `retrieve_lesson_context` returns a sentinel and leaves the turn ungrounded
+ * when a lesson has no indexed chunks — a stale or never-run backfill, which is
+ * a state this codebase has actually been in. Repeating the instruction above
+ * there asks the model to do again what it just did, and the loop ends only at
+ * `AGENT_RECURSION_LIMIT`, where the student gets an error instead of an answer.
+ * Same rule id and same class: what changes is that this one terminates.
+ */
+const NO_LESSON_CONTENT_MESSAGE =
+	"This lesson has no indexed content to base a check on.";
+
+/**
  * Bounds on what the model may author. Exported so the tool's Zod schema and
  * this policy cannot disagree about what a well-formed check is — a shape the
  * schema accepts and the policy rejects is a denial the model can never learn
@@ -196,8 +215,15 @@ export const authorizeAskConceptCheck = (
 	// was named for. What it still buys is that the model authored from the
 	// lesson rather than from parametric memory — worth keeping, worth nothing to
 	// an attacker, and therefore a decline rather than an alert (item 16).
-	if (!ctx.groundedByRetrieval)
-		return decline(ctx, "check_not_grounded", UNGROUNDED_CHECK_MESSAGE);
+	if (!ctx.groundedByRetrieval) {
+		return decline(
+			ctx,
+			"check_not_grounded",
+			ctx.retrievalAttempted
+				? NO_LESSON_CONTENT_MESSAGE
+				: UNGROUNDED_CHECK_MESSAGE,
+		);
+	}
 
 	const question = request.question.trim();
 	if (

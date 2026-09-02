@@ -39,6 +39,7 @@ function baseCheckCtx() {
 		userId: "user-1",
 		lessonConcepts: CONCEPTS,
 		groundedByRetrieval: true,
+		retrievalAttempted: false,
 		denials: undefined as ReturnType<typeof newTurnDenialLedger> | undefined,
 	};
 }
@@ -524,6 +525,65 @@ describe("the two classes of denial", () => {
 		// outside the allowlist; it used to be an ungrounded turn, which item 16
 		// reclassified as routine — the property is unchanged, its example moved.
 		expect(outcomes()).toEqual(["tool_call_declined", "unsafe_tool_call"]);
+	});
+
+	/**
+	 * The ledger keys on the rule as well as the outcome, and this is the case
+	 * that forced it. Item 16 made the sequence "author ungrounded, get told to
+	 * retrieve, retrieve, author again" the intended path — and under an
+	 * outcome-only key the second attempt's structural rule was swallowed,
+	 * because `check_not_grounded` had already spent the `tool_call_declined`
+	 * bucket. S13 §33 names the rate of `tool_call_declined` BY RULE ID as the
+	 * lever for closing the authoring-refusal gap, so deduping the id away is
+	 * deduping away the payload.
+	 */
+	/**
+	 * The message that names `retrieve_lesson_context` is only useful while
+	 * retrieving is still worth doing. On a lesson with no indexed chunks the
+	 * retrieval tool returns its sentinel and leaves the turn ungrounded, so the
+	 * instruction asks the model to repeat what it just did — and the loop only
+	 * ends at AGENT_RECURSION_LIMIT, where the student gets an error instead of
+	 * an answer. Same rule, same class, terminal wording.
+	 */
+	it("stops asking for a retrieval that has already returned nothing", () => {
+		const result = authorizeAskConceptCheck(
+			wellFormed,
+			checkCtx({ groundedByRetrieval: false, retrievalAttempted: true }),
+		);
+
+		if (result.authorized) throw new Error("must be refused");
+
+		expect(outcomes()).toEqual(["tool_call_declined"]);
+		expect(ruleIdsLogged()).toEqual(["check_not_grounded"]);
+		expect(result.message).not.toContain("retrieve_lesson_context");
+	});
+
+	it("does not let one decline swallow a different rule in the same turn", () => {
+		const ledger = newTurnDenialLedger();
+
+		authorizeAskConceptCheck(
+			wellFormed,
+			checkCtx({ groundedByRetrieval: false, denials: ledger }),
+		);
+		authorizeAskConceptCheck(
+			{ ...wellFormed, question: "Why?" },
+			checkCtx({ denials: ledger }),
+		);
+
+		expect(ruleIdsLogged()).toEqual(["check_not_grounded", "question_length"]);
+	});
+
+	it("still emits one event when the same rule is tripped twice in a turn", () => {
+		const ledger = newTurnDenialLedger();
+
+		for (let i = 0; i < 3; i++) {
+			authorizeAskConceptCheck(
+				{ ...wellFormed, question: "Why?" },
+				checkCtx({ denials: ledger }),
+			);
+		}
+
+		expect(ruleIdsLogged()).toEqual(["question_length"]);
 	});
 
 	it("emits every denial when no turn ledger is supplied", () => {

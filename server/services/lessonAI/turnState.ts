@@ -22,6 +22,15 @@ export type TutorTurnState = {
 	 */
 	grounded: boolean;
 	/**
+	 * True once retrieval has RUN this turn, whether or not it found anything.
+	 *
+	 * `grounded` answers "did lesson text reach the model"; this answers "was
+	 * looking for it already tried". They disagree on exactly one lesson — one
+	 * with no indexed chunks — and that is the only signal available for telling
+	 * the tutor to stop asking for a retrieval that cannot help.
+	 */
+	retrievalAttempted: boolean;
+	/**
 	 * The one check authored this turn, held here rather than written. It is
 	 * committed with the assistant message, after the reply is judged valid, so a
 	 * rejected or abandoned turn leaves no artifact by construction rather than by
@@ -34,6 +43,7 @@ export type TutorTurnState = {
 
 export const newTurnState = (): TutorTurnState => ({
 	grounded: false,
+	retrievalAttempted: false,
 	pendingCheck: null,
 	denials: newTurnDenialLedger(),
 });
