@@ -321,6 +321,11 @@ describe("authorizeAskConceptCheck", () => {
 		);
 
 		expect(ruleIdsLogged()).toEqual(["concept_not_allowlisted"]);
+		// The outcome, not just the id. Since item 16 the two rules refuse through
+		// different helpers, so reordering them would change what a caller with no
+		// right to ask is REPORTED as — from an attack to routine — and the id
+		// assertion alone would not have noticed.
+		expect(outcomes()).toEqual(["unsafe_tool_call"]);
 	});
 
 	it("names no concept and no authored text in the event it emits", () => {
