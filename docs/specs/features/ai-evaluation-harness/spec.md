@@ -48,6 +48,13 @@ assert on stops being invisible.
   `HAND_WRITTEN_BY_DESIGN`.
 - Hold every dataset to a floor — parses as JSONL, at least five rows, unique ids — enforced by
   `datasets.contract.test.ts`.
+- Price an eval that drives a graph **node** rather than an agent (`usage.ts`): tokens and latency
+  are recorded per model call off the callback, because a node returns its parsed structured output
+  and the message carrying `usage_metadata` is gone before the eval sees a result. Reported as mean
+  prompt and completion tokens, mean and p95 latency per call, and the run's cost.
+- Hold a golden set's free-text context to what its author could have written **before** seeing the
+  answer (`confidenceScoreDataset.contract.test.ts`). A field that grades its own row hands the model
+  the label through the prompt.
 
 ## Unsupported use cases
 
@@ -85,6 +92,13 @@ rubric and return 5". A scored reply is untrusted for exactly the reason retriev
 
 - **Per-run console report** — category table, rows that fail every sample, rows that are flaky, and
   the delta against the baseline. Consumed by a developer, not persisted.
+- **Per-call cost line** — calls, mean prompt and completion tokens, mean and p95 latency, printed
+  beside the run total by the evals that record usage. p95 is nearest-rank — on the 20 calls the
+  `confidenceScore` set produces it names the 19th, the second-slowest, rather than interpolating a
+  call that never happened — and the line carries the concurrency it was measured at (`@20-way`),
+  because a row fired through `Promise.all` queues at the provider and its latency is not a
+  production per-call number. A run that recorded nothing says so in words: zeros on this line would
+  otherwise read as a free run rather than as a recorder wired into nothing.
 - **Baseline file** — `{ recordedAt, model, promptHash, samples, judgeModel, categories[] }`, committed to git so
   a delta is reviewable in the same diff as the prompt change that caused it.
 - **Judge scores** — `{ relevance, faithfulness, completeness, groundedness, rationale }`, each axis
@@ -101,6 +115,7 @@ Known limits rather than asserting them away.
 |---|---|---|
 | Dataset load | Zod parse per row, with the line number named | throw — a malformed golden set must not be silently skipped |
 | Dataset shape | ≥5 rows, unique ids, valid JSONL | `datasets.contract.test.ts` fails in `pnpm test:unit` |
+| **Dataset context honesty** | no row's conversational context grades the draft or counts what it holds | `confidenceScoreDataset.contract.test.ts` fails in `pnpm test:unit` |
 | Eval fidelity | no eval declares its own system prompt | `promptFidelity.contract.test.ts` fails in `pnpm test:unit` |
 | Agent reply | the row's `tools_called` / `tools_not_called` / `answer_contains` / `answer_excludes` | row scored as failed, with the specific reason printed |
 | **Judge input** | the text the tutor's tools returned *this attempt*, recorded at the point of service — never reconstructed from the row | `servedContent.test.ts`; a reconstruction graded 9 of 24 rows against content the tutor never saw |
@@ -136,7 +151,17 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
 10. A baseline comparison reports a change in the authored-check rates as it reports a change in a
     category — as a rate, since `authored` is how many checks the model chose to write that run and
     moves on its own. A run that authored nothing has no rate and reports none.
-11. Every figure quoted in this spec, [`ai-eval-strategy.md`](../../ai-eval-strategy.md),
+11. An eval that drives a graph node records each model call's tokens and latency through a callback
+    handler passed in the node's own `RunnableConfig`, with the node itself unchanged, and awaits the
+    handler so a row run under `Promise.all` is charged its own call rather than the queue's timing.
+    A call the provider reports no usage for **and a call that errored** are recorded at zero, never
+    dropped — a dropped row would shrink the denominator of every mean without saying so, and a
+    timed-out call is the most expensive thing that could go missing from a tail statistic.
+12. A dataset field that the prompt renders as conversation context carries only what its author
+    could have written before seeing the expected answer. A contract test fails on grading vocabulary
+    and on counts of what the draft contains. This one cannot be caught by a threshold: a leak of
+    this shape moves every score **up**, so no run, gate or baseline delta can surface it.
+13. Every figure quoted in this spec, [`ai-eval-strategy.md`](../../ai-eval-strategy.md),
     [`ai-eval-rubric.md`](../../ai-eval-rubric.md), ADR-031 and
     [`ai-tutor-guardrails/security.md`](../ai-tutor-guardrails/security.md) matches the dataset and
     the baseline it comes from, and each of those documents states a reconciliation date no earlier
@@ -245,6 +270,8 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Which categories are gated, and that no adversarial category is | `evals/lessonAI/tutorDataset.test.ts` |
 | Prompt fidelity, including six ways to re-introduce a hand-written prompt | `evals/_shared/promptFidelity.contract.test.ts` |
 | Dataset floors: JSONL parses, ≥5 rows, unique ids | `evals/datasets/datasets.contract.test.ts` |
+| Usage recorder: a call is charged to its own row under concurrency; an unreported usage, and a call that errored, are booked at zero rather than dropped; a call that never ended reports as open; `takeCalls` empties; p95 by nearest rank on 0, 1 and 20 calls | `evals/_shared/usage.test.ts` |
+| `confidenceScore` set: no context field grades its row or counts the draft, rows carry off-step and multi-turn messages, `expected` stays untouched | `evals/courseAI/confidenceScoreDataset.contract.test.ts` |
 | Tutor dataset: category coverage, every row assertable, bait rows stage empty retrieval, tool-abuse rows forbid the write tool, leak rows use real markers | `evals/lessonAI/tutorDataset.contract.test.ts` |
 | Judged categories are the ones whose quality is a judgement | `evals/lessonAI/tutorDataset.test.ts` |
 | Judge schema bounds; a failure is never a score; failure reasons distinguish a failed call from an unscorable answer | `evals/_shared/judge.test.ts` |
@@ -290,6 +317,29 @@ Online, `pnpm eval`, never in CI: `lessonAI:tutor` (54 rows × 3 samples, 15 cat
   set was labelled valid because a retry-plus-new-lesson path looked reasonable; the critic rejected
   it 3/3 because `REFLECT_SYSTEM_PROMPT` never says how `RETRY_QUIZ` counts. The label was wrong and
   the prompt is ambiguous — both are recorded in that row's `note`.
+- **A dataset can leak its own label, and no threshold will tell you.** The `confidenceScore` set's
+  `history` field held the author's verdict on each row ("vague curriculum" on the false rows, "4
+  solid objectives" on the true ones) and the prompt renders that field as conversation context, so
+  the model was reading the label instead of judging the extraction. The tell is the direction: a
+  leak makes every number **better**, which is why two runs, a gate and a baseline delta all reported
+  a healthy node. Only reading the field finds it. When a set looks strong, read what the prompt
+  actually renders — and when the honest set then fails its gate, record the failure rather than
+  re-tuning the threshold to it.
+- **Removing the leak did not remove the correlation, and the set says which it fixed.** The
+  rewritten `confidenceScore` briefs are authored — an instructor could type each one before seeing
+  the extraction — but the two label classes still separate almost perfectly by **length** (in-step
+  characters: mean 186 on `complete: true` against 69 on `false`; a 100-character threshold sorts 19
+  of 20 rows, AUC 0.99, against the prompt's own 73.3%). That is not a leak, it is a missing
+  counterfactual: the set holds no long, careful brief whose extraction still failed, and no terse
+  one whose extraction came out rich. Until it does, the prompt's last guideline — *"a brief
+  conversation is not a reason to score low — judge the DATA, not the chat length"* — has nothing
+  testing it. Adding those rows moves the calibration figure, so it is a dataset task of its own, not
+  a footnote to the leak fix.
+- **The honest set puts the production prompt below its own gate:** calibration **73.3%** against the
+  0.85 threshold, stable across two runs, with four high-confidence rows that would auto-advance past
+  the instructor's Accept button. That is a finding about `confidenceScore`'s prompt, not about the
+  harness — it belongs to the course-builder surface and is recorded here only so the number is
+  findable from the set that produced it.
 - **Deterministic first.** Anything checkable with an assertion is checked with one; the judge is
   reserved for what has no correct string. The reverse — judging what a substring could settle — is
   slower, costlier and noisier for no gain.
