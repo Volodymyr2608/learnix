@@ -3,7 +3,7 @@
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session — the warm
 > context is the cheapest place to run TDD loops (ADR-030). Dispatch a subagent only for work that
 > *reads a lot and returns little*; reconnaissance goes to `Explore`, never `general-purpose`.
-> Steps use checkbox (`- [x]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
+> Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
 > criteria — scope item 16, "Grounding's denial class".
 
 **Goal:** stop `check_not_grounded` from firing the zero-baseline security alert on cooperative
@@ -91,8 +91,8 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
 - **AC:** spec.md item 16, bullets 1–2
 - **Commit:** `fix(tutor): decline an ungrounded check instead of alerting on it`
 
-- [x] Write the failing test · [ ] Run it, see it FAIL (`:387` expects `unsafe_tool_call`) · [ ] Implement
-- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [x] Run it, see it FAIL (`:387` expects `unsafe_tool_call`) · [x] Implement
+- [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
 
 > Update `decline`'s docstring at `:93` in the same commit — it currently names grounding as staying
 > on `deny`, and a comment that contradicts the code beneath it is how the next reader re-introduces
@@ -114,8 +114,8 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
 - **AC:** spec.md item 16, bullet 3
 - **Commit:** `test(tutor): pin every authoring rule to the outcome it emits`
 
-- [x] Write the failing test · [ ] Run it, see it FAIL (before Task 1 lands, or by flipping one row) · [ ] Implement
-- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [x] Run it, see it FAIL (before Task 1 lands, or by flipping one row) · [x] Implement
+- [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
 
 ---
 
@@ -130,8 +130,8 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
 - **AC:** spec.md item 16, bullet 4
 - **Commit:** `test(tutor): assert authority is still decided before grounding`
 
-- [x] Write the failing test · [ ] Run it, see it FAIL (temporarily reorder the two rules to prove it) · [ ] Implement
-- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [x] Run it, see it FAIL (temporarily reorder the two rules to prove it) · [x] Implement
+- [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
 
 ---
 
@@ -150,8 +150,8 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
 - **AC:** spec.md item 16, bullets 5–6
 - **Commit:** `test(evals): measure whether a grown thread can still reach a concept check`
 
-- [x] Write the rows · [ ] Run the eval, record both rates · [ ] Update the baseline
-- [x] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the rows · [x] Run the eval, record both rates · [x] Update the baseline
+- [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
 
 > **What these rows cannot do, and it must be said in the note field.** The eval never runs
 > `authorizeAskConceptCheck` on the live turn — the `ask_concept_check` stub does not call it
@@ -177,7 +177,7 @@ below — the announce-a-question defect, MQ-4's question quality, and stale les
   `/spec`.
 - **Commit:** `docs(adr): record grounding as a quality control, not a security one`
 
-- [x] Write the ADR · [ ] `pnpm spec:sync` · [ ] Commit
+- [x] Write the ADR · [x] `pnpm spec:sync` · [x] Commit
 
 ---
 
