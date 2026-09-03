@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { isNodeAbort } from "@/server/services/courseAI/graph/nodeErrors";
+import { isNodeAbort } from "@/server/services/_shared/aiErrors/errorShape";
 import { isCaptured, markCaptured } from "./capturedMarker";
 import { fingerprintFor } from "./fingerprint";
 import {
