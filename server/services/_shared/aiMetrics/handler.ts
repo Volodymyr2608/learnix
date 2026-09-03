@@ -207,3 +207,16 @@ class AiMetricsHandler extends BaseCallbackHandler {
 
 export const aiMetricsHandler = (ctx: AiMetricContext): AiMetricsHandler =>
 	new AiMetricsHandler(ctx);
+
+/**
+ * How a TURN ended, from whatever escaped it.
+ *
+ * Written as early returns rather than chained ternaries — the constitution
+ * forbids the latter, and three outcomes on one predicate chain is exactly the
+ * shape that rule exists for.
+ */
+export const turnOutcomeOf = (err: unknown): AiMetricOutcome => {
+	if (isNodeAbort(err)) return "aborted";
+	if (isRetryable(err)) return "retryable_error";
+	return "fatal_error";
+};

@@ -5,6 +5,11 @@ import {
 	GRAPH_RECURSION_LIMIT,
 	withTurnDeadline,
 } from "@/server/services/_shared/aiLimits/modelDefaults";
+import {
+	aiMetricsHandler,
+	turnOutcomeOf,
+} from "@/server/services/_shared/aiMetrics/handler";
+import type { AiMetricOutcome } from "@/server/services/_shared/aiMetrics/types";
 import { traced } from "@/server/services/_shared/tracing";
 import { CourseAIError } from "@/server/services/courseAI/courseAI.errors";
 import { courseBuilderGraph } from "@/server/services/courseAI/graph/graph";
@@ -16,6 +21,33 @@ import {
 import { logger } from "@/server/utils/logger";
 
 const HISTORY_LIMIT = 4;
+
+/**
+ * Wraps the graph's event stream so the turn is summarised exactly once, at
+ * whichever exit the consumer actually takes.
+ *
+ * `finally` rather than a trailing statement, for the reason the route's own
+ * finally-block records: the consumer breaks its `for await` the moment the
+ * signal trips, which unwinds this generator from its suspended `yield` and
+ * skips every statement after the loop. `finally` is the only construct that
+ * survives that, so it is the only place a summary is guaranteed to be written.
+ */
+async function* metered<T>(
+	stream: AsyncIterable<T>,
+	handler: ReturnType<typeof aiMetricsHandler>,
+	signal?: AbortSignal,
+): AsyncGenerator<T> {
+	let outcome: AiMetricOutcome = "ok";
+
+	try {
+		for await (const event of stream) yield event;
+	} catch (err) {
+		outcome = turnOutcomeOf(err);
+		throw err;
+	} finally {
+		handler.emitSummary(signal?.aborted ? "aborted" : outcome);
+	}
+}
 
 export class CourseAIService {
 	async getOrCreateCourseGeneration({
@@ -136,11 +168,20 @@ export class CourseAIService {
 			userMessage,
 			mode: "chat",
 		});
+		const handler = aiMetricsHandler({
+			feature: "courseAI",
+			userId: courseGeneration.instructorId,
+		});
 		const run = traced(
 			"courseAI.graph",
 			async () =>
 				courseBuilderGraph.streamEvents(initialState, {
 					version: "v2",
+					// Attached once, here. LangGraph propagates the config into every
+					// node and each node forwards it to model.invoke, so no node needs
+					// to know it is being measured — and a node added later is metered
+					// without anyone remembering to do anything.
+					callbacks: [handler],
 					// MODEL_TIMEOUT_MS bounds one CALL; this bounds the TURN. A chained
 					// graph can spend the per-call budget many times over, so the
 					// caller's own signal is combined with a deadline.
@@ -154,7 +195,7 @@ export class CourseAIService {
 				model: "gpt-4o-mini",
 			},
 		);
-		return run();
+		return metered(await run(), handler, signal);
 	}
 
 	async runFinalize({
@@ -169,11 +210,20 @@ export class CourseAIService {
 			userMessage: "",
 			mode: "finalize",
 		});
+		const handler = aiMetricsHandler({
+			feature: "courseAI",
+			userId: courseGeneration.instructorId,
+		});
 		const run = traced(
 			"courseAI.graph",
 			async () =>
 				courseBuilderGraph.streamEvents(initialState, {
 					version: "v2",
+					// Attached once, here. LangGraph propagates the config into every
+					// node and each node forwards it to model.invoke, so no node needs
+					// to know it is being measured — and a node added later is metered
+					// without anyone remembering to do anything.
+					callbacks: [handler],
 					// MODEL_TIMEOUT_MS bounds one CALL; this bounds the TURN. A chained
 					// graph can spend the per-call budget many times over, so the
 					// caller's own signal is combined with a deadline.
@@ -187,7 +237,7 @@ export class CourseAIService {
 				model: "gpt-4o-mini",
 			},
 		);
-		return run();
+		return metered(await run(), handler, signal);
 	}
 }
 
