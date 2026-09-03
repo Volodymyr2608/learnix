@@ -1,0 +1,154 @@
+/**
+ * Token accounting for evals that call a graph NODE rather than a model.
+ *
+ * `lessonAI/tutor.eval.ts` reads usage straight off the messages the agent
+ * returns. A `courseAI` node cannot be read that way: `confidenceScore` returns
+ * `{ confidence, shouldAutoAdvance }` — the parsed structured output — and the
+ * message that carried `usage_metadata` is gone by the time the eval sees a
+ * result. The callback is the only surface where the usage still exists.
+ *
+ * This is the eval-side twin of `server/services/_shared/aiMetrics/handler.ts`
+ * and deliberately not a copy of it: the production handler writes log lines and
+ * totals a turn, while an eval needs the per-call rows to average. What the two
+ * share — the price table, the `usage_metadata` reader, the model-label reader —
+ * is imported from the one place that owns it, for the reason ADR-035 gives:
+ * two readers drift, and the two answers then disagree without either looking
+ * wrong.
+ */
+
+import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+import type { Serialized } from "@langchain/core/load/serializable";
+import type { LLMResult } from "@langchain/core/outputs";
+import { modelOf } from "@/server/services/_shared/aiMetrics/handler";
+import { recordUsage, usageOfMessage } from "./cost";
+
+export type EvalCall = {
+	model: string;
+	latencyMs: number;
+	inputTokens: number;
+	outputTokens: number;
+};
+
+/**
+ * `_awaitHandler: true` is load-bearing, and the reason is the defect ADR-035
+ * calls the callback-ordering hazard: by default LangChain hands every hook to a
+ * process-global queue of concurrency 1 without awaiting it, so `handleLLMEnd`
+ * runs at some point AFTER the call it belongs to resolved. In an eval that
+ * fires every row through `Promise.all`, that costs twice — rows finish before
+ * their own usage is booked, and each `latencyMs` measures when the queue got
+ * around to the row rather than what the provider took.
+ *
+ * Awaiting is safe here for the same reason it was rejected in production: it
+ * moves the bookkeeping inline into the model call. Inline is wrong when the
+ * call is a student's 3s guard budget, and right when the caller is a suite
+ * whose whole purpose is to measure that call.
+ */
+class EvalUsageHandler extends BaseCallbackHandler {
+	name = "evalUsage";
+
+	private readonly open = new Map<
+		string,
+		{ startedAt: number; model: string }
+	>();
+	private calls: EvalCall[] = [];
+
+	constructor() {
+		super({ _awaitHandler: true });
+	}
+
+	handleChatModelStart(
+		_llm: Serialized,
+		_messages: unknown[][],
+		runId: string,
+		_parentRunId?: string,
+		extraParams?: Record<string, unknown>,
+	): void {
+		this.open.set(runId, {
+			startedAt: Date.now(),
+			model: modelOf(extraParams),
+		});
+	}
+
+	handleLLMEnd(output: LLMResult, runId: string): void {
+		const call = this.open.get(runId);
+		// An end with no start is not this recorder's call — dropping it is what
+		// keeps a shared process from booking another eval's spend here.
+		if (!call) return;
+		this.open.delete(runId);
+
+		const message = (
+			output.generations?.[0]?.[0] as { message?: unknown } | undefined
+		)?.message;
+		const usage = usageOfMessage(message);
+
+		// Both, not either: `recordUsage` totals the run for `formatRunCost`, the
+		// row is what a mean is computed from. A call the provider reported no
+		// usage for is still recorded — at zero tokens, never dropped, because a
+		// dropped row shrinks the denominator of every mean silently.
+		recordUsage(call.model, usage);
+		this.calls.push({
+			model: call.model,
+			latencyMs: Date.now() - call.startedAt,
+			inputTokens: usage.inputTokens,
+			outputTokens: usage.outputTokens,
+		});
+	}
+
+	takeCalls(): EvalCall[] {
+		const taken = this.calls;
+		this.calls = [];
+		return taken;
+	}
+}
+
+export const usageRecorder = () => {
+	const handler = new EvalUsageHandler();
+
+	return {
+		handler,
+		/** Pass as a node's `RunnableConfig`: `confidenceScore(state, recorder.config)`. */
+		config: { callbacks: [handler] },
+		/** Empties, so a second read is not the first run counted twice. */
+		takeCalls: (): EvalCall[] => handler.takeCalls(),
+	};
+};
+
+export type CallSummary = {
+	calls: number;
+	meanPromptTokens: number;
+	meanCompletionTokens: number;
+	meanLatencyMs: number;
+	p95LatencyMs: number;
+};
+
+const mean = (values: readonly number[]): number =>
+	values.length === 0
+		? 0
+		: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+
+/**
+ * Nearest rank: the smallest observed value at or above the 95th percentile,
+ * never an interpolation between two calls that never happened. On the sample
+ * sizes an eval produces (19 rows here) that is the second-slowest call, and
+ * saying so is more honest than a smoothed number.
+ */
+const p95 = (values: readonly number[]): number => {
+	if (values.length === 0) return 0;
+	const sorted = [...values].sort((a, b) => a - b);
+	return sorted[Math.ceil(sorted.length * 0.95) - 1] ?? 0;
+};
+
+export const summariseCalls = (calls: readonly EvalCall[]): CallSummary => ({
+	calls: calls.length,
+	meanPromptTokens: mean(calls.map((call) => call.inputTokens)),
+	meanCompletionTokens: mean(calls.map((call) => call.outputTokens)),
+	meanLatencyMs: mean(calls.map((call) => call.latencyMs)),
+	p95LatencyMs: p95(calls.map((call) => call.latencyMs)),
+});
+
+/** One terminal line, in the shape `formatRunCost` prints its own. */
+export const formatCallStats = (summary: CallSummary): string =>
+	`  ${"per call".padEnd(14)} ${String(summary.calls).padStart(4)} calls  ` +
+	`${String(summary.meanPromptTokens).padStart(7)} prompt  ` +
+	`${String(summary.meanCompletionTokens).padStart(7)} out  ` +
+	`mean ${summary.meanLatencyMs}ms  p95 ${summary.p95LatencyMs}ms`;

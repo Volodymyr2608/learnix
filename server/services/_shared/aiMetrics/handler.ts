@@ -31,7 +31,7 @@ const UNKNOWN_MODEL = "unknown";
  * Read defensively: this is provider-shaped data, and a shape change must
  * degrade the model label rather than throw inside a student's turn.
  */
-const modelOf = (extraParams?: Record<string, unknown>): string => {
+export const modelOf = (extraParams?: Record<string, unknown>): string => {
 	const params = extraParams?.invocation_params as
 		| { model?: unknown; model_name?: unknown }
 		| undefined;
