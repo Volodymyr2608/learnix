@@ -1,8 +1,9 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 import { UNTRUSTED_DATA_CLAUSE } from "./messages";
-import type { GuardDomain } from "./types";
+import type { AiFeature, GuardDomain } from "./types";
 import { wrapUntrustedContent } from "./wrapUntrusted";
 
 const GuardOutputSchema = z.object({
@@ -51,6 +52,7 @@ const L2_TIMEOUT_MS = 3_000;
 export const checkTopicRelevance = async (
 	text: string,
 	domain: GuardDomain,
+	feature?: AiFeature,
 ): Promise<{ onTopic: boolean; reason: string }> => {
 	const model = new ChatOpenAI({
 		model: "gpt-4o-mini",
@@ -60,8 +62,23 @@ export const checkTopicRelevance = async (
 		maxRetries: 1,
 	}).withStructuredOutput(GuardOutputSchema);
 
-	return model.invoke([
-		{ role: "system", content: buildSystemPrompt(domain) },
-		{ role: "user", content: wrapUntrustedContent(text, "course_data") },
-	]);
+	// L2 runs before every tutor turn, so leaving it unmeasured understates the
+	// surface it screens for by one model call in two. It emits a CALL line only
+	// and never a turn summary: this layer runs on behalf of whichever surface
+	// called it (SHARED_MODEL_CALLERS) and does not own that surface's turn.
+	//
+	// Observation only — the config is additive, and the verdict, the 3s budget
+	// and the fail-open path are all unchanged. Proven in both directions in
+	// topicRelevance.metrics.test.ts, per documentation-process.md §3d.
+	const metrics = feature
+		? [aiMetricsHandler({ feature, node: "l2_topic_relevance" })]
+		: undefined;
+
+	return model.invoke(
+		[
+			{ role: "system", content: buildSystemPrompt(domain) },
+			{ role: "user", content: wrapUntrustedContent(text, "course_data") },
+		],
+		{ callbacks: metrics },
+	);
 };
