@@ -4,6 +4,10 @@ import {
 	GRAPH_RECURSION_LIMIT,
 	withTurnDeadline,
 } from "@/server/services/_shared/aiLimits/modelDefaults";
+import {
+	aiMetricsHandler,
+	turnOutcomeOf,
+} from "@/server/services/_shared/aiMetrics/handler";
 import { validateModelText } from "@/server/services/_shared/aiOutput";
 import { traced } from "@/server/services/_shared/tracing";
 import {
@@ -91,29 +95,43 @@ class LearningPathAIService {
 	async regenerate(studentId: string, courseId: string) {
 		await checkRateLimit(studentId, courseId);
 
-		return traced(
-			"learning-path",
-			async () => {
-				const result = await this.graph.invoke(
-					{ studentId, courseId },
-					{
-						recursionLimit: GRAPH_RECURSION_LIMIT,
-						signal: withTurnDeadline(),
-					},
-				);
-				assertModelTextClean(result, { studentId, courseId });
+		const metrics = aiMetricsHandler({
+			feature: "learningPathAI",
+			userId: studentId,
+			courseId,
+		});
 
-				return learningPathRepository.upsertPath({
-					studentId,
-					courseId,
-					steps: result.finalSteps as PathStep[],
-					summary: result.summary,
-					weakConcepts: result.generatedWeakConcepts,
-					model: "gpt-4o-mini",
-				});
-			},
-			{ feature: "learning-path", userId: studentId, courseId },
-		)();
+		try {
+			return await traced(
+				"learning-path",
+				async () => {
+					const result = await this.graph.invoke(
+						{ studentId, courseId },
+						{
+							recursionLimit: GRAPH_RECURSION_LIMIT,
+							signal: withTurnDeadline(),
+							callbacks: [metrics],
+						},
+					);
+					assertModelTextClean(result, { studentId, courseId });
+
+					return learningPathRepository.upsertPath({
+						studentId,
+						courseId,
+						steps: result.finalSteps as PathStep[],
+						summary: result.summary,
+						weakConcepts: result.generatedWeakConcepts,
+						model: "gpt-4o-mini",
+					});
+				},
+				{ feature: "learning-path", userId: studentId, courseId },
+			)();
+		} catch (error) {
+			metrics.emitSummary(turnOutcomeOf(error));
+			throw error;
+		} finally {
+			metrics.emitSummary("ok");
+		}
 	}
 
 	async *streamRegenerate(studentId: string, courseId: string) {
@@ -129,46 +147,60 @@ class LearningPathAIService {
 			reflectAndCheck: "Reviewing the path…",
 		};
 
+		const metrics = aiMetricsHandler({
+			feature: "learningPathAI",
+			userId: studentId,
+			courseId,
+		});
+
 		const stream = await this.graph.streamEvents(
 			{ studentId, courseId },
 			{
 				version: "v2",
 				recursionLimit: GRAPH_RECURSION_LIMIT,
 				signal: withTurnDeadline(),
+				callbacks: [metrics],
 			},
 		);
 
 		let finalState: PathState | null = null;
 
-		for await (const event of stream) {
-			if (event.event === "on_chain_start" && event.name in nodeProgressMap) {
-				yield {
-					type: "progress" as const,
-					message: nodeProgressMap[event.name],
-				};
+		try {
+			for await (const event of stream) {
+				if (event.event === "on_chain_start" && event.name in nodeProgressMap) {
+					yield {
+						type: "progress" as const,
+						message: nodeProgressMap[event.name],
+					};
+				}
+				if (event.event === "on_chain_end" && event.name === "LangGraph") {
+					finalState = event.data?.output as PathState;
+				}
 			}
-			if (event.event === "on_chain_end" && event.name === "LangGraph") {
-				finalState = event.data?.output as PathState;
-			}
+
+			if (!finalState) return;
+
+			// Same boundary on the streaming path: the progress frames carry no model
+			// prose, so nothing has reached the student yet and the rejection is still
+			// terminal rather than a retraction.
+			assertModelTextClean(finalState, { studentId, courseId });
+
+			const cached = await learningPathRepository.upsertPath({
+				studentId,
+				courseId,
+				steps: finalState.finalSteps as PathStep[],
+				summary: finalState.summary,
+				weakConcepts: finalState.generatedWeakConcepts,
+				model: "gpt-4o-mini",
+			});
+
+			yield { type: "done" as const, result: cached };
+		} catch (error) {
+			metrics.emitSummary(turnOutcomeOf(error));
+			throw error;
+		} finally {
+			metrics.emitSummary("ok");
 		}
-
-		if (!finalState) return;
-
-		// Same boundary on the streaming path: the progress frames carry no model
-		// prose, so nothing has reached the student yet and the rejection is still
-		// terminal rather than a retraction.
-		assertModelTextClean(finalState, { studentId, courseId });
-
-		const cached = await learningPathRepository.upsertPath({
-			studentId,
-			courseId,
-			steps: finalState.finalSteps as PathStep[],
-			summary: finalState.summary,
-			weakConcepts: finalState.generatedWeakConcepts,
-			model: "gpt-4o-mini",
-		});
-
-		yield { type: "done" as const, result: cached };
 	}
 }
 

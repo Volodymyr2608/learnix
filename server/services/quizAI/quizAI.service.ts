@@ -2,6 +2,10 @@ import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import {
+	aiMetricsHandler,
+	turnOutcomeOf,
+} from "@/server/services/_shared/aiMetrics/handler";
 import { validateModelText } from "@/server/services/_shared/aiOutput";
 import { retagWithAllowlist } from "@/server/services/_shared/concepts/conceptKey";
 import { traced } from "@/server/services/_shared/tracing";
@@ -63,6 +67,14 @@ class QuizAIService {
 		instructorId: string,
 		regenerate: boolean,
 	): Promise<QuizQuestion[]> {
+		// One handler for the whole generation, not one per attempt: the three
+		// retries are the same turn, and their amplification is exactly what the
+		// summary should make countable.
+		const metrics = aiMetricsHandler({
+			feature: "quizAI",
+			userId: instructorId,
+		});
+
 		const coreGenerate = traced(
 			"quizAI.generateForLesson",
 			async (
@@ -137,9 +149,10 @@ class QuizAIService {
 							? `Generate ${n} questions for this lesson. Important correction from previous attempt: ${hint}`
 							: `Generate ${n} questions for this lesson.`;
 
-						const result = await agent.invoke({
-							messages: [{ role: "user", content: userMessage }],
-						});
+						const result = await agent.invoke(
+							{ messages: [{ role: "user", content: userMessage }] },
+							{ callbacks: [metrics] },
+						);
 
 						const questions = (
 							result.structuredResponse as { questions: QuizQuestion[] }
@@ -202,7 +215,16 @@ class QuizAIService {
 			{ feature: "quiz", userId: instructorId, model: "gpt-4o-mini" },
 		);
 
-		return coreGenerate(lessonId, count, regenerate);
+		// The turn ends here however it ends — a summary in a `finally` is what
+		// keeps a failed or abandoned generation inside the denominator.
+		try {
+			return await coreGenerate(lessonId, count, regenerate);
+		} catch (error) {
+			metrics.emitSummary(turnOutcomeOf(error));
+			throw error;
+		} finally {
+			metrics.emitSummary("ok");
+		}
 	}
 }
 

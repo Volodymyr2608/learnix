@@ -2,6 +2,10 @@ import type { Prisma } from "@/generated/prisma";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import {
+	aiMetricsHandler,
+	turnOutcomeOf,
+} from "@/server/services/_shared/aiMetrics/handler";
 import { validateModelText } from "@/server/services/_shared/aiOutput";
 import { traced } from "@/server/services/_shared/tracing";
 import { insightsChain } from "./chains/parallel.chain";
@@ -63,6 +67,11 @@ const reportModelText = (
 
 class LessonInsightsAIService {
 	async generateForLesson(lessonId: string, instructorId: string) {
+		const metrics = aiMetricsHandler({
+			feature: "lessonInsightsAI",
+			userId: instructorId,
+		});
+
 		const coreGenerate = traced(
 			"lessonInsightsAI.generateForLesson",
 			async (lId: string) => {
@@ -91,9 +100,10 @@ class LessonInsightsAIService {
 					existing?.contentHash === contentHash && existing.concepts.length > 0;
 				if (cacheIsUsable) return existing;
 
-				const result = await insightsChain.invoke({
-					content: wrapUntrustedContent(lesson.content, "lesson_content"),
-				});
+				const result = await insightsChain.invoke(
+					{ content: wrapUntrustedContent(lesson.content, "lesson_content") },
+					{ callbacks: [metrics] },
+				);
 
 				reportModelText(result, { lessonId: lId, userId: instructorId });
 
@@ -110,7 +120,16 @@ class LessonInsightsAIService {
 			{ feature: "summary", userId: instructorId, model: MODEL },
 		);
 
-		return coreGenerate(lessonId);
+		// The turn ends here however it ends — a summary in a `finally` is what
+		// keeps a failed or abandoned generation inside the denominator.
+		try {
+			return await coreGenerate(lessonId);
+		} catch (error) {
+			metrics.emitSummary(turnOutcomeOf(error));
+			throw error;
+		} finally {
+			metrics.emitSummary("ok");
+		}
 	}
 
 	async getForLesson(lessonId: string, userId: string) {

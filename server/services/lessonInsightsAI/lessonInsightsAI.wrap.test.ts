@@ -41,7 +41,11 @@ describe("lessonInsightsAIService.generateForLesson", () => {
 
 		await lessonInsightsAIService.generateForLesson("lesson-1", "instructor-1");
 
-		expect(mockInvoke).toHaveBeenCalledWith(
+		// Asserted on the FIRST argument rather than the whole call: the chain now
+		// also receives a RunnableConfig carrying the aiMetrics handler, and this
+		// test is about what reaches the model, not about the call's arity.
+		const [input] = mockInvoke.mock.calls[0] ?? [];
+		expect(input).toEqual(
 			expect.objectContaining({
 				content: expect.stringContaining(
 					'<untrusted_data source="lesson_content">',
