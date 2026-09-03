@@ -3,6 +3,11 @@ import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import {
+	type AiMetricsHandler,
+	turnOutcomeOf,
+} from "@/server/services/_shared/aiMetrics/handler";
+import type { AiMetricOutcome } from "@/server/services/_shared/aiMetrics/types";
 import { lessonConceptNames } from "@/server/services/_shared/concepts/lessonConcepts";
 import { traced } from "@/server/services/_shared/tracing";
 import {
@@ -102,6 +107,12 @@ class LessonAIService {
 		studentId: string;
 		userMessage: string;
 		signal?: AbortSignal;
+		/**
+		 * Built by the route before the input guard runs, so the turn's measured
+		 * latency includes the L2 wait the student actually experiences, and so a
+		 * guard-blocked turn still reports a summary.
+		 */
+		metrics: AiMetricsHandler;
 	}) {
 		const {
 			lessonId,
@@ -111,6 +122,7 @@ class LessonAIService {
 			studentId,
 			userMessage,
 			signal,
+			metrics,
 		} = params;
 
 		// Load conversation history and lesson concept list in parallel
@@ -155,6 +167,11 @@ class LessonAIService {
 			turn,
 		});
 
+		// The handler is attached once, at the agent root: the config reaches every
+		// model call underneath it, so no node or tool needs to know it is being
+		// measured. It is CONSTRUCTED by the route, not here — see the param doc.
+		let turnOutcome: AiMetricOutcome = "ok";
+
 		const tracedStream = traced(
 			"lessonAI.streamResponse",
 			async () =>
@@ -164,6 +181,7 @@ class LessonAIService {
 						version: "v2",
 						signal,
 						recursionLimit: AGENT_RECURSION_LIMIT,
+						callbacks: [metrics],
 					},
 				),
 			{ feature: "tutor", userId: studentId, courseId },
@@ -265,6 +283,7 @@ class LessonAIService {
 				}
 			}
 		} catch (error) {
+			turnOutcome = turnOutcomeOf(error);
 			// A mid-stream provider error is the third exit that used to skip the
 			// output boundary with a partial reply already in the browser.
 			await finishWithoutDelivery();
@@ -286,6 +305,13 @@ class LessonAIService {
 			// actually closes the abort bypass. The in-loop call remains for the case
 			// where the service notices first; finishWithoutDelivery is idempotent.
 			if (signal?.aborted) await finishWithoutDelivery();
+
+			// Same construct, same reason as the line above: the consumer can break
+			// its `for await` and unwind this generator from the suspended yield,
+			// skipping every statement after the loop. `finally` is the only place a
+			// summary is guaranteed to be written, and emitSummary is idempotent
+			// because the catch above can reach here too.
+			metrics.emitSummary(signal?.aborted ? "aborted" : turnOutcome);
 		}
 
 		// An abort that lands after the last stream event never reaches the in-loop

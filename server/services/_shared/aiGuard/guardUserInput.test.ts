@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 import { NEUTRAL_REFUSAL_MESSAGE } from "./messages";
 import type { GuardContext } from "./types";
 
@@ -18,6 +19,7 @@ const { guardUserInput } = await import("./guardUserInput");
 const context: GuardContext = {
 	feature: "lessonAI",
 	userId: "user-1",
+	metrics: aiMetricsHandler({ feature: "lessonAI" }),
 	domain: {
 		description: 'the course "Intro to Python"',
 		subject: 'the "Intro to Python" course',
@@ -154,6 +156,7 @@ describe("security taxonomy", () => {
 				feature: "lessonAI",
 				userId: "user-1",
 				domain: { description: "the course", subject: "the course" },
+				metrics: aiMetricsHandler({ feature: "lessonAI" }),
 			},
 		);
 
@@ -170,6 +173,7 @@ describe("security taxonomy", () => {
 			feature: "lessonAI",
 			userId: "user-1",
 			domain: { description: "the course", subject: "the course" },
+			metrics: aiMetricsHandler({ feature: "lessonAI" }),
 		});
 
 		expect(result.outcome).toBe("allow");

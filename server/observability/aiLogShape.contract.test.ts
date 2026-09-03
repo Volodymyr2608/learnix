@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 import { projectError } from "./projectError";
 
 /**
@@ -182,6 +183,7 @@ const drive = async (signal?: AbortSignal) => {
 	for await (const event of lessonAIService.streamResponse({
 		...baseParams,
 		signal,
+		metrics: aiMetricsHandler({ feature: "lessonAI" }),
 	})) {
 		events.push(event);
 	}

@@ -9,6 +9,7 @@ import {
 	checkAiRateLimit,
 	validateMessageLength,
 } from "@/server/services/_shared/aiLimits";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 import { lessonConceptNames } from "@/server/services/_shared/concepts/lessonConcepts";
 import { lessonGuardDomain } from "@/server/services/lessonAI/guardDomain";
 import { lessonAIService } from "@/server/services/lessonAI/lessonAI.service";
@@ -93,9 +94,17 @@ export async function POST(req: Request) {
 
 	const courseTitle = enrollment.course.title;
 
+	// Built BEFORE the guard: L2 is a model call on every turn, so a handler
+	// created later would omit it from the turn's cost and start the latency
+	// clock after a wait the student already spent (up to L2's 3s budget).
+	// It is also what lets a guard-blocked turn report a summary at all — those
+	// paths return below without ever reaching the service.
+	const metrics = aiMetricsHandler({ feature: "lessonAI" });
+
 	const guard = await guardUserInput(message, {
 		feature: "lessonAI",
 		userId: session.user.id,
+		metrics,
 		// The lesson's concepts are part of what counts as on-topic. Without them
 		// a student naming one — the phrasing the tutor's own prompt invites for a
 		// concept check — was refused as a different subject before the tutor ever
@@ -132,6 +141,10 @@ export async function POST(req: Request) {
 		);
 
 	if (guard.outcome === "blocked") {
+		// A blocked turn still happened, and still cost an L2 call. Dropping it
+		// would take blocked turns out of the denominator of every rate computed
+		// from these lines — spec.md Edge cases.
+		metrics.emitSummary("ok");
 		// Persist NOTHING. A stored injection payload is replayed as trusted
 		// HumanMessage history on the next turn, where no L3 wrapping applies —
 		// which would silently defeat this block.
@@ -139,6 +152,7 @@ export async function POST(req: Request) {
 	}
 
 	if (guard.outcome === "off_topic") {
+		metrics.emitSummary("ok");
 		// Both rows persist so the refusal survives a reload — but neither returns
 		// to the model. A rejected turn replayed as trusted HumanMessage history
 		// would turn L2's refusal into a delivery mechanism instead of a boundary.
@@ -186,6 +200,7 @@ export async function POST(req: Request) {
 					studentId: session.user.id,
 					userMessage: message,
 					signal: abortSignal,
+					metrics,
 				})) {
 					if (abortSignal.aborted) {
 						aborted = true;
