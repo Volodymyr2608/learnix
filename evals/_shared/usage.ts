@@ -19,7 +19,7 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { Serialized } from "@langchain/core/load/serializable";
 import type { LLMResult } from "@langchain/core/outputs";
-import { modelOf } from "@/server/services/_shared/aiMetrics/handler";
+import { modelOf } from "@/server/services/_shared/aiMetrics/pricing";
 import { recordUsage, usageOfMessage } from "./cost";
 
 export type EvalCall = {
@@ -94,6 +94,32 @@ class EvalUsageHandler extends BaseCallbackHandler {
 		});
 	}
 
+	/**
+	 * A call that threw is booked at zero tokens, for the same reason a call the
+	 * provider reported no usage for is: dropping it shrinks the denominator of
+	 * every mean without saying so, and a 30s timeout with two retries is a
+	 * ninety-second, fully-paid event that would vanish from `meanLatencyMs`
+	 * entirely. The production twin refuses the same drop (`handler.ts`): a
+	 * failed call is still a call.
+	 */
+	handleLLMError(_error: unknown, runId: string): void {
+		const call = this.open.get(runId);
+		if (!call) return;
+		this.open.delete(runId);
+
+		this.calls.push({
+			model: call.model,
+			latencyMs: Date.now() - call.startedAt,
+			inputTokens: 0,
+			outputTokens: 0,
+		});
+	}
+
+	/** Calls that started and never ended: spend no line would otherwise admit to. */
+	openCalls(): number {
+		return this.open.size;
+	}
+
 	takeCalls(): EvalCall[] {
 		const taken = this.calls;
 		this.calls = [];
@@ -110,6 +136,8 @@ export const usageRecorder = () => {
 		config: { callbacks: [handler] },
 		/** Empties, so a second read is not the first run counted twice. */
 		takeCalls: (): EvalCall[] => handler.takeCalls(),
+		/** Started and never ended — neither `handleLLMEnd` nor `handleLLMError` fired. */
+		openCalls: (): number => handler.openCalls(),
 	};
 };
 
@@ -128,9 +156,11 @@ const mean = (values: readonly number[]): number =>
 
 /**
  * Nearest rank: the smallest observed value at or above the 95th percentile,
- * never an interpolation between two calls that never happened. On the sample
- * sizes an eval produces (19 rows here) that is the second-slowest call, and
- * saying so is more honest than a smoothed number.
+ * never an interpolation between two calls that never happened. Read the index
+ * before quoting the number — on the sample sizes an eval produces it moves:
+ * `ceil(n × 0.95) - 1` is the 19th of 20 calls (the second-slowest) but the
+ * 19th of 19 (the slowest). Saying which call it names is more honest than a
+ * smoothed number that names none.
  */
 const p95 = (values: readonly number[]): number => {
 	if (values.length === 0) return 0;
@@ -146,9 +176,32 @@ export const summariseCalls = (calls: readonly EvalCall[]): CallSummary => ({
 	p95LatencyMs: p95(calls.map((call) => call.latencyMs)),
 });
 
-/** One terminal line, in the shape `formatRunCost` prints its own. */
-export const formatCallStats = (summary: CallSummary): string =>
-	`  ${"per call".padEnd(14)} ${String(summary.calls).padStart(4)} calls  ` +
-	`${String(summary.meanPromptTokens).padStart(7)} prompt  ` +
-	`${String(summary.meanCompletionTokens).padStart(7)} out  ` +
-	`mean ${summary.meanLatencyMs}ms  p95 ${summary.p95LatencyMs}ms`;
+/**
+ * One terminal line, in the shape `formatRunCost` prints its own.
+ *
+ * `concurrency` is not decoration. An eval fires its rows through `Promise.all`,
+ * so these latencies carry the provider's queueing under that many simultaneous
+ * requests and are **not** a production per-call number; printing the width is
+ * what stops the two being read as the same measurement.
+ *
+ * Zero calls says so in words rather than printing `0 calls  mean 0ms`, which
+ * is what a recorder wired into nothing looks like — indistinguishable, on that
+ * line alone, from a run that was free.
+ */
+export const formatCallStats = (
+	summary: CallSummary,
+	concurrency?: number,
+): string => {
+	if (summary.calls === 0) {
+		return `  ${"per call".padEnd(14)} no model calls recorded — is the recorder wired into the node's config?`;
+	}
+
+	const width = concurrency === undefined ? "" : `  @${concurrency}-way`;
+
+	return (
+		`  ${"per call".padEnd(14)} ${String(summary.calls).padStart(4)} calls  ` +
+		`${String(summary.meanPromptTokens).padStart(7)} prompt  ` +
+		`${String(summary.meanCompletionTokens).padStart(7)} out  ` +
+		`mean ${summary.meanLatencyMs}ms  p95 ${summary.p95LatencyMs}ms${width}`
+	);
+};

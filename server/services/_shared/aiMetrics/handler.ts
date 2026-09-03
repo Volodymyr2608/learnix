@@ -8,6 +8,7 @@ import {
 } from "@/server/services/_shared/aiErrors/errorShape";
 import { emitCall, emitTurn } from "@/server/services/_shared/aiMetrics/emit";
 import {
+	modelOf,
 	usageCost,
 	usageOfMessage,
 } from "@/server/services/_shared/aiMetrics/pricing";
@@ -21,22 +22,6 @@ type OpenCall = {
 	startedAt: number;
 	node: string;
 	model: string;
-};
-
-const UNKNOWN_MODEL = "unknown";
-
-/**
- * The model id, dug out of the invocation params the callback carries.
- *
- * Read defensively: this is provider-shaped data, and a shape change must
- * degrade the model label rather than throw inside a student's turn.
- */
-export const modelOf = (extraParams?: Record<string, unknown>): string => {
-	const params = extraParams?.invocation_params as
-		| { model?: unknown; model_name?: unknown }
-		| undefined;
-	const model = params?.model ?? params?.model_name;
-	return typeof model === "string" ? model : UNKNOWN_MODEL;
 };
 
 /**

@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { takeRecordedUsage } from "./cost";
-import { type EvalCall, summariseCalls, usageRecorder } from "./usage";
+import {
+	type EvalCall,
+	formatCallStats,
+	summariseCalls,
+	usageRecorder,
+} from "./usage";
 
 /**
  * A `courseAI` node returns its parsed structured output, not the message that
@@ -134,6 +139,47 @@ describe("usageRecorder", () => {
 		]);
 	});
 
+	/**
+	 * A timeout is the expensive case: 30s with two retries is ninety seconds of
+	 * paid latency. Dropping it would take the run's worst call out of its own
+	 * tail statistic — the one number that exists to show it.
+	 */
+	it("counts a call that errored, so a failure cannot leave the tail", () => {
+		const recorder = usageRecorder();
+
+		start(recorder, "boom");
+		vi.advanceTimersByTime(90_000);
+		recorder.handler.handleLLMError?.(new Error("timeout"), "boom");
+
+		expect(recorder.takeCalls()).toEqual([
+			{
+				model: "gpt-4o-mini",
+				latencyMs: 90_000,
+				inputTokens: 0,
+				outputTokens: 0,
+			},
+		]);
+		expect(recorder.openCalls()).toBe(0);
+	});
+
+	it("ignores an error with no matching start, as it ignores such an end", () => {
+		const recorder = usageRecorder();
+
+		expect(() => {
+			recorder.handler.handleLLMError?.(new Error("x"), "never-started");
+		}).not.toThrow();
+		expect(recorder.takeCalls()).toEqual([]);
+	});
+
+	it("reports a call that started and never ended as still open", () => {
+		const recorder = usageRecorder();
+
+		start(recorder, "hung");
+
+		expect(recorder.takeCalls()).toEqual([]);
+		expect(recorder.openCalls()).toBe(1);
+	});
+
 	it("ignores an end with no matching start instead of throwing mid-run", () => {
 		const recorder = usageRecorder();
 
@@ -184,6 +230,14 @@ describe("summariseCalls", () => {
 		expect(summary.p95LatencyMs).toBe(1900);
 	});
 
+	/**
+	 * The boundary where an off-by-one in a nearest-rank formula surfaces:
+	 * `ceil(1 × 0.95) - 1` is index 0, the only call there is.
+	 */
+	it("names the only call as p95 when the run made exactly one", () => {
+		expect(summariseCalls([call(700)]).p95LatencyMs).toBe(700);
+	});
+
 	it("is empty rather than NaN for a run that made no call", () => {
 		expect(summariseCalls([])).toEqual({
 			calls: 0,
@@ -192,5 +246,35 @@ describe("summariseCalls", () => {
 			meanLatencyMs: 0,
 			p95LatencyMs: 0,
 		});
+	});
+});
+
+describe("formatCallStats", () => {
+	const summary = summariseCalls([
+		{
+			model: "gpt-4o-mini",
+			latencyMs: 800,
+			inputTokens: 400,
+			outputTokens: 20,
+		},
+	]);
+
+	/**
+	 * A recorder wired into nothing produces the same zeros as a free run. The
+	 * line has to say which it was, or a wiring mistake reads as good news.
+	 */
+	it("says a run recorded nothing rather than printing zeros", () => {
+		expect(formatCallStats(summariseCalls([]))).toContain(
+			"no model calls recorded",
+		);
+		expect(formatCallStats(summariseCalls([]))).not.toContain("mean 0ms");
+	});
+
+	it("prints the concurrency the latencies were measured under", () => {
+		expect(formatCallStats(summary, 20)).toContain("@20-way");
+	});
+
+	it("omits the width when the caller did not measure one", () => {
+		expect(formatCallStats(summary)).not.toContain("-way");
 	});
 });

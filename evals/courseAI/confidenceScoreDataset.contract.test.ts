@@ -53,9 +53,13 @@ const VERDICT_WORDS =
  * A count of what the extraction contains ("4 solid objectives", "3 clear
  * prereqs") is the same defect wearing a number: it can only be written by
  * someone reading `draftStepData`.
+ *
+ * `[\s-]` and not `\s`: the leak this set actually carried included
+ * "4-section Node.js curriculum", and a hyphen is the cheapest way to write the
+ * same count.
  */
 const COUNTS_THE_DRAFT =
-	/\b\d+\s+\w*\s*(objectives?|sections?|lessons?|prereqs?|requirements?)\b/i;
+	/\b\d+[\s-]+\w*[\s-]*(objectives?|sections?|lessons?|prereqs?|requirements?)\b/i;
 
 describe("confidenceScore golden set carries a conversation, not a verdict", () => {
 	it("finds rows to check", () => {

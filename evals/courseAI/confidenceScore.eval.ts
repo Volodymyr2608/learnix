@@ -37,6 +37,10 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 	// open task on it (area-4 З2/З3) is a prompt that carries step-scoped history
 	// into every call, and "did the score hold" cannot decide that on its own.
 	const recorder = usageRecorder();
+	// `recordUsage` writes to a module global shared with every eval in the
+	// process. Draining it here rather than trusting the previous eval to have
+	// drained it is what keeps this run's cost independent of run order.
+	takeRecordedUsage();
 	const startedAt = Date.now();
 
 	const raw = await Promise.all(
@@ -83,7 +87,17 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 	const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(0);
 	console.log(`\nCost of this run (${elapsedSeconds}s wall clock):`);
 	console.log(formatRunCost(takeRecordedUsage()));
-	console.log(formatCallStats(summariseCalls(recorder.takeCalls())));
+	// Every row went out at once, so these latencies carry the provider's
+	// queueing at that width — comparable between runs of this eval, not with a
+	// production call.
+	console.log(
+		formatCallStats(summariseCalls(recorder.takeCalls()), rows.length),
+	);
+	if (recorder.openCalls() > 0) {
+		console.log(
+			`  ${"unfinished".padEnd(14)} ${recorder.openCalls()} calls started and never ended — their spend is not in the line above`,
+		);
+	}
 
 	// Calibration: among high-confidence predictions (score≥0.8), measure fraction that are actually complete
 	const highConf: EvalResult[] = raw
