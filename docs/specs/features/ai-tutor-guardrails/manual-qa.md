@@ -409,6 +409,35 @@ invisible to the student and to the alerting.
 `lesson_assistant_messages.toolCalls` and the `getHistory` response for the correct option's text —
 neither should contain it.
 
+**Re-run 2026-09-03** · production, sha `ca7b32c` (item 16 shipped) · concept `PostgreSQL Overview` ·
+✅ **the loop completes on a grown thread — and the fix's own path was not exercised.**
+
+The condition that failed the day before was reproduced properly: **sixteen messages** in the thread,
+against the eight-to-ten at which the failure appeared, and **no Clear**. The authoring turn called
+`retrieve_lesson_context`, `get_student_progress` and `ask_concept_check` together, the panel
+appeared, the answer was correct, and `PostgreSQL Overview` landed at `level 2` / `APPLIED_CHECK`.
+Yesterday the same request on a grown thread produced `ask_concept_check` alone, every time.
+
+**What it does not establish, and the distinction matters.** `toolCalls` holds **one**
+`ask_concept_check`, with retrieval before it. A decline followed by a recovery would have left two.
+So no decline occurred: the model retrieved on its own, and the reclassification — decline, message,
+retrieve, re-author — never ran. The fix only acts when the model *skips* retrieval, and here it did
+not.
+
+Between "the change removed the failure" and "the failure is itself variable and the model happened
+to retrieve today", this run does not choose. One passing observation cannot: the failing behaviour
+was measured six-for-six on a short thread and three-for-three on a grown one, which is evidence of a
+strong tendency, not of determinism. This is exactly why the recovery acceptance criterion was
+retired rather than left open, and why the check that decides it lives in production: `security.md`
+S11 predicts `check_not_grounded`'s share falls toward zero as turns recover, and a flat share
+falsifies it.
+
+**Incidental, and worth knowing before the next run.** The first two attempts returned "Something
+went wrong" — an OpenAI `429: no credits remaining`, not a defect. Both user turns persisted with
+`contextEligible: true` and no assistant reply, so a failed model call leaves an orphaned turn that
+the next successful one replays as history. Nothing here writes that; the user row is saved before
+the agent runs. It cost no check budget.
+
 **Last run:** 2026-09-02 · production, sha `ecc9835` · concept `Relational Database Structure` ·
 ✅ **on the write, ❌ on reaching it** — and the second half is the more important result.
 
