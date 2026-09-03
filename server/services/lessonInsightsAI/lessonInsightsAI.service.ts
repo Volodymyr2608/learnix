@@ -67,10 +67,7 @@ const reportModelText = (
 
 class LessonInsightsAIService {
 	async generateForLesson(lessonId: string, instructorId: string) {
-		const metrics = aiMetricsHandler({
-			feature: "lessonInsightsAI",
-			userId: instructorId,
-		});
+		const metrics = aiMetricsHandler({ feature: "lessonInsightsAI" });
 
 		const coreGenerate = traced(
 			"lessonInsightsAI.generateForLesson",

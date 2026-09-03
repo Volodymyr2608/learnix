@@ -62,10 +62,12 @@ export const checkTopicRelevance = async (
 		maxRetries: 1,
 	}).withStructuredOutput(GuardOutputSchema);
 
-	// L2 runs before every tutor turn, so leaving it unmeasured understates the
-	// surface it screens for by one model call in two. It emits a CALL line only
-	// and never a turn summary: this layer runs on behalf of whichever surface
-	// called it (SHARED_MODEL_CALLERS) and does not own that surface's turn.
+	// L2 runs before every turn on both chat surfaces, so leaving it unmeasured
+	// understates them by one model call in two. The handler is the CALLER'S —
+	// threaded in from the route — so this call is counted in the turn that
+	// caused it rather than orphaned in a stream of its own. This layer runs on
+	// behalf of whichever surface called it (SHARED_MODEL_CALLERS) and never
+	// summarises a turn itself.
 	//
 	// Observation only — the config is additive, and the verdict, the 3s budget
 	// and the fail-open path are all unchanged. Proven in both directions in

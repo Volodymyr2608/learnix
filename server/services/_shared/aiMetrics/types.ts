@@ -28,9 +28,15 @@ export type AiMetricOutcome =
  * the reason `logSecurityEvent` gives: a redactor can be forgotten, a missing
  * field cannot. `errorName` is a class name, never a message.
  *
- * The key vocabulary (`feature`, `node`, `courseId`, `userId`) matches
+ * The key vocabulary (`feature`, `node`) matches
  * `server/observability/projectError.ts`'s allowlist so a Sentry issue and a
- * metric line about the same turn join on the same names.
+ * metric line about the same turn spell the same fields the same way.
+ *
+ * No identifier is emitted. `userId`/`courseId` were briefly carried on the
+ * context and never read by either writer — a populated-but-unread field is a
+ * trap, since emitting it later is a one-line change no contract test would
+ * catch. Attribution is by timestamp against the security-event log, which
+ * already carries `userId`; see security.md §S7.
  */
 export type AiMetricCall = {
 	feature: AiFeature;
@@ -61,8 +67,6 @@ export type AiMetricTurn = {
 /** What the caller knows about the run and the callbacks cannot discover. */
 export type AiMetricContext = {
 	feature: AiFeature;
-	userId?: string;
-	courseId?: string;
 	/** For a call that is not inside a graph, the name to report as `node`. */
 	node?: string;
 };

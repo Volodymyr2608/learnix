@@ -59,6 +59,10 @@ for why it's structured this way.
 | [ADR-029](adr/029-error-reporting-projection-funnel.md) | Enrich at the service boundary, capture once through an allowlist projection | Accepted |
 | [ADR-030](adr/030-tiered-agentic-development.md) | Decide process ceremony from the diff, and measure what it costs | Accepted |
 | [ADR-031](adr/031-eval-fidelity-and-baselines.md) | Evals measure the shipped system, and their numbers survive the run | Accepted |
+| [ADR-032](adr/032-quiz-answer-key-and-attempt-bounds.md) | Quiz answer key and attempt bounds | Accepted |
+| [ADR-033](adr/033-mastery-as-earned-evidence.md) | Mastery as earned evidence | Accepted |
+| [ADR-034](adr/034-grounding-is-a-quality-control.md) | Grounding is a quality control | Accepted |
+| [ADR-035](adr/035-ai-call-metering.md) | Meter AI calls at the run root, into logs, not into a table | Accepted |
 
 ## Specs
 

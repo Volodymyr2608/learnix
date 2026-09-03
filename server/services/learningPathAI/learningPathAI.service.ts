@@ -95,11 +95,7 @@ class LearningPathAIService {
 	async regenerate(studentId: string, courseId: string) {
 		await checkRateLimit(studentId, courseId);
 
-		const metrics = aiMetricsHandler({
-			feature: "learningPathAI",
-			userId: studentId,
-			courseId,
-		});
+		const metrics = aiMetricsHandler({ feature: "learningPathAI" });
 
 		try {
 			return await traced(
@@ -147,11 +143,7 @@ class LearningPathAIService {
 			reflectAndCheck: "Reviewing the path…",
 		};
 
-		const metrics = aiMetricsHandler({
-			feature: "learningPathAI",
-			userId: studentId,
-			courseId,
-		});
+		const metrics = aiMetricsHandler({ feature: "learningPathAI" });
 
 		// Held in a local rather than constructed inline: the `finally` below needs
 		// to know whether the turn was killed, and an inline signal is discarded.

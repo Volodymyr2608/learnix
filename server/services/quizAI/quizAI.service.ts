@@ -70,10 +70,7 @@ class QuizAIService {
 		// One handler for the whole generation, not one per attempt: the three
 		// retries are the same turn, and their amplification is exactly what the
 		// summary should make countable.
-		const metrics = aiMetricsHandler({
-			feature: "quizAI",
-			userId: instructorId,
-		});
+		const metrics = aiMetricsHandler({ feature: "quizAI" });
 
 		const coreGenerate = traced(
 			"quizAI.generateForLesson",

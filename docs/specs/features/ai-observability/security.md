@@ -79,6 +79,14 @@ push borderline calls past the 3 s budget, converting *allowed* turns into fail-
 the guard without any test failing on recall. Hence the < 1 ms overhead budget in the spec's
 Performance section, and hence measuring both directions.
 
+**The margin is larger than that budget implies, and it is worth knowing why.** LangChain runs
+callbacks in the background by default (`BaseCallbackHandler`'s `awaitHandlers` is
+`getEnvironmentVariable("LANGCHAIN_CALLBACKS_BACKGROUND") === "false"`), so the meter adds no time to
+the L2 call at all. That is the same mechanism behind the ordering hazard in the spec's Agent notes,
+and it would **invert** if anyone set `LANGCHAIN_CALLBACKS_BACKGROUND=false` — the write would move
+inline into every model call, including this one. That variable is not declared in `lib/env.js`, and
+setting it would require re-measuring this section rather than inheriting it.
+
 ## S4. Availability — the meter must not break the path it measures
 
 `logSecurityEvent` already carries this reasoning, having hit it once: its Sentry forward is wrapped
@@ -120,17 +128,33 @@ Inherited by reference:
 - ADR-022 (input trust boundary), ADR-026 (shared defence layers), ADR-029 (allowlist projection,
   and the "Sentry owns errors, LangSmith owns AI traces" division this feature does not cross).
 
-## S7. New residual — `userId` in a third stream
+## S7. Not a residual — no identifier is emitted at all
 
-Metric context carries `userId` and `courseId`, matching `projectError.ts`'s allowlist vocabulary so
-the two streams join. That puts a user identifier into a third log stream, alongside the security-event
-log and Sentry.
+**This section previously accepted a residual that does not exist, and the correction matters more
+than the original acceptance did.** It stated that metric context carries `userId` and `courseId`
+into a third log stream. The `/qa` audit checked, and neither writer ever read them: `emitCall` and
+`emitTurn` emit exactly the fields in the spec's Outputs table, and `AiMetricCall` / `AiMetricTurn`
+declare no identifier. The fields sat on the context object, populated by every call site and read by
+nobody.
 
-**Accepted, with a smaller blast radius than either predecessor:** the destination is the application's
-own stdout, not a new processor — no third party receives it, so `error-observability` S13's GDPR
-analysis (a new processor for `userId`) does not extend. The identifier is the same opaque `User.id`
-already present in both existing streams, and it is what makes "which user's turns are slow" a
-question with an answer.
+They have been **removed**. A populated-but-unread field is a trap rather than a harmless spare:
+emitting it later is a one-line change in `emit.ts`, and no contract test would have caught it —
+`userId` was not in the forbidden-name list precisely because it was already a legitimate name in
+`types.ts`.
+
+**What this costs, stated plainly:** there is no correlation id of any kind — no `userId`, no
+`runId`, no turn id — so a call line cannot be joined to its turn line, and under concurrency the
+interleaved lines of two `lessonAI` turns are indistinguishable from each other. Aggregate questions
+("what does a tutor turn cost on average", "which surface is most expensive") are answerable;
+per-turn and per-user forensics are not. That is the right trade for a baseline-measurement feature,
+and it is a deliberate limit rather than an oversight.
+
+**The remaining disclosure, unchanged:** cost and `promptTokens` on a `lessonAI` call line are a size
+oracle for the retrieved RAG context and the student's message. The line itself is anonymous, but
+`logSecurityEvent` writes `userId` to the *same* stdout stream, so a reader with log access can
+re-attribute by timestamp adjacency. That reader is already privileged and already sees both
+predecessor streams, so this is accepted — but on that reasoning, not the one this section carried
+before.
 
 ## S8. New residual — one turn's cost is now inferable from logs
 
@@ -159,11 +183,15 @@ and a second `feature` vocabulary, because `AiFeature` is a closed five-member u
 ## S10. Named gap — this feature narrows `error-observability` S16 without closing it
 
 S16 records that with LangSmith off and Sentry seeing only `error`, everything below `error` that does
-not throw reaches no human — specifically `quizAI.service.ts:146,155` (three attempts per generation)
-and every retry-exhaustion path.
+not throw reaches no human — specifically the two `logger.warn` sites in `quizAI.service.ts` (three
+attempts per generation) and every retry-exhaustion path. *(S16 cites those as `:146,155`; they have
+since moved to roughly `:182` and `:191`. Cited by behaviour rather than line, because the line will
+move again.)*
 
-This feature makes the *volume* visible: quizAI's three attempts now appear as three call lines in one
-turn summary, so the amplification is countable. The *reason* an attempt failed is still not, and S16's
+This feature makes the *volume* visible: quizAI's three attempts now appear as at least six call lines
+in one turn summary — each attempt is a ReAct loop, so it is two model calls, not one — and the
+turn's total cost is therefore countable. The per-attempt split is not separable, since every line
+reads `node: "agent"`. The *reason* an attempt failed is still not, and S16's
 warning stands unchanged and must be repeated here because this feature makes the temptation
 stronger: **promoting those two lines to `error` without first applying the class-only rule would be a
 leak** — `quizAI.service.ts:155` logs the raw thrown error, which is the `OutputParserException` shape

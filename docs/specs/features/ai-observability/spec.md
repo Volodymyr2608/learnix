@@ -1,6 +1,6 @@
 ---
 feature: ai-observability
-status: in-progress
+status: stable
 models: []
 depends-on: [error-observability, ai-flow-contracts, ai-evaluation-harness]
 ---
@@ -37,8 +37,13 @@ table in `server/` would drift from it. One table, two readers.
 - Every chat-model call on the five AI surfaces (`courseAI`, `lessonAI`, `quizAI`,
   `lessonInsightsAI`, `learningPathAI`) emits one metric line carrying its latency, token counts,
   approximate cost, model, owning node, and outcome.
-- The L2 topic-relevance guard (`checkTopicRelevance`) — a model call that runs before every tutor
-  turn — emits the same line, so the tutor's real per-turn call count is two, not one.
+- The L2 topic-relevance guard (`checkTopicRelevance`) — a model call that runs before every turn on
+  **both** chat surfaces — emits the same line, using the turn's own handler, so its cost is counted
+  in that turn rather than orphaned. A tutor turn's real call count is two, not one.
+- A turn the guard blocks emits a summary with `calls: 0`. The handler is therefore built in the
+  **route**, before the guard runs — a handler built inside the service would never see a blocked
+  turn (the route returns first) and would start the latency clock after a wait of up to L2's 3 s
+  budget that the student has already spent.
 - Each turn emits one summary line: call count, summed tokens, summed cost, wall time, and
   time-to-first-token for the streaming flows.
 - A call to a model with no recorded price reports `costUsd: null` and the turn's total as unknown,
@@ -110,8 +115,15 @@ Consumer: whatever reads process stdout. Nothing reaches Sentry — see Observab
   and yields `0` rather than throwing. A provider that stops returning usage degrades to zeroes, not
   to a crash.
 - **Cost** is computed by `usageCost()`, which returns `null` for a model absent from the price
-  table. `null` propagates into the turn total as "unknown". A silent `$0.00` is treated as a defect,
-  not a default.
+  table, and reads own-properties only so `"__proto__"` cannot resolve a price and yield `NaN`.
+  `null` propagates into the turn total as "unknown". A silent `$0.00` is treated as a defect, not a
+  default — including for a turn whose calls **aborted** or never returned: their tokens were spent
+  and never reported, so the turn's total is unknowable rather than zero. Without that rule the
+  costliest failure in the system, a turn hitting `TURN_DEADLINE_MS` after chaining node calls, reads
+  as free.
+- **Token counts from the provider are validated numeric** before emission. The scalar-only guarantee
+  below is a claim about a TypeScript type, and `usage_metadata` is runtime data this application does
+  not author; anything not a finite, non-negative number counts as zero.
 - **Outcome classification** reuses the existing `classifyNodeError` shape rules (`lc_error_code`,
   error name, constructor name, `status >= 500`), which fail closed: an unrecognised shape is
   `fatal_error`, because an unknown shape is far likelier a bug here than a transient provider fault.
@@ -165,8 +177,12 @@ retyped. Security controls: [`security.md`](security.md).
   handlers are never shared between turns.
 - **A node that calls the model twice** (`tool_router` looping) produces two lines with the same
   `node` value. Correct: the loop count is the thing worth seeing.
-- **`quizAI`'s three generation attempts** produce three call lines within one turn summary — which is
-  the first time that amplification is visible as a number.
+- **`quizAI`'s three generation attempts** produce **at least six** call lines within one turn
+  summary, not three: `quizAI.agent.ts` binds tools with a `responseFormat`, so each attempt is a
+  ReAct loop of a tool-call turn plus a structured-response turn. The turn's total cost is therefore
+  the number that matters; the per-attempt split is **not** separable today, because every line takes
+  its `node` from `metadata.langgraph_node` and reads `"agent"`. Corrected at `/qa` — the original
+  wording claimed three lines and claimed the retry fan-out was countable per attempt.
 
 ## Failure & fallback
 
@@ -265,8 +281,8 @@ makes the *next* eval comparison (area-4 З3, full history vs structured summary
 
 - Behavior now: this file.
 - Threats and residuals: [`security.md`](security.md).
-- Decisions: an ADR is required at `/qa` (the logs-not-a-table choice and the handler-at-the-root
-  choice both meet the three-month test).
+- Decisions: [ADR-035](../../../adr/035-ai-call-metering.md) — the handler-at-the-root shape, the
+  logs-not-a-table choice, the chat-hook-only rule, and the callback-ordering hazard.
 - Prices and the usage reader: `server/services/_shared/aiMetrics/pricing.ts` — the table, not this
   document, is where a price is looked up.
 - Existing bounds this feature measures against: `server/services/_shared/aiLimits/modelDefaults.ts`,
@@ -293,5 +309,14 @@ makes the *next* eval comparison (area-4 З3, full history vs structured summary
 - **`AiFeature` is a closed five-member union** shared with `logSecurityEvent` and `AI_SURFACES`.
   Widening it to fit `search` would ripple into both plus their contract tests — which is one of the
   two reasons embeddings are out of scope.
+- **The summary must never be written synchronously.** `BaseCallbackHandler` defaults `awaitHandlers`
+  to `false`, so LangChain hands every hook to `consumeCallback`, which queues it on a process-global
+  queue of concurrency 1 *without awaiting*. `handleLLMEnd` therefore does not run inside the model
+  call. A summary written inline from a service's `finally` overtakes the calls it is meant to total
+  and reports `calls: 0` whenever another turn holds the queue slot — invisible in every test, and in
+  a single-call smoke test, because an idle queue starts the job synchronously. `emitSummary` enqueues
+  onto the same FIFO for this reason; `ordering.test.ts` is the regression guard.
+- **`GuardContext.metrics` is required on purpose.** An optional handler is a silent unmetering: a
+  caller that omits it compiles, passes every test, and drops L2's cost from the turn.
 - Adding a price to `PRICES` updates the eval runner's cost report at the same time. The table carries
   a "checked" date for a reason: prices go stale, and an unpriced model must read as unpriced.
