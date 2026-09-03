@@ -295,7 +295,14 @@ describe("the turn summary (AC 5, AC 8, AC 13)", () => {
 			([fields]) => fields as Record<string, unknown>,
 		);
 		expect(all).toHaveLength(1);
-		expect(all[0]).toMatchObject({ outcome: "aborted", calls: 0 });
+		// `calls: 1`, not 0: the call happened and spent tokens. It emits no CALL
+		// line (an abort is not a failure), but it is counted in the turn and
+		// makes the total unknowable — see the AC 2 block below.
+		expect(all[0]).toMatchObject({
+			outcome: "aborted",
+			calls: 1,
+			costUsd: null,
+		});
 	});
 
 	it("is idempotent, because several exits may all reach it", async () => {
@@ -309,5 +316,75 @@ describe("the turn summary (AC 5, AC 8, AC 13)", () => {
 
 		expect(turnLine()).toHaveLength(1);
 		expect(turnLine()[0]?.outcome).toBe("ok");
+	});
+});
+
+describe("a turn that spent money never reports it as free (AC 2)", () => {
+	const turnLine = () =>
+		mockLogger.info.mock.calls
+			.map(([fields]) => fields as Record<string, unknown>)
+			.find((f) => "calls" in f);
+
+	it("reports an aborted call's cost as unknown, not zero", async () => {
+		// The most expensive failure in the system is a turn that hits
+		// TURN_DEADLINE_MS after chaining node calls. Tokens were spent; the
+		// amount is unknowable because no end event carried usage. Reporting 0
+		// makes the priciest runaway turns read as free — the exact defect the
+		// spec's "a silent $0.00 is a defect, not a default" rule forbids.
+		const handler = aiMetricsHandler({ feature: "courseAI" });
+
+		await started(handler);
+		await handler.handleLLMError?.(
+			Object.assign(new Error("gone"), { name: "ModelAbortError" }),
+			RUN,
+		);
+		handler.emitSummary("aborted");
+
+		expect(turnLine()).toMatchObject({ calls: 1, costUsd: null });
+	});
+
+	it("reports a call that started and never ended as unknown too", async () => {
+		// The consumer abandoned the stream mid-token: handleLLMEnd never fires
+		// and the open entry is orphaned, so its tokens are invisible.
+		const handler = aiMetricsHandler({ feature: "lessonAI" });
+
+		await started(handler);
+		handler.emitSummary("aborted");
+
+		expect(turnLine()).toMatchObject({ calls: 1, costUsd: null });
+	});
+});
+
+describe("errorName is structurally a class name (security.md S2)", () => {
+	it("refuses an oversized or non-class-shaped name", async () => {
+		// "a class name, never a message" was circumstantial: errorNameOf emitted
+		// whatever string sat on `.name`, at any length, from any thrown object.
+		const handler = aiMetricsHandler({ feature: "courseAI" });
+		await started(handler);
+
+		await handler.handleLLMError?.(
+			Object.assign(new Error("x"), { name: "LEAK ".repeat(1000) }),
+			RUN,
+		);
+
+		const line = mockLogger.info.mock.calls
+			.map(([fields]) => fields as Record<string, unknown>)
+			.find((f) => "errorName" in f);
+		expect(line?.errorName).toBe("unknown");
+	});
+
+	it("still passes a real class name through", async () => {
+		const handler = aiMetricsHandler({ feature: "courseAI" });
+		await started(handler);
+
+		await handler.handleLLMError?.(
+			Object.assign(new Error("x"), { name: "OutputParserException" }),
+			RUN,
+		);
+
+		const line = mockLogger.info.mock.calls
+			.map(([fields]) => fields as Record<string, unknown>)
+			.find((f) => "errorName" in f);
+		expect(line?.errorName).toBe("OutputParserException");
 	});
 });

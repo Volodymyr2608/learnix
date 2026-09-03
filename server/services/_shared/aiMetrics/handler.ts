@@ -1,4 +1,5 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+import { consumeCallback } from "@langchain/core/callbacks/promises";
 import type { Serialized } from "@langchain/core/load/serializable";
 import type { LLMResult } from "@langchain/core/outputs";
 import {
@@ -38,14 +39,25 @@ const modelOf = (extraParams?: Record<string, unknown>): string => {
 	return typeof model === "string" ? model : UNKNOWN_MODEL;
 };
 
-/** The failing error's class as a scalar — never its message (AC 7). */
+/**
+ * A class name, structurally rather than by convention.
+ *
+ * `errorNameOf` previously emitted whatever string sat on `.name`, at any
+ * length, from any thrown object — so "a class name, never a message" held only
+ * because no live path put text there. Constraining the shape makes the claim
+ * true by construction instead of by circumstance (security.md §S2).
+ */
+const CLASS_NAME = /^[A-Za-z_$][A-Za-z0-9_$]{0,63}$/;
+
 const errorNameOf = (err: unknown): string => {
 	if (typeof err !== "object" || err === null) return "unknown";
 	const name = (err as { name?: unknown }).name;
-	if (typeof name === "string") return name;
-	return (
-		(err as { constructor?: { name?: string } }).constructor?.name ?? "unknown"
-	);
+	const candidate =
+		typeof name === "string"
+			? name
+			: (err as { constructor?: { name?: string } }).constructor?.name;
+
+	return candidate && CLASS_NAME.test(candidate) ? candidate : "unknown";
 };
 
 /**
@@ -139,14 +151,24 @@ class AiMetricsHandler extends BaseCallbackHandler {
 		const call = this.take(runId);
 		if (!call) return;
 
-		// A user who navigated away is not a failure. Filing them as one poisons
-		// the signal this exists to produce, so an abort emits no call line at
-		// all — the turn summary still records that the turn ended (AC 8).
-		if (isNodeAbort(err)) return;
-
 		// A failed call is still a call: excluding it would make the failure rate
 		// unreadable, since its own denominator would shrink with it.
 		this.calls += 1;
+
+		// A user who navigated away is not a failure. Filing them as one poisons
+		// the signal this exists to produce, so an abort emits no call line at
+		// all — the turn summary still records that the turn ended (AC 8).
+		//
+		// But tokens WERE spent and no end event carried their count, so the
+		// turn's total is unknowable rather than zero. The costliest failure in
+		// the system is a turn that hits TURN_DEADLINE_MS after chaining node
+		// calls; reporting it as $0.00 makes the priciest runaway turns read as
+		// free, which is the defect "a silent $0.00 is a defect, not a default"
+		// exists to forbid.
+		if (isNodeAbort(err)) {
+			this.anyUnpriced = true;
+			return;
+		}
 
 		emitCall({
 			feature: this.ctx.feature,
@@ -184,12 +206,42 @@ class AiMetricsHandler extends BaseCallbackHandler {
 		if (this.summarised) return;
 		this.summarised = true;
 
+		// Queued, not written inline — and this is the whole correctness of the
+		// summary. `BaseCallbackHandler` defaults `awaitHandlers` to false
+		// (callbacks/base.js:66), so the manager hands every hook to
+		// `consumeCallback`, which pushes it onto a process-global queue of
+		// concurrency 1 WITHOUT awaiting (singletons/callbacks.js:33).
+		// `handleLLMEnd` therefore does not run inside the model call; it runs
+		// when that queue reaches it.
+		//
+		// A summary written synchronously from a service's `finally` can
+		// therefore overtake the very calls it is meant to total. When the queue
+		// is idle the job starts synchronously and the numbers happen to be
+		// right, which is why unit tests and a real single-call smoke test both
+		// passed. With a second concurrent turn holding the slot, the turn
+		// reports `calls: 0, costUsd: 0` — spend under-reported, precisely under
+		// the load this metric exists to observe.
+		//
+		// Enqueuing here puts the summary behind its own call callbacks in the
+		// same FIFO. The alternative, `super({_awaitHandler: true})`, also fixes
+		// the ordering but moves the write inline into every model call including
+		// L2's 3s budget — which would invalidate the false-positive measurement
+		// security.md §S3 relies on. See ordering.test.ts.
+		void consumeCallback(async () => this.writeSummary(outcome), false);
+	}
+
+	private writeSummary(outcome: AiMetricOutcome): void {
+		// A call that started and never ended — the consumer abandoned the stream
+		// mid-token — is counted, and makes the total unknowable for the same
+		// reason an abort does: its tokens were spent and never reported.
+		const orphaned = this.open.size;
+
 		emitTurn({
 			feature: this.ctx.feature,
-			calls: this.calls,
+			calls: this.calls + orphaned,
 			promptTokens: this.promptTokens,
 			completionTokens: this.completionTokens,
-			costUsd: this.anyUnpriced ? null : this.costUsd,
+			costUsd: this.anyUnpriced || orphaned > 0 ? null : this.costUsd,
 			wallMs: Date.now() - this.turnStartedAt,
 			...(this.firstTokenAt === undefined
 				? {}
@@ -207,6 +259,9 @@ class AiMetricsHandler extends BaseCallbackHandler {
 
 export const aiMetricsHandler = (ctx: AiMetricContext): AiMetricsHandler =>
 	new AiMetricsHandler(ctx);
+
+/** The handler as callers hold it — threaded from a route into the guard and the service. */
+export type { AiMetricsHandler };
 
 /**
  * How a TURN ended, from whatever escaped it.

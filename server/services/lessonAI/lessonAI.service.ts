@@ -4,7 +4,7 @@ import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.r
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import {
-	aiMetricsHandler,
+	type AiMetricsHandler,
 	turnOutcomeOf,
 } from "@/server/services/_shared/aiMetrics/handler";
 import type { AiMetricOutcome } from "@/server/services/_shared/aiMetrics/types";
@@ -107,6 +107,12 @@ class LessonAIService {
 		studentId: string;
 		userMessage: string;
 		signal?: AbortSignal;
+		/**
+		 * Built by the route before the input guard runs, so the turn's measured
+		 * latency includes the L2 wait the student actually experiences, and so a
+		 * guard-blocked turn still reports a summary.
+		 */
+		metrics: AiMetricsHandler;
 	}) {
 		const {
 			lessonId,
@@ -116,6 +122,7 @@ class LessonAIService {
 			studentId,
 			userMessage,
 			signal,
+			metrics,
 		} = params;
 
 		// Load conversation history and lesson concept list in parallel
@@ -160,13 +167,9 @@ class LessonAIService {
 			turn,
 		});
 
-		// Attached once, at the agent root: the config reaches every model call
-		// underneath it, so no node or tool needs to know it is being measured.
-		const metrics = aiMetricsHandler({
-			feature: "lessonAI",
-			userId: studentId,
-			courseId,
-		});
+		// The handler is attached once, at the agent root: the config reaches every
+		// model call underneath it, so no node or tool needs to know it is being
+		// measured. It is CONSTRUCTED by the route, not here — see the param doc.
 		let turnOutcome: AiMetricOutcome = "ok";
 
 		const tracedStream = traced(

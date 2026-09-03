@@ -35,7 +35,10 @@ export const totalUsage = (usages: readonly TokenUsage[]): TokenUsage =>
 
 /** USD, or null when the model has no recorded price. */
 export const usageCost = (usage: TokenUsage, model: string): number | null => {
-	const price = PRICES[model];
+	// Own-property only: PRICES is a plain object literal, so PRICES["__proto__"]
+	// and PRICES["constructor"] are truthy and would slip past a falsy guard —
+	// yielding NaN, a number-typed non-number that sums the whole turn to NaN.
+	const price = Object.hasOwn(PRICES, model) ? PRICES[model] : undefined;
 	if (!price) return null;
 
 	return (
@@ -52,14 +55,26 @@ export const usageCost = (usage: TokenUsage, model: string): number | null => {
  * already sends `stream_options: {include_usage: true}`, so usage arrives with
  * the final message rather than needing to be switched on.
  */
+/**
+ * Provider data is not trusted to be numeric.
+ *
+ * The "every emitted value is a primitive scalar" contract (AC 6) is asserted
+ * against the TYPE, which is a compile-time claim over runtime data this code
+ * does not own: a provider or a proxy at a non-default base URL returning a
+ * string or an object here would put it straight onto the log line with no test
+ * failing. Anything that is not a finite, non-negative number counts as zero.
+ */
+const tokenCount = (value: unknown): number =>
+	typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+
 export const usageOfMessage = (message: unknown): TokenUsage => {
 	const usage = (message as { usage_metadata?: unknown } | null | undefined)
 		?.usage_metadata as
-		| { input_tokens?: number; output_tokens?: number }
+		| { input_tokens?: unknown; output_tokens?: unknown }
 		| undefined;
 
 	return {
-		inputTokens: usage?.input_tokens ?? 0,
-		outputTokens: usage?.output_tokens ?? 0,
+		inputTokens: tokenCount(usage?.input_tokens),
+		outputTokens: tokenCount(usage?.output_tokens),
 	};
 };

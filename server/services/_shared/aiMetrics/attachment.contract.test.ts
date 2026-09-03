@@ -17,9 +17,28 @@ import { describe, expect, it } from "vitest";
  * this feature exists to avoid.
  */
 
-const ROOT = "server";
+const ROOTS = ["server", "app", "trpc"];
 
-/** file -> how many roots in it attach the handler. */
+/**
+ * file -> how many handlers it CONSTRUCTS.
+ *
+ * The two guarded chat surfaces construct theirs in the ROUTE, before the input
+ * guard runs, because L2 is a model call on every turn: a handler built later
+ * omits the guard's cost and starts the latency clock after a wait the student
+ * already spent. It is also the only way a guard-blocked turn — which returns
+ * before the service is ever called — can report a summary at all.
+ */
+const EXPECTED_BUILDERS: Record<string, number> = {
+	"app/api/chat/lesson/route.ts": 1,
+	"app/api/chat/course/route.ts": 1,
+	// No input guard in front of these three, so the service is the outermost
+	// point that sees the whole turn.
+	"server/services/learningPathAI/learningPathAI.service.ts": 2,
+	"server/services/quizAI/quizAI.service.ts": 1,
+	"server/services/lessonInsightsAI/lessonInsightsAI.service.ts": 1,
+};
+
+/** file -> how many run roots in it pass a handler into a model call's config. */
 const EXPECTED_ATTACHMENTS: Record<string, number> = {
 	// runChat and runFinalize.
 	"server/services/courseAI/courseAI.service.ts": 2,
@@ -31,7 +50,8 @@ const EXPECTED_ATTACHMENTS: Record<string, number> = {
 	"server/services/quizAI/quizAI.service.ts": 1,
 	"server/services/lessonInsightsAI/lessonInsightsAI.service.ts": 1,
 	// The shared L2 layer: runs outside both graphs, so no root-level config
-	// reaches it and it must be attached on its own.
+	// reaches it and it is attached on its own, with the turn's handler threaded
+	// in from the route.
 	"server/services/_shared/aiGuard/topicRelevance.ts": 1,
 };
 
@@ -50,21 +70,26 @@ const code = (file: string): string =>
 const builders = (file: string): number =>
 	(code(file).match(/aiMetricsHandler\(/g) ?? []).length;
 
-const sourceFiles = walk(ROOT).filter(
+const sourceFiles = ROOTS.flatMap(walk).filter(
 	(f) => !f.endsWith(".test.ts") && !f.includes("/aiMetrics/"),
 );
 
+const attachments = (file: string): number =>
+	(code(file).match(/callbacks:\s*\[/g) ?? []).length;
+
 describe("every run root attaches the metrics handler (AC 3)", () => {
 	it.each(
-		Object.entries(EXPECTED_ATTACHMENTS),
+		Object.entries(EXPECTED_BUILDERS),
 	)("%s builds %i handler(s)", (file, count) => {
 		expect(builders(file)).toBe(count);
 	});
 
 	it.each(
-		Object.keys(EXPECTED_ATTACHMENTS),
-	)("%s passes them as callbacks", (file) => {
-		expect(code(file)).toMatch(/callbacks:/);
+		Object.entries(EXPECTED_ATTACHMENTS),
+	)("%s passes a handler into %i model-call config(s)", (file, count) => {
+		// Counted, not merely present: a file could build two handlers and pass
+		// only one, and a file-wide `toMatch(/callbacks:/)` would not notice.
+		expect(attachments(file)).toBe(count);
 	});
 });
 
@@ -74,8 +99,11 @@ describe("no handler is built outside the declared roots (AC 3)", () => {
 		// pattern — working, but drifting the moment someone adds a node and
 		// forgets. Adding a root is fine; doing it without declaring it here is
 		// not.
+		// Scanned across server/, app/ AND trpc/: the two chat surfaces build
+		// theirs in a route, so a server-only walk would no longer see them — and
+		// would equally miss a stray handler added anywhere else in app/.
 		const undeclared = sourceFiles.filter(
-			(file) => builders(file) > 0 && !(file in EXPECTED_ATTACHMENTS),
+			(file) => builders(file) > 0 && !(file in EXPECTED_BUILDERS),
 		);
 
 		expect(undeclared).toEqual([]);

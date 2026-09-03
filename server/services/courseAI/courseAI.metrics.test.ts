@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 
 const { mockLogger, mockFindMany, mockStreamEvents } = vi.hoisted(() => ({
 	mockLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -55,6 +56,7 @@ describe("the handler reaches the graph through the config (AC 3)", () => {
 		const stream = await courseAIService.runChat({
 			courseGeneration: generation,
 			userMessage: "hello",
+			metrics: aiMetricsHandler({ feature: "courseAI" }),
 		});
 		for await (const _ of stream) {
 			// drain
@@ -69,6 +71,7 @@ describe("the handler reaches the graph through the config (AC 3)", () => {
 	it("passes a callbacks array on runFinalize", async () => {
 		const stream = await courseAIService.runFinalize({
 			courseGeneration: generation,
+			metrics: aiMetricsHandler({ feature: "courseAI" }),
 		});
 		for await (const _ of stream) {
 			// drain
@@ -86,6 +89,7 @@ describe("the handler reaches the graph through the config (AC 3)", () => {
 		const stream = await courseAIService.runChat({
 			courseGeneration: generation,
 			userMessage: "hello",
+			metrics: aiMetricsHandler({ feature: "courseAI" }),
 		});
 		for await (const _ of stream) {
 			// drain
@@ -106,6 +110,7 @@ describe("the turn is summarised on every exit (AC 5)", () => {
 		const stream = await courseAIService.runChat({
 			courseGeneration: generation,
 			userMessage: "hello",
+			metrics: aiMetricsHandler({ feature: "courseAI" }),
 		});
 		for await (const _ of stream) {
 			// drain
@@ -128,6 +133,7 @@ describe("the turn is summarised on every exit (AC 5)", () => {
 		const stream = await courseAIService.runChat({
 			courseGeneration: generation,
 			userMessage: "hello",
+			metrics: aiMetricsHandler({ feature: "courseAI" }),
 		});
 
 		await expect(
@@ -155,6 +161,7 @@ describe("the turn is summarised on every exit (AC 5)", () => {
 		const stream = await courseAIService.runChat({
 			courseGeneration: generation,
 			userMessage: "hello",
+			metrics: aiMetricsHandler({ feature: "courseAI" }),
 		});
 		for await (const _ of stream) {
 			break;

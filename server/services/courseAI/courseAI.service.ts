@@ -6,7 +6,7 @@ import {
 	withTurnDeadline,
 } from "@/server/services/_shared/aiLimits/modelDefaults";
 import {
-	aiMetricsHandler,
+	type AiMetricsHandler,
 	turnOutcomeOf,
 } from "@/server/services/_shared/aiMetrics/handler";
 import type { AiMetricOutcome } from "@/server/services/_shared/aiMetrics/types";
@@ -34,7 +34,7 @@ const HISTORY_LIMIT = 4;
  */
 async function* metered<T>(
 	stream: AsyncIterable<T>,
-	handler: ReturnType<typeof aiMetricsHandler>,
+	handler: AiMetricsHandler,
 	signal?: AbortSignal,
 ): AsyncGenerator<T> {
 	let outcome: AiMetricOutcome = "ok";
@@ -158,20 +158,19 @@ export class CourseAIService {
 		courseGeneration,
 		userMessage,
 		signal,
+		metrics,
 	}: {
 		courseGeneration: CourseGeneration;
 		userMessage: string;
 		signal?: AbortSignal;
+		/** Built by the route before the input guard runs — see lessonAI's note. */
+		metrics: AiMetricsHandler;
 	}) {
 		const initialState = await this.hydrateState({
 			courseGeneration,
 			userMessage,
 			mode: "chat",
 		});
-		const handler = aiMetricsHandler({
-			feature: "courseAI",
-			userId: courseGeneration.instructorId,
-		});
 		const run = traced(
 			"courseAI.graph",
 			async () =>
@@ -181,7 +180,7 @@ export class CourseAIService {
 					// node and each node forwards it to model.invoke, so no node needs
 					// to know it is being measured — and a node added later is metered
 					// without anyone remembering to do anything.
-					callbacks: [handler],
+					callbacks: [metrics],
 					// MODEL_TIMEOUT_MS bounds one CALL; this bounds the TURN. A chained
 					// graph can spend the per-call budget many times over, so the
 					// caller's own signal is combined with a deadline.
@@ -195,25 +194,24 @@ export class CourseAIService {
 				model: "gpt-4o-mini",
 			},
 		);
-		return metered(await run(), handler, signal);
+		return metered(await run(), metrics, signal);
 	}
 
 	async runFinalize({
 		courseGeneration,
 		signal,
+		metrics,
 	}: {
 		courseGeneration: CourseGeneration;
 		signal?: AbortSignal;
+		/** Built by the route before the input guard runs — see lessonAI's note. */
+		metrics: AiMetricsHandler;
 	}) {
 		const initialState = await this.hydrateState({
 			courseGeneration,
 			userMessage: "",
 			mode: "finalize",
 		});
-		const handler = aiMetricsHandler({
-			feature: "courseAI",
-			userId: courseGeneration.instructorId,
-		});
 		const run = traced(
 			"courseAI.graph",
 			async () =>
@@ -223,7 +221,7 @@ export class CourseAIService {
 					// node and each node forwards it to model.invoke, so no node needs
 					// to know it is being measured — and a node added later is metered
 					// without anyone remembering to do anything.
-					callbacks: [handler],
+					callbacks: [metrics],
 					// MODEL_TIMEOUT_MS bounds one CALL; this bounds the TURN. A chained
 					// graph can spend the per-call budget many times over, so the
 					// caller's own signal is combined with a deadline.
@@ -237,7 +235,7 @@ export class CourseAIService {
 				model: "gpt-4o-mini",
 			},
 		);
-		return metered(await run(), handler, signal);
+		return metered(await run(), metrics, signal);
 	}
 }
 

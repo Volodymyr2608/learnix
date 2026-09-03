@@ -42,7 +42,10 @@ const PRICE_LITERAL = /\{\s*input:\s*[\d.]+\s*,\s*output:\s*[\d.]+\s*\}/;
 
 describe("the price table has exactly one home (AC 1)", () => {
 	const offenders = ROOTS.flatMap(walk)
-		.filter((file) => !file.endsWith(OWNER.split("/").pop() as string))
+		// The exact path, not `endsWith("pricing.ts")`: the latter would exempt a
+		// future `server/services/billing/pricing.ts` from the very scan that
+		// exists to catch a second table — in the likeliest place for one.
+		.filter((file) => file !== OWNER)
 		.filter((file) => PRICE_LITERAL.test(code(file)));
 
 	it("declares no per-model price literal outside pricing.ts", () => {

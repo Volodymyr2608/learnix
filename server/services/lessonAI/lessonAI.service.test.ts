@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 import {
 	CheckAlreadyPendingError,
 	CheckBudgetSpentError,
@@ -117,6 +118,7 @@ const collect = async (events: unknown[]) => {
 	mockStreamEvents.mockReturnValue(streamOf(events));
 	const out: { type: string; message?: string; value?: string }[] = [];
 	for await (const event of lessonAIService.streamResponse({
+		metrics: aiMetricsHandler({ feature: "lessonAI" }),
 		lessonId: "lesson-1",
 		lessonTitle: "Recursion",
 		courseTitle: "Algorithms",
@@ -152,6 +154,7 @@ const collectAborted = async (events: unknown[], abortAfter = 1) => {
 	const out: { type: string }[] = [];
 	let delivered = 0;
 	for await (const event of lessonAIService.streamResponse({
+		metrics: aiMetricsHandler({ feature: "lessonAI" }),
 		lessonId: "lesson-1",
 		lessonTitle: "Recursion",
 		courseTitle: "Algorithms",
@@ -186,6 +189,7 @@ const collectServiceNoticedAbort = async (events: unknown[]) => {
 	);
 	const out: { type: string }[] = [];
 	for await (const event of lessonAIService.streamResponse({
+		metrics: aiMetricsHandler({ feature: "lessonAI" }),
 		lessonId: "lesson-1",
 		lessonTitle: "Recursion",
 		courseTitle: "Algorithms",
@@ -453,6 +457,7 @@ describe("streamResponse abort path", () => {
 		);
 
 		for await (const _event of lessonAIService.streamResponse({
+			metrics: aiMetricsHandler({ feature: "lessonAI" }),
 			lessonId: "lesson-1",
 			lessonTitle: "Recursion",
 			courseTitle: "Algorithms",
@@ -499,6 +504,7 @@ describe("streamResponse mid-stream error path", () => {
 		);
 		const out: { type: string }[] = [];
 		for await (const event of lessonAIService.streamResponse({
+			metrics: aiMetricsHandler({ feature: "lessonAI" }),
 			lessonId: "lesson-1",
 			lessonTitle: "Recursion",
 			courseTitle: "Algorithms",
@@ -675,6 +681,7 @@ describe("an authored check is committed only after the boundary passes", () => 
 
 		const out = [];
 		for await (const event of lessonAIService.streamResponse({
+			metrics: aiMetricsHandler({ feature: "lessonAI" }),
 			lessonId: "lesson-1",
 			lessonTitle: "Recursion",
 			courseTitle: "Intro",

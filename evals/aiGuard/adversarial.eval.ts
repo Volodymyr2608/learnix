@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 import { lessonGuardDomain } from "@/server/services/lessonAI/guardDomain";
 import { accuracyGate, precisionGate } from "../_shared/score";
 
@@ -55,6 +56,11 @@ export const runAdversarialEval = async (): Promise<boolean> => {
 				feature: row.input.feature ?? "lessonAI",
 				userId: "eval-user",
 				domain: DOMAINS[row.input.feature ?? "lessonAI"],
+				// The eval measures the guard's verdict, not its cost; the handler is
+				// required so no caller can silently unmeter L2 in production.
+				metrics: aiMetricsHandler({
+					feature: row.input.feature ?? "lessonAI",
+				}),
 			});
 			return {
 				id: row.id,

@@ -65,7 +65,7 @@ export const guardUserInput = async (
 		const relevance = await checkTopicRelevance(
 			text,
 			context.domain,
-			context.feature,
+			context.metrics,
 		);
 		if (!relevance.onTopic) {
 			logSecurityEvent({

@@ -8,6 +8,7 @@ import {
 	checkAiRateLimit,
 	validateMessageLength,
 } from "@/server/services/_shared/aiLimits";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 import { validateModelText } from "@/server/services/_shared/aiOutput";
 import { RetryableNodeError } from "@/server/services/courseAI/courseAI.errors";
 import { courseAIService } from "@/server/services/courseAI/courseAI.service";
@@ -53,10 +54,16 @@ export async function POST(req: Request) {
 		return new Response("Message too long", { status: 413 });
 	}
 
+	// Built before the guard, and outside the chat-only branch so the finalize
+	// path is measured too. See the lesson route for why the guard must be
+	// inside the turn's measurement rather than before it.
+	const metrics = aiMetricsHandler({ feature: "courseAI" });
+
 	if (mode === "chat" && userMessage) {
 		const guard = await guardUserInput(userMessage, {
 			feature: "courseAI",
 			userId: session.user.id,
+			metrics,
 			domain: {
 				description:
 					"designing an online course: its title, description, learning objectives, requirements, and curriculum",
@@ -65,6 +72,10 @@ export async function POST(req: Request) {
 		});
 
 		if (guard.outcome !== "allow") {
+			// A blocked turn still cost an L2 call and still happened: without this
+			// it would vanish from the denominator of every rate built from these
+			// lines (spec.md Edge cases).
+			metrics.emitSummary("ok");
 			// Returned before getOrCreateCourseGeneration and before the stream is
 			// constructed, so the finally-block that persists the user message is
 			// never reached — no CourseGenerationMessage row is written.
@@ -123,10 +134,12 @@ export async function POST(req: Request) {
 								courseGeneration,
 								userMessage: body.userMessage ?? "",
 								signal: abortSignal,
+								metrics,
 							})
 						: await courseAIService.runFinalize({
 								courseGeneration,
 								signal: abortSignal,
+								metrics,
 							});
 
 				let lastConfidence: number | null = null;

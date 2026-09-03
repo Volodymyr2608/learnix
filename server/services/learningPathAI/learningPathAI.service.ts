@@ -153,12 +153,18 @@ class LearningPathAIService {
 			courseId,
 		});
 
+		// Held in a local rather than constructed inline: the `finally` below needs
+		// to know whether the turn was killed, and an inline signal is discarded.
+		// Without it a deadline-killed turn is filed as a successful one, and this
+		// surface could never emit `outcome: "aborted"` at all.
+		const signal = withTurnDeadline();
+
 		const stream = await this.graph.streamEvents(
 			{ studentId, courseId },
 			{
 				version: "v2",
 				recursionLimit: GRAPH_RECURSION_LIMIT,
-				signal: withTurnDeadline(),
+				signal,
 				callbacks: [metrics],
 			},
 		);
@@ -199,7 +205,9 @@ class LearningPathAIService {
 			metrics.emitSummary(turnOutcomeOf(error));
 			throw error;
 		} finally {
-			metrics.emitSummary("ok");
+			// A consumer that breaks its `for await` unwinds through here with no
+			// error, so the signal is the only evidence the turn was cut short.
+			metrics.emitSummary(signal.aborted ? "aborted" : "ok");
 		}
 	}
 }

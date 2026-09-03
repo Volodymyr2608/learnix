@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 
 const {
 	mockLogger,
@@ -77,6 +78,7 @@ const drive = async (signal?: AbortSignal) => {
 	for await (const event of lessonAIService.streamResponse({
 		...baseParams,
 		signal,
+		metrics: aiMetricsHandler({ feature: "lessonAI" }),
 	})) {
 		events.push(event);
 	}
@@ -173,7 +175,10 @@ describe("one summary per turn, from whichever exit is taken (AC 5, AC 8)", () =
 			})(),
 		);
 
-		for await (const _ of lessonAIService.streamResponse(baseParams)) {
+		for await (const _ of lessonAIService.streamResponse({
+			...baseParams,
+			metrics: aiMetricsHandler({ feature: "lessonAI" }),
+		})) {
 			break;
 		}
 

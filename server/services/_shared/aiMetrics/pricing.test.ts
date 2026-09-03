@@ -60,3 +60,39 @@ describe("totalUsage", () => {
 		expect(totalUsage([usage(1, 2), usage(10, 20)])).toEqual(usage(11, 22));
 	});
 });
+
+describe("provider data is not trusted to be numeric (security.md S2)", () => {
+	it("coerces a non-numeric token count to zero rather than emitting it", () => {
+		// AC 6's "every emitted value is a primitive scalar" was a COMPILE-time
+		// claim over runtime data this code does not own. A provider or proxy
+		// returning a string or an object here would put it straight on the log
+		// line, breaking the scalar contract with no test failing.
+		expect(
+			usageOfMessage({
+				usage_metadata: { input_tokens: "1200", output_tokens: { a: 1 } },
+			}),
+		).toEqual(usage(0, 0));
+	});
+
+	it("rejects NaN, Infinity and negatives", () => {
+		expect(
+			usageOfMessage({
+				usage_metadata: { input_tokens: Number.NaN, output_tokens: -5 },
+			}),
+		).toEqual(usage(0, 0));
+		expect(
+			usageOfMessage({
+				usage_metadata: { input_tokens: Number.POSITIVE_INFINITY },
+			}),
+		).toEqual(usage(0, 0));
+	});
+
+	it("does not resolve a price off the prototype chain", () => {
+		// PRICES is a plain object literal, so PRICES["__proto__"] is truthy and
+		// slips past the `if (!price) return null` guard — yielding NaN, a
+		// number-typed non-number that sums the whole turn to NaN.
+		expect(usageCost(usage(1000, 1000), "__proto__")).toBeNull();
+		expect(usageCost(usage(1000, 1000), "constructor")).toBeNull();
+		expect(usageCost(usage(1000, 1000), "toString")).toBeNull();
+	});
+});

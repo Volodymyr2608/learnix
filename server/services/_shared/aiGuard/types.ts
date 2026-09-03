@@ -1,3 +1,4 @@
+import type { AiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 export type GuardLayer = "L1" | "L2";
 export type GuardOutcome = "allow" | "off_topic" | "blocked";
 export type L1Verdict = "allow" | "suspect" | "block";
@@ -19,6 +20,16 @@ export type GuardContext = {
 	feature: "courseAI" | "lessonAI";
 	userId: string;
 	domain: GuardDomain;
+	/**
+	 * The turn's metrics handler, built by the route BEFORE the guard runs.
+	 *
+	 * Required, not optional: L2 is a model call on every turn, and an optional
+	 * field here is a silent unmetering waiting to happen — a caller that omits
+	 * it compiles, passes every test, and drops the guard's cost from the turn.
+	 * Building it in the route is also what puts the L2 wait inside the turn's
+	 * measured latency, where the student experiences it.
+	 */
+	metrics: AiMetricsHandler;
 };
 
 export type GuardResult = {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 
 const { mockLogger, mockInvoke, mockCtor } = vi.hoisted(() => ({
 	mockLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -35,6 +36,7 @@ const { guardUserInput } = await import("./guardUserInput");
 const context = {
 	feature: "lessonAI" as const,
 	userId: "student-1",
+	metrics: aiMetricsHandler({ feature: "lessonAI" }),
 	domain: {
 		description: "the lesson 'Recursion' in the course 'Algorithms'",
 		subject: "Recursion",
@@ -56,7 +58,11 @@ describe("the control is unchanged (AC 11)", () => {
 		// rather than a silently waiting student.
 		mockInvoke.mockResolvedValue({ onTopic: true, reason: "" });
 
-		await checkTopicRelevance("what is a base case?", context.domain);
+		await checkTopicRelevance(
+			"what is a base case?",
+			context.domain,
+			aiMetricsHandler({ feature: "lessonAI", node: "l2_topic_relevance" }),
+		);
 
 		expect(mockCtor).toHaveBeenCalledWith(
 			expect.objectContaining({ timeout: 3_000, maxRetries: 1 }),
@@ -118,7 +124,7 @@ describe("the L2 call is now measured (AC 3)", () => {
 		await checkTopicRelevance(
 			"what is a base case?",
 			context.domain,
-			"lessonAI",
+			aiMetricsHandler({ feature: "lessonAI", node: "l2_topic_relevance" }),
 		);
 
 		const [, config] = mockInvoke.mock.calls[0] ?? [];
@@ -162,7 +168,7 @@ describe("the L2 call is now measured (AC 3)", () => {
 		await checkTopicRelevance(
 			"what is a base case?",
 			context.domain,
-			"lessonAI",
+			aiMetricsHandler({ feature: "lessonAI", node: "l2_topic_relevance" }),
 		);
 
 		const [, config] = mockInvoke.mock.calls[0] ?? [];
