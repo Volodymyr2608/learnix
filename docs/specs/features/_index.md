@@ -15,6 +15,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | ai-flow-contracts | stable | ai-course-builder, ai-input-trust-boundary |
 | ai-guard-multilingual-coverage | stable | ai-input-trust-boundary, ai-tutor-guardrails, ai-defence-layers |
 | ai-input-trust-boundary | stable | ai-course-builder, auth |
+| ai-observability | in-progress | error-observability, ai-flow-contracts, ai-evaluation-harness |
 | ai-tutor-guardrails | stable | ai-input-trust-boundary, ai-chat-route-authorization, learning-path, quiz-generation, quiz-answer-key |
 | billing | stable | payments |
 | certificates | stable | enrollment |
