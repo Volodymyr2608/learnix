@@ -205,3 +205,109 @@ describe("errors carry a class, never a message (AC 7)", () => {
 		expect(mockLogger.info).not.toHaveBeenCalled();
 	});
 });
+
+describe("the turn summary (AC 5, AC 8, AC 13)", () => {
+	const turnLine = () =>
+		mockLogger.info.mock.calls
+			.map(([fields]) => fields as Record<string, unknown>)
+			.filter((f) => "calls" in f);
+
+	it("sums tokens and cost across every call in the turn", async () => {
+		const handler = aiMetricsHandler({ feature: "courseAI" });
+
+		await started(handler, { runId: "a" });
+		await ended(handler, { runId: "a", inputTokens: 100, outputTokens: 10 });
+		await started(handler, { runId: "b" });
+		await ended(handler, { runId: "b", inputTokens: 200, outputTokens: 20 });
+
+		handler.emitSummary("ok");
+
+		expect(turnLine()[0]).toMatchObject({
+			feature: "courseAI",
+			calls: 2,
+			promptTokens: 300,
+			completionTokens: 30,
+			outcome: "ok",
+		});
+		expect(turnLine()[0]?.costUsd).toBeTypeOf("number");
+	});
+
+	it("reports the whole turn as unpriced when any one call was (AC 2)", async () => {
+		// A partial total is a wrong total: summing only the priced half produces
+		// a number that looks authoritative and understates the turn.
+		const handler = aiMetricsHandler({ feature: "courseAI" });
+
+		await started(handler, { runId: "a" });
+		await ended(handler, { runId: "a" });
+		await started(handler, { runId: "b", model: "gpt-6-unreleased" });
+		await ended(handler, { runId: "b" });
+
+		handler.emitSummary("ok");
+
+		expect(turnLine()[0]?.costUsd).toBeNull();
+	});
+
+	it("emits a summary for a turn that made no model call at all", async () => {
+		// A turn the guard blocked at L1 still happened. Suppressing it would drop
+		// blocked turns out of the denominator of every rate computed from these.
+		const handler = aiMetricsHandler({ feature: "lessonAI" });
+
+		handler.emitSummary("ok");
+
+		expect(turnLine()[0]).toMatchObject({ calls: 0, promptTokens: 0 });
+	});
+
+	it("omits ttftMs entirely when nothing streamed (AC 13)", async () => {
+		const handler = aiMetricsHandler({ feature: "quizAI" });
+
+		await started(handler);
+		await ended(handler);
+		handler.emitSummary("ok");
+
+		expect(turnLine()[0]).not.toHaveProperty("ttftMs");
+	});
+
+	it("records ttftMs from the first streamed token, not the last (AC 13)", async () => {
+		const handler = aiMetricsHandler({ feature: "lessonAI" });
+
+		await started(handler, { node: "model_request" });
+		handler.handleLLMNewToken?.("first", undefined as never, RUN);
+		handler.handleLLMNewToken?.("second", undefined as never, RUN);
+		await ended(handler);
+		handler.emitSummary("ok");
+
+		const ttft = turnLine()[0]?.ttftMs;
+		expect(ttft).toBeTypeOf("number");
+		expect(ttft as number).toBeLessThanOrEqual(turnLine()[0]?.wallMs as number);
+	});
+
+	it("emits a summary with outcome aborted and no error line (AC 8)", async () => {
+		const handler = aiMetricsHandler({ feature: "lessonAI" });
+
+		await started(handler);
+		await handler.handleLLMError?.(
+			Object.assign(new Error("gone"), { name: "ModelAbortError" }),
+			RUN,
+		);
+		handler.emitSummary("aborted");
+
+		const all = mockLogger.info.mock.calls.map(
+			([fields]) => fields as Record<string, unknown>,
+		);
+		expect(all).toHaveLength(1);
+		expect(all[0]).toMatchObject({ outcome: "aborted", calls: 0 });
+	});
+
+	it("is idempotent, because several exits may all reach it", async () => {
+		// lessonAI reaches its summary from the in-loop abort check, the catch and
+		// the finally. Double-counting a turn is a real defect, so the second call
+		// is a no-op — the same reason finishWithoutDelivery guards itself.
+		const handler = aiMetricsHandler({ feature: "lessonAI" });
+
+		handler.emitSummary("ok");
+		handler.emitSummary("aborted");
+
+		expect(turnLine()).toHaveLength(1);
+		expect(turnLine()[0]?.outcome).toBe("ok");
+	});
+});

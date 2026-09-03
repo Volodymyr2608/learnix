@@ -5,12 +5,15 @@ import {
 	isNodeAbort,
 	isRetryable,
 } from "@/server/services/_shared/aiErrors/errorShape";
-import { emitCall } from "@/server/services/_shared/aiMetrics/emit";
+import { emitCall, emitTurn } from "@/server/services/_shared/aiMetrics/emit";
 import {
 	usageCost,
 	usageOfMessage,
 } from "@/server/services/_shared/aiMetrics/pricing";
-import type { AiMetricContext } from "@/server/services/_shared/aiMetrics/types";
+import type {
+	AiMetricContext,
+	AiMetricOutcome,
+} from "@/server/services/_shared/aiMetrics/types";
 
 /** What a call needs remembered between its start and its end. */
 type OpenCall = {
@@ -70,6 +73,16 @@ class AiMetricsHandler extends BaseCallbackHandler {
 	 */
 	private readonly open = new Map<string, OpenCall>();
 
+	private readonly turnStartedAt = Date.now();
+	private calls = 0;
+	private promptTokens = 0;
+	private completionTokens = 0;
+	private costUsd = 0;
+	/** Once true the turn total is unknowable, not merely incomplete. */
+	private anyUnpriced = false;
+	private firstTokenAt: number | undefined;
+	private summarised = false;
+
 	constructor(private readonly ctx: AiMetricContext) {
 		super();
 	}
@@ -102,6 +115,13 @@ class AiMetricsHandler extends BaseCallbackHandler {
 			| { message?: unknown }
 			| undefined;
 		const usage = usageOfMessage(message?.message);
+		const cost = usageCost(usage, call.model);
+
+		this.calls += 1;
+		this.promptTokens += usage.inputTokens;
+		this.completionTokens += usage.outputTokens;
+		if (cost === null) this.anyUnpriced = true;
+		else this.costUsd += cost;
 
 		emitCall({
 			feature: this.ctx.feature,
@@ -110,7 +130,7 @@ class AiMetricsHandler extends BaseCallbackHandler {
 			latencyMs: Date.now() - call.startedAt,
 			promptTokens: usage.inputTokens,
 			completionTokens: usage.outputTokens,
-			costUsd: usageCost(usage, call.model),
+			costUsd: cost,
 			outcome: "ok",
 		});
 	}
@@ -124,6 +144,10 @@ class AiMetricsHandler extends BaseCallbackHandler {
 		// all — the turn summary still records that the turn ended (AC 8).
 		if (isNodeAbort(err)) return;
 
+		// A failed call is still a call: excluding it would make the failure rate
+		// unreadable, since its own denominator would shrink with it.
+		this.calls += 1;
+
 		emitCall({
 			feature: this.ctx.feature,
 			node: call.node,
@@ -134,6 +158,43 @@ class AiMetricsHandler extends BaseCallbackHandler {
 			costUsd: null,
 			outcome: isRetryable(err) ? "retryable_error" : "fatal_error",
 			errorName: errorNameOf(err),
+		});
+	}
+
+	/**
+	 * First token only — TTFT is what an SSE reader waits on, not the last token.
+	 *
+	 * The parameters are declared even though none is read: narrowing the base
+	 * signature to zero makes every ordinary three-argument call fail to compile
+	 * at the call site.
+	 */
+	handleLLMNewToken(_token: string, _idx?: unknown, _runId?: string): void {
+		this.firstTokenAt ??= Date.now();
+	}
+
+	/**
+	 * One line per turn, emitted by the caller at whichever exit it reaches.
+	 *
+	 * Idempotent, because several exits legitimately reach it: lessonAI can pass
+	 * through its in-loop abort check, its catch AND its finally on one turn, and
+	 * a turn counted twice is a real defect in every rate built from these lines.
+	 * The first outcome wins — it is the one that actually described the turn.
+	 */
+	emitSummary(outcome: AiMetricOutcome): void {
+		if (this.summarised) return;
+		this.summarised = true;
+
+		emitTurn({
+			feature: this.ctx.feature,
+			calls: this.calls,
+			promptTokens: this.promptTokens,
+			completionTokens: this.completionTokens,
+			costUsd: this.anyUnpriced ? null : this.costUsd,
+			wallMs: Date.now() - this.turnStartedAt,
+			...(this.firstTokenAt === undefined
+				? {}
+				: { ttftMs: this.firstTokenAt - this.turnStartedAt }),
+			outcome,
 		});
 	}
 
