@@ -3,6 +3,11 @@ import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
 import { NEUTRAL_REFUSAL_MESSAGE } from "@/server/services/_shared/aiGuard/messages";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import {
+	aiMetricsHandler,
+	turnOutcomeOf,
+} from "@/server/services/_shared/aiMetrics/handler";
+import type { AiMetricOutcome } from "@/server/services/_shared/aiMetrics/types";
 import { lessonConceptNames } from "@/server/services/_shared/concepts/lessonConcepts";
 import { traced } from "@/server/services/_shared/tracing";
 import {
@@ -155,6 +160,15 @@ class LessonAIService {
 			turn,
 		});
 
+		// Attached once, at the agent root: the config reaches every model call
+		// underneath it, so no node or tool needs to know it is being measured.
+		const metrics = aiMetricsHandler({
+			feature: "lessonAI",
+			userId: studentId,
+			courseId,
+		});
+		let turnOutcome: AiMetricOutcome = "ok";
+
 		const tracedStream = traced(
 			"lessonAI.streamResponse",
 			async () =>
@@ -164,6 +178,7 @@ class LessonAIService {
 						version: "v2",
 						signal,
 						recursionLimit: AGENT_RECURSION_LIMIT,
+						callbacks: [metrics],
 					},
 				),
 			{ feature: "tutor", userId: studentId, courseId },
@@ -265,6 +280,7 @@ class LessonAIService {
 				}
 			}
 		} catch (error) {
+			turnOutcome = turnOutcomeOf(error);
 			// A mid-stream provider error is the third exit that used to skip the
 			// output boundary with a partial reply already in the browser.
 			await finishWithoutDelivery();
@@ -286,6 +302,13 @@ class LessonAIService {
 			// actually closes the abort bypass. The in-loop call remains for the case
 			// where the service notices first; finishWithoutDelivery is idempotent.
 			if (signal?.aborted) await finishWithoutDelivery();
+
+			// Same construct, same reason as the line above: the consumer can break
+			// its `for await` and unwind this generator from the suspended yield,
+			// skipping every statement after the loop. `finally` is the only place a
+			// summary is guaranteed to be written, and emitSummary is idempotent
+			// because the catch above can reach here too.
+			metrics.emitSummary(signal?.aborted ? "aborted" : turnOutcome);
 		}
 
 		// An abort that lands after the last stream event never reaches the in-loop
