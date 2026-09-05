@@ -196,6 +196,15 @@ not retyped — plus:
   the same code read green, exactly on the line, and red. A number that moves ten points while the
   code stands still cannot measure a prompt change — the measurement is therefore fixed first, and
   the prompt second.
+- **The set is run with the content its step implies.** A row on `requirements` is a row whose
+  `basic` and `objectives` are settled — that is what `currentStep` means — so the node's `ALREADY
+  STORED` line is built from the keys those steps hold, derived from the step order rather than
+  hand-written per row. Running every row with `content: {}` made that line read *"nothing stored
+  yet"* on all twenty, so the one input the node has for telling produced-already from
+  being-collected-now was constant across the set. **Measured cost: row 16 returns `continue` three
+  draws of three with an empty content and `revise:requirements` three of three with a real one.** It
+  was being counted as a prompt defect and is not one. Only key names reach the prompt, never values,
+  so the fixtures cannot carry a label.
 - **The gate stands on the rows the model actually classified.** Rows 01, 09 and 20 carry an empty
   history, so the node returns `continue` before the model call — **17 model calls for 20 rows**.
   Scored together they hand the gate **15 points the model never earned**, which is the same class of
@@ -232,12 +241,20 @@ not retyped — plus:
 - **A model failure inside `classify_intent` emits `fallback_triggered`.** The node catches its own
   errors and returns `continue`; a provider outage and a genuine "continue" are indistinguishable
   downstream, and the taxonomy already has the event for exactly this class.
-- **The class the prompt has to close.** An addition aimed at an *earlier* step, phrased tentatively,
-  while a later step is being collected: *"Also add an objective about machine learning concepts"*
-  said during requirements (row 15), *"I think we should also require knowledge of statistics"* during
-  curriculum (16), *"I'm not sure, maybe add one more objective?"* during requirements (19). Each
-  reaches `revise` with the resolved target in **all three samples**. Measured today: 15 and 19 fail
-  every run, 16 fails two runs in three.
+- **The class the prompt has to close, once the instrument stopped adding to it.** An addition aimed
+  at an *earlier* step, phrased tentatively, while a later step is being collected: *"Also add an
+  objective about machine learning concepts"* said during requirements (row 15) and *"I'm not sure,
+  maybe add one more objective?"* (row 19). Both reach `revise:objectives` in **all three samples**.
+  Row 16 was in this list and is not a member: it fails only with the empty content the eval used to
+  supply. **The comparison that pins the defect is row 07** — *"I want to go back and add a 5th
+  objective"*, same step, same target — which passes three of three either way. Nothing about the
+  step differs; only how the instructor phrased it, which is precisely what a routing rule may not
+  depend on.
+- **The floor binds before the rate does, and that is the target.** 17 scored rows × 3 samples = 51.
+  The 85% rate needs 44 of them and stands at 42; the floor needs every gated row off zero and three
+  rows sit there. Fixing all three takes the rate to 51/51, so **the floor is the binding constraint
+  and the rate cannot be satisfied around it** — a prompt that trades one of the three away for
+  points elsewhere still fails.
 - **The opposite direction may not regress, and it is not drift — it is already broken.** Content
   belonging to the step being collected stays `continue`: *"Students should already know basic HTML
   and CSS"* during requirements (row 11), *"Add objective: understand numpy and pandas"* during
@@ -491,12 +508,17 @@ expected; **not** `clarify` and **not** a mis-resolved target, so the repair is 
 continue/revise boundary and not the field resolver. Row 11 returns `revise:requirements` in eight
 draws of nine while `requirements` is the step being collected.
 
-**A limit this eval still has, named rather than fixed here:** every row is run with `content: {}`, so
-the `ALREADY STORED` line the node builds always reads *"nothing stored yet"*. The mechanism
-§Acceptance criteria credits with deciding row 02 is therefore **constant across the whole set** and
-cannot be what separates any two rows in it. Giving the rows real `content` is a change to what the
-set measures, and making it in the same change as a prompt edit would leave nobody able to say which
-of the two moved the number — the same reason the set does not grow here.
+**A third defect of the same class, found by the same means and fixed here:** every row was run with
+`content: {}`, so `ALREADY STORED` always read *"nothing stored yet"* — the node's only input for
+telling produced-already from being-collected-now was constant across the set. Row 16 was failing for
+that reason and not for the node's. With the content its step implies, the set reports **82.4%** with
+three genuine defects (11, 15, 19) and **nothing flaky**, where the same code read 76.5–78.4% with
+four and a drifting fifth.
+
+**The set still does not grow, and that is a separate decision.** Twenty rows, seventeen scored, is
+coarse; adding rows carries its own leak risk and would make it impossible to say whether the prompt
+or the data moved the number. Filling `content` is not the same act: it removes a constant, it adds
+no row, and only key names ever reach the prompt.
 
 **`courseAI:confidenceScore` gates on two numbers, not one** (reopened 2026-09-05). Precision among
 `≥ 0.8` predictions is the existing gate at 0.85; on its own it is maximised by a node that scores

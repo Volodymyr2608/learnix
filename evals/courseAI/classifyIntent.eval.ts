@@ -15,7 +15,11 @@ import {
 	startRunUsage,
 	usageRecorder,
 } from "../_shared/usage";
-import { categoryOf, loadClassifyIntentRows } from "./classifyIntentRows";
+import {
+	categoryOf,
+	loadClassifyIntentRows,
+	priorStepContent,
+} from "./classifyIntentRows";
 
 type Outcome = SampleOutcome & CategoryEvalResult;
 
@@ -73,7 +77,7 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 					generationId: "eval",
 					instructorId: "eval",
 					currentStep: DraftStep[row.currentStep],
-					content: {},
+					content: priorStepContent(row),
 					history: row.history.map((h) => ({ ...h, step: DraftStep[h.step] })),
 					mode: "chat",
 					userMessage: row.userMessage,

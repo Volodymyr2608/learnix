@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { DraftStep } from "@/generated/prisma";
+import { DraftStep } from "@/generated/prisma";
+import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 
 export type Row = {
 	id: string;
@@ -45,3 +46,37 @@ export const loadClassifyIntentRows = (): Row[] =>
 		.split("\n")
 		.filter(Boolean)
 		.map((line) => JSON.parse(line) as Row);
+
+/**
+ * What the earlier steps have already saved by the time this row happens.
+ *
+ * The set used to be run with `content: {}` on every row, so the node's
+ * `ALREADY STORED` line always read "nothing stored yet". That is not a state
+ * production reaches: `currentStep` is `requirements` precisely because `basic`
+ * and `objectives` were settled. The one input the node is given to tell
+ * "produced already" from "being collected now" was therefore constant across
+ * the whole set, and could not separate any two rows in it.
+ *
+ * It was not a harmless omission. Row 16 returns `continue` three draws of three
+ * with an empty content and `revise:requirements` three of three with this one —
+ * it was being counted as a prompt defect and is not one.
+ *
+ * Derived from the step order rather than stored per row: a hand-written
+ * `content` per row would be twenty more chances to disagree with `currentStep`,
+ * and the invariant is mechanical. The values are placeholders and cannot leak a
+ * label — the node joins the key NAMES into the prompt and never the values,
+ * which `classifyIntent.test.ts` already asserts against a hostile `content`.
+ */
+export const priorStepContent = (row: Row): Record<string, unknown> => {
+	const steps = Object.values(DraftStep);
+	const before = steps.slice(0, steps.indexOf(DraftStep[row.currentStep]));
+
+	return Object.fromEntries(
+		before.flatMap((step) =>
+			Object.keys(getExtractionSchemaForStep(step).shape).map((key) => [
+				key,
+				"stored",
+			]),
+		),
+	);
+};
