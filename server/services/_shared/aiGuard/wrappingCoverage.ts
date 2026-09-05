@@ -27,10 +27,13 @@
  *     alone, so an object that is server-built but carries one model-authored
  *     field reads as trusted.
  *  4. **A chain with no template.** A binding assembled by a call — `.map(...)`,
- *     `Object.fromEntries(...)` — is skipped rather than followed, and only its
- *     parts are judged where the walker meets them. One such shape exists
- *     (`revisePriorField.ts`'s `currentStepData`) and is wrapped by hand; the
- *     scan is not what proves it.
+ *     `.filter(...)`, `Object.fromEntries(...)` — is skipped rather than followed,
+ *     and only its parts are judged where the walker meets them. **Two** such
+ *     shapes exist: `revisePriorField.ts`'s `currentStepData`, wrapped by hand,
+ *     and `classifyIntent.ts`'s `keys`, entered in ALLOWED_INTERPOLATIONS with
+ *     its claim written out. Neither is proved by the scan, which is why both
+ *     are named here — a blind spot nobody lists reads as coverage. Adding a
+ *     third without a line here is how this note stops being true.
  *  5. **A prompt builder outside the scan set.** A call to a builder named in
  *     TRUSTED_INTERPOLATIONS is trusted at the call site, so the claim holds only
  *     while every such builder is also a registered entry point. Both halves are
@@ -114,6 +117,18 @@ export type AllowedInterpolation = {
  * cannot be written down as a sentence here is not a claim worth honouring.
  */
 export const ALLOWED_INTERPOLATIONS: AllowedInterpolation[] = [
+	{
+		file: "server/services/courseAI/graph/nodes/classifyIntent.ts",
+		expression: 'keys.join(", ")',
+		reason:
+			"Object.keys of a step's own Zod shape — a closed vocabulary of ten literals the platform authored. `state.content` decides only WHICH of them appear, never their spelling: content keys are never iterated, only tested for presence with Object.hasOwn. Entered by hand because the scan skips it under false negative 4 (a .filter() chain off a local binding), so this claim is the record, not the scan — and it is the half of that line which state actually influences.",
+	},
+	{
+		file: "server/services/courseAI/graph/nodes/classifyIntent.ts",
+		expression: "step",
+		reason:
+			"A DraftStep enum member iterated straight off Object.values(DraftStep) while building the ALREADY STORED line — it is not read from state at all, so no user or model value can reach it. What it labels are key names taken from the step's own Zod shape, which are equally the platform's own vocabulary; neither side carries content.",
+	},
 	// --- values folded into a history line that is wrapped where it is rendered
 	{
 		file: "server/services/courseAI/graph/nodes/assessCompletion.ts",

@@ -175,6 +175,44 @@ not retyped — plus:
   it is arithmetic rather than an aspiration.
 - **Field presence is not specificity.** A step whose required fields are all present but whose values
   are single words or default titles scores below the floor the prompt used to guarantee it.
+
+**Intent routing** (reopened 2026-09-05; each line is an eval row on `courseAI:classifyIntent`):
+
+- **The node meets its own gate:** `≥ 85%` of rows classify with both `intent` and the resolved
+  revise target correct. **80.0% (16/20) before; 85–90% after** — four runs on 2026-09-05, failures
+  settling on rows 15 and 19 with row 11 crossing the line in one of them. At n=20 one row is five
+  points, so the set's resolution, not the prompt's, is the binding constraint on this number, and the
+  range is reported rather than its best member.
+- **The model names the field; the step is derived, not guessed.** `classify_intent` returns the
+  stored field the instructor wants changed, and the step is resolved from
+  `getExtractionSchemaForStep`'s own shapes. A step the model could not have chosen cannot be
+  returned: `level` resolves to `basic` because `basic` is the schema that holds `level`, and no
+  prompt wording is involved in that step.
+- **The three measured failures pass by construction.** "Change the level to Advanced" (row 03),
+  "change the title to 'Data Science Fundamentals'" (13) and "make it beginner level, not
+  intermediate" (14) each resolve to `basic` — the step that holds `title`, `subtitle`,
+  `description`, `category`, `level`, `language`, `duration`.
+- **A field outside the schemas is unrepresentable, and the null target is unreachable.**
+  `reviseField` is a `z.enum` built from the four schemas' own keys, so the model chooses from a
+  closed set — the same shape as the closed tool set, and the reason `"constructor"` can no longer
+  resolve. Behind it the node still turns an unresolved field into a `clarify`, because structured
+  output is provider behaviour rather than a guarantee. Either way no instructor sees *"I couldn't
+  tell which field to revise"*, the dead end `revise_prior_field` returns for a null target.
+- **Supplying content for a step that has stored nothing is `continue`** — enforced by the input, not
+  by prose. The node is told which keys the current step has already stored; with none stored there
+  is nothing to revise, which is what decides row 02 ("add objective: understand numpy and pandas").
+- **A model failure inside `classify_intent` emits `fallback_triggered`.** The node catches its own
+  errors and returns `continue`; a provider outage and a genuine "continue" are indistinguishable
+  downstream, and the taxonomy already has the event for exactly this class.
+
+**What the fix did not close, measured rather than assumed.** Three rows still fail, and they are one
+class: an addition aimed at an *earlier* step, phrased tentatively, while a later one is being
+collected — *"also add an objective about machine learning"* said during requirements, *"maybe add one
+more objective?"*. The prompt now states the rule in both directions (content belonging to the current
+step is `continue` however phrased; content belonging to another step is a `revise` of that step), and
+pushing harder on this class is what regressed a row in the opposite direction during
+implementation — *"Students should already know basic HTML and CSS"*, which is the requirements step's
+own content, got pulled into `revise`. The two directions trade against each other at this set size.
 - **The prompt is the only lever this reopening moves.** `CONFIDENCE_THRESHOLD` stays **0.8** and the
   handover semantics stay as §Validation describes them. Two levers changed at once cannot be told
   apart afterwards, and the threshold is documented in three places (this spec, `graph-contract.md`,
@@ -192,6 +230,18 @@ not retyped — plus:
   does, and the instructor gets an Accept button. Not an error path.
 - **Validation failure.** Routes to `clarify`, not to END and not to an error — the instructor sees a
   question naming what is missing.
+- **Adding to the step you are currently on is `continue`, not `revise`.** "Add objective:
+  understand numpy and pandas", said while on the objectives step, is the instructor *answering the
+  question the step asked* — the normal path, which extracts and moves forward. `revise` is for
+  reaching back to content a previous step already stored, or replacing what the current step stored
+  on an earlier turn. Golden row 02 pins this.
+
+  **The prompt currently says the opposite** and this is the defect's second half: *"revise: the user
+  explicitly wants to add, remove, or change specific stored content — whether from an earlier step
+  **or the current step**"*, with "add a bonus section" as an example. Read literally, "add objective:
+  X" is a revise. The distinction that matters is not add-versus-approve but **stored versus being
+  collected**: a step mid-collection has stored nothing to revise.
+
 - **An instructor who asks for a stub on purpose still gets the Accept button.** Golden row 08 is
   exactly this case — *"Start me off with a section and a lesson in it, I'll write the rest myself"* —
   and it stays labelled `complete: false`. The score judges the **data**, and the instructor's consent
@@ -238,6 +288,17 @@ The decisions behind it:
   `logger.error` per failed turn is the sole error-level report; `withNodeErrors` logs its own copy
   at `debug` to avoid a double capture.
 
+**Recorded, not fixed here: the revise path persists with fewer checks than the path it revises.**
+`continue` runs `validate` (Zod) and then `confidence_score`, which holds the step for an
+instructor's Accept below 0.8. `revise_prior_field` runs neither — it asks the model for the complete
+updated step and writes it with `courseGenerationRepository.update` inside the node, before
+`chat_response`. Editing content that is already stored, the operation with an existing draft to
+damage, therefore passes through fewer gates than creating it; and a misrouted `revise` reaches that
+path instead of the two gates, which is what makes intent routing worth its own accuracy bar. This is
+the second place model-authored `draftStepData` is committed on a short path — the first is
+exclusion 1 in §Security — and it wants its own change, because it touches persistence and the
+handover gate rather than routing.
+
 ## Security
 
 Controls are inherited by reference from [`../ai-defence-layers/`](../ai-defence-layers/spec.md),
@@ -247,7 +308,18 @@ register for this surface — input guard applied, wrapping applied, all three o
 render policy applied, resource limits applied — is
 `server/services/_shared/conformance/aiSurfaces.ts`, re-derived from source by its own contract test.
 
-**This reopening adds no control and touches none.** Rewriting the `confidence_score` guidelines is a
+**The intent-routing reopening (2026-09-05) does touch this section, in two additive ways.** It adds
+two `ALLOWED_INTERPOLATIONS` entries in `aiGuard/wrappingCoverage.ts` for the `ALREADY STORED` line —
+one for the `DraftStep` member that labels it, one for the schema key names it lists, the second
+entered by hand because the scan skips that shape under its own documented false negative 4. Neither
+widens what may reach a prompt: both sides of the line are platform vocabulary, and `state.content`
+decides only which names appear, never their spelling, which `classifyIntent.test.ts` asserts against
+a `content` whose own keys are hostile. It also adds a `fallback_triggered` emitter on the node's
+catch — telemetry, zero-baseline, forwarded to Sentry, replacing a silence. `pnpm classify` reports
+this branch as a **control change with no new authority**, which is why one auditor ran over the
+modified control rather than a full design pass.
+
+**The `confidence_score` reopening added no control and touched none.** Rewriting its guidelines is a
 change *inside* an already-registered entry point — `documentation-process.md` §3a calls that neither
 new authority nor a modified control, so no design pass runs and the controls above are inherited by
 reference unchanged. The wrapping the node already applies (`wrapUntrustedContent` over
@@ -345,6 +417,15 @@ classifiers.
 dataset under `evals/datasets/courseAI/`. The adversarial side is the shared `aiGuard` sets, since
 `guardUserInput` is shared with the tutor.
 
+**`courseAI:classifyIntent` is red, and was red silently** (2026-09-05). 80.0% (16/20) against its
+0.85 gate. Evals are not in CI by design, so an eval only speaks when someone runs it, and nobody had
+run this one since the prompt it grades last changed. It was found while pricing the evals for a cost
+baseline — the second quality defect that a cost measurement turned up, after the confidence node.
+Three of the four failures are the same shape: `reviseTarget` on `basic`. A fix is measured by the
+same run, and the first task of any plan prints what the node actually returned for those rows —
+`intent` wrong and `reviseTarget` wrong are different defects with different repairs, and the gate
+does not distinguish them.
+
 **`courseAI:confidenceScore` gates on two numbers, not one** (reopened 2026-09-05). Precision among
 `≥ 0.8` predictions is the existing gate at 0.85; on its own it is maximised by a node that scores
 everything low, and `accuracyGate` only catches the degenerate end of that (an empty prediction set
@@ -426,6 +507,26 @@ costs one run — about $0.002 — and it decides whether prompt work can succee
   at them, which is a retention failure (instructors forced to Accept correct steps) rather than a
   precision one, and no contract test can see it: the anti-overfit test forbids the set's literals,
   not its shapes.
+- **`classify_intent` names one of its four targets.** The prompt illustrates `reviseTarget` with
+  `curriculum` and leaves `basic`, `objectives` and `requirements` to inference — and `basic` is the
+  one whose name says nothing about what it holds (`title`, `subtitle`, `description`, `category`,
+  `level`, `language`, `duration`, per `getExtractionSchemaForStep`). A model asked to route "change
+  the title" has to know that mapping from somewhere, and the prompt is not where it is.
+- **`classify_intent` fails silently by design, which is why its accuracy is worth gating.** The node
+  catches its own model errors and falls back to `intent: "continue"`, so a bad classification and a
+  provider outage look identical from downstream — except that the fallback now emits
+  `fallback_triggered`, so the outage half is visible. Nothing but the eval distinguishes the other
+  half.
+- **`ALREADY STORED` lists every step, and that choice is an argument rather than a measurement.**
+  Every row of the golden set passes `content: {}`, so the per-step listing renders as "nothing stored
+  yet" on all twenty and is **inert under the eval**. The first implementation scoped the line to the
+  current step; accuracy stayed at 80.0% while the failing rows changed completely, but between those
+  two runs the header wording and the Decide bullets moved together, so the delta cannot be attributed
+  to either. The listing spans every step because scoping evidence to the current step is wrong on its
+  face for a classifier whose main job is reaching backwards — not because a number said so.
+- **The 85.0% measures the empty-content prompt.** Production populates `state.content`, so real turns
+  see a prompt shape no golden row covers. Rows with populated `content` are what this set needs
+  first.
 - **The golden set is off-limits to the prompt.** Rows 04, 06, 08 and 18 are the fixture this work is
   measured against; naming their content in the prompt turns the eval into a lookup. A contract test
   enforces this, so it does not depend on anyone remembering.
