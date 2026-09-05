@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import { DraftStep } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
@@ -58,18 +59,27 @@ export const classifyIntent = withNodeErrors(
 			)
 			.join("\n");
 
-		// What this step has already stored, and therefore what there is to
-		// revise. Passing it turns "supplying content for the current step is
-		// continue" from a sentence the model has to read correctly into a fact it
-		// is given: a step storing nothing has nothing to revise.
-		const storedKeys = Object.keys(
-			getExtractionSchemaForStep(state.currentStep).shape,
-		).filter((key) => key in state.content);
+		// What each step has already stored — every step, not only the current one.
+		//
+		// Scoping this to the current step was wrong and measurably so: `revise` is
+		// mostly a request about an EARLIER step ("go back and add a 5th
+		// objective"), so a line saying only that the current step holds nothing
+		// reads as "nothing is stored anywhere" and pushes those turns to
+		// `continue`. Four rows that had been passing failed on exactly that.
+		const storedByStep = Object.values(DraftStep)
+			.map((step) => {
+				const keys = Object.keys(getExtractionSchemaForStep(step).shape).filter(
+					(key) => key in state.content,
+				);
+				return keys.length ? `${step}: ${keys.join(", ")}` : null;
+			})
+			.filter(Boolean)
+			.join(" | ");
 
 		const prompt = `Classify the user's latest turn.
 
 			CURRENT STEP: ${state.currentStep}
-			ALREADY STORED IN THIS STEP: ${storedKeys.length ? storedKeys.join(", ") : "nothing stored yet"}
+			ALREADY STORED: ${storedByStep || "nothing stored yet"}
 
 			CONVERSATION SO FAR:
 			${historyText}
@@ -78,8 +88,9 @@ export const classifyIntent = withNodeErrors(
 			${state.userMessage}
 
 			Decide:
-			- "continue": the user is approving, moving forward, asking a question, or supplying content for the current step. Supplying content for a step that has stored nothing yet is always "continue" — there is nothing there to revise.
-			- "revise": the user wants to change content that is ALREADY STORED — either from an earlier step, or from this step on an earlier turn. The distinction is stored versus being collected, not adding versus approving.
+			- "continue": the user is approving, moving forward, asking a question, or supplying content for the CURRENT step for the first time. A step still being collected has produced nothing to revise, so answering its question is always "continue" — even when the user says "add".
+			- "revise": the user wants to change content an EARLIER step already produced, or content this step produced on an earlier turn. Look at ALREADY STORED and at the conversation: content named there exists and can be revised. The distinction is produced-already versus being-collected-now, not adding versus approving.
+			- The content the user names decides the step, and the rule has two halves. If what they describe belongs to CURRENT STEP, it is "continue" — they are answering the question this step asked, whether they phrase it as a statement, a suggestion, or an addition. If it belongs to a different step — objectives while collecting requirements, requirements while collecting the curriculum — it is a "revise" of that step, whatever verb they use and however tentatively they put it.
 			- "clarify": you genuinely cannot tell which of the two it is, or you cannot tell which stored field the user means. Use sparingly.
 
 			When returning "revise", set reviseField to the name of the stored field to change — for example the field holding the course's level, or the one holding its sections. Name the field, not the step; it is looked up.

@@ -157,8 +157,17 @@ describe("classify_intent — what the step has already stored is an input", () 
 		expect(promptOf()).toMatch(/ALREADY STORED[^\n]*\blevel\b/i);
 	});
 
-	/** A key stored by another step is not this step's business to revise. */
-	it("does not list keys belonging to other steps", async () => {
+	/**
+	 * Earlier steps' content is shown, attributed to the step that holds it.
+	 *
+	 * Scoping this line to the current step was the first attempt and it cost
+	 * four rows: `revise` is mostly a request about an EARLIER step ("go back and
+	 * add a 5th objective"), so a prompt saying only that the current step holds
+	 * nothing reads as "nothing is stored anywhere" and routes those turns to
+	 * `continue`. Attribution is what keeps the current step distinguishable
+	 * inside a list that now spans all four.
+	 */
+	it("attributes stored keys to the step that holds them", async () => {
 		mockInvoke.mockClear();
 		mockInvoke.mockResolvedValueOnce({
 			intent: "continue",
@@ -168,10 +177,12 @@ describe("classify_intent — what the step has already stored is an input", () 
 
 		await run({
 			currentStep: DraftStep.objectives,
+			userMessage: "add one about pandas",
 			content: { title: "Intro to Python" },
 		});
 
-		expect(promptOf()).toMatch(/stored nothing|nothing stored|no stored/i);
+		expect(promptOf()).toMatch(/ALREADY STORED[^\n]*basic:[^\n]*\btitle\b/i);
+		expect(promptOf()).not.toMatch(/objectives:/i);
 	});
 });
 
