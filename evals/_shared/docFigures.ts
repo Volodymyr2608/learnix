@@ -80,8 +80,16 @@ export const registeredEvals = (): string[] =>
  * this file stay green.
  */
 export const drawsMoreThanOnce = (source: string): boolean => {
-	const match = /SAMPLES\s*=\s*(\d+)/.exec(stripComments(source));
-	return match ? Number(match[1]) > 1 : false;
+	// Every match, not the first. Two things break a single `exec` here: a file
+	// may declare more than one sample constant, and the name is not always bare —
+	// `redteam` calls its own `ALLOW_ROW_SAMPLES`, which a `\b` anchor would
+	// exclude while excluding nothing that deserves it. The question is whether
+	// ANY row is drawn more than once, so the largest declared count answers it
+	// and the declaration order stops mattering.
+	const counts = [
+		...stripComments(source).matchAll(/SAMPLES\s*=\s*(\d+)/g),
+	].map((match) => Number(match[1]));
+	return counts.some((count) => count > 1);
 };
 
 /**

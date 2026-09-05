@@ -203,8 +203,17 @@ export const summariseCalls = (calls: readonly EvalCall[]): CallSummary => ({
  * landed in three days: a leaked label, a prompt failing its own gate, and this.
  *
  * A shortfall is a defect: a sample that never reached the provider was scored
- * against something other than the model. A surplus is a retry — real spend,
- * worth naming on the line, and no reason to fail a run.
+ * against something other than the model.
+ *
+ * A surplus is NOT a retry, which is what this first said. `handleChatModelStart`
+ * fires once per `generate()`, before the `AsyncCaller` loop that `maxRetries`
+ * drives, so a retried call books exactly one `EvalCall` and can never produce
+ * one. What a surplus does mean is that more calls happened than the run is
+ * scoring — a category split that no longer matches which rows reach the model,
+ * or a second model call per row nobody counted. It stays non-fatal because a
+ * caller may legitimately make several calls per sample, but it is reported as
+ * unexplained rather than as expected behaviour: naming a benign cause for a
+ * symptom that cannot have it is how a real signal gets read past.
  */
 export const callCoverage = (
 	calls: number,
@@ -223,7 +232,8 @@ export const callCoverage = (
 			ok: true,
 			message:
 				`${calls} model calls for ${claimedSamples} scored samples — ` +
-				`${calls - claimedSamples} retried`,
+				`${calls - claimedSamples} unaccounted for; provider retries do not ` +
+				`book a call, so check which rows are being scored`,
 		};
 
 	return { ok: true, message: "" };

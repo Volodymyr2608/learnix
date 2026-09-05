@@ -292,11 +292,22 @@ not retyped — plus:
   reaching back to content a previous step already stored, or replacing what the current step stored
   on an earlier turn. Golden row 02 pins this.
 
-  **The prompt currently says the opposite** and this is the defect's second half: *"revise: the user
-  explicitly wants to add, remove, or change specific stored content — whether from an earlier step
-  **or the current step**"*, with "add a bonus section" as an example. Read literally, "add objective:
-  X" is a revise. The distinction that matters is not add-versus-approve but **stored versus being
-  collected**: a step mid-collection has stored nothing to revise.
+  **It is no longer the prompt that holds this** (2026-09-05). The wording said the opposite twice —
+  first *"whether from an earlier step or the current step"*, then a clause telling the model a step
+  being collected has nothing to revise "even when the user says add", which over-fired on anything
+  phrased as an addition. Both were the model being asked to make a comparison it kept getting right
+  in its stated reasoning and wrong in its answer, so the comparison moved into the node: a target
+  resolving to `currentStep` returns `continue`. The prompt still states the rule as defence in
+  depth, and the enforcement is `classifyIntent.test.ts`.
+
+- **A field that resolves to a step the instructor has not reached yet is unhandled, and that is
+  written down rather than guessed at.** "Add a lesson on decorators", said while `basic` is being
+  collected, names `sections` → `curriculum`, and still reaches `revise_prior_field`, which persists
+  content for a step never collected. The comparison above is **equality**, not `>=`. No golden row
+  covers this case, so what a later step *should* do — continue, clarify, or revise anyway — is a
+  routing decision that needs its own measurement, and a one-line guess is exactly what this
+  reopening exists to argue against. Reachable only by an instructor volunteering later-step content
+  unprompted, and the write is still ordinary instructor-owned content on their own draft.
 
 - **An instructor who asks for a stub on purpose still gets the Accept button.** Golden row 08 is
   exactly this case — *"Start me off with a section and a lesson in it, I'll write the rest myself"* —

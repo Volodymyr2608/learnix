@@ -296,7 +296,7 @@ describe("callCoverage", () => {
 		expect(ok).toBe(false);
 		expect(message).toContain("48");
 		expect(message).toContain("51");
-		expect(message).toContain("3");
+		expect(message).toContain("3 never reached");
 	});
 
 	it("fails hardest on the case that produced P2: nothing was called at all", () => {
@@ -310,12 +310,19 @@ describe("callCoverage", () => {
 		expect(callCoverage(51, 51)).toEqual({ ok: true, message: "" });
 	});
 
-	/** A retry is spend, not a defect — worth naming, not worth failing. */
-	it("passes with a note when there were more calls than samples", () => {
+	/**
+	 * A surplus is not a retry: `handleChatModelStart` fires once per
+	 * `generate()`, outside the `AsyncCaller` loop `maxRetries` drives. Naming a
+	 * benign cause for a symptom that cannot have it is how the real one — a
+	 * category split that stopped matching which rows reach the model — gets read
+	 * past.
+	 */
+	it("passes with a note, and does not blame retries, when calls exceed samples", () => {
 		const { ok, message } = callCoverage(53, 51);
 
 		expect(ok).toBe(true);
-		expect(message).toContain("2");
+		expect(message).toContain("2 unaccounted for");
+		expect(message).not.toContain("retried");
 	});
 
 	it("is satisfied by zero calls when the run claims no samples", () => {

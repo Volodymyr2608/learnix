@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
+import { skipsModelCall } from "@/server/services/courseAI/graph/nodes/classifyIntent";
 import { getExtractionSchemaForStep } from "@/server/services/courseAI/validators/getExtractionSchemaForStep";
 
 export type Row = {
@@ -28,13 +29,14 @@ export type Row = {
  * they contribute for free. `categoryGate` is the existing answer: the two are
  * separate categories with separate thresholds.
  *
- * Derived from the row rather than stored in the JSONL, and mirroring the node's
- * condition at `classifyIntent.ts:64` deliberately. A stored `category` field
- * would be a second copy of what `history: []` already says, and it would
- * disagree with the predicate the first time either of them moved.
+ * Derived from the row and read from the node's OWN predicate, not mirrored.
+ * Two things were tempting here and both are second copies: a `category` field in
+ * the JSONL duplicates what `history: []` already says, and a re-typed condition
+ * duplicates `skipsModelCall`. Either would decide which rows are scored as the
+ * model's while being free to disagree with the code that actually skips them.
  */
 export const categoryOf = (row: Row): "classified" | "early-return" =>
-	row.history.length === 0 || !row.userMessage ? "early-return" : "classified";
+	skipsModelCall(row) ? "early-return" : "classified";
 
 const DATASET_PATH = resolve(
 	process.cwd(),

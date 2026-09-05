@@ -117,15 +117,22 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 	// Counted before `reportRunUsage`, which drains the book — and counted, not
 	// taken, so the cost line below still has its calls to report.
 	const modelCalls = recorder.countCalls();
-	reportRunUsage(recorder, startedAt, attempts.length);
+	const classifiedSamples = results.filter(
+		(row) => row.category === "classified",
+	).length;
+
+	// The concurrency the latencies were queued at is the number of samples that
+	// actually issued a request, not the number fired at the node: the
+	// `early-return` rows resolve without touching the provider.
+	reportRunUsage(recorder, startedAt, classifiedSamples);
 
 	// The score is only the model's if the model was asked. `assessCompletion`
 	// printed 100% over zero calls because nothing checked that.
-	const coverage = callCoverage(
-		modelCalls,
-		results.filter((row) => row.category === "classified").length,
-	);
-	if (coverage.message) console.log(`\n  coverage:  ${coverage.message}`);
+	const coverage = callCoverage(modelCalls, classifiedSamples);
+	if (coverage.message) {
+		const say = coverage.ok ? console.log : console.error;
+		say(`\n  coverage:  ${coverage.message}`);
+	}
 
 	console.log(
 		`\nclassifyIntent — ${data.length} rows x ${SAMPLES} samples at the temperature the node ships (0)`,

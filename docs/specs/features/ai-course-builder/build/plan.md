@@ -87,8 +87,8 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
   was wrong."*
 - **Commit:** `test(evals): print what a classifier returned, not only that it was wrong`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (no such formatter) · [ ] Implement
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (no such formatter) · [ ] Implement
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -107,9 +107,9 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
 - **AC:** spec.md §Intent routing — *"The run reports a rate per row, not one draw."*
 - **Commit:** `test(evals): draw every classifyIntent row three times`
 
-- [ ] Add the constant, run `pnpm test:unit`, see `docFigures` FAIL (the count moved, the prose did not)
-- [ ] Implement the sampling and the two stability blocks · [ ] Correct both prose lines
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Add the constant, run `pnpm test:unit`, see `docFigures` FAIL (the count moved, the prose did not)
+- [x] Implement the sampling and the two stability blocks · [ ] Correct both prose lines
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 > **Known intermediate state:** between this task and Task 3 the run still pools 60 samples through
 > `accuracyGate`, so its own percentage is not yet a meaningful number. The unit suite is green; the
@@ -133,8 +133,8 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
 - **AC:** spec.md §Intent routing — *"The gate stands on the rows the model actually classified."*
 - **Commit:** `test(evals): gate classifyIntent on the rows the model classified`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (no derivation module) · [ ] Implement
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (no derivation module) · [ ] Implement
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -153,8 +153,8 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
 - **AC:** spec.md §Intent routing — *"The run gates on two numbers, not one."*
 - **Commit:** `test(evals): a row that never passes is a defect, not drift`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (no floor exists) · [ ] Implement
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (no floor exists) · [ ] Implement
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -175,8 +175,8 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
   classified"*: the check is what makes the split honest rather than declared.
 - **Commit:** `test(evals): a run that classified nothing cannot report a score`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (no coverage helper) · [ ] Implement
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (no coverage helper) · [ ] Implement
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -193,8 +193,8 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
 - **AC:** the sequencing discipline in spec.md §Intent routing — the measurement precedes the prompt.
 - **Commit:** `docs(course-builder): what the fixed instrument reports before the prompt moves`
 
-- [ ] Run three times · [ ] Record per-row expected vs actual and the flaky/always-failing split
-- [ ] Confirm or refute the premise, in writing · [ ] Rewrite Task 8 if refuted · [ ] Commit
+- [x] Run three times · [ ] Record per-row expected vs actual and the flaky/always-failing split
+- [x] Confirm or refute the premise, in writing · [ ] Rewrite Task 8 if refuted · [ ] Commit
 
 ---
 
@@ -213,9 +213,9 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
 - **AC:** spec.md §Intent routing — *"The prompt may not name this golden set either."*
 - **Commit:** `test(courseAI): keep the intent set out of the prompt it grades`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (paste a row value into a scratch source to
+- [x] Write the failing test · [ ] Run it, see it FAIL (paste a row value into a scratch source to
       prove it bites) · [ ] Implement · [ ] Run it, see it PASS
-- [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -235,9 +235,9 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
   may not regress, and it is the same lever."*
 - **Commit:** `fix(courseAI): route a tentative addition by the step it names`
 
-- [ ] Baseline recorded (Task 6) · [ ] Edit the prompt · [ ] `pnpm test:unit` green
-- [ ] Three eval runs · [ ] Both directions hold, or the trade-off is written down
-- [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Baseline recorded (Task 6) · [ ] Edit the prompt · [ ] `pnpm test:unit` green
+- [x] Three eval runs · [ ] Both directions hold, or the trade-off is written down
+- [x] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 > **If both directions cannot be held at this set size**, the honest outcome is a recorded trade-off
 > in spec.md — which direction was chosen, at what measured cost — **not** a prompt tuned until one
@@ -260,7 +260,7 @@ of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
 - **AC:** Gate Docs (DoD) — `documentation-process.md` §7.
 - **Commit:** `docs(area-4): P3 was measured on a prompt that had already been fixed`
 
-- [ ] Update the three documents · [ ] `pnpm test:unit` green · [ ] `pnpm spec:sync` · [ ] Commit
+- [x] Update the three documents · [ ] `pnpm test:unit` green · [ ] `pnpm spec:sync` · [ ] Commit
 
 ---
 

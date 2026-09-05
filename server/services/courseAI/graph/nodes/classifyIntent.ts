@@ -50,6 +50,20 @@ const outSchema = z.object({
 });
 
 /**
+ * The turns this node answers without asking the model.
+ *
+ * A first turn has no history to revise against and an auto-trigger carries no
+ * message, so both short-circuit before the provider is called. Exported because
+ * `classifyIntent.eval.ts` scores those rows in a separate category — a second
+ * copy of this condition in the eval would be deciding which rows count as the
+ * model's, and would be wrong the first time this line moved.
+ */
+export const skipsModelCall = (turn: {
+	history: readonly unknown[];
+	userMessage: string;
+}): boolean => turn.history.length === 0 || !turn.userMessage;
+
+/**
  * Purpose: classifies the current turn as continue / revise / clarify and resolves the step to revise
  * from the field the model names; a target that resolves to the step being collected is a continue.
  * Reads: history, userMessage, currentStep, content, instructorId, generationId.
@@ -61,7 +75,7 @@ export const classifyIntent = withNodeErrors(
 	"classify_intent",
 	async (state, config) => {
 		// First turn or auto-trigger (empty message) cannot revise: skip the LLM call.
-		if (state.history.length === 0 || !state.userMessage) {
+		if (skipsModelCall(state)) {
 			return { intent: "continue" as const, reviseTarget: null };
 		}
 
@@ -158,10 +172,20 @@ export const classifyIntent = withNodeErrors(
 			// defect the model does not have.
 			//
 			// The comparison is arithmetic over two enum values, for the same reason
-			// the step is resolved from the schema instead of named by the model. It
-			// also strictly narrows what a turn can do: `revise_prior_field` writes
-			// `content[target]` before the output boundary, and this routes such a
-			// turn back to the ordinary extraction path instead.
+			// the step is resolved from the schema instead of named by the model. For
+			// the equal case it narrows what a turn can do: `revise_prior_field`
+			// writes `content[target]` before the output boundary, and this routes
+			// such a turn back to the ordinary extraction path instead.
+			//
+			// Equality, NOT `>=`, and the difference is a gap rather than a
+			// decision: a field resolving to a LATER step ("add a lesson on
+			// decorators" while collecting `basic` names `sections` → `curriculum`)
+			// still reaches `revise_prior_field` and persists content for a step
+			// never collected. Pre-existing, unmeasured — no row in the golden set
+			// covers it — and left alone deliberately, because what a later step
+			// SHOULD do is a routing decision that deserves its own measurement
+			// rather than a one-line guess shipped at a review gate. Recorded in
+			// ai-course-builder/spec.md §Edge cases.
 			if (target === state.currentStep)
 				return { intent: "continue" as const, reviseTarget: null };
 

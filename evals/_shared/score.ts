@@ -65,7 +65,16 @@ export function categoryGate(
 	results: CategoryEvalResult[],
 	thresholds: Record<string, number>,
 ): boolean {
-	const categories = [...new Set(results.map((r) => r.category))].sort();
+	// Threshold keys, not just the categories present. Deriving the list from
+	// `results` alone meant a gated category with NO rows was skipped rather than
+	// failed, and the empty-set branches elsewhere agree with it: an empty
+	// `alwaysFailingGate` returns true and `callCoverage(0, 0)` is satisfied. A
+	// dataset edit that dropped every scored row would then have produced a green
+	// run over zero model calls — the `assessCompletion` defect (P2) rebuilt out
+	// of three separately reasonable empty cases.
+	const categories = [
+		...new Set([...results.map((r) => r.category), ...Object.keys(thresholds)]),
+	].sort();
 	let allPassed = true;
 
 	console.log(`\n${label} — by category:`);
@@ -82,6 +91,11 @@ export function categoryGate(
 				`${(rate * 100).toFixed(1).padStart(5)}%` +
 				`${gated ? `  (min ${(threshold * 100).toFixed(0)}%)` : ""}`,
 		);
+
+		if (gated && mine.length === 0)
+			console.error(
+				`FAIL: ${label} — gated category "${category}" has no rows; nothing was measured`,
+			);
 
 		if (gated && rate < threshold) allPassed = false;
 	}

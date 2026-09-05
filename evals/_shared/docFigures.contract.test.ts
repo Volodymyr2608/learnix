@@ -221,6 +221,7 @@ describe("the claim registry stays honest", () => {
 describe("numbers written as words", () => {
 	it("spells the counts the prose uses", () => {
 		expect(asWord(8)).toBe("eight");
+		expect(asWord(9)).toBe("nine");
 		expect(asWord(13)).toBe("thirteen");
 	});
 
@@ -241,6 +242,18 @@ describe("which evals draw more than one sample", () => {
 		expect(drawsMoreThanOnce("const SAMPLES = 3;")).toBe(true);
 		expect(drawsMoreThanOnce("const SAMPLES = 1;")).toBe(false);
 		expect(drawsMoreThanOnce("const ROWS = 20;")).toBe(false);
+	});
+
+	/** `redteam` names its own `ALLOW_ROW_SAMPLES`, so a `\b` anchor would lie. */
+	it("counts a sample constant whose name carries a prefix", () => {
+		expect(drawsMoreThanOnce("const ALLOW_ROW_SAMPLES = 5;")).toBe(true);
+	});
+
+	/** Declaration order must not decide it. */
+	it("reads every declared count, not the first one", () => {
+		expect(drawsMoreThanOnce("const A_SAMPLES = 1;\nconst SAMPLES = 3;")).toBe(
+			true,
+		);
 	});
 
 	it("ignores a constant that only appears in a comment", () => {

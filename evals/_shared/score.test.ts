@@ -54,6 +54,21 @@ describe("categoryGate", () => {
 		expect(error).toHaveBeenCalled();
 	});
 
+	/**
+	 * The P2 shape, rebuilt out of three separately reasonable empty cases: a
+	 * gated category that lost all its rows used to disappear from the report
+	 * rather than fail it, `alwaysFailingGate` is satisfied by an empty set, and
+	 * `callCoverage(0, 0)` is satisfied by no calls. Composed, a dataset edit
+	 * could have produced a green run over zero model calls.
+	 */
+	it("fails a gated category that has no rows at all", () => {
+		silence();
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(categoryGate("t", [row("other", true)], { valid: 0.8 })).toBe(false);
+		expect(error.mock.calls.flat().join(" ")).toContain("no rows");
+	});
+
 	/** The measurement half: a category with no threshold can never go red. */
 	it("never fails on a category with no threshold, even at zero", () => {
 		silence();
@@ -103,10 +118,24 @@ describe("categoryGate", () => {
 		expect(categoryGate("t", [row("bait", false)], {})).toBe(true);
 	});
 
-	it("survives an empty result set", () => {
+	/**
+	 * It used to return `true` here, which is the same defect as the one above
+	 * seen from the other end: a run that produced nothing reported green. It
+	 * still must not throw — an eval that crashed mid-collection should reach its
+	 * gate and be failed by it, not disappear into a stack trace.
+	 */
+	it("fails an empty result set rather than passing it, and does not throw", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(() => categoryGate("t", [], { valid: 0.8 })).not.toThrow();
+		expect(categoryGate("t", [], { valid: 0.8 })).toBe(false);
+	});
+
+	it("still passes an empty result set when nothing is gated", () => {
 		silence();
 
-		expect(categoryGate("t", [], { valid: 0.8 })).toBe(true);
+		expect(categoryGate("t", [], {})).toBe(true);
 	});
 });
 
