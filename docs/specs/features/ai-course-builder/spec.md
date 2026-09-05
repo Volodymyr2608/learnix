@@ -454,9 +454,12 @@ per-turn prompt size is bounded only by `GRAPH_RECURSION_LIMIT` **25** and the 1
 both bounds on *count and wall time*, not on tokens. This is the one AI surface here where the ceiling
 has to come from the measurement rather than from arithmetic over the inputs.
 
-**Still not set:** the p95 target and the per-turn cost ceiling. Owner is the baseline in
-[`ai-observability`](../ai-observability/spec.md) §Performance, which sequences them after the metric
-ships deliberately.
+**p95 targets set 2026-09-05**, from a measured per-call baseline taken sequentially rather than under
+an eval's `Promise.all`: one structured call **≤ 2 000 ms** (`classify_intent` measured p95 877 ms,
+`confidence_score` 1 237 ms), one turn to end of stream **≤ 15 000 ms** against the 120 s deadline —
+the deadline is a circuit breaker, not a target. Owner and derivation:
+[`ai-observability`](../ai-observability/spec.md) §Performance. **Still not set:** the per-turn cost
+ceiling, which needs usage patterns rather than latency.
 
 ## Observability
 

@@ -968,13 +968,17 @@ characters per token: an arithmetic bound on the shape, with the metric above no
 figure per call. This surface has a ceiling because its inputs do; `study-guide` and `quiz-generation`,
 whose input is a whole lesson body with no length cap, have none.
 
-**Still not set: the budgets.** A p95 target and a cost ceiling per student are numbers a baseline
-produces, not ones a spec declares. [`ai-observability`](../ai-observability/spec.md) §Performance
-sequences them after the metric ships for that reason — writing them first is the invented-figure
-failure mode [`ai-eval-strategy.md`](../../ai-eval-strategy.md) and `docFigures.ts` exist to prevent —
-and that baseline is the owner. Until it lands, the ceilings above bound *volume and prompt size*
-rather than spend: a longer system prompt or an extra tool round-trip moves cost without touching any
-number here.
+**Latency targets set 2026-09-05; the cost ceiling is still open, and they are different objects.**
+A threshold is a decision and a baseline is an observation — only the second cannot be written without
+data, which is why these sat blank longer than they had to. The measurement that was genuinely missing
+is now taken: **TTFT p95 ≤ 3 000 ms**, composed from a measured L2 guard p95 of 1 099 ms and a measured
+stream TTFT p95 of 1 514 ms. Composed rather than measured end to end — validating it needs tracing
+(area-4 З5). Owner and derivation: [`ai-observability`](../ai-observability/spec.md) §Performance.
+
+**A cost ceiling per student stays open**, because it needs usage patterns rather than latency, and no
+local run produces those. Until it lands the ceilings above bound *volume and prompt size* rather than
+spend: a longer system prompt or an extra tool round-trip moves cost without touching any number
+here.
 
 ## Observability
 
