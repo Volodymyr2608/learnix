@@ -9,7 +9,12 @@ import {
 import type { CourseBuilderStateT } from "@/server/services/courseAI/graph/state";
 import { withNodeErrors } from "@/server/services/courseAI/graph/withNodeErrors";
 
-const CONFIDENCE_THRESHOLD = 0.8;
+/**
+ * Exported so the eval measures the cut point the product actually uses. A
+ * copied literal in `confidenceScore.eval.ts` would keep reporting the old one
+ * if this ever moved — green while measuring something the graph no longer does.
+ */
+export const CONFIDENCE_THRESHOLD = 0.8;
 
 const outSchema = z.object({
 	score: z.number().min(0).max(1),
@@ -57,13 +62,16 @@ export const confidenceScore = withNodeErrors(
 			${state.assistantText ? `[assistant]: ${wrapUntrustedContent(state.assistantText, "model_output")}` : ""}
 
 			Guidelines:
-			- Base your score PRIMARILY on the EXTRACTED DATA quality and completeness.
-			- If EXTRACTED DATA has all required fields and the content is specific (not empty strings or placeholders), score at least 0.85.
-			- 0.9–1.0: All required fields present, content is rich and specific.
-			- 0.7–0.9: Data present but could improve (generic titles, few lessons, etc.).
-			- 0.4–0.7: Key fields missing or very sparse.
-			- 0.0–0.4: Clearly underspecified or empty.
-			- A brief conversation is not a reason to score low — judge the DATA, not the chat length.`.trim();
+			- Score the EXTRACTED DATA, not the conversation. A short exchange that produced substantive data scores high; a long one that produced thin data does not.
+			- A field that is filled is not a field that is finished. Ask of each value: could an instructor act on it, and would two instructors reading it build the same thing?
+			- A populated field scores low when its value is a placeholder: a list holding a single entry where the step expects a set, or a title made of the unit's own name plus its position.
+			- An objective or requirement must say what the learner will be able to DO. One that only names a topic or a technology — a verb plus a broad noun, with nothing about the skill — is a placeholder however few or many words it uses. This test is for objectives and requirements only: a lesson title names a topic by design, and a short one is not a defect.
+			- 0.9–1.0: every value is specific and substantive, and together they cover the step.
+			- 0.8–0.9: complete and usable, with minor room to improve.
+			- 0.5–0.75: real content, but thin — a lone entry where a set belongs, or values that name a topic without narrowing it.
+			- 0.2–0.5: key fields missing, or values that restate the field's own name.
+			- 0.0–0.2: empty, or filled with the schema's vocabulary.
+			- Use the whole range. Two drafts of visibly different quality must not receive the same score.`.trim();
 
 		const out = await model.invoke([{ role: "user", content: prompt }], config);
 		const score = out.score;

@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	accuracyGate,
 	type CategoryEvalResult,
 	categoryGate,
+	type EvalResult,
 	flakyRows,
+	formatScoreTable,
+	retentionGate,
 	rowStability,
+	type ScoredRow,
 } from "./score";
 
 /**
@@ -161,5 +166,174 @@ describe("flakyRows", () => {
 	/** With one sample per row nothing can look flaky — the blind spot itself. */
 	it("cannot detect flakiness from a single sample", () => {
 		expect(flakyRows(rowStability([row("valid", true, "a")]))).toEqual([]);
+	});
+});
+
+/**
+ * A gate reports one number; this reports the twenty that produced it.
+ *
+ * The distinction the table exists to make is not "which rows failed" — the
+ * gate already prints those — but WHERE the failures sit relative to the passes.
+ * Four false positives below every true row mean the cut point is misplaced and
+ * a prompt can move them; one false positive above a true row means the ranking
+ * itself is broken, and no threshold separates what the model did not order.
+ */
+describe("formatScoreTable", () => {
+	const scored = (id: string, score: number, expected: boolean): ScoredRow => ({
+		id,
+		score,
+		expected,
+	});
+
+	it("orders rows by score, highest first", () => {
+		const table = formatScoreTable(
+			[
+				scored("low", 0.4, false),
+				scored("high", 0.95, true),
+				scored("mid", 0.7, true),
+			],
+			0.8,
+		);
+
+		const ids = table
+			.split("\n")
+			.map((line) => line.match(/\b(low|mid|high)\b/)?.[1])
+			.filter(Boolean);
+
+		expect(ids).toEqual(["high", "mid", "low"]);
+	});
+
+	it("marks a high score on an incomplete row, and leaves a correct one unmarked", () => {
+		const table = formatScoreTable(
+			[scored("wrong", 0.9, false), scored("right", 0.9, true)],
+			0.8,
+		);
+
+		const wrong =
+			table.split("\n").find((line) => line.includes("wrong")) ?? "";
+		const right =
+			table.split("\n").find((line) => line.includes("right")) ?? "";
+
+		expect(wrong).toMatch(/false positive/i);
+		expect(right).not.toMatch(/false positive/i);
+	});
+
+	/**
+	 * A row below the threshold cannot be a false positive whatever its label —
+	 * it advanced nothing. Marking it would report the node's recall as if it
+	 * were its precision.
+	 */
+	it("does not mark a low score on an incomplete row", () => {
+		const table = formatScoreTable([scored("cautious", 0.3, false)], 0.8);
+
+		expect(table).not.toMatch(/false positive/i);
+	});
+
+	it("renders a header and no rows for an empty run rather than throwing", () => {
+		const table = formatScoreTable([], 0.8);
+
+		expect(table).toMatch(/score/i);
+		expect(table.split("\n").filter((line) => /\d/.test(line))).toEqual([]);
+	});
+});
+
+/**
+ * Precision alone is a gate a broken node can pass by giving up.
+ *
+ * The failure it cannot see is not the degenerate one — `accuracyGate` scores an
+ * empty prediction set 0 and fails it. It is the partial collapse: a handful of
+ * unmistakable rows kept above the line and everything else surrendered to a
+ * manual Accept. That reads as perfect precision while the feature quietly stops
+ * working, so the run holds a floor under how many complete rows survive.
+ */
+describe("retentionGate", () => {
+	const scored = (id: string, score: number, expected: boolean): ScoredRow => ({
+		id,
+		score,
+		expected,
+	});
+
+	/** Ten complete rows above the line, one below, and nine sparse rows. */
+	const eleven = (retained: number): ScoredRow[] => [
+		...Array.from({ length: retained }, (_, i) => scored(`ok${i}`, 0.9, true)),
+		...Array.from({ length: 11 - retained }, (_, i) =>
+			scored(`dropped${i}`, 0.4, true),
+		),
+		...Array.from({ length: 9 }, (_, i) => scored(`sparse${i}`, 0.3, false)),
+	];
+
+	it("passes when the floor is met exactly", () => {
+		silence();
+
+		expect(retentionGate("t", eleven(10), { threshold: 0.8, floor: 10 })).toBe(
+			true,
+		);
+	});
+
+	it("fails one row below the floor", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(retentionGate("t", eleven(9), { threshold: 0.8, floor: 10 })).toBe(
+			false,
+		);
+	});
+
+	/**
+	 * The case the second gate exists for: three rich rows kept, eight complete
+	 * ones abandoned, not a single false positive. Precision reads 100%.
+	 */
+	it("fails the collapse that precision reports as perfect", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const collapsed = eleven(3);
+		const highConf: EvalResult[] = collapsed
+			.filter((r) => r.score >= 0.8)
+			.map((r) => ({ id: r.id, ok: r.expected }));
+
+		expect(accuracyGate("precision", highConf, 0.85)).toBe(true);
+		expect(
+			retentionGate("retention", collapsed, { threshold: 0.8, floor: 10 }),
+		).toBe(false);
+	});
+
+	/**
+	 * The mirror of the `accuracyGate([])` pin below. It behaves correctly today
+	 * because 0 < floor, but a refactor to a rate — `retained / complete` — would
+	 * introduce a 0/0 and nothing here would catch the vacuous pass.
+	 */
+	it("fails rather than passing vacuously when no row is complete", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(
+			retentionGate("t", [scored("sparse", 0.3, false)], {
+				threshold: 0.8,
+				floor: 10,
+			}),
+		).toBe(false);
+	});
+
+	it("names the complete rows that dropped, so a red run is actionable", () => {
+		const log = silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		retentionGate("t", eleven(9), { threshold: 0.8, floor: 10 });
+
+		expect(log.mock.calls.flat().join(" ")).toContain("dropped0");
+	});
+});
+
+/**
+ * Pinned because the obvious refactor is wrong: `precisionGate` returns 1 for an
+ * empty prediction set and would pass a node that advanced nothing at all.
+ */
+describe("accuracyGate on an empty set", () => {
+	it("scores zero rather than one", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(accuracyGate("t", [], 0.85)).toBe(false);
 	});
 });

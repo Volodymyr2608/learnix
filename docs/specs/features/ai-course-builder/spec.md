@@ -108,6 +108,33 @@ persisted.
 `routeAfterConfidence` returns `hold`, the graph ends without `persist_and_emit`, and the UI shows an
 explicit Accept button. Low confidence is not a failure — it is the handover to a human.
 
+**The threshold is only as good as what the node scores against it — fixed 2026-09-05.** Measured
+2026-09-03 on the repaired `courseAI:confidenceScore` set: of the 15 steps the node scored
+`≥ 0.8`, **11 were genuinely complete — 73.3% against the eval's own 0.85 gate**, twice in a row. The
+four false positives are a one-objective step (`"Learn Python"`), a one-requirement step
+(`"some experience"`), a curriculum of one `Section 1` holding one `Lesson 1`, and two two-word
+objectives (`"use AWS"`, `"understand cloud"`). Each auto-advanced: the handover this section
+describes did not happen on the steps that most needed it.
+
+The cause was a contradiction inside the prompt rather than the model. Its guidelines said *"If
+EXTRACTED DATA has all required fields and the content is specific… score at least 0.85"*, while a
+lower band existed for *"generic titles, few lessons"*. A one-word objective satisfied the floor rule
+(the field is present and non-empty) and the band rule (it is generic) at once, and the floor won.
+**Presence of a field was being scored as specificity.**
+
+**What the distribution showed, and why no threshold could have fixed it.** Printing every row's score
+turned a count into a diagnosis: **thirteen of the twenty rows came back at exactly 0.90**, two of
+them false positives tied with every genuinely complete draft in the set. The floor rule was not
+raising four scores, it was collapsing the top of the range. That settles the alternative repair with
+arithmetic rather than preference — above 0.85 the surviving set is 11 true and 2 false (**84.6%,
+still under the gate**), and above 0.90 nothing survives at all, so **no cut point in (0.8, 1] reaches
+0.85**. Freezing `CONFIDENCE_THRESHOLD` was not a stylistic choice about documentation churn.
+
+**After the fix** (2026-09-05, three runs, same verdict): precision **100% (11/11)**, retention
+**11/11** against a floor of 10. The four false positives sit at 0.60, 0.50, 0.50 and 0.30, and the
+gap between the lowest complete row and the highest sparse one is **0.20** where it had been zero.
+The 0.8 threshold and the handover semantics above did not move.
+
 **5. Model output.** Two checks with different jobs. The `output_boundary` node runs the shared
 boundary silently inside the graph; the route's `finally` runs `validateModelText` **unconditionally
 and is the sole emitter**. The split is deliberate: a node cannot fire on client abort or a
@@ -128,12 +155,50 @@ not retyped — plus:
 - Refreshing the page mid-conversation resumes from the same step with full message history, no state
   lost.
 
+**Confidence calibration** (reopened 2026-09-05; each line is an eval row on
+`courseAI:confidenceScore`):
+
+- **The node meets its own gate.** Of the steps it scores `≥ 0.8`, **at least 85%** are
+  `expected.complete` — reported *and* met, not reported only.
+- **A placeholder never auto-advances.** `objectives: ["Learn Python"]`, `requirements:
+  ["some experience"]`, a curriculum of one `"Section 1"` containing one `"Lesson 1"`, and
+  `objectives: ["use AWS", "understand cloud"]` are each **expected** to score **< 0.8** (rows 04,
+  06, 08, 18) — measured at 0.50, 0.50, 0.50 and 0.60. The *gate* admits at most one of them above
+  the line, per the arithmetic below; the run that admits one is green and still worth reading.
+- **Caution is not bought by refusing to advance.** The same run keeps **at least 10 of the 11**
+  `expected.complete` rows at `≥ 0.8`. Precision alone is maximised by a node that scores everything
+  low, so the run gates on both numbers or on neither. The floor is 10 rather than 11 to leave one row
+  of provider drift — a gate that reddens on noise stops being read.
+- **The two numbers together leave exactly one degree of freedom, which is what makes the target
+  precise.** With the 11 true rows held, `11 / (11 + k) ≥ 0.85` allows **k ≤ 1**: the fix has to remove
+  at least three of the four false positives, and may keep at most one. That is the whole target, and
+  it is arithmetic rather than an aspiration.
+- **Field presence is not specificity.** A step whose required fields are all present but whose values
+  are single words or default titles scores below the floor the prompt used to guarantee it.
+- **The prompt is the only lever this reopening moves.** `CONFIDENCE_THRESHOLD` stays **0.8** and the
+  handover semantics stay as §Validation describes them. Two levers changed at once cannot be told
+  apart afterwards, and the threshold is documented in three places (this spec, `graph-contract.md`,
+  the `ConfidenceBadge` UI) that would all have to move with it.
+- **The prompt may not name the golden set.** No literal drawn from
+  `evals/datasets/courseAI/confidenceScore.jsonl` — `"Learn Python"`, `"Section 1"`, `"use AWS"` and
+  the rest — appears in the node's prompt text, enforced by a contract test rather than by review. Four
+  of the twenty rows are the ones being fixed, so teaching the prompt those four strings would pass the
+  gate while fixing nothing. Precedent for the mechanism: `evals/_shared/promptFidelity.ts` and its
+  contract test, and `docs/constitution.md` §Correctness — a repeated check becomes a contract test.
+
 ## Edge cases
 
 - **Low confidence (`< 0.8`).** The stream ends with `done`, both chat messages persist, no step data
   does, and the instructor gets an Accept button. Not an error path.
 - **Validation failure.** Routes to `clarify`, not to END and not to an error — the instructor sees a
   question naming what is missing.
+- **An instructor who asks for a stub on purpose still gets the Accept button.** Golden row 08 is
+  exactly this case — *"Start me off with a section and a lesson in it, I'll write the rest myself"* —
+  and it stays labelled `complete: false`. The score judges the **data**, and the instructor's consent
+  is expressed by pressing Accept, which is what the handover is for. Relabelling it would teach the
+  prompt to raise its score from an *intention stated in the conversation* — the same history channel
+  that leaked the answer into this set before 2026-09-03, reopened deliberately. A step that is sparse
+  is sparse whoever asked for it.
 - **A tool that never returns.** There is **no timeout anywhere on this path**. The SSE stream stays
   open until the client aborts, and the instructor sees an indefinite in-progress indicator. This is
   documented behavior, not an accident: adding retry/timeout belongs to workstream D.
@@ -182,6 +247,15 @@ register for this surface — input guard applied, wrapping applied, all three o
 render policy applied, resource limits applied — is
 `server/services/_shared/conformance/aiSurfaces.ts`, re-derived from source by its own contract test.
 
+**This reopening adds no control and touches none.** Rewriting the `confidence_score` guidelines is a
+change *inside* an already-registered entry point — `documentation-process.md` §3a calls that neither
+new authority nor a modified control, so no design pass runs and the controls above are inherited by
+reference unchanged. The wrapping the node already applies (`wrapUntrustedContent` over
+`draftStepData`, history and `assistantText`) stays exactly as it is: the prompt gains scoring
+instructions, not new inputs. Worth stating once, because the direction of the change is toward
+*withholding* auto-advance, and that direction cannot weaken a boundary — a step that does not
+advance persists nothing.
+
 **Three exclusions are recorded there, and they are the parts a reader must not discover from the
 code:**
 
@@ -209,6 +283,10 @@ code:**
   call site. Without it a chained graph's worst case is the sum of every node's per-call budget.
 - `GRAPH_RECURSION_LIMIT` **25**.
 - Model: `gpt-4o-mini` on every node.
+- `confidence_score` prompt: **629 tokens**, up from 442 on 2026-09-05. The calibration fix is
+  written into the guidelines, so it is paid on every turn — about **+42%** on that node's input, and
+  $0.002 → $0.003 for one 20-row eval run. Named rather than buried: a scoring rule the model has to
+  read is not free, and this is the cheapest place to see what it cost.
 
 **Not bounded, and it is the one gap on this surface with a user-visible failure mode:** no tool call
 has a timeout. A tool that hangs holds the stream open until the client aborts, and the turn deadline
@@ -267,6 +345,24 @@ classifiers.
 dataset under `evals/datasets/courseAI/`. The adversarial side is the shared `aiGuard` sets, since
 `guardUserInput` is shared with the tutor.
 
+**`courseAI:confidenceScore` gates on two numbers, not one** (reopened 2026-09-05). Precision among
+`≥ 0.8` predictions is the existing gate at 0.85; on its own it is maximised by a node that scores
+everything low, and `accuracyGate` only catches the degenerate end of that (an empty prediction set
+scores 0 and fails). A partial collapse — three rich rows above the line, eight genuine ones below —
+would read as **100% precision** while quietly sending eight completable steps to a manual Accept.
+The run therefore also holds a floor on how many `expected.complete` rows stay above 0.8. The set is
+20 rows, 11 of them complete, so **one row is 6.7 points of precision**: this measures a direction,
+not a decimal, and a change inside a couple of points is noise. **The small-n limit is accepted, not
+solved here** — growing the set is separate work with its own leak risk, and doing it in the same
+change would make it impossible to say whether the prompt or the data moved the number.
+
+**One measurement comes before the fix, and may cancel it.** The per-row score distribution is not
+known: if the false positives sit at ~0.85 while the true rows sit at ~0.92, the ranking is sound and
+only the cut point is wrong; if a false positive outscores a true row, the ranking itself is broken
+and **no threshold and no prompt wording separates them**. These are different defects with different
+fixes, so the first task of the plan prints the score for all 20 rows before anything is edited. It
+costs one run — about $0.002 — and it decides whether prompt work can succeed at all.
+
 ## Source of truth
 
 `documentation-process.md` §1a is the standing rule; for this feature:
@@ -298,4 +394,39 @@ dataset under `evals/datasets/courseAI/`. The adversarial side is the shared `ai
   propagating to the SSE stream.
 - `CourseAIService` (`server/services/courseAI/`) exposes `runChat`/`runFinalize`; frontend is
   `app/_components/Course/components/AIChatBuilderDialog/` (`ToolCallIndicator`, `ConfidenceBadge`).
+- **`confidence_score`'s prompt has a floor rule that overrides its own bands.** "If EXTRACTED DATA has
+  all required fields… score at least 0.85" fires on any non-empty value, including a one-word
+  objective, and therefore beats the 0.7–0.9 band written for "generic titles, few lessons". Changing
+  the bands without removing the floor changes nothing — this was measured, not reasoned.
+- **The eval's green light and the node's correctness were different things until 2026-09-03.** The
+  golden set's `history` field carried the author's own annotation ("vague curriculum"), perfectly
+  correlated with `expected.complete`, so the node was scoring a leaked label rather than the data.
+  The set is repaired and `confidenceScoreDataset.contract.test.ts` pins the shape; the 73.3% is what
+  the node has been doing all along, first visible once the leak was closed.
+- **Never quote this node's accuracy without saying which set it came from, and which prompt.** There
+  are three numbers, and they answer three different questions: **91.7%** (pre-repair set, leaking its
+  own labels), **73.3%** (repaired set, old prompt — what the node had been doing all along), and
+  **100%** (repaired set, current prompt, 2026-09-05). Only the last two are comparable, and only the
+  last is current.
+- **Do not "fix" this node by moving `CONFIDENCE_THRESHOLD`.** The constant is 0.8 in
+  `graph/nodes/confidenceScore.ts` and is documented in three places, and on the pre-fix prompt **no
+  value of it reached the gate** — the false positives were tied with the true rows at 0.90, not
+  merely above the line. A cut point cannot separate equal scores. If a future run shows the bands
+  collapsing again, the repair is the scoring instruction, not the bar.
+- **The prompt asks for spread on purpose.** The line *"Two drafts of visibly different quality must
+  not receive the same score"* is load-bearing, not decoration: score compression at the top is the
+  failure this node had, and it is invisible in a pass rate. `formatScoreTable` in the eval prints the
+  distribution so the next reader sees it without having to suspect it.
+- **The bands leave (0.75, 0.8) empty on purpose.** The "thin" band stops at 0.75 so a thin draft
+  cannot land *on* the cut point, which `>=` would admit. Tidying the bands into contiguous ranges
+  reads like a cleanup and is a behaviour change.
+- **The "says what the learner will be able to do" test is scoped to objectives and requirements.**
+  A lesson title names a topic by design — twelve of the fifteen titles in the set's richest complete
+  curriculum row are one or two words. An unscoped "short values are placeholders" rule aims straight
+  at them, which is a retention failure (instructors forced to Accept correct steps) rather than a
+  precision one, and no contract test can see it: the anti-overfit test forbids the set's literals,
+  not its shapes.
+- **The golden set is off-limits to the prompt.** Rows 04, 06, 08 and 18 are the fixture this work is
+  measured against; naming their content in the prompt turns the eval into a lookup. A contract test
+  enforces this, so it does not depend on anyone remembering.
 - See ADR-016 for the full graph design and the alternatives considered.
