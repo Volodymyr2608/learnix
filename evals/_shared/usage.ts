@@ -125,6 +125,11 @@ class EvalUsageHandler extends BaseCallbackHandler {
 		return this.open.size;
 	}
 
+	/** How many calls are booked, without emptying the book. */
+	countCalls(): number {
+		return this.calls.length;
+	}
+
 	takeCalls(): EvalCall[] {
 		const taken = this.calls;
 		this.calls = [];
@@ -141,6 +146,12 @@ export const usageRecorder = () => {
 		config: { callbacks: [handler] },
 		/** Empties, so a second read is not the first run counted twice. */
 		takeCalls: (): EvalCall[] => handler.takeCalls(),
+		/**
+		 * Does NOT empty — the count a coverage check needs before
+		 * `reportRunUsage` drains the book. Reading it with `takeCalls` would
+		 * leave the cost line reporting a run that recorded nothing.
+		 */
+		countCalls: (): number => handler.countCalls(),
 		/** Started and never ended — neither `handleLLMEnd` nor `handleLLMError` fired. */
 		openCalls: (): number => handler.openCalls(),
 	};
@@ -180,6 +191,43 @@ export const summariseCalls = (calls: readonly EvalCall[]): CallSummary => ({
 	meanLatencyMs: mean(calls.map((call) => call.latencyMs)),
 	p95LatencyMs: p95(calls.map((call) => call.latencyMs)),
 });
+
+/**
+ * Did the run actually call the model as many times as its score claims?
+ *
+ * This is P2 stated as a check. `assessCompletion` hardcoded an empty user
+ * message, the node returned on its first line, every prediction came back
+ * `false`, and the empty-set branch of `precisionGate` returned 1 — so the run
+ * printed "100.0%" over **zero** model calls. Nothing in the harness connected
+ * the score to the measurement having happened, and three defects of that class
+ * landed in three days: a leaked label, a prompt failing its own gate, and this.
+ *
+ * A shortfall is a defect: a sample that never reached the provider was scored
+ * against something other than the model. A surplus is a retry — real spend,
+ * worth naming on the line, and no reason to fail a run.
+ */
+export const callCoverage = (
+	calls: number,
+	claimedSamples: number,
+): { ok: boolean; message: string } => {
+	if (calls < claimedSamples)
+		return {
+			ok: false,
+			message:
+				`${calls} model calls for ${claimedSamples} scored samples — ` +
+				`${claimedSamples - calls} never reached the provider, so their score is not the model's`,
+		};
+
+	if (calls > claimedSamples)
+		return {
+			ok: true,
+			message:
+				`${calls} model calls for ${claimedSamples} scored samples — ` +
+				`${calls - claimedSamples} retried`,
+		};
+
+	return { ok: true, message: "" };
+};
 
 /**
  * One terminal line, in the shape `formatRunCost` prints its own.

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { takeRecordedUsage } from "./cost";
 import {
+	callCoverage,
 	type EvalCall,
 	formatCallStats,
 	summariseCalls,
@@ -276,5 +277,48 @@ describe("formatCallStats", () => {
 
 	it("omits the width when the caller did not measure one", () => {
 		expect(formatCallStats(summary)).not.toContain("-way");
+	});
+});
+
+/**
+ * The check that would have caught P2.
+ *
+ * `assessCompletion` hardcoded an empty user message, the node returned on its
+ * first line, and the run printed "precision on ready=true: 100.0%" over zero
+ * model calls. Nothing connected the score to the measurement having happened —
+ * three defects of that class landed in three days, and all three were a green
+ * number produced by a measurement that did not occur.
+ */
+describe("callCoverage", () => {
+	it("fails when the recorder saw fewer calls than the run claims samples", () => {
+		const { ok, message } = callCoverage(48, 51);
+
+		expect(ok).toBe(false);
+		expect(message).toContain("48");
+		expect(message).toContain("51");
+		expect(message).toContain("3");
+	});
+
+	it("fails hardest on the case that produced P2: nothing was called at all", () => {
+		const { ok, message } = callCoverage(0, 20);
+
+		expect(ok).toBe(false);
+		expect(message).toContain("20");
+	});
+
+	it("says nothing when every sample reached the provider", () => {
+		expect(callCoverage(51, 51)).toEqual({ ok: true, message: "" });
+	});
+
+	/** A retry is spend, not a defect — worth naming, not worth failing. */
+	it("passes with a note when there were more calls than samples", () => {
+		const { ok, message } = callCoverage(53, 51);
+
+		expect(ok).toBe(true);
+		expect(message).toContain("2");
+	});
+
+	it("is satisfied by zero calls when the run claims no samples", () => {
+		expect(callCoverage(0, 0).ok).toBe(true);
 	});
 });

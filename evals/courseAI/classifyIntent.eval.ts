@@ -9,7 +9,12 @@ import {
 	rowStability,
 	type SampleOutcome,
 } from "../_shared/score";
-import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
+import {
+	callCoverage,
+	reportRunUsage,
+	startRunUsage,
+	usageRecorder,
+} from "../_shared/usage";
 import { categoryOf, loadClassifyIntentRows } from "./classifyIntentRows";
 
 type Outcome = SampleOutcome & CategoryEvalResult;
@@ -105,7 +110,18 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 			};
 		}),
 	);
+	// Counted before `reportRunUsage`, which drains the book — and counted, not
+	// taken, so the cost line below still has its calls to report.
+	const modelCalls = recorder.countCalls();
 	reportRunUsage(recorder, startedAt, attempts.length);
+
+	// The score is only the model's if the model was asked. `assessCompletion`
+	// printed 100% over zero calls because nothing checked that.
+	const coverage = callCoverage(
+		modelCalls,
+		results.filter((row) => row.category === "classified").length,
+	);
+	if (coverage.message) console.log(`\n  coverage:  ${coverage.message}`);
 
 	console.log(
 		`\nclassifyIntent — ${data.length} rows x ${SAMPLES} samples at the temperature the node ships (0)`,
@@ -134,5 +150,5 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 	const rateHeld = categoryGate("classifyIntent", results, GATES);
 	const floorHeld = alwaysFailingGate("classifyIntent", stability, GATES);
 
-	return rateHeld && floorHeld;
+	return rateHeld && floorHeld && coverage.ok;
 }
