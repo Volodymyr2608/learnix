@@ -1,6 +1,6 @@
 ---
 feature: ai-course-builder
-status: stable
+status: in-progress
 models: [CourseGeneration, CourseGenerationMessage]
 depends-on: [course]
 ---
@@ -175,6 +175,29 @@ not retyped — plus:
   it is arithmetic rather than an aspiration.
 - **Field presence is not specificity.** A step whose required fields are all present but whose values
   are single words or default titles scores below the floor the prompt used to guarantee it.
+
+**Intent routing** (reopened 2026-09-05; each line is an eval row on `courseAI:classifyIntent`):
+
+- **The node meets its own gate:** `≥ 85%` of rows classify with both `intent` and the resolved
+  revise target correct. Measured 80.0% (16/20) on 2026-09-05.
+- **The model names the field; the step is derived, not guessed.** `classify_intent` returns the
+  stored field the instructor wants changed, and the step is resolved from
+  `getExtractionSchemaForStep`'s own shapes. A step the model could not have chosen cannot be
+  returned: `level` resolves to `basic` because `basic` is the schema that holds `level`, and no
+  prompt wording is involved in that step.
+- **The three measured failures pass by construction.** "Change the level to Advanced" (row 03),
+  "change the title to 'Data Science Fundamentals'" (13) and "make it beginner level, not
+  intermediate" (14) each resolve to `basic` — the step that holds `title`, `subtitle`,
+  `description`, `category`, `level`, `language`, `duration`.
+- **An unresolvable field is a `clarify`, never a null target.** No instructor sees *"I couldn't tell
+  which field to revise"* — today that string is what `revise_prior_field` returns when
+  `classify_intent` guesses `revise` without a target, and it is a dead end rather than a question.
+- **Supplying content for a step that has stored nothing is `continue`** — enforced by the input, not
+  by prose. The node is told which keys the current step has already stored; with none stored there
+  is nothing to revise, which is what decides row 02 ("add objective: understand numpy and pandas").
+- **A model failure inside `classify_intent` emits `fallback_triggered`.** The node catches its own
+  errors and returns `continue`; a provider outage and a genuine "continue" are indistinguishable
+  downstream, and the taxonomy already has the event for exactly this class.
 - **The prompt is the only lever this reopening moves.** `CONFIDENCE_THRESHOLD` stays **0.8** and the
   handover semantics stay as §Validation describes them. Two levers changed at once cannot be told
   apart afterwards, and the threshold is documented in three places (this spec, `graph-contract.md`,
@@ -192,6 +215,18 @@ not retyped — plus:
   does, and the instructor gets an Accept button. Not an error path.
 - **Validation failure.** Routes to `clarify`, not to END and not to an error — the instructor sees a
   question naming what is missing.
+- **Adding to the step you are currently on is `continue`, not `revise`.** "Add objective:
+  understand numpy and pandas", said while on the objectives step, is the instructor *answering the
+  question the step asked* — the normal path, which extracts and moves forward. `revise` is for
+  reaching back to content a previous step already stored, or replacing what the current step stored
+  on an earlier turn. Golden row 02 pins this.
+
+  **The prompt currently says the opposite** and this is the defect's second half: *"revise: the user
+  explicitly wants to add, remove, or change specific stored content — whether from an earlier step
+  **or the current step**"*, with "add a bonus section" as an example. Read literally, "add objective:
+  X" is a revise. The distinction that matters is not add-versus-approve but **stored versus being
+  collected**: a step mid-collection has stored nothing to revise.
+
 - **An instructor who asks for a stub on purpose still gets the Accept button.** Golden row 08 is
   exactly this case — *"Start me off with a section and a lesson in it, I'll write the rest myself"* —
   and it stays labelled `complete: false`. The score judges the **data**, and the instructor's consent
@@ -237,6 +272,17 @@ The decisions behind it:
 - **Neither error frame carries the provider's message, node internals, or a stack trace.** One
   `logger.error` per failed turn is the sole error-level report; `withNodeErrors` logs its own copy
   at `debug` to avoid a double capture.
+
+**Recorded, not fixed here: the revise path persists with fewer checks than the path it revises.**
+`continue` runs `validate` (Zod) and then `confidence_score`, which holds the step for an
+instructor's Accept below 0.8. `revise_prior_field` runs neither — it asks the model for the complete
+updated step and writes it with `courseGenerationRepository.update` inside the node, before
+`chat_response`. Editing content that is already stored, the operation with an existing draft to
+damage, therefore passes through fewer gates than creating it; and a misrouted `revise` reaches that
+path instead of the two gates, which is what makes intent routing worth its own accuracy bar. This is
+the second place model-authored `draftStepData` is committed on a short path — the first is
+exclusion 1 in §Security — and it wants its own change, because it touches persistence and the
+handover gate rather than routing.
 
 ## Security
 
@@ -345,6 +391,15 @@ classifiers.
 dataset under `evals/datasets/courseAI/`. The adversarial side is the shared `aiGuard` sets, since
 `guardUserInput` is shared with the tutor.
 
+**`courseAI:classifyIntent` is red, and was red silently** (2026-09-05). 80.0% (16/20) against its
+0.85 gate. Evals are not in CI by design, so an eval only speaks when someone runs it, and nobody had
+run this one since the prompt it grades last changed. It was found while pricing the evals for a cost
+baseline — the second quality defect that a cost measurement turned up, after the confidence node.
+Three of the four failures are the same shape: `reviseTarget` on `basic`. A fix is measured by the
+same run, and the first task of any plan prints what the node actually returned for those rows —
+`intent` wrong and `reviseTarget` wrong are different defects with different repairs, and the gate
+does not distinguish them.
+
 **`courseAI:confidenceScore` gates on two numbers, not one** (reopened 2026-09-05). Precision among
 `≥ 0.8` predictions is the existing gate at 0.85; on its own it is maximised by a node that scores
 everything low, and `accuracyGate` only catches the degenerate end of that (an empty prediction set
@@ -426,6 +481,14 @@ costs one run — about $0.002 — and it decides whether prompt work can succee
   at them, which is a retention failure (instructors forced to Accept correct steps) rather than a
   precision one, and no contract test can see it: the anti-overfit test forbids the set's literals,
   not its shapes.
+- **`classify_intent` names one of its four targets.** The prompt illustrates `reviseTarget` with
+  `curriculum` and leaves `basic`, `objectives` and `requirements` to inference — and `basic` is the
+  one whose name says nothing about what it holds (`title`, `subtitle`, `description`, `category`,
+  `level`, `language`, `duration`, per `getExtractionSchemaForStep`). A model asked to route "change
+  the title" has to know that mapping from somewhere, and the prompt is not where it is.
+- **`classify_intent` fails silently by design, which is why its accuracy is worth gating.** The node
+  catches its own model errors and falls back to `intent: "continue"`, so a bad classification and a
+  provider outage look identical from downstream. Nothing but the eval distinguishes them.
 - **The golden set is off-limits to the prompt.** Rows 04, 06, 08 and 18 are the fixture this work is
   measured against; naming their content in the prompt turns the eval into a lookup. A contract test
   enforces this, so it does not depend on anyone remembering.
