@@ -20,7 +20,12 @@ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { Serialized } from "@langchain/core/load/serializable";
 import type { LLMResult } from "@langchain/core/outputs";
 import { modelOf } from "@/server/services/_shared/aiMetrics/pricing";
-import { recordUsage, usageOfMessage } from "./cost";
+import {
+	formatRunCost,
+	recordUsage,
+	takeRecordedUsage,
+	usageOfMessage,
+} from "./cost";
 
 export type EvalCall = {
 	model: string;
@@ -204,4 +209,43 @@ export const formatCallStats = (
 		`${String(summary.meanCompletionTokens).padStart(7)} out  ` +
 		`mean ${summary.meanLatencyMs}ms  p95 ${summary.p95LatencyMs}ms${width}`
 	);
+};
+
+/**
+ * What one eval run cost, printed the same way by every eval.
+ *
+ * This exists because the alternative is thirteen copies of four console.logs,
+ * and a baseline assembled from thirteen slightly different formats is a
+ * baseline nobody can put in one table. The `@N-way` note is not decoration
+ * either: every eval here fires its rows through `Promise.all`, so the
+ * latencies carry the provider's queueing at that width and are comparable
+ * between runs of the same eval, never with a production call.
+ *
+ * Drains the module-global cost recorder on the way in, so a run's total is
+ * its own rather than whatever the previous eval in the process left behind.
+ */
+export const reportRunUsage = (
+	recorder: ReturnType<typeof usageRecorder>,
+	startedAt: number,
+	concurrency?: number,
+): void => {
+	const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(0);
+
+	console.log(`\nCost of this run (${elapsedSeconds}s wall clock):`);
+	console.log(formatRunCost(takeRecordedUsage()));
+	console.log(
+		formatCallStats(summariseCalls(recorder.takeCalls()), concurrency),
+	);
+
+	const open = recorder.openCalls();
+	if (open > 0)
+		console.log(
+			`  ${"unfinished".padEnd(14)} ${open} calls started and never ended — their spend is not in the line above`,
+		);
+};
+
+/** Drains the cost recorder before a run, so the total is this run's alone. */
+export const startRunUsage = (): number => {
+	takeRecordedUsage();
+	return Date.now();
 };

@@ -11,6 +11,14 @@ import { MERGE_SYSTEM_PROMPT } from "@/server/services/learningPathAI/nodes/merg
 import { SYSTEM_PROMPT as TUTOR_SYSTEM_PROMPT } from "@/server/services/lessonAI/lessonAI.agent";
 import { CONCEPTS_SYSTEM_PROMPT } from "@/server/services/lessonInsightsAI/chains/concepts.chain";
 import { QUIZ_INITIAL_SYSTEM_PROMPT } from "@/server/services/quizAI/quizAI.agent";
+import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
+
+/**
+ * Module-scoped because the model call lives in a helper outside the run
+ * function. `startRunUsage()` drains before each run and `takeCalls()` empties
+ * after, so a second run in the same process is not the first one counted twice.
+ */
+const recorder = usageRecorder();
 
 /**
  * The other half of the false-positive number: when a surface's model IS steered
@@ -69,10 +77,13 @@ const textOf = async (
 	human: string,
 	temperature: number,
 ): Promise<string> => {
-	const reply = await chat(temperature).invoke([
-		{ role: "system", content: system },
-		{ role: "human", content: human },
-	]);
+	const reply = await chat(temperature).invoke(
+		[
+			{ role: "system", content: system },
+			{ role: "human", content: human },
+		],
+		recorder.config,
+	);
 	return reply.content?.toString() ?? "";
 };
 
@@ -163,6 +174,7 @@ const percent = (part: number, whole: number): string =>
 	whole === 0 ? "n/a" : `${((part / whole) * 100).toFixed(1)}%`;
 
 export const runLeakRecallEval = async (): Promise<boolean> => {
+	const startedAt = startRunUsage();
 	const features = Object.keys(SURFACES) as AiFeature[];
 	type Sample = {
 		feature: AiFeature;
@@ -280,6 +292,8 @@ export const runLeakRecallEval = async (): Promise<boolean> => {
 		"\nNo gate. A fixed-phrase marker cannot catch a paraphrase; this measures the\n" +
 			"rule's reach, not the platform's safety. Record per-surface recall in security.md.\n",
 	);
+
+	reportRunUsage(recorder, startedAt);
 
 	return true;
 };

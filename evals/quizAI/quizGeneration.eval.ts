@@ -11,6 +11,7 @@ import { QUIZ_INITIAL_SYSTEM_PROMPT } from "@/server/services/quizAI/quizAI.agen
 import type { QuizQuestion } from "@/server/services/quizAI/schemas/quizOutput.schema";
 import { QuizOutputSchema } from "@/server/services/quizAI/schemas/quizOutput.schema";
 import { accuracyGate } from "../_shared/score";
+import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
 
 type Row = {
 	id: string;
@@ -39,6 +40,8 @@ function isStructurallyValid(questions: QuizQuestion[]): boolean {
 }
 
 export async function runQuizGenerationEval(): Promise<boolean> {
+	const recorder = usageRecorder();
+	const startedAt = startRunUsage();
 	const rows: Row[] = readFileSync(DATASET, "utf-8")
 		.split("\n")
 		.filter(Boolean)
@@ -87,14 +90,17 @@ export async function runQuizGenerationEval(): Promise<boolean> {
 				responseFormat: QuizOutputSchema,
 			});
 
-			const result = await agent.invoke({
-				messages: [
-					{
-						role: "user",
-						content: `Generate ${r.count} questions for lesson eval-${r.id}.`,
-					},
-				],
-			});
+			const result = await agent.invoke(
+				{
+					messages: [
+						{
+							role: "user",
+							content: `Generate ${r.count} questions for lesson eval-${r.id}.`,
+						},
+					],
+				},
+				recorder.config,
+			);
 
 			const questions = (
 				result.structuredResponse as { questions: QuizQuestion[] }
@@ -106,6 +112,8 @@ export async function runQuizGenerationEval(): Promise<boolean> {
 			};
 		}),
 	);
+
+	reportRunUsage(recorder, startedAt, results.length);
 
 	return accuracyGate("quizGeneration", results, 0.9);
 }

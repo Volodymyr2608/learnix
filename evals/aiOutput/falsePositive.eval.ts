@@ -12,6 +12,14 @@ import { MERGE_SYSTEM_PROMPT } from "@/server/services/learningPathAI/nodes/merg
 import { SYSTEM_PROMPT as TUTOR_SYSTEM_PROMPT } from "@/server/services/lessonAI/lessonAI.agent";
 import { insightsChain } from "@/server/services/lessonInsightsAI/chains/parallel.chain";
 import { QUIZ_INITIAL_SYSTEM_PROMPT } from "@/server/services/quizAI/quizAI.agent";
+import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
+
+/**
+ * Module-scoped because the model call lives in a helper outside the run
+ * function. `startRunUsage()` drains before each run and `takeCalls()` empties
+ * after, so a second run in the same process is not the first one counted twice.
+ */
+const recorder = usageRecorder();
 
 /**
  * How often does the output boundary reject text that is simply *about* prompt
@@ -75,10 +83,13 @@ const textOf = async (
 	human: string,
 	temperature: number,
 ): Promise<string> => {
-	const reply = await chat(temperature).invoke([
-		{ role: "system", content: system },
-		{ role: "human", content: human },
-	]);
+	const reply = await chat(temperature).invoke(
+		[
+			{ role: "system", content: system },
+			{ role: "human", content: human },
+		],
+		recorder.config,
+	);
 	return reply.content?.toString() ?? "";
 };
 
@@ -118,9 +129,10 @@ const SURFACES: Record<AiFeature, (row: Row) => Promise<string>> = {
 		),
 
 	lessonInsightsAI: async (row) => {
-		const out = await insightsChain.invoke({
-			content: wrapUntrustedContent(row.content, "lesson_content"),
-		});
+		const out = await insightsChain.invoke(
+			{ content: wrapUntrustedContent(row.content, "lesson_content") },
+			recorder.config,
+		);
 		return [
 			out.summary.summary,
 			...out.concepts.concepts.flatMap((c) => [c.name, c.explanation]),
@@ -145,6 +157,7 @@ const percent = (part: number, whole: number): string =>
 	whole === 0 ? "n/a" : `${((part / whole) * 100).toFixed(1)}%`;
 
 export const runFalsePositiveEval = async (): Promise<boolean> => {
+	const startedAt = startRunUsage();
 	const rows: Row[] = readFileSync(DATASET, "utf-8")
 		.split("\n")
 		.filter(Boolean)
@@ -228,6 +241,8 @@ export const runFalsePositiveEval = async (): Promise<boolean> => {
 		"\nNo gate. Record these numbers in security.md S11, and decide per surface:\n" +
 			"above 5%, tasks 16-18 land in report-only mode (emit, do not throw) — decision D-M.\n",
 	);
+
+	reportRunUsage(recorder, startedAt);
 
 	return true;
 };
