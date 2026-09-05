@@ -4,8 +4,10 @@ import {
 	asWord,
 	datasetForEval,
 	datasetRows,
+	docFigures,
 	drawsMoreThanOnce,
 	forMatching,
+	INDIRECT_DATASET_PATH,
 	isStale,
 	PINNED_CLAIMS,
 	pinnedClaims,
@@ -158,8 +160,41 @@ describe("the eval map in ai-eval-strategy.md matches the datasets it describes"
 	});
 });
 
+/**
+ * `TutorFigures` is everything the module could derive, so everything a claim
+ * could assert came from one dataset and one baseline. The `aiGuard:indirect`
+ * A/B is quoted in two documents and belongs to neither — which is why a
+ * twelve-row denominator survived the corpus growing to sixteen with every
+ * check in this file green.
+ */
+describe("a claim can read a corpus other than the tutor set", () => {
+	const figures = docFigures();
+
+	it("counts the indirect corpus rather than trusting the sentence", () => {
+		expect(figures.indirectRows).toBe(datasetRows(INDIRECT_DATASET_PATH));
+	});
+
+	it("finds rows there at all", () => {
+		expect(figures.indirectRows).toBeGreaterThan(0);
+	});
+
+	/**
+	 * Widening is additive. Every claim written against the tutor figures must
+	 * resolve to exactly what it resolved to before, or this task changed
+	 * something it had no business changing.
+	 */
+	it("leaves every existing claim resolving what it did before", () => {
+		expect(pinnedClaims(figures).map((claim) => claim.expected)).toEqual(
+			pinnedClaims({
+				...tutorFigures(),
+				indirectRows: figures.indirectRows,
+			}).map((claim) => claim.expected),
+		);
+	});
+});
+
 describe("claims that restate a machine figure carry the machine's number", () => {
-	const claims = pinnedClaims(tutorFigures());
+	const claims = pinnedClaims(docFigures());
 
 	it("has a claim to check", () => {
 		expect(claims.length).toBeGreaterThan(0);
@@ -209,8 +244,8 @@ describe("the claim registry stays honest", () => {
 	});
 
 	it("catches a figure that drifted", () => {
-		const drifted = pinnedClaims({ ...tutorFigures(), rows: 999 });
-		const current = pinnedClaims(tutorFigures());
+		const drifted = pinnedClaims({ ...docFigures(), rows: 999 });
+		const current = pinnedClaims(docFigures());
 
 		expect(drifted.map((claim) => claim.expected)).not.toEqual(
 			current.map((claim) => claim.expected),

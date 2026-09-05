@@ -18,6 +18,12 @@ export const TUTOR_DATASET_PATH = "evals/datasets/lessonAI/tutor.jsonl";
 export const TUTOR_BASELINE_PATH = "evals/baselines/lessonAI-tutor.json";
 export const STRATEGY_PATH = "docs/specs/ai-eval-strategy.md";
 export const RUNNER_PATH = "evals/runEvals.ts";
+/**
+ * The `aiGuard:indirect` corpus. It is quoted in two documents as the
+ * denominator of the wrap A/B and belongs to no baseline of its own, so the
+ * only honest source for its size is the file.
+ */
+export const INDIRECT_DATASET_PATH = "evals/datasets/aiGuard/indirect.jsonl";
 export const EVALS_DIR = "evals";
 
 /** One category's deterministic result, as the committed baseline records it. */
@@ -149,6 +155,27 @@ export const tutorFigures = (): TutorFigures => {
 };
 
 /** `passed/total` for one category, as the prose spells it. */
+/**
+ * Everything a pinned claim may quote: the tutor figures, plus the figures that
+ * come from somewhere else entirely.
+ *
+ * The split matters. `TutorFigures` is derived from one dataset and one
+ * baseline, and for as long as that was the whole input, a claim could only be
+ * written about numbers those two files produced. A sentence quoting any other
+ * corpus was unpinnable — not rejected, simply invisible — and the
+ * `aiGuard:indirect` denominator sat at twelve for the three weeks after the
+ * corpus grew to sixteen without a single check going red.
+ */
+export type DocFigures = TutorFigures & {
+	/** Rows in the `aiGuard:indirect` corpus, read at call time. */
+	indirectRows: number;
+};
+
+export const docFigures = (): DocFigures => ({
+	...tutorFigures(),
+	indirectRows: datasetRows(INDIRECT_DATASET_PATH),
+});
+
 export const passRate = (
 	figures: TutorFigures,
 	category: string,
@@ -268,7 +295,7 @@ export type PinnedClaim = {
 	/** Must match once; its groups are the figures. */
 	pattern: RegExp;
 	/** The machine's value for each group, in order. */
-	expected: (figures: TutorFigures) => string[];
+	expected: (figures: DocFigures) => string[];
 };
 
 /**
@@ -357,7 +384,7 @@ export const PINNED_CLAIMS: readonly PinnedClaim[] = [
 ];
 
 export const pinnedClaims = (
-	figures: TutorFigures,
+	figures: DocFigures,
 ): (Omit<PinnedClaim, "expected"> & { expected: string[] })[] =>
 	PINNED_CLAIMS.map((claim) => ({
 		file: claim.file,
