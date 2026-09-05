@@ -1,4 +1,4 @@
-# Intent routing (P3) — Implementation Plan
+# Intent routing, second pass (P3) — Implementation Plan
 
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session — the warm
 > context is the cheapest place to run TDD loops (ADR-030). Dispatch a subagent only for work that
@@ -6,272 +6,263 @@
 > Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) §"Intent routing" for the
 > design and Acceptance criteria.
 
-**Goal:** `classify_intent` stops guessing which step holds the field an instructor wants changed,
-and the two answers it cannot get from a prompt — which step, and whether anything is stored yet —
-become inputs it is given.
+**Goal:** make `courseAI:classifyIntent` capable of measuring the node before anything changes the
+node, then close the one routing class it still fails.
 
-**Architecture:** The model returns the **field**; the step is resolved from
-`getExtractionSchemaForStep`'s own shapes, so a step that does not hold the field cannot be returned.
-The rule "supplying content for the current step is `continue`" stops being a sentence the model has
-to read correctly and becomes data on the prompt: the keys the step has already stored. A swallowed
-model error emits `fallback_triggered` instead of disappearing into a default. Nothing about the
-graph's shape, the revise path, or persistence moves.
+**Architecture:** two halves, strictly in that order. The eval stops reporting one draw as an
+answer — three samples a row, the rows that never reach the model scored as their own category, a
+second floor that a rate cannot express, and a run that proves it made the calls it claims. Only
+then does the prompt move, under a contract test that stops the fix being written around the set's
+wording. Nothing in production changes except one prompt string; the graph, the schema, the revise
+path and persistence are untouched.
 
-**Track:** `standard`. `pnpm classify` reports `No changes against 9781acf` (nothing written yet) and
-the intended file set trips no signal: `classifyIntent.ts` and a new pure resolver are not a new
-`.addNode(`, not an entry point, not a tool, not a control under `aiGuard/`. Editing a prompt and its
-output schema inside an already-registered entry point is neither new authority nor a modified
-control (`documentation-process.md` §3a), so no design pass ran and §Security's controls are
-inherited by reference. There is no security task below because there is no security delta — Task 4
-*adds* a security event rather than changing a boundary.
+**Why the measurement comes first, stated once:** three runs of *unchanged* code on `main` returned
+**90.0%, 85.0% and 80.0%** against an 0.85 gate. Any prompt edit measured against that instrument is
+indistinguishable from drift, in both directions — a bad change can read green and a good one red.
+This is the same sequencing the `confidence_score` reopening used, for the same reason.
+
+**Track:** `standard`. `pnpm classify` reports `STANDARD-OR-DIRECT` — *"No new authority and no
+control touched — the guarded track does not apply. Controls for surfaces already covered are
+inherited by reference."* Editing a prompt inside an already-registered entry point is neither new
+authority nor a modified control (`documentation-process.md` §3a), so no design pass ran and
+§Security's controls are inherited by reference. **There is no security task below because there is
+no security delta:** the node's inputs, its wrapping, its output schema and its `fallback_triggered`
+emitter are all untouched, and the eval half reaches no production code path at all.
 
 **Codebase anchors (verified during planning):**
 
-- `classifyIntent` (`server/services/courseAI/graph/nodes/classifyIntent.ts:27`) — `withNodeErrors`
-  wrapper, `(state, config)`. Early return at `:30` for empty history/message (17 model calls on 20
-  rows). `outSchema` at `:12` carries `intent`, `reviseTarget` (the `DraftStep` enum), `reason`.
-  The `catch` at `:81` returns `continue` and is what Task 4 instruments.
-- `getExtractionSchemaForStep(step)` (`server/services/courseAI/validators/getExtractionSchemaForStep.ts:6`)
-  — four `z.object`s. Top-level keys: `basic` → title, subtitle, description, category, level,
-  language, duration; `objectives` → objectives; `requirements` → requirements; `curriculum` →
-  sections. **Section and lesson titles are nested inside `sections[]`, not top-level**, so `title`
-  resolves uniquely to `basic`. This function is the map; Task 1 reads its `.shape`, it does not
-  restate it.
-- `routeByIntent` (`server/services/courseAI/graph/graph.ts:45`) and the edge at `:124` —
-  `revise → revise_prior_field`, `clarify → chat_response`. Unchanged by this plan.
-- `revisePriorField` (`…/nodes/revisePriorField.ts:23`) — `if (!state.reviseTarget) return
-  { assistantText: "I couldn't tell which field to revise." }`. That string is the dead end Task 2
-  makes unreachable. **The node itself is out of scope** (see spec §Failure & fallback).
-- `logSecurityEvent` (`server/services/_shared/aiGuard/securityLog.ts:45`) and the emit shape at
-  `guardUserInput.ts:99-106` — `{ feature, userId, layer, outcome, ruleIds, score }`, optional
-  `subject`. `fallback_triggered` forwards to Sentry (`securityLog.ts:17`), which is the point: this
-  outcome's baseline is zero.
-- `runClassifyIntentEval` (`evals/courseAI/classifyIntent.eval.ts:38`) asserts `out.intent` **and**
-  `out.reviseTarget`. The node keeps writing `reviseTarget`, so **the eval and its dataset do not
-  change** — before and after are the same measurement, which is what makes the comparison mean
-  anything.
-- Model stubbing pattern: `vi.mock("@langchain/openai", () => ({ ChatOpenAI: class {} }))`
-  (`server/observability/aiLogShape.contract.test.ts:150`, `lessonAI.agent.test.ts:10`).
+- `runClassifyIntentEval` (`evals/courseAI/classifyIntent.eval.ts:34`) — one `EvalResult` per row
+  through `Promise.all`, gated by `accuracyGate("classifyIntent", results, 0.85)` at `:76`. Dataset
+  loader at `:28`, path at `:23`.
+- `classifyIntent` (`server/services/courseAI/graph/nodes/classifyIntent.ts:60`) — the node. The
+  short-circuit the categories mirror is `state.history.length === 0 || !state.userMessage` at
+  `:64`; `outSchema` at `:46`; the prompt template starts at `:103`. Only `:103`'s string moves.
+- `categoryGate` (`evals/_shared/score.ts:63`) — per-category table; gates **only** categories
+  present in `thresholds`, so an ungated category is reported and can never redden a run.
+- `CategoryEvalResult` (`evals/_shared/score.ts:3`) — `EvalResult & { category: string }`, the shape
+  `categoryGate` consumes.
+- `rowStability` / `flakyRows` (`evals/_shared/score.ts:19`, `:45`) — collapse repeated samples of a
+  row into `passed/samples`; `flakyRows` returns the rows that are neither always nor never.
+- `formatScoreTable` (`evals/_shared/score.ts:121`) — the precedent for "print what is behind the
+  number", written for `confidenceScore`. Task 1 is its sibling for a classifier.
+- `accuracyGate` (`evals/_shared/score.ts:185`) — what this eval uses today and stops using at
+  Task 3.
+- Sampling shape to copy (`evals/lessonAI/tutor.eval.ts:79`, `:326`, `:433`–`:455`) — `SAMPLES = 3`,
+  `rows.flatMap(row => Array.from({ length: SAMPLES }, () => row))`, then the always-failing block
+  and the flaky block.
+- `sampledEvals` (`evals/_shared/docFigures.ts:78`) — detects a `SAMPLES = <n>` constant with
+  comments stripped, **not** a hand-kept list; `singleSampleEvals` derives from it at `:125`.
+- The pinned prose (`evals/_shared/docFigures.ts:296`, `:302`) — claims over
+  `docs/specs/ai-eval-strategy.md:108` (*"nine of the other twelve are single-sample, pooled"*) and
+  `:366` (*"**Nine of thirteen** evals are single-sample and pooled."*). Both must read *eight* /
+  *Eight* once Task 2 lands.
+- `usageRecorder` (`evals/_shared/usage.ts:135`) — `takeCalls()` returns one `EvalCall` per finished
+  model call; `openCalls()` the started-and-never-ended count.
+- `reportRunUsage` (`evals/_shared/usage.ts:227`) — **drains** `takeCalls()` at `:237`. Task 5's
+  count must therefore be taken *before* this call, not after.
+- `confidenceScorePrompt.contract.test.ts` (whole file) — the leak guard Task 7 mirrors, including
+  its vacuity assertion and its comment allowance; `stripComments` from `evals/_shared/promptFidelity`.
+- `classifyIntent.test.ts:138` — *"still short-circuits an empty message without calling the model"*,
+  the unit test that already pins the branch the `early-return` category names.
 
-**Per-task conventions:** `pnpm typecheck` + `pnpm check` clean before every commit. Unit tests
-colocated `*.test.ts`. Evals are **not** in CI — run by hand, and the figures go in the commit body,
-because a number nobody recorded is a number nobody can regress against.
-
----
-
-## Task 1 — The step is derived from the schema, and the derivation is checked against it
-
-- **Contract:** `stepForField(field)` returns the `DraftStep` whose extraction schema declares that
-  key at the top level, or `null` when no schema does. It reads `getExtractionSchemaForStep(...).shape`
-  for each step — there is no literal list of field names anywhere in the module.
-- **Test:** `server/services/courseAI/validators/stepForField.test.ts` — `level`, `title`, `duration`
-  → `basic`; `objectives` → `objectives`; `requirements` → `requirements`; `sections` →
-  `curriculum`; an unknown key → `null`. Two cases carry the design rather than the examples:
-  **(a)** every top-level key of all four schemas resolves to the step it came from — generated from
-  the schemas, so a field added tomorrow is covered without editing the test; **(b)** no key appears
-  in two schemas, which is the property that makes resolution unique. If (b) ever fails, the answer
-  is a different strategy, not a tie-break — say so in the test's comment.
-- **Files:** `server/services/courseAI/validators/stepForField.ts`, `…/stepForField.test.ts`
-- **AC:** spec.md — *"The model names the field; the step is derived, not guessed"*, *"The field→step
-  map is derived from the schemas, never hand-maintained"*
-- **Commit:** `feat(courseAI): resolve a revise target from the schema that holds the field`
-
-- [x] Write the failing test · [x] Run it, see it FAIL (`stepForField` does not exist)
-- [x] Implement · [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
+**Per-task conventions:** TDD loop per task; `pnpm typecheck` + `pnpm check` clean before every
+commit; unit tests colocated. **Eval runs cost real money and never run in CI** — a three-sample run
+of this set is 51 model calls, about **$0.006**; the tasks that need one say so.
 
 ---
 
-## Task 2 — An unholdable step is unreturnable, and a nameless target is a question
+## Task 1 — a failing row reports what the node returned, not that it was wrong
 
-- **Contract:** `classify_intent`'s structured output carries `reviseField: string | null` in place of
-  the `DraftStep` enum. On `revise`, the node resolves the field through `stepForField` and writes
-  the result to `reviseTarget`. **When the field does not resolve, the turn becomes `clarify`** with
-  the question in `reason` — the node never emits `revise` with a null target, so
-  `revise_prior_field`'s *"I couldn't tell which field to revise"* branch is unreachable from here.
-  `continue` and the empty-message early return behave exactly as before.
-- **Test:** `server/services/courseAI/graph/nodes/classifyIntent.test.ts`, model stubbed per the
-  anchor above. Cases: a resolvable field returns `revise` + the owning step; an unresolvable field
-  returns `clarify` with a non-empty `reason` and `reviseTarget: null`; `continue` passes through
-  untouched with `reviseTarget: null`; the empty-`userMessage` path still short-circuits without
-  calling the model.
-- **Files:** `server/services/courseAI/graph/nodes/classifyIntent.ts`, `…/classifyIntent.test.ts`
-- **AC:** spec.md — *"The three measured failures pass by construction"*, *"An unresolvable field is
-  a `clarify`, never a null target"*
-- **Commit:** `fix(courseAI): classify the field, not the step`
+- **Contract:** `evals/_shared/score.ts` gains a formatter that renders, for one eval's per-sample
+  outcomes, a block naming every row that failed at least one sample: the row id, `passed/samples`,
+  the expected `intent`/`reviseTarget` pair, and each **distinct** pair the node actually returned
+  with the number of samples that produced it. A row that passed every sample does not appear.
+  `intent` wrong, `reviseTarget` wrong and `clarify` returned instead of either are three defects
+  with three different repairs, and a rate cannot tell them apart.
+- **Test:** `evals/_shared/score.test.ts` — a row failing every sample with one distinct actual; a
+  row failing some samples with two distinct actuals, both listed with counts; a row passing every
+  sample absent from the output; empty input renders nothing rather than a bare header.
+- **Files:** `evals/_shared/score.ts`, `evals/_shared/score.test.ts`, `evals/courseAI/classifyIntent.eval.ts`
+- **AC:** spec.md §Intent routing — *"A failing row prints what the node returned, not merely that it
+  was wrong."*
+- **Commit:** `test(evals): print what a classifier returned, not only that it was wrong`
 
-- [x] Write the failing test · [x] Run it, see it FAIL (`reviseField` is not in the schema)
-- [x] Implement · [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean
-- [x] `pnpm vitest run server/services/courseAI` green · [x] Commit
+- [ ] Write the failing test · [ ] Run it, see it FAIL (no such formatter) · [ ] Implement
+- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
-## Task 3 — "Nothing is stored yet" is an input, not a sentence to be read correctly
+## Task 2 — every row is drawn three times, and the prose that counts single-sample evals moves with it
 
-- **Contract:** the prompt states which keys the **current** step has already stored, computed as
-  `Object.keys(state.content)` intersected with that step's schema keys. When the intersection is
-  empty the prompt says so explicitly, and the guidance that follows is that supplying content for a
-  step storing nothing is `continue`. The wording that made this a judgement call — *"whether from an
-  earlier step or the current step"*, with "add a bonus section" as its example — is replaced by the
-  stored-versus-being-collected distinction the spec states.
-- **Test:** same file as Task 2. This is an **input contract**, so it is asserted as one: with an
-  empty `content` the prompt names no stored keys and says nothing is stored; with `content` holding
-  `title` and `level` on the `basic` step, both appear. Behaviour is not asserted here — whether the
-  model then answers `continue` is what the eval in Task 5 measures, and pretending a stub proves it
-  would be the fiction `promptFidelity` exists to prevent.
-- **Files:** `server/services/courseAI/graph/nodes/classifyIntent.ts`, `…/classifyIntent.test.ts`
-- **AC:** spec.md — *"Supplying content for a step that has stored nothing is `continue`"* and the
-  Edge case that pins row 02
-- **Commit:** `fix(courseAI): tell the classifier what the step has already stored`
+- **Contract:** `runClassifyIntentEval` draws each row `SAMPLES = 3` times, collapses the draws with
+  `rowStability`, and prints the always-failing and flaky blocks in the shape `tutor.eval.ts` uses.
+  Because `sampledEvals()` reads the **constant** and not a list, the eval leaves the single-sample
+  register the moment that constant lands — which reddens `docFigures.contract.test.ts` until
+  `ai-eval-strategy.md` says *eight* in both pinned places. That coupling is the mechanism working,
+  not an obstacle, and closing it is part of this task.
+- **Test:** `evals/_shared/docFigures.contract.test.ts` — already written, and it is the proof: red
+  on the constant alone, green after `docs/specs/ai-eval-strategy.md:108` and `:366` are corrected.
+  No new test is added here.
+- **Files:** `evals/courseAI/classifyIntent.eval.ts`, `docs/specs/ai-eval-strategy.md`
+- **AC:** spec.md §Intent routing — *"The run reports a rate per row, not one draw."*
+- **Commit:** `test(evals): draw every classifyIntent row three times`
 
-- [x] Write the failing test · [x] Run it, see it FAIL (the prompt carries no stored-key line)
-- [x] Implement · [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
+- [ ] Add the constant, run `pnpm test:unit`, see `docFigures` FAIL (the count moved, the prose did not)
+- [ ] Implement the sampling and the two stability blocks · [ ] Correct both prose lines
+- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
----
-
-## Task 4 — A swallowed model error stops being invisible
-
-- **Contract:** the `catch` in `classify_intent` emits `logSecurityEvent` with
-  `outcome: "fallback_triggered"`, `layer: "model_call_fallback"`, `feature: "courseAI"`,
-  `userId: state.instructorId`, `ruleIds: ["classify_intent_unavailable"]`, `subject:
-  { kind: "generation", id: state.generationId }` — **and still returns `continue`**. Failing open is
-  the documented behaviour and does not change; what changes is that it now leaves a trace, on an
-  outcome whose baseline is zero and which forwards to Sentry.
-- **Test:** same file. Cases: a throwing model produces exactly one event with those fields **and**
-  `intent: "continue"` (fail-open preserved — the event must not become a new failure path); a
-  successful call emits nothing. No message text, reply text or prompt reaches the event — the shared
-  type has no field for it, and the test asserts the emitted object's keys.
-- **Files:** `server/services/courseAI/graph/nodes/classifyIntent.ts`, `…/classifyIntent.test.ts`
-- **AC:** spec.md — *"A model failure inside `classify_intent` emits `fallback_triggered`"*
-- **Commit:** `feat(courseAI): make the classifier's silent fallback an event`
-
-- [x] Write the failing test · [x] Run it, see it FAIL (nothing is emitted)
-- [x] Implement · [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
+> **Known intermediate state:** between this task and Task 3 the run still pools 60 samples through
+> `accuracyGate`, so its own percentage is not yet a meaningful number. The unit suite is green; the
+> eval's gate is not to be quoted until Task 3 lands.
 
 ---
 
-## Task 5 — Measure, twice, on the unchanged set
+## Task 3 — the gate stands on the rows the model actually classified
 
-- **Contract:** `pnpm eval courseAI:classifyIntent` reaches **≥ 85%**, with rows 03, 13 and 14
-  resolving to `basic` and row 02 staying `continue`. The eval and its dataset are untouched, so the
-  before-figure (80.0%, 16/20, failures `02, 03, 13, 14`) and the after-figure measure the same
-  question.
-- **Test:** the eval itself, run **before** the change is believed and **twice** after — one draw of
-  20 rows is not a result, and this is the same discipline the confidence-node fix was held to. Both
-  runs' figures go in the commit body, with the per-row outcome for the four rows above.
-- **Files:** none — this task changes nothing and exists to produce a number.
-- **AC:** spec.md — *"The node meets its own gate"*
-- **Commit:** `test(evals): record what intent routing measures after the fix`
+- **Contract:** each row carries a category **derived from the node's own short-circuit condition** —
+  `early-return` when the row has no history or no user message, `classified` otherwise — and the run
+  gates with `categoryGate` at `{ classified: 0.85, "early-return": 1 }`. Derived, never stored in the
+  JSONL: a category field would be a second copy of what `history: []` already says and would disagree
+  with the predicate the first time either moved. Today that split is 3 rows and 17 rows, and the 15
+  points those three rows contribute stop being counted as the model's.
+- **Test:** `evals/courseAI/classifyIntentRows.test.ts` — rows 01, 09 and 20 derive `early-return`;
+  the other seventeen derive `classified`; a row with history but an empty `userMessage` derives
+  `early-return`; over the real dataset the split is exactly 3 / 17.
+- **Files:** `evals/courseAI/classifyIntentRows.ts` (new — loader + category derivation),
+  `evals/courseAI/classifyIntentRows.test.ts` (new), `evals/courseAI/classifyIntent.eval.ts`
+- **AC:** spec.md §Intent routing — *"The gate stands on the rows the model actually classified."*
+- **Commit:** `test(evals): gate classifyIntent on the rows the model classified`
 
-- [x] Run the eval, record the FAIL (80.0%, four rows) · [x] Run it after Tasks 1–4, see ≥ 85%
-- [x] Run it a second time, confirm the direction holds · [x] Commit the figures
-
-> **If a run still fails on 02 rather than on 03/13/14**, the resolver worked and the
-> stored-versus-collected rule did not — those are different repairs, and the row-by-row outcome is
-> what tells them apart. Do not average them into "still 85%".
-
----
-
-## Task 6 — The spec says what was measured
-
-- **Contract:** `spec.md` carries the after-figure beside the before one, `status` returns to
-  `stable`, `_index.md` is regenerated. The recorded gap about `revise_prior_field` stays recorded —
-  this change does not close it, and saying so is the point of having written it down.
-- **Test:** `pnpm spec:sync` leaves no diff after committing; `pnpm test:unit` green.
-- **Files:** `docs/specs/features/ai-course-builder/spec.md`, `docs/specs/features/_index.md`
-- **AC:** Gate Docs (`documentation-process.md` §7)
-- **Commit:** `docs(course-builder): record what intent routing measured`
-
-- [x] Update spec.md · [x] `status: in-progress → stable` · [x] `pnpm spec:sync` · [x] Commit
+- [ ] Write the failing test · [ ] Run it, see it FAIL (no derivation module) · [ ] Implement
+- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
-## What the measurement changed during execution
+## Task 4 — a row that never passes fails the run, whatever the rate says
 
-Task 3 shipped twice. The first implementation scoped `ALREADY STORED` to the **current** step, and
-the eval refused it in the most instructive way available: accuracy stayed at **80.0%** while the
-failing rows changed completely, 02/03/13/14 → 07/15/16/19. The plan's four target rows were fixed
-and four others broke, and only the row list said so — the number alone would have read as "no
-effect".
+- **Contract:** `evals/_shared/score.ts` gains a floor over row stability: a run fails when any row in
+  a **gated** category passes zero of its samples, even if that category's rate clears its threshold.
+  A rate alone lets a permanently broken row hide behind drift on its neighbours; this is what makes
+  "rows 15 and 19 never pass" a failure rather than a rounding difference. A row in an ungated
+  category that never passes does not redden the run — the floor follows the category, exactly as
+  `categoryGate` does.
+- **Test:** `evals/_shared/score.test.ts` — seventeen rows where two never pass while the pooled rate
+  is still 0.86 → fails, and the failure names those two rows; the same set with every row passing at
+  least once → passes; a never-passing row in an ungated category → does not fail the run.
+- **Files:** `evals/_shared/score.ts`, `evals/_shared/score.test.ts`, `evals/courseAI/classifyIntent.eval.ts`
+- **AC:** spec.md §Intent routing — *"The run gates on two numbers, not one."*
+- **Commit:** `test(evals): a row that never passes is a defect, not drift`
 
-The reading at the time was that the evidence had been scoped too narrowly: `revise` is mostly a
-request about a step the instructor has already **left**, so a line reporting that the current step
-holds nothing reads as "nothing is stored anywhere". Widening it to every step, attributed, recovered
-row 07 and reached 85.0%. Stating the placement rule only in the cross-step direction then cost row
-11 — the requirements step's own content pulled into `revise` — and completing the rule symmetrically
-fixed it.
+- [ ] Write the failing test · [ ] Run it, see it FAIL (no floor exists) · [ ] Implement
+- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
-**That reading is not what the measurement can support, and the correction matters more than the
-number.** Every row of this golden set passes `content: {}` (`classifyIntent.eval.ts:41`; the dataset
-has no `content` field at all), so `storedByStep` is the empty string on all twenty rows and the
-prompt always reads `ALREADY STORED: nothing stored yet`. **The per-step listing is inert under the
-eval.** Between the two variants the measurement therefore saw only (a) the header losing the words
-"IN THIS STEP" — which is itself a claim about scope, so not nothing — and (b) the Decide bullets,
-rewritten in the same commit. Two levers moved together, which is the exact thing this feature's spec
-forbids two sections earlier, and the honest statement is that the 80 → 85 delta cannot be attributed
-between them.
+---
 
-Two consequences worth carrying forward rather than burying:
+## Task 5 — the run proves it made the calls it claims
 
-- **The 85.0% measures the empty-content prompt only.** In production `state.content` is populated, so
-  real turns see a prompt shape that no golden row covers. Rows with populated `content` are the
-  first thing this set needs — ahead of simply growing it.
-- **The per-step attribution is a design argument, not a measured one.** It stays because scoping
-  evidence to the current step is wrong on its face for a classifier whose main job is reaching
-  backwards — but "wrong on its face" is where it rests, and the comment in the node now says so.
+- **Contract:** the run compares the recorder's finished-call count against the number of samples the
+  `classified` category claims, and **fails when it saw fewer**. This is the `assessCompletion`
+  defect (P2) stated as a check: there, zero model calls produced a printed "100%", because nothing
+  connected the score to the measurement having happened. More calls than samples is a retry, not a
+  defect, and is reported as a note rather than a failure.
+- **Ordering constraint, from the anchors:** `reportRunUsage` drains `takeCalls()`
+  (`evals/_shared/usage.ts:237`), so the count is taken **before** that call.
+- **Test:** `evals/_shared/usage.test.ts` on a pure helper — fewer calls than claimed fails and names
+  the shortfall; equal passes; more passes with a note; **zero calls against a non-empty claim fails**,
+  which is the case that would have caught P2.
+- **Files:** `evals/_shared/usage.ts`, `evals/_shared/usage.test.ts`, `evals/courseAI/classifyIntent.eval.ts`
+- **AC:** spec.md §Intent routing — supports *"The gate stands on the rows the model actually
+  classified"*: the check is what makes the split honest rather than declared.
+- **Commit:** `test(evals): a run that classified nothing cannot report a score`
 
-| | Accuracy | Failing rows |
-|---|---|---|
-| before | 80.0% (16/20) | 02, 03, 13, 14 |
-| stored keys, current step only | 80.0% (16/20) | 07, 15, 16, 19 |
-| stored keys, all steps | 85.0% (17/20) | 15, 16, 19 |
-| cross-step rule only | 85–90%, unstable | 11, 15, (19) |
-| **shipped** (rule in both directions) | **85.0% (17/20)** | **15, 16, 19** — two runs, identical |
+- [ ] Write the failing test · [ ] Run it, see it FAIL (no coverage helper) · [ ] Implement
+- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
-One class remains: an addition aimed at an earlier step, phrased tentatively, while a later one is
-being collected. At n=20 one row is five points, so the set's resolution is now the binding
-constraint — which is a reason to grow the set, not to keep tuning wording against twenty rows.
+---
 
-## What review and audit added, and what they left open
+## Task 6 — measure, then decide (no code)
 
-Both passes converged on the same two findings, and one of them was the plan's own claim.
+- **Contract:** with the instrument fixed, run `pnpm eval courseAI:classifyIntent` **three times** and
+  record, per failing row, what the node returned. The plan's working premise is that rows 15, 16 and
+  19 return `continue` where `revise` is expected. **If they return `clarify`, or return `revise` with
+  the wrong target, the repair in Task 8 is a different repair** — rewrite that task before executing
+  it, not after. This is the step the `confidence_score` reopening made mandatory: one measurement
+  comes before the fix, and may cancel it.
+- **Test:** none — this *is* the measurement. **Cost: 3 × 51 calls ≈ $0.018.**
+- **Files:** none.
+- **AC:** the sequencing discipline in spec.md §Intent routing — the measurement precedes the prompt.
+- **Commit:** `docs(course-builder): what the fixed instrument reports before the prompt moves`
 
-**Fixed on this branch:**
+- [ ] Run three times · [ ] Record per-row expected vs actual and the flaky/always-failing split
+- [ ] Confirm or refute the premise, in writing · [ ] Rewrite Task 8 if refuted · [ ] Commit
 
-- **`field in shape` walked the prototype chain**, so `"constructor"`, `"toString"`, `"__proto__"`
-  and five siblings all resolved to `basic` — the first step tested. The field name comes from the
-  model, and an instructor writing a JavaScript course says "constructor" meaning nothing by it, so
-  this was reachable by accident before it was reachable by intent, and it failed toward a confident
-  `revise` on the ungated path rather than toward a `clarify`. Fixed twice over: `Object.hasOwn` in
-  the resolver, and `reviseField` closed to a `z.enum` of the schemas' own keys so the case is
-  unrepresentable at the boundary rather than caught after it. The enum also hands the model the key
-  vocabulary the prompt never gave it, which was a false-positive source in the other direction.
-- **`title` was schema-unique but language-ambiguous.** "Rename section 2" invited `reviseField:
-  "title"` → `basic`, handing `revise_prior_field` a section request while asking it to regenerate the
-  course's own attributes. A prompt clause now says section and lesson titles are part of `sections`.
-- **`keys.join(", ")` was outside the wrapping scan**, under its documented false negative 4. Entered
-  in `ALLOWED_INTERPOLATIONS` with its claim, and the false-negative note corrected from one such
-  shape to two — a blind spot nobody lists reads as coverage.
-- **The node's JSDoc and `graph-contract.md` row 12** no longer matched what the node reads or how it
-  fails. Both updated.
-- **Test hygiene:** the stub now applies the real schema (renaming `reviseField` in one place and not
-  the other would otherwise leave every test green), `beforeEach` clears, `promptOf` reads the last
-  call rather than the first.
+---
 
-**Left open, deliberately, each with its owner named:**
+## Task 7 — the prompt may not be written around this golden set
 
-- **The golden set pins `content: {}`,** so the `ALREADY STORED` input is inert under measurement and
-  production sees a prompt shape no row covers. Populating `content` per row plus a contract test that
-  every `revise` row carries a stored key of its expected target is the next change on this set —
-  ahead of growing it. Not done here because editing the set mid-fix destroys the before/after
-  comparison this branch rests on.
-- **`graphContract.contract.test.ts` checks that the four JSDoc labels exist, not that they are
-  accurate.** Collecting `state.<x>` reads from each node body via the TS AST and asserting they
-  appear in `Reads:` would make this class of drift mechanical instead of reviewable. Worth its own
-  change; it touches every node.
-- **`reason` is discarded.** The plan promised the clarify question would ride in it; carrying it
-  needs a new state field and a graph-contract change. `chat_response` composes its own question via
-  `clarifyIntentPrompt`, so nothing is lost — recorded because an unstated deviation is how a plan
-  stops being the record.
+- **Contract:** the guard `confidence_score` already has, for this node: every value the set carries
+  (`userMessage` and each `history[].content`), of at least two words and six characters, must not
+  appear in `classifyIntent.ts` with comments stripped. A row quoted in a doc comment is a note to the
+  next reader; the same words inside the prompt are a lookup table with a model attached. Written
+  **before** the prompt moves, so the fix is made under it rather than checked against it afterwards.
+- **Test:** `evals/courseAI/classifyIntentPrompt.contract.test.ts` — the extraction yields enough
+  literals for the check to mean anything (vacuity guard, floor taken from the real count); none of
+  them appear in the node today; a pasted row value is caught; the same words inside a comment are
+  allowed.
+- **Files:** `evals/courseAI/classifyIntentPrompt.contract.test.ts` (new)
+- **AC:** spec.md §Intent routing — *"The prompt may not name this golden set either."*
+- **Commit:** `test(courseAI): keep the intent set out of the prompt it grades`
+
+- [ ] Write the failing test · [ ] Run it, see it FAIL (paste a row value into a scratch source to
+      prove it bites) · [ ] Implement · [ ] Run it, see it PASS
+- [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+
+---
+
+## Task 8 — the prompt closes the class without pulling the other direction over
+
+- **Contract:** an addition aimed at an **earlier** step routes to a `revise` of that step however
+  tentatively it is phrased; content belonging to the step **being collected** stays `continue`. Rows
+  15, 16 and 19 pass all three samples; rows 11, 02 and 10 pass all three; the `classified` category
+  holds ≥ 85% and no row fails all three samples. The prompt string at
+  `classifyIntent.ts:103` is the only thing that moves — no schema, no threshold, no graph edge.
+- **Test:** the eval, run three times, is the measurement (**≈ $0.018**). The existing
+  `classifyIntent.test.ts` suite must stay green — `ALREADY STORED`, the field→step resolution and
+  the `fallback_triggered` assertions are untouched — and Task 7's contract test must stay green
+  with the new wording.
+- **Files:** `server/services/courseAI/graph/nodes/classifyIntent.ts`
+- **AC:** spec.md §Intent routing — *"The class the prompt has to close"* and *"The opposite direction
+  may not regress, and it is the same lever."*
+- **Commit:** `fix(courseAI): route a tentative addition by the step it names`
+
+- [ ] Baseline recorded (Task 6) · [ ] Edit the prompt · [ ] `pnpm test:unit` green
+- [ ] Three eval runs · [ ] Both directions hold, or the trade-off is written down
+- [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+
+> **If both directions cannot be held at this set size**, the honest outcome is a recorded trade-off
+> in spec.md — which direction was chosen, at what measured cost — **not** a prompt tuned until one
+> run comes out green. The first pass already regressed row 11 by pushing on this exact class; a
+> second silent regression would be the same mistake with a better score attached.
+
+---
+
+## Task 9 — the documents say what was measured
+
+- **Contract:** three stale or missing claims are corrected. `../spec.md` §Performance carries the
+  node's prompt token count **after** the change beside the 559 before it.
+  `docs/tech-review-prep/area-4/perf-report.md` §9 and `docs/tech-review-prep/area-4/area-4.md` stop
+  reporting P3 as *"80.0%, and nobody had changed this prompt"* — that 80% was taken **before** PR
+  #138 landed the same day, unchanged code since then measures 90/85/80, and the real defect was the
+  instrument. `area-4.md`'s P3 line moves to what P3 now is.
+- **Test:** `pnpm test:unit` (`docFigures` and `specSections` stay green), then `pnpm spec:sync`.
+- **Files:** `docs/specs/features/ai-course-builder/spec.md`,
+  `docs/tech-review-prep/area-4/perf-report.md`, `docs/tech-review-prep/area-4/area-4.md`
+- **AC:** Gate Docs (DoD) — `documentation-process.md` §7.
+- **Commit:** `docs(area-4): P3 was measured on a prompt that had already been fixed`
+
+- [ ] Update the three documents · [ ] `pnpm test:unit` green · [ ] `pnpm spec:sync` · [ ] Commit
+
+---
 
 ## Why the plan is thin
 
@@ -280,45 +271,42 @@ Here the executor is the same model that wrote the plan, so the feature gets gen
 as code inside markdown, once as code — and the two drift. Contracts and test names are enough to
 execute from, and the compiler and the tests catch what prose cannot. — ADR-030.
 
-**No `code-explorer` or `code-architect` dispatch.** The surface is four files, all read in full
-while writing the spec, and the anchors above carry real line numbers. A reconnaissance agent would
-re-read them cold to reach the same place — the case `docs/constitution.md` §Agent economics names
-("executing a task whose context the caller already holds pays for that context twice").
+**The exception, and it is narrow:** include code when the exact form of the code *is* the thing
+being approved — a non-trivial migration, a change on the money or crypto path, a guard regex where
+a mistake is expensive. **No task here takes it.** Task 8's prompt wording is the one candidate and
+is deliberately excluded: its exact form is decided by Task 6's measurement, and freezing wording in
+the plan before that measurement exists is how a fix gets written around the set instead of around
+the behaviour.
 
 ## Self-review (run before handoff)
 
-| Acceptance criterion | Task |
+| Acceptance criterion (spec.md §Intent routing) | Task |
 |---|---|
-| The node meets its own gate (≥ 85%) | 5, achieved by 1–3 |
-| The model names the field; the step is derived | 1 (resolver), 2 (node) |
-| The three measured failures pass by construction | 1 + 2, measured in 5 |
-| An unresolvable field is a `clarify`, never a null target | 2 |
-| Supplying content for a step storing nothing is `continue` | 3, measured in 5 (row 02) |
-| A model failure emits `fallback_triggered` | 4 |
-| The field→step map is derived, never hand-maintained | 1 (case **a** asserts it from the schemas) |
-| The `title` collision is in the language, not the schema | 1 (case **b** asserts uniqueness) |
-| Gate Docs | 6 |
+| The run reports a rate per row, not one draw | 2 |
+| The gate stands on the rows the model actually classified | 3, and 5 makes it honest |
+| The run gates on two numbers, not one | 4 |
+| A failing row prints what the node returned | 1 |
+| The class the prompt has to close (rows 15, 16, 19) | 8, premise verified by 6 |
+| The opposite direction may not regress (rows 11, 02, 10) | 8 |
+| The set size is accepted here, not solved here | — no task by design; the dataset gains no rows |
+| The prompt may not name this golden set either | 7 |
+| *(harness spec)* the single-sample register and its machine-read count | 2 |
+| Gate Docs — spec, perf-report, area-4 corrected | 9 |
 
-**Guarded coverage** — the classifier named no authority and no control, so there is no control task;
-the reason is in **Track** rather than left implicit. Task 4 adds an observability event, which is
-additive: its test asserts fail-open is preserved, because an alert path that can break the path it
-watches is the failure `emit.ts` and `securityLog.ts` both refuse by design.
-
-**Contract clarity** — each task states an observable outcome. Task 3's outcome is an *input*, and
-the task says so rather than pretending a stubbed model proves behaviour.
-
-**Type consistency** — `stepForField(field: string): DraftStep | null` is introduced in Task 1 and
-used unchanged in Task 2. `reviseField` is the new schema key; `reviseTarget` remains the state field
-and keeps its type, which is why the eval needs no change.
+- **Guarded coverage:** `pnpm classify` names no authority and no control, so there is no security
+  task. Stated in **Track** rather than left as an absence.
+- **Contract clarity:** every task states an observable behaviour and the test that proves it.
+- **Type consistency:** `CategoryEvalResult`, `RowStability` and `EvalCall` are used with the names
+  and shapes `score.ts:3`, `score.ts:5` and `usage.ts:30` already define; no task renames them.
 
 ## Final verification
 
-- `pnpm typecheck`, `pnpm check`, `pnpm test:unit`, `pnpm test:integration` — green.
-- `pnpm eval courseAI:classifyIntent` — ≥ 85%, twice, both figures in the commit body.
-- `pnpm eval courseAI:confidenceScore` and `courseAI:extractStepData` — unchanged, confirming the
-  prompt rewrite did not disturb the neighbouring nodes through shared state.
-- **Break Task 1's uniqueness case on purpose**: add a duplicate top-level key to two schemas in a
-  scratch edit, see the test go red, revert. A property test that cannot fail proves nothing.
-- **Confirm the dead end is unreachable**: grep that no path can now reach
-  `revise_prior_field`'s `!state.reviseTarget` branch from `classify_intent` — it stays in the code
-  for the `finalize` entry and for defence, and that is deliberate.
+- `pnpm typecheck`, `pnpm check`, `pnpm test:unit`, `pnpm test:integration` — all green.
+- `pnpm eval courseAI:classifyIntent` three times: `classified` ≥ 85% in each, `early-return` at
+  100%, no row failing all three samples, and the call-coverage line reporting no shortfall.
+- **Break each new check on purpose and watch it redden** — a test that never fails proves nothing:
+  drop `SAMPLES` back to 1 and see `docFigures` fail; put a dataset literal into the prompt and see
+  Task 7's contract test fail; stub the node to return `continue` unconditionally and see Task 4's
+  floor fail rather than the rate quietly absorbing it.
+- The eval's own report, read once end to end, says the same thing the spec says: which rows are
+  stable, which are flaky, what the node returned for the ones that failed, and what the run cost.
