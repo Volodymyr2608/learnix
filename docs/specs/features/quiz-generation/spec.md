@@ -222,11 +222,19 @@ its own `security.md`.
 - Output bounds: 3–5 questions, 4 options each.
 - The `regenerate: false` cache path costs zero model calls on a lesson that already has questions.
 
-**Not measured**, the same gap the other AI surfaces carry: no p95 latency budget, no per-generation
-token or cost ceiling. Owner is workstream D of
-`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3. The unbounded quantity here is the
-**lesson body**: `get_lesson_content` returns it whole, with no length cap, so the cost of one
-generation scales with how much the instructor wrote — and it is re-read on every retry.
+**Measured since 2026-09-03** — [`ai-observability`](../ai-observability/spec.md), ADR-035: every
+model call emits `latencyMs`, `promptTokens`, `completionTokens` and `costUsd`, and every generation
+emits a turn line with `calls` and the total. On this surface the `calls` field is the one to read:
+`MAX_ATTEMPTS` 3 semantic retries, each a fresh agent run over both tools, is the difference between a
+cheap generation and a dozen-call one, and until now nothing distinguished them.
+
+**No structural token ceiling, and the unbounded quantity is named:** the **lesson body**.
+`get_lesson_content` returns it whole, with no length cap, so the cost of one generation scales with
+how much the instructor wrote — and it is re-read on every retry, which multiplies that input by up to
+three. The output bounds (3–5 questions, 4 options) cap only the completion side.
+
+**Still not set:** the p95 target and the per-generation cost ceiling — numbers the baseline in
+[`ai-observability`](../ai-observability/spec.md) §Performance owns, not ones this spec can declare.
 
 ## Observability
 
