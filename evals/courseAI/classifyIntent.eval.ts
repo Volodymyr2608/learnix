@@ -1,33 +1,23 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
 import { classifyIntent } from "@/server/services/courseAI/graph/nodes/classifyIntent";
 import {
-	accuracyGate,
+	type CategoryEvalResult,
+	categoryGate,
 	formatRowOutcomes,
 	type SampleOutcome,
 } from "../_shared/score";
 import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
+import { categoryOf, loadClassifyIntentRows } from "./classifyIntentRows";
 
-type Row = {
-	id: string;
-	currentStep: keyof typeof DraftStep;
-	history: {
-		role: "user" | "assistant";
-		content: string;
-		step: keyof typeof DraftStep;
-	}[];
-	userMessage: string;
-	expected: {
-		intent: "continue" | "revise";
-		reviseTarget: keyof typeof DraftStep | null;
-	};
-};
+type Outcome = SampleOutcome & CategoryEvalResult;
 
-const DATASET_PATH = resolve(
-	process.cwd(),
-	"evals/datasets/courseAI/classifyIntent.jsonl",
-);
+/**
+ * `early-return` is gated at 1.0 rather than left ungated: those rows never
+ * reach the provider, so nothing about them can drift. A deterministic branch
+ * that starts failing is a defect on the first draw, and a threshold below 1
+ * would be pretending otherwise.
+ */
+const GATES = { classified: 0.85, "early-return": 1 };
 
 /**
  * The node's answer as one string — intent and resolved target together.
@@ -45,17 +35,12 @@ const answer = (
 	target: string | null,
 ): string => `${intent ?? "none"}:${target ?? "none"}`;
 
-const loadDataset = (): Row[] =>
-	readFileSync(DATASET_PATH, "utf-8")
-		.split("\n")
-		.filter(Boolean)
-		.map((l) => JSON.parse(l) as Row);
-
 export async function runClassifyIntentEval(): Promise<boolean> {
 	const recorder = usageRecorder();
 	const startedAt = startRunUsage();
-	const data = loadDataset();
-	const results: SampleOutcome[] = await Promise.all(
+	const data = loadClassifyIntentRows();
+
+	const results: Outcome[] = await Promise.all(
 		data.map(async (row) => {
 			const out = await classifyIntent(
 				{
@@ -82,6 +67,7 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 				},
 				recorder.config,
 			);
+
 			const expectedTarget = row.expected.reviseTarget
 				? DraftStep[row.expected.reviseTarget]
 				: null;
@@ -91,6 +77,7 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 
 			return {
 				id: row.id,
+				category: categoryOf(row),
 				ok,
 				expected: answer(row.expected.intent, expectedTarget),
 				actual: answer(out.intent, actualTarget),
@@ -103,5 +90,5 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 	if (outcomes)
 		console.log(`\nclassifyIntent — what the node returned:\n${outcomes}`);
 
-	return accuracyGate("classifyIntent", results, 0.85);
+	return categoryGate("classifyIntent", results, GATES);
 }
