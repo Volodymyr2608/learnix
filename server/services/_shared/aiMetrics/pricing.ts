@@ -18,6 +18,27 @@ export type TokenUsage = {
 	outputTokens: number;
 };
 
+const UNKNOWN_MODEL = "unknown";
+
+/**
+ * The model id, dug out of the invocation params a callback carries.
+ *
+ * Read defensively: this is provider-shaped data, and a shape change must
+ * degrade the model label rather than throw inside a student's turn.
+ *
+ * It lives here rather than in `handler.ts` for the reason the table above
+ * does: the eval recorder needs the same reader, and this module imports
+ * nothing — reaching into `handler.ts` for six pure lines would drag `emit` →
+ * `logger` → Sentry into a unit-test process that never emits anything.
+ */
+export const modelOf = (extraParams?: Record<string, unknown>): string => {
+	const params = extraParams?.invocation_params as
+		| { model?: unknown; model_name?: unknown }
+		| undefined;
+	const model = params?.model ?? params?.model_name;
+	return typeof model === "string" ? model : UNKNOWN_MODEL;
+};
+
 /** USD per 1M tokens. Checked 2026-08-26; verify before quoting anywhere binding. */
 const PRICES: Record<string, { input: number; output: number }> = {
 	"gpt-4o-mini": { input: 0.15, output: 0.6 },
