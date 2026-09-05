@@ -67,6 +67,33 @@ assert on stops being invisible.
 - **The judge does not gate.** It scores. Turning a judge score into a threshold before anyone has
   seen a distribution of judge scores would repeat the mistake this repo already avoids in
   `aiGuard/redteam` and `aiOutput/falsePositive`.
+- **Sampling is declared harness behaviour, and most evals do not do it.** Named here, because a
+  capability the harness owns and its callers skip is a claim this spec would otherwise be making
+  falsely. **Eight of thirteen** draw each row once: `courseAI/classifyIntent` left that list on
+  2026-09-05, after three runs of *unchanged* code returned 90.0%, 85.0% and 80.0% against an 0.85
+  gate. The eight that remain — `aiGuard/adversarial`, `aiGuard/indirect`,
+  `courseAI/assessCompletion`, `courseAI/confidenceScore`, `courseAI/extractStepData`,
+  `learningPathAI/learningPath`, `lessonInsightsAI/lessonInsights`, `quizAI/quizGeneration` — stay
+  single-sample and stay written down. This is **not** enforced by a contract test, deliberately: a
+  test asserting the rule today reddens eight runs at once and gets switched off rather than obeyed.
+  The list is the debt register until one is added with a shrink-only pin, the shape
+  `specSections.contract.test.ts` already uses.
+- **The count is machine-read, so the prose moves with the code.** `sampledEvals()` detects a
+  `SAMPLES = <n>` constant rather than a hand-kept list, and `docFigures.contract.test.ts` pins the
+  resulting figure in `ai-eval-strategy.md` §3 and §9. An eval that starts sampling therefore *fails
+  the unit suite* until that prose is corrected — the mechanism working as designed, and a required
+  step of any change that moves the count. **The sentence is deliberately not quoted here:** this
+  file is not in `PINNED_CLAIMS`, so a copy of the pinned prose would be the one line in the bullet
+  free to rot, which is the failure the bullet is about.
+
+  `sampledEvals()` reads **every** declared count, not the first, and does not anchor on a word
+  boundary: `redteam` names its own constant `ALLOW_ROW_SAMPLES`, and an anchor tuned to exclude
+  `MAX_SAMPLES` would exclude that too.
+- **A row that returns before the model call is a category, not a score.** `classifyIntent` rows with
+  an empty history exercise the node's early `return` and never reach the provider — real production
+  behaviour, worth a row, but 15 points of an accuracy figure that reads as the model's. Scored
+  together with model-classified rows they inflate the gate; `categoryGate` is the existing answer and
+  this is the second surface to need it after the tutor.
 - **No cross-run statistics.** Three samples distinguishes "always", "never" and "sometimes"; it
   does not produce a confidence interval, and the harness does not claim one.
 - **No per-row variance on judge scores.** The generator is sampled three times per row; the judge

@@ -105,7 +105,7 @@ one class that needs a human.
 | `aiOutput:leak` | shared L5 | in-file payloads × surfaces × 3 samples | recall of the prompt-recital rule | **none** |
 
 **Two things this table is honest about.** The tutor is the only surface with categories, sampling, a
-judge, a committed baseline and a cost report 🟡 — nine of the other twelve are single-sample, pooled
+judge, a committed baseline and a cost report 🟡 — eight of the other twelve are single-sample, pooled
 into one accuracy number. And three golden sets sit at 6, 6 and 8 rows: above the enforced floor of
 five, far below the tutor's 54, so a single row moving swings them by 12–17 points. 🚧
 
@@ -363,7 +363,7 @@ Ordered by how much they would mislead a reader who did not know them.
    the two instruments still disagree about these rows, in the opposite direction from before, and
    the dimension itself is still not being measured. The fix remains a better dimension, not a looser
    string.
-9. **Nine of thirteen evals are single-sample and pooled.** 🚧 §3. Everything §6 says about
+9. **Eight of thirteen evals are single-sample and pooled.** 🚧 §3. Everything §6 says about
    distributions applies to them too; it just has not been instrumented yet.
 
 ## 10. What goes to a human, and why

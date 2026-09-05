@@ -175,14 +175,51 @@ not retyped — plus:
   it is arithmetic rather than an aspiration.
 - **Field presence is not specificity.** A step whose required fields are all present but whose values
   are single words or default titles scores below the floor the prompt used to guarantee it.
+- **The prompt is the only lever this reopening moves.** `CONFIDENCE_THRESHOLD` stays **0.8** and the
+  handover semantics stay as §Validation describes them. Two levers changed at once cannot be told
+  apart afterwards, and the threshold is documented in three places (this spec, `graph-contract.md`,
+  the `ConfidenceBadge` UI) that would all have to move with it.
+- **The prompt may not name the golden set.** No literal drawn from
+  `evals/datasets/courseAI/confidenceScore.jsonl` — `"Learn Python"`, `"Section 1"`, `"use AWS"` and
+  the rest — appears in the node's prompt text, enforced by a contract test rather than by review. Four
+  of the twenty rows are the ones being fixed, so teaching the prompt those four strings would pass the
+  gate while fixing nothing. Precedent for the mechanism: `evals/_shared/promptFidelity.ts` and its
+  contract test, and `docs/constitution.md` §Correctness — a repeated check becomes a contract test.
 
 **Intent routing** (reopened 2026-09-05; each line is an eval row on `courseAI:classifyIntent`):
 
-- **The node meets its own gate:** `≥ 85%` of rows classify with both `intent` and the resolved
-  revise target correct. **80.0% (16/20) before; 85–90% after** — four runs on 2026-09-05, failures
-  settling on rows 15 and 19 with row 11 crossing the line in one of them. At n=20 one row is five
-  points, so the set's resolution, not the prompt's, is the binding constraint on this number, and the
-  range is reported rather than its best member.
+- **The run reports a rate per row, not one draw.** Every row is sampled **3×** at the temperature
+  production uses (0), and the console names which rows are flaky (`rowStability`, `flakyRows`). This
+  is the behaviour [`ai-evaluation-harness`](../ai-evaluation-harness/spec.md) §Supported use cases
+  already declares and this eval did not follow, and the cost of not following it is measured: three
+  single-sample runs of **unchanged** code returned **90.0%, 85.0% and 80.0%**. The gate is 0.85, so
+  the same code read green, exactly on the line, and red. A number that moves ten points while the
+  code stands still cannot measure a prompt change — the measurement is therefore fixed first, and
+  the prompt second.
+- **The set is run with the content its step implies.** A row on `requirements` is a row whose
+  `basic` and `objectives` are settled — that is what `currentStep` means — so the node's `ALREADY
+  STORED` line is built from the keys those steps hold, derived from the step order rather than
+  hand-written per row. Running every row with `content: {}` made that line read *"nothing stored
+  yet"* on all twenty, so the one input the node has for telling produced-already from
+  being-collected-now was constant across the set. **Measured cost: row 16 returns `continue` three
+  draws of three with an empty content and `revise:requirements` three of three with a real one.** It
+  was being counted as a prompt defect and is not one. Only key names reach the prompt, never values,
+  so the fixtures cannot carry a label.
+- **The gate stands on the rows the model actually classified.** Rows 01, 09 and 20 carry an empty
+  history, so the node returns `continue` before the model call — **17 model calls for 20 rows**.
+  Scored together they hand the gate **15 points the model never earned**, which is the same class of
+  defect as `assessCompletion` reporting 100% on zero calls. They become their own category, gated at
+  **1.0** because they are deterministic and free; the 0.85 gate applies to the 17 rows that reach the
+  model, where one row is 5.9 points rather than 5 (`categoryGate`).
+- **The run gates on two numbers, not one.** The classified category holds **≥ 85%** across
+  17 rows × 3 samples, **and** **no row fails all three samples**. A rate alone lets a permanently
+  broken row hide behind drift on the others; the second number is what makes “rows 15 and 19 never
+  pass” a failure rather than a rounding difference. Same shape and same reason as `confidenceScore`
+  above.
+- **A failing row prints what the node returned, not merely that it was wrong.** `intent` wrong,
+  `reviseTarget` wrong, and `clarify` returned instead of either are three defects with three
+  different repairs, and an accuracy gate cannot tell them apart. The run prints expected vs. actual
+  per failing row, so the first thing the fix reads is the defect rather than the score.
 - **The model names the field; the step is derived, not guessed.** `classify_intent` returns the
   stored field the instructor wants changed, and the step is resolved from
   `getExtractionSchemaForStep`'s own shapes. A step the model could not have chosen cannot be
@@ -204,25 +241,44 @@ not retyped — plus:
 - **A model failure inside `classify_intent` emits `fallback_triggered`.** The node catches its own
   errors and returns `continue`; a provider outage and a genuine "continue" are indistinguishable
   downstream, and the taxonomy already has the event for exactly this class.
-
-**What the fix did not close, measured rather than assumed.** Three rows still fail, and they are one
-class: an addition aimed at an *earlier* step, phrased tentatively, while a later one is being
-collected — *"also add an objective about machine learning"* said during requirements, *"maybe add one
-more objective?"*. The prompt now states the rule in both directions (content belonging to the current
-step is `continue` however phrased; content belonging to another step is a `revise` of that step), and
-pushing harder on this class is what regressed a row in the opposite direction during
-implementation — *"Students should already know basic HTML and CSS"*, which is the requirements step's
-own content, got pulled into `revise`. The two directions trade against each other at this set size.
-- **The prompt is the only lever this reopening moves.** `CONFIDENCE_THRESHOLD` stays **0.8** and the
-  handover semantics stay as §Validation describes them. Two levers changed at once cannot be told
-  apart afterwards, and the threshold is documented in three places (this spec, `graph-contract.md`,
-  the `ConfidenceBadge` UI) that would all have to move with it.
-- **The prompt may not name the golden set.** No literal drawn from
-  `evals/datasets/courseAI/confidenceScore.jsonl` — `"Learn Python"`, `"Section 1"`, `"use AWS"` and
-  the rest — appears in the node's prompt text, enforced by a contract test rather than by review. Four
-  of the twenty rows are the ones being fixed, so teaching the prompt those four strings would pass the
-  gate while fixing nothing. Precedent for the mechanism: `evals/_shared/promptFidelity.ts` and its
-  contract test, and `docs/constitution.md` §Correctness — a repeated check becomes a contract test.
+- **The verb does not decide; the content does.** An addition aimed at an *earlier* step reaches
+  `revise` of that step however tentatively it is phrased — *"Also add an objective about machine
+  learning concepts"* said during requirements (row 15), *"I'm not sure, maybe add one more
+  objective?"* (row 19) — in all three samples. **The comparison that pins it is row 07**, *"I want to
+  go back and add a 5th objective"*: same step, same target, and it passed throughout. Nothing about
+  the step differed, only the phrasing, which is exactly what a routing rule may not key on. The
+  prompt now names the step's content first and compares second; the clause it replaced ("a step
+  still being collected has nothing to revise, even when the user says add") was written for row 02
+  and over-fired on anything phrased as an addition.
+- **The floor binds before the rate does, and that is what made the target unfudgeable.** 17 scored
+  rows × 3 samples = 51. The 85% rate needed 44 and stood at 42; the floor needed every gated row off
+  zero and three sat there, so **no trade could satisfy the rate around it**. Met at **51/51 and 9/9
+  in three consecutive runs**, nothing flaky.
+- **A `revise` that resolves to the step being collected is a `continue`, decided in the node.** The
+  model names a field, `stepForField` resolves the step, and a target equal to `currentStep` routes to
+  the ordinary extraction path instead of `revise_prior_field`. This is a narrowing: `revise_prior_field`
+  writes `content[target]` *before* the output boundary (see §Security exclusion 2), and this turn no
+  longer can.
+- **The opposite direction holds, and it is not held by wording.** Content belonging to the step
+  being collected stays `continue`: *"Students should already know basic HTML and CSS"* during
+  requirements (row 11), *"Add objective: understand numpy and pandas"* during objectives (02),
+  *"The course should teach variables, functions, and DOM manipulation"* (10). Row 11 was not drift —
+  single samples read it as failing one run in three, three samples as failing eight draws of nine.
+  Asked why, the model answered *"the user is stating what students should already know before
+  starting the course"*: it had named the owning step correctly and simply did not compare it with
+  `currentStep`. **More prompt wording would have been aimed at a defect the model does not have**,
+  which is why that comparison is arithmetic in the node instead.
+- **The set size is accepted here, not solved here.** 20 rows, 17 of them scored, is coarse. Growing
+  the set carries its own leak risk — `confidenceScoreDataset.contract.test.ts` exists because a set
+  handed the model its label through a context field — and doing it in the same change would make it
+  impossible to say whether the prompt or the data moved the number. Three samples buys resolution
+  the cheap way; more rows is separate work.
+- **The prompt may not name this golden set either.** No literal drawn from
+  `evals/datasets/courseAI/classifyIntent.jsonl` — *"machine learning concepts"*, *"knowledge of
+  statistics"*, *"one more objective"* — appears in the node's prompt text. Three of the seventeen
+  scored rows are the ones being fixed, so a rule written around their wording would move the gate
+  without moving the behaviour, and the routing rule has to generalise to an instructor who phrases it
+  some other way. Same constraint, same reason and same enforcement as `confidence_score` above.
 
 ## Edge cases
 
@@ -236,11 +292,22 @@ own content, got pulled into `revise`. The two directions trade against each oth
   reaching back to content a previous step already stored, or replacing what the current step stored
   on an earlier turn. Golden row 02 pins this.
 
-  **The prompt currently says the opposite** and this is the defect's second half: *"revise: the user
-  explicitly wants to add, remove, or change specific stored content — whether from an earlier step
-  **or the current step**"*, with "add a bonus section" as an example. Read literally, "add objective:
-  X" is a revise. The distinction that matters is not add-versus-approve but **stored versus being
-  collected**: a step mid-collection has stored nothing to revise.
+  **It is no longer the prompt that holds this** (2026-09-05). The wording said the opposite twice —
+  first *"whether from an earlier step or the current step"*, then a clause telling the model a step
+  being collected has nothing to revise "even when the user says add", which over-fired on anything
+  phrased as an addition. Both were the model being asked to make a comparison it kept getting right
+  in its stated reasoning and wrong in its answer, so the comparison moved into the node: a target
+  resolving to `currentStep` returns `continue`. The prompt still states the rule as defence in
+  depth, and the enforcement is `classifyIntent.test.ts`.
+
+- **A field that resolves to a step the instructor has not reached yet is unhandled, and that is
+  written down rather than guessed at.** "Add a lesson on decorators", said while `basic` is being
+  collected, names `sections` → `curriculum`, and still reaches `revise_prior_field`, which persists
+  content for a step never collected. The comparison above is **equality**, not `>=`. No golden row
+  covers this case, so what a later step *should* do — continue, clarify, or revise anyway — is a
+  routing decision that needs its own measurement, and a one-line guess is exactly what this
+  reopening exists to argue against. Reachable only by an instructor volunteering later-step content
+  unprompted, and the write is still ordinary instructor-owned content on their own draft.
 
 - **An instructor who asks for a stub on purpose still gets the Accept button.** Golden row 08 is
   exactly this case — *"Start me off with a section and a lesson in it, I'll write the rest myself"* —
@@ -319,6 +386,14 @@ catch — telemetry, zero-baseline, forwarded to Sentry, replacing a silence. `p
 this branch as a **control change with no new authority**, which is why one auditor ran over the
 modified control rather than a full design pass.
 
+**The intent-routing second pass (2026-09-05) adds no control and touches none.** It changes the
+node's prompt text inside an already-registered entry point and rewrites an eval; `documentation-process.md`
+§3a calls that neither new authority nor a modified control, so no design pass runs and the controls
+above are inherited by reference unchanged. In particular the wrapping stays exactly as it is —
+`wrapUntrustedContent` over every history turn, `ALREADY STORED` built from platform vocabulary — and
+the prompt gains routing guidance, not new inputs. The eval half touches no production code path at
+all.
+
 **The `confidence_score` reopening added no control and touched none.** Rewriting its guidelines is a
 change *inside* an already-registered entry point — `documentation-process.md` §3a calls that neither
 new authority nor a modified control, so no design pass runs and the controls above are inherited by
@@ -355,6 +430,11 @@ code:**
   call site. Without it a chained graph's worst case is the sum of every node's per-call budget.
 - `GRAPH_RECURSION_LIMIT` **25**.
 - Model: `gpt-4o-mini` on every node.
+- `classify_intent` prompt: **658 tokens**, up from 559 on 2026-09-05. The two-step routing rule is
+  read on every turn that has a history — **+18%** on that node's input. Named rather than buried:
+  the half of the fix that could not be carried by wording moved into the node instead, and this is
+  what the half that stayed cost. Its eval went from 17 calls at **$0.002** to 51 at **$0.005**, which
+  is the price of a number that does not move ten points on unchanged code.
 - `confidence_score` prompt: **629 tokens**, up from 442 on 2026-09-05. The calibration fix is
   written into the guidelines, so it is paid on every turn — about **+42%** on that node's input, and
   $0.002 → $0.003 for one 20-row eval run. Named rather than buried: a scoring rule the model has to
@@ -417,14 +497,43 @@ classifiers.
 dataset under `evals/datasets/courseAI/`. The adversarial side is the shared `aiGuard` sets, since
 `guardUserInput` is shared with the tutor.
 
-**`courseAI:classifyIntent` is red, and was red silently** (2026-09-05). 80.0% (16/20) against its
-0.85 gate. Evals are not in CI by design, so an eval only speaks when someone runs it, and nobody had
-run this one since the prompt it grades last changed. It was found while pricing the evals for a cost
-baseline — the second quality defect that a cost measurement turned up, after the confidence node.
-Three of the four failures are the same shape: `reviseTarget` on `basic`. A fix is measured by the
-same run, and the first task of any plan prints what the node actually returned for those rows —
-`intent` wrong and `reviseTarget` wrong are different defects with different repairs, and the gate
-does not distinguish them.
+**`courseAI:classifyIntent` straddles its own gate, and a single-sample run cannot say which side**
+(reopened 2026-09-05, second pass). The cost baseline reported **80.0% (16/20)** against the 0.85
+gate; that number was taken **before** the intent-routing fix landed the same day, and re-running the
+shipped node three times gives **90.0% / 85.0% / 80.0%** — green, on the line, and red, from code
+that did not change between runs. Two separate defects hide inside that one number and this reopening
+separates them:
+
+- **The eval reports one draw as the answer.** It samples every row once, while
+  [`ai-evaluation-harness`](../ai-evaluation-harness/spec.md) declares multi-sampling as harness
+  behaviour and already ships `rowStability` / `flakyRows` for it. Rows 15 and 19 fail every run
+  (a defect), 16 fails two in three and 11 one in three (drift) — indistinguishable at one sample.
+- **Three of the twenty rows never reach the model.** Rows 01, 09 and 20 have an empty history and
+  return on the node's own first line: 17 model calls for 20 rows, and 15 points of the score awarded
+  for a branch the model was not asked about. This is the `assessCompletion` failure (P2) in a milder
+  form — a green figure that is partly the consequence of a measurement not happening.
+
+Evals are not in CI by design, so an eval only speaks when someone runs it. What made this one lie
+even when run is in the eval, not in the schedule.
+
+**What three samples reported that one could not** (2026-09-05, unchanged node): the `classified`
+category sits at **76.5% / 78.4% / 78.4%** — a two-point spread where the pooled single-sample number
+swung ten. Rows 15, 16 and 19 return `continue` with no target where a `revise` of an earlier step is
+expected; **not** `clarify` and **not** a mis-resolved target, so the repair is the prompt's
+continue/revise boundary and not the field resolver. Row 11 returns `revise:requirements` in eight
+draws of nine while `requirements` is the step being collected.
+
+**A third defect of the same class, found by the same means and fixed here:** every row was run with
+`content: {}`, so `ALREADY STORED` always read *"nothing stored yet"* — the node's only input for
+telling produced-already from being-collected-now was constant across the set. Row 16 was failing for
+that reason and not for the node's. With the content its step implies, the set reports **82.4%** with
+three genuine defects (11, 15, 19) and **nothing flaky**, where the same code read 76.5–78.4% with
+four and a drifting fifth.
+
+**The set still does not grow, and that is a separate decision.** Twenty rows, seventeen scored, is
+coarse; adding rows carries its own leak risk and would make it impossible to say whether the prompt
+or the data moved the number. Filling `content` is not the same act: it removes a constant, it adds
+no row, and only key names ever reach the prompt.
 
 **`courseAI:confidenceScore` gates on two numbers, not one** (reopened 2026-09-05). Precision among
 `≥ 0.8` predictions is the existing gate at 0.85; on its own it is maximised by a node that scores

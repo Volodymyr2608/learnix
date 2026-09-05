@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { takeRecordedUsage } from "./cost";
 import {
+	callCoverage,
 	type EvalCall,
 	formatCallStats,
 	summariseCalls,
@@ -276,5 +277,55 @@ describe("formatCallStats", () => {
 
 	it("omits the width when the caller did not measure one", () => {
 		expect(formatCallStats(summary)).not.toContain("-way");
+	});
+});
+
+/**
+ * The check that would have caught P2.
+ *
+ * `assessCompletion` hardcoded an empty user message, the node returned on its
+ * first line, and the run printed "precision on ready=true: 100.0%" over zero
+ * model calls. Nothing connected the score to the measurement having happened —
+ * three defects of that class landed in three days, and all three were a green
+ * number produced by a measurement that did not occur.
+ */
+describe("callCoverage", () => {
+	it("fails when the recorder saw fewer calls than the run claims samples", () => {
+		const { ok, message } = callCoverage(48, 51);
+
+		expect(ok).toBe(false);
+		expect(message).toContain("48");
+		expect(message).toContain("51");
+		expect(message).toContain("3 never reached");
+	});
+
+	it("fails hardest on the case that produced P2: nothing was called at all", () => {
+		const { ok, message } = callCoverage(0, 20);
+
+		expect(ok).toBe(false);
+		expect(message).toContain("20");
+	});
+
+	it("says nothing when every sample reached the provider", () => {
+		expect(callCoverage(51, 51)).toEqual({ ok: true, message: "" });
+	});
+
+	/**
+	 * A surplus is not a retry: `handleChatModelStart` fires once per
+	 * `generate()`, outside the `AsyncCaller` loop `maxRetries` drives. Naming a
+	 * benign cause for a symptom that cannot have it is how the real one — a
+	 * category split that stopped matching which rows reach the model — gets read
+	 * past.
+	 */
+	it("passes with a note, and does not blame retries, when calls exceed samples", () => {
+		const { ok, message } = callCoverage(53, 51);
+
+		expect(ok).toBe(true);
+		expect(message).toContain("2 unaccounted for");
+		expect(message).not.toContain("retried");
+	});
+
+	it("is satisfied by zero calls when the run claims no samples", () => {
+		expect(callCoverage(0, 0).ok).toBe(true);
 	});
 });

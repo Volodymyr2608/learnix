@@ -65,7 +65,16 @@ export function categoryGate(
 	results: CategoryEvalResult[],
 	thresholds: Record<string, number>,
 ): boolean {
-	const categories = [...new Set(results.map((r) => r.category))].sort();
+	// Threshold keys, not just the categories present. Deriving the list from
+	// `results` alone meant a gated category with NO rows was skipped rather than
+	// failed, and the empty-set branches elsewhere agree with it: an empty
+	// `alwaysFailingGate` returns true and `callCoverage(0, 0)` is satisfied. A
+	// dataset edit that dropped every scored row would then have produced a green
+	// run over zero model calls — the `assessCompletion` defect (P2) rebuilt out
+	// of three separately reasonable empty cases.
+	const categories = [
+		...new Set([...results.map((r) => r.category), ...Object.keys(thresholds)]),
+	].sort();
 	let allPassed = true;
 
 	console.log(`\n${label} — by category:`);
@@ -82,6 +91,11 @@ export function categoryGate(
 				`${(rate * 100).toFixed(1).padStart(5)}%` +
 				`${gated ? `  (min ${(threshold * 100).toFixed(0)}%)` : ""}`,
 		);
+
+		if (gated && mine.length === 0)
+			console.error(
+				`FAIL: ${label} — gated category "${category}" has no rows; nothing was measured`,
+			);
 
 		if (gated && rate < threshold) allPassed = false;
 	}
@@ -100,6 +114,46 @@ export function categoryGate(
 
 	return allPassed;
 }
+
+/**
+ * The floor a rate cannot express: no row in a gated category may fail every
+ * draw.
+ *
+ * `categoryGate` reports an average, and an average is exactly what lets a row
+ * that has never once passed hide behind drift on its neighbours. Fifteen solid
+ * rows and two that always fail is 88% — over any bar this repo sets — while two
+ * of the seventeen behaviours the set exists to check are simply broken. That is
+ * not a rounding difference and it should not read as one.
+ *
+ * The companion argument to `retentionGate`'s: a single number can always be
+ * satisfied by moving the wrong thing, so the run holds two.
+ *
+ * The floor follows the category rather than the whole run. A category with no
+ * threshold is a measurement nobody has set a bar for yet (`categoryGate`), and
+ * a measurement is allowed to contain rows that never pass — that is often the
+ * finding.
+ */
+export const alwaysFailingGate = (
+	label: string,
+	stability: readonly RowStability[],
+	thresholds: Record<string, number>,
+): boolean => {
+	const never = stability.filter(
+		(row) => row.passed === 0 && thresholds[row.category] !== undefined,
+	);
+
+	if (never.length === 0) return true;
+
+	console.log(
+		`\n${label} rows that never passed:`,
+		never.map((row) => row.id).join(", "),
+	);
+	console.error(
+		`FAIL: ${label} — ${never.length} gated row(s) failed every sample; a rate over the bar does not make that drift`,
+	);
+
+	return false;
+};
 
 export type ScoredRow = { id: string; score: number; expected: boolean };
 
@@ -140,6 +194,68 @@ export const formatScoreTable = (
 		});
 
 	return [header, ...lines].join("\n");
+};
+
+/** One draw of one row: what was asked of the node, and what it returned. */
+export type SampleOutcome = {
+	id: string;
+	ok: boolean;
+	/**
+	 * The row's label and the node's answer, each already rendered to one string
+	 * by the caller. Two strings rather than a typed pair keeps this usable by
+	 * any classifier: what counts as "the answer" differs per surface, and the
+	 * formatter has no business knowing.
+	 */
+	expected: string;
+	actual: string;
+};
+
+/**
+ * What the node returned for the rows that failed — the classifier's sibling of
+ * `formatScoreTable`.
+ *
+ * A gate answers "how many were wrong". For a classifier that is not enough to
+ * act on: the wrong `intent`, the right intent with the wrong resolved target,
+ * and a `clarify` where the model declined to choose at all are three defects
+ * with three different repairs, and the failure list spells all three the same
+ * way. Reading `15, 19` off that list and rewriting the prompt is how a fix gets
+ * aimed at a defect the node does not have.
+ *
+ * Distinct returns are listed with counts rather than one example per row: a
+ * flaky row usually returns two different things, and the split between them is
+ * the number worth reading.
+ */
+export const formatRowOutcomes = (
+	outcomes: readonly SampleOutcome[],
+): string => {
+	const ids = [...new Set(outcomes.map((outcome) => outcome.id))];
+
+	const lines = ids.flatMap((id) => {
+		const draws = outcomes.filter((outcome) => outcome.id === id);
+		const passed = draws.filter((outcome) => outcome.ok).length;
+		if (passed === draws.length) return [];
+
+		const counts = new Map<string, number>();
+		for (const draw of draws)
+			counts.set(draw.actual, (counts.get(draw.actual) ?? 0) + 1);
+
+		const returned = [...counts]
+			.sort(
+				([aValue, aCount], [bValue, bCount]) =>
+					bCount - aCount || aValue.localeCompare(bValue),
+			)
+			.map(
+				([actual, count]) =>
+					`${" ".repeat(13)}returned  ${actual.padEnd(24)}×${count}`,
+			);
+
+		return [
+			`  ${id.padEnd(6)}${`${passed}/${draws.length}`.padStart(3)}  expected  ${draws[0]?.expected ?? ""}`,
+			...returned,
+		];
+	});
+
+	return lines.join("\n");
 };
 
 /**

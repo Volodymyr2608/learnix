@@ -71,13 +71,35 @@ export const registeredEvals = (): string[] =>
 	).flatMap((match) => (match[1] ? [match[1]] : []));
 
 /**
+ * Does this source draw each row more than once?
+ *
+ * The VALUE, not the presence of the constant. Matching `SAMPLES\s*=\s*\d+`
+ * counted `SAMPLES = 1` as sampling, so the one thing this predicate is named
+ * after — an eval that draws a row once — was the one thing it could not
+ * detect. Found by dropping a sampled eval back to 1 on purpose and watching
+ * this file stay green.
+ */
+export const drawsMoreThanOnce = (source: string): boolean => {
+	// Every match, not the first. Two things break a single `exec` here: a file
+	// may declare more than one sample constant, and the name is not always bare —
+	// `redteam` calls its own `ALLOW_ROW_SAMPLES`, which a `\b` anchor would
+	// exclude while excluding nothing that deserves it. The question is whether
+	// ANY row is drawn more than once, so the largest declared count answers it
+	// and the declaration order stops mattering.
+	const counts = [
+		...stripComments(source).matchAll(/SAMPLES\s*=\s*(\d+)/g),
+	].map((match) => Number(match[1]));
+	return counts.some((count) => count > 1);
+};
+
+/**
  * Evals that draw a row more than once. Detected by the constant rather than
  * by a list, so an eval that starts sampling stops being counted as
  * single-sample without anyone remembering to edit this file.
  */
 export const sampledEvals = (): string[] =>
 	walkEvals(EVALS_DIR).filter((file) =>
-		/SAMPLES\s*=\s*\d+/.test(stripComments(readFileSync(file, "utf-8"))),
+		drawsMoreThanOnce(readFileSync(file, "utf-8")),
 	);
 
 /**

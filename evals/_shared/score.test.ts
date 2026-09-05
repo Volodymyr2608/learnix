@@ -1,14 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	accuracyGate,
+	alwaysFailingGate,
 	type CategoryEvalResult,
 	categoryGate,
 	type EvalResult,
 	flakyRows,
+	formatRowOutcomes,
 	formatScoreTable,
 	precisionGate,
 	retentionGate,
 	rowStability,
+	type SampleOutcome,
 	type ScoredRow,
 } from "./score";
 
@@ -49,6 +52,21 @@ describe("categoryGate", () => {
 			}),
 		).toBe(false);
 		expect(error).toHaveBeenCalled();
+	});
+
+	/**
+	 * The P2 shape, rebuilt out of three separately reasonable empty cases: a
+	 * gated category that lost all its rows used to disappear from the report
+	 * rather than fail it, `alwaysFailingGate` is satisfied by an empty set, and
+	 * `callCoverage(0, 0)` is satisfied by no calls. Composed, a dataset edit
+	 * could have produced a green run over zero model calls.
+	 */
+	it("fails a gated category that has no rows at all", () => {
+		silence();
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(categoryGate("t", [row("other", true)], { valid: 0.8 })).toBe(false);
+		expect(error.mock.calls.flat().join(" ")).toContain("no rows");
 	});
 
 	/** The measurement half: a category with no threshold can never go red. */
@@ -100,10 +118,24 @@ describe("categoryGate", () => {
 		expect(categoryGate("t", [row("bait", false)], {})).toBe(true);
 	});
 
-	it("survives an empty result set", () => {
+	/**
+	 * It used to return `true` here, which is the same defect as the one above
+	 * seen from the other end: a run that produced nothing reported green. It
+	 * still must not throw — an eval that crashed mid-collection should reach its
+	 * gate and be failed by it, not disappear into a stack trace.
+	 */
+	it("fails an empty result set rather than passing it, and does not throw", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(() => categoryGate("t", [], { valid: 0.8 })).not.toThrow();
+		expect(categoryGate("t", [], { valid: 0.8 })).toBe(false);
+	});
+
+	it("still passes an empty result set when nothing is gated", () => {
 		silence();
 
-		expect(categoryGate("t", [], { valid: 0.8 })).toBe(true);
+		expect(categoryGate("t", [], {})).toBe(true);
 	});
 });
 
@@ -393,5 +425,151 @@ describe("precisionGate with nothing predicted", () => {
 		vi.spyOn(console, "error").mockImplementation(() => {});
 
 		expect(precisionGate("t", [], 0.9)).toBe(false);
+	});
+});
+
+/**
+ * A gate says how many rows were wrong. For a classifier that is not enough to
+ * act on: the wrong intent, the right intent with the wrong resolved target, and
+ * a `clarify` where the model declined to choose are three defects with three
+ * repairs, and the failure list spells all of them `15, 19`.
+ */
+describe("formatRowOutcomes", () => {
+	const sample = (
+		id: string,
+		ok: boolean,
+		actual: string,
+		expected = "revise:objectives",
+	): SampleOutcome => ({ id, ok, expected, actual });
+
+	it("names a row that failed every sample, and what the node returned instead", () => {
+		const table = formatRowOutcomes([
+			sample("15", false, "continue:null"),
+			sample("15", false, "continue:null"),
+			sample("15", false, "continue:null"),
+		]);
+
+		expect(table).toContain("15");
+		expect(table).toContain("0/3");
+		expect(table).toContain("revise:objectives");
+		expect(table).toMatch(/continue:null\s+×3/);
+	});
+
+	/** The split between the two is the number a single draw cannot report. */
+	it("lists every distinct return of a flaky row, with its count", () => {
+		const table = formatRowOutcomes([
+			sample("16", false, "continue:null"),
+			sample("16", false, "continue:null"),
+			sample("16", true, "revise:objectives"),
+		]);
+
+		expect(table).toContain("1/3");
+		expect(table).toMatch(/continue:null\s+×2/);
+		expect(table).toMatch(/revise:objectives\s+×1/);
+	});
+
+	it("leaves out a row that passed every sample", () => {
+		const table = formatRowOutcomes([
+			sample("02", true, "continue:null", "continue:null"),
+			sample("15", false, "continue:null"),
+		]);
+
+		expect(table).not.toContain("02");
+		expect(table).toContain("15");
+	});
+
+	/**
+	 * An empty string, not a header over nothing: a heading with no rows under it
+	 * reads as "the table failed to render", which is the opposite of the news.
+	 */
+	it("renders nothing at all when no row failed", () => {
+		expect(
+			formatRowOutcomes([sample("02", true, "continue:null", "continue:null")]),
+		).toBe("");
+	});
+});
+
+/**
+ * The second number `confidenceScore` taught this file to want. A rate is an
+ * average, and an average lets a row that has never once passed hide behind
+ * drift on its neighbours — which is exactly how "rows 15 and 19 always fail"
+ * reads as a rounding difference rather than a defect.
+ */
+describe("alwaysFailingGate", () => {
+	const draws = (
+		id: string,
+		category: string,
+		passed: number,
+		samples = 3,
+	): CategoryEvalResult[] =>
+		Array.from({ length: samples }, (_, i) => ({
+			id,
+			category,
+			ok: i < passed,
+		}));
+
+	const fifteenSolid = Array.from({ length: 15 }, (_, i) =>
+		draws(`ok-${i}`, "classified", 3),
+	).flat();
+
+	it("fails a run whose rate passes while two rows never pass at all", () => {
+		silence();
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const results = [
+			...fifteenSolid,
+			...draws("15", "classified", 0),
+			...draws("19", "classified", 0),
+		];
+
+		// The point of the pair: the rate is 45/51 = 88%, comfortably over the
+		// bar, and the run is still broken.
+		expect(categoryGate("t", results, { classified: 0.85 })).toBe(true);
+		expect(
+			alwaysFailingGate("t", rowStability(results), { classified: 0.85 }),
+		).toBe(false);
+		expect(error).toHaveBeenCalled();
+	});
+
+	it("names the rows that never passed", () => {
+		const log = silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		alwaysFailingGate(
+			"t",
+			rowStability([
+				...fifteenSolid,
+				...draws("15", "classified", 0),
+				...draws("19", "classified", 0),
+			]),
+			{ classified: 0.85 },
+		);
+
+		expect(log.mock.calls.flat().join(" ")).toContain("15, 19");
+	});
+
+	it("passes when every row passes at least once", () => {
+		silence();
+
+		const results = [
+			...fifteenSolid,
+			...draws("15", "classified", 1),
+			...draws("19", "classified", 1),
+		];
+
+		expect(
+			alwaysFailingGate("t", rowStability(results), { classified: 0.85 }),
+		).toBe(true);
+	});
+
+	/** The floor follows the category, exactly as `categoryGate` does. */
+	it("ignores a never-passing row in a category nobody gated", () => {
+		silence();
+
+		const results = [...fifteenSolid, ...draws("red", "measured-only", 0)];
+
+		expect(
+			alwaysFailingGate("t", rowStability(results), { classified: 0.85 }),
+		).toBe(true);
 	});
 });

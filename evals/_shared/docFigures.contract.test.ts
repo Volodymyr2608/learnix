@@ -4,6 +4,7 @@ import {
 	asWord,
 	datasetForEval,
 	datasetRows,
+	drawsMoreThanOnce,
 	forMatching,
 	isStale,
 	PINNED_CLAIMS,
@@ -219,6 +220,7 @@ describe("the claim registry stays honest", () => {
 
 describe("numbers written as words", () => {
 	it("spells the counts the prose uses", () => {
+		expect(asWord(8)).toBe("eight");
 		expect(asWord(9)).toBe("nine");
 		expect(asWord(13)).toBe("thirteen");
 	});
@@ -229,11 +231,43 @@ describe("numbers written as words", () => {
 });
 
 describe("which evals draw more than one sample", () => {
+	/**
+	 * Found by breaking the check on purpose, which is what that step is for:
+	 * dropping `classifyIntent` back to `SAMPLES = 1` left this file green. The
+	 * detector matched the constant's PRESENCE, so an eval drawing each row once
+	 * counted as sampled — a check that could not fail for the case it is named
+	 * after, which is the class of defect this whole reopening is about.
+	 */
+	it("does not count an eval that declares one draw", () => {
+		expect(drawsMoreThanOnce("const SAMPLES = 3;")).toBe(true);
+		expect(drawsMoreThanOnce("const SAMPLES = 1;")).toBe(false);
+		expect(drawsMoreThanOnce("const ROWS = 20;")).toBe(false);
+	});
+
+	/** `redteam` names its own `ALLOW_ROW_SAMPLES`, so a `\b` anchor would lie. */
+	it("counts a sample constant whose name carries a prefix", () => {
+		expect(drawsMoreThanOnce("const ALLOW_ROW_SAMPLES = 5;")).toBe(true);
+	});
+
+	/** Declaration order must not decide it. */
+	it("reads every declared count, not the first one", () => {
+		expect(drawsMoreThanOnce("const A_SAMPLES = 1;\nconst SAMPLES = 3;")).toBe(
+			true,
+		);
+	});
+
+	it("ignores a constant that only appears in a comment", () => {
+		expect(drawsMoreThanOnce("// const SAMPLES = 3;\nconst x = 1;")).toBe(
+			false,
+		);
+	});
+
 	it("finds the sampled evals by the constant they declare", () => {
 		expect(sampledEvals()).toEqual([
 			"evals/aiGuard/redteam.eval.ts",
 			"evals/aiOutput/falsePositive.eval.ts",
 			"evals/aiOutput/leakRecall.eval.ts",
+			"evals/courseAI/classifyIntent.eval.ts",
 			"evals/lessonAI/tutor.eval.ts",
 		]);
 	});
