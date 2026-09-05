@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
 	asWord,
+	beforeAfterItems,
 	coversWholeCorpus,
 	datasetForEval,
 	datasetRows,
@@ -192,6 +193,17 @@ describe("a measurement says when it was measured", () => {
 		).toBe("2026-08-09");
 	});
 
+	/**
+	 * The first marker written against this reader opened its sentence, so the
+	 * case-sensitive version read it as absent. Found by the check going red on
+	 * a document that did say when.
+	 */
+	it("reads a marker that opens a sentence", () => {
+		expect(measuredOn("Measured 2026-08-18, against the older tutor.")).toBe(
+			"2026-08-18",
+		);
+	});
+
 	it("returns null when nothing says when", () => {
 		expect(measuredOn("The wrap flips 1 payload in 12.")).toBeNull();
 	});
@@ -228,6 +240,58 @@ describe("a run that covered less than its corpus", () => {
 	 */
 	it("is not complete when the corpus shrank after the run", () => {
 		expect(coversWholeCorpus(16, 12)).toBe(false);
+	});
+});
+
+/**
+ * §7 is where this repo keeps the before/after measurements it actually has,
+ * and both of them describe a system that has since changed: the
+ * `aiGuard:indirect` corpus grew from twelve rows to sixteen, and the
+ * mastery-clause table measures a write tool ADR-033 deleted.
+ *
+ * Neither is wrong. Both are correct measurements of the system that existed
+ * when they ran, and neither said so. Pinning cannot reach the second one at
+ * all — its columns read "write refused", "write correctly granted", so there
+ * is no figure to derive and no tool name to look up. A date is the smallest
+ * thing that is both mechanically checkable and enough.
+ */
+describe("every before/after measurement in the strategy states when it ran", () => {
+	const items = beforeAfterItems(readFileSync(STRATEGY_PATH, "utf-8"));
+
+	/**
+	 * A section that matched nothing must not pass as compliance. Two evals in
+	 * this repo reported a perfect score while reaching no model at all, which
+	 * is the same shape.
+	 */
+	it("finds the items §7 carries", () => {
+		expect(items.length).toBeGreaterThanOrEqual(2);
+	});
+
+	it.each(items)("item $n — $title", ({ measured }) => {
+		expect(measured).not.toBeNull();
+	});
+
+	it("reads an undated item as undated", () => {
+		expect(
+			beforeAfterItems(
+				"## 7. Baselines\n\n**1. A thing** ✅ — it flips 1 in 12.\n\n## 8. Next",
+			),
+		).toEqual([{ n: 1, title: "A thing", measured: null }]);
+	});
+
+	it("reads a dated item as dated", () => {
+		expect(
+			beforeAfterItems(
+				"## 7. Baselines\n\n**1. A thing** ✅ — measured 2026-08-09.\n\n## 8. Next",
+			),
+		).toEqual([{ n: 1, title: "A thing", measured: "2026-08-09" }]);
+	});
+
+	/** §3 also numbers things. Only §7 carries before/after measurements. */
+	it("does not read items out of another section", () => {
+		expect(
+			beforeAfterItems("## 3. The map\n\n**1. Not this** ✅ — no date here.\n"),
+		).toEqual([]);
 	});
 });
 

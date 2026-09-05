@@ -264,8 +264,13 @@ export const isStale = (
  * Anchored on the word so an unrelated date elsewhere in the passage — and
  * these documents are full of them — is not read as a claim about when the
  * number was produced.
+ *
+ * Case-insensitive because a marker routinely opens a sentence, and the first
+ * real one did: `Measured 2026-08-18, against a tutor that still held a write
+ * tool`. That is a property of English, not a loophole — the word and an ISO
+ * date immediately after it are still both required.
  */
-const MEASURED = /\bmeasured\s+(\d{4}-\d{2}-\d{2})/;
+const MEASURED = /\bmeasured\s+(\d{4}-\d{2}-\d{2})/i;
 
 export const measuredOn = (passage: string): string | null =>
 	MEASURED.exec(forMatching(passage))?.[1] ?? null;
@@ -291,6 +296,43 @@ export const RECONCILED_DOCS: readonly string[] = [
 	"docs/specs/features/ai-evaluation-harness/spec.md",
 	"docs/specs/features/ai-tutor-guardrails/security.md",
 ];
+
+export type BeforeAfterItem = {
+	/** Its number in the section, for the failure message. */
+	n: number;
+	/** Its bold heading, for the failure message. */
+	title: string;
+	/** The day it was measured, or `null` when it does not say. */
+	measured: string | null;
+};
+
+/**
+ * The before/after measurements §7 carries, one per numbered item.
+ *
+ * Scoped to that section the way `strategyMapCells` is scoped to §3, and for
+ * the same reason: other sections number things too, and only these are claims
+ * about a run that produced a figure.
+ */
+export const beforeAfterItems = (doc: string): BeforeAfterItem[] => {
+	const section = doc.split(/^## /m).find((s) => s.startsWith("7. "));
+	if (!section) return [];
+
+	// Split on the item marker itself, keeping it, so an item runs to the start
+	// of the next one — a measurement's date may sit several sentences after its
+	// heading, and routinely does.
+	return section.split(/^(?=\*\*\d+\. )/m).flatMap((block) => {
+		const head = /^\*\*(\d+)\. ([^*]+)\*\*/.exec(block);
+		if (!head?.[1] || !head[2]) return [];
+
+		return [
+			{
+				n: Number(head[1]),
+				title: head[2].trim(),
+				measured: measuredOn(block),
+			},
+		];
+	});
+};
 
 export type StrategyMapCell = { evalId: string; rows: number | null };
 

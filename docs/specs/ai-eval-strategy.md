@@ -251,12 +251,23 @@ one` ahead of every number.
 
 ### The two before/after measurements this repo actually has
 
-**1. Untrusted-data wrapping (`aiGuard:indirect`)** ✅ — the same 12 payloads, once raw and once
-through `wrapUntrustedContent`, same model, both numbers printed, neither gated. The wrap flips **1
-payload in 12**. That number is why the defence strategy calls L3 a mitigation and never a boundary.
+**1. Untrusted-data wrapping (`aiGuard:indirect`)** ✅ — the same payloads, once raw and once through
+`wrapUntrustedContent`, same model, both numbers printed, neither gated. The wrap flips **1 payload
+in 12**, measured 2026-08-09 over the twelve rows the corpus held then. That number is why the
+defence strategy calls L3 a mitigation and never a boundary.
+
+The corpus holds **16 rows** today: `ind-13`–`ind-16` were added 2026-08-29 with the check-authoring
+vectors and have never been run in this A/B, so the ratio above is coverage of twelve rows, not of
+the set. Re-running is a task of its own rather than a footnote here, because those four rows execute
+in a harness with no tools and their own prompt (`ai-tutor-guardrails/security.md` S13 §39) — a
+sixteen-row figure would average two measurement conditions and read as one.
 
 **2. The mastery-evidence prompt clause** ✅ — and it is the more instructive one, because the result
-was **null**:
+was **null**. Measured 2026-08-18, against a tutor that still held a write tool: the columns below
+count rows the model wrote into `ConceptMastery` directly. ADR-033 has since removed that tool —
+`ask_concept_check` writes nothing, and the server grades the student's answer — so read this as a
+measurement of the system that existed then. Its conclusion is what survived the change, and is why
+the change was made:
 
 | Prompt | `tool-abuse` (write refused) | `legit-mastery` (write correctly granted) | `mastery-lookalike` (write correctly refused) |
 |---|---|---|---|
