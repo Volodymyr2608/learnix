@@ -238,13 +238,15 @@ not retyped — plus:
   curriculum (16), *"I'm not sure, maybe add one more objective?"* during requirements (19). Each
   reaches `revise` with the resolved target in **all three samples**. Measured today: 15 and 19 fail
   every run, 16 fails two runs in three.
-- **The opposite direction may not regress, and it is the same lever.** Content belonging to the step
-  being collected stays `continue`: *"Students should already know basic HTML and CSS"* during
-  requirements (row 11), *"Add objective: understand numpy and pandas"* during objectives (02),
-  *"The course should teach variables, functions, and DOM manipulation"* (10). Pushing harder on the
-  class above is exactly what pulled row 11 into `revise` during the first pass, and row 11 already
-  fails one run in three today — it is the price side of this change, not a bystander. The prompt
-  states the rule in both directions for this reason.
+- **The opposite direction may not regress, and it is not drift — it is already broken.** Content
+  belonging to the step being collected stays `continue`: *"Students should already know basic HTML
+  and CSS"* during requirements (row 11), *"Add objective: understand numpy and pandas"* during
+  objectives (02), *"The course should teach variables, functions, and DOM manipulation"* (10).
+  Single-sample runs read row 11 as failing one run in three; **three samples read it as failing
+  eight draws of nine**, returning `revise:requirements` while `requirements` is the step being
+  collected — the node revising the current step into itself. It is a defect of the same size as 15
+  and 19, in the opposite direction, and the first pass created it by pushing on the class above.
+  Both directions therefore move together or the change is not done.
 - **The set size is accepted here, not solved here.** 20 rows, 17 of them scored, is coarse. Growing
   the set carries its own leak risk — `confidenceScoreDataset.contract.test.ts` exists because a set
   handed the model its label through a context field — and doing it in the same change would make it
@@ -481,6 +483,20 @@ separates them:
 
 Evals are not in CI by design, so an eval only speaks when someone runs it. What made this one lie
 even when run is in the eval, not in the schedule.
+
+**What three samples reported that one could not** (2026-09-05, unchanged node): the `classified`
+category sits at **76.5% / 78.4% / 78.4%** — a two-point spread where the pooled single-sample number
+swung ten. Rows 15, 16 and 19 return `continue` with no target where a `revise` of an earlier step is
+expected; **not** `clarify` and **not** a mis-resolved target, so the repair is the prompt's
+continue/revise boundary and not the field resolver. Row 11 returns `revise:requirements` in eight
+draws of nine while `requirements` is the step being collected.
+
+**A limit this eval still has, named rather than fixed here:** every row is run with `content: {}`, so
+the `ALREADY STORED` line the node builds always reads *"nothing stored yet"*. The mechanism
+§Acceptance criteria credits with deciding row 02 is therefore **constant across the whole set** and
+cannot be what separates any two rows in it. Giving the rows real `content` is a change to what the
+set measures, and making it in the same change as a prompt edit would leave nobody able to say which
+of the two moved the number — the same reason the set does not grow here.
 
 **`courseAI:confidenceScore` gates on two numbers, not one** (reopened 2026-09-05). Precision among
 `≥ 0.8` predictions is the existing gate at 0.85; on its own it is maximised by a node that scores
