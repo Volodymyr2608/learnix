@@ -179,9 +179,10 @@ not retyped — plus:
 **Intent routing** (reopened 2026-09-05; each line is an eval row on `courseAI:classifyIntent`):
 
 - **The node meets its own gate:** `≥ 85%` of rows classify with both `intent` and the resolved
-  revise target correct. **80.0% (16/20) before, 85.0% (17/20) after** — two runs, identical rows
-  (2026-09-05). At n=20 one row is five points, so the set's resolution is the binding constraint on
-  this number, not the prompt's.
+  revise target correct. **80.0% (16/20) before; 85–90% after** — four runs on 2026-09-05, failures
+  settling on rows 15 and 19 with row 11 crossing the line in one of them. At n=20 one row is five
+  points, so the set's resolution, not the prompt's, is the binding constraint on this number, and the
+  range is reported rather than its best member.
 - **The model names the field; the step is derived, not guessed.** `classify_intent` returns the
   stored field the instructor wants changed, and the step is resolved from
   `getExtractionSchemaForStep`'s own shapes. A step the model could not have chosen cannot be
@@ -191,9 +192,12 @@ not retyped — plus:
   "change the title to 'Data Science Fundamentals'" (13) and "make it beginner level, not
   intermediate" (14) each resolve to `basic` — the step that holds `title`, `subtitle`,
   `description`, `category`, `level`, `language`, `duration`.
-- **An unresolvable field is a `clarify`, never a null target.** No instructor sees *"I couldn't tell
-  which field to revise"* — today that string is what `revise_prior_field` returns when
-  `classify_intent` guesses `revise` without a target, and it is a dead end rather than a question.
+- **A field outside the schemas is unrepresentable, and the null target is unreachable.**
+  `reviseField` is a `z.enum` built from the four schemas' own keys, so the model chooses from a
+  closed set — the same shape as the closed tool set, and the reason `"constructor"` can no longer
+  resolve. Behind it the node still turns an unresolved field into a `clarify`, because structured
+  output is provider behaviour rather than a guarantee. Either way no instructor sees *"I couldn't
+  tell which field to revise"*, the dead end `revise_prior_field` returns for a null target.
 - **Supplying content for a step that has stored nothing is `continue`** — enforced by the input, not
   by prose. The node is told which keys the current step has already stored; with none stored there
   is nothing to revise, which is what decides row 02 ("add objective: understand numpy and pandas").
@@ -304,7 +308,18 @@ register for this surface — input guard applied, wrapping applied, all three o
 render policy applied, resource limits applied — is
 `server/services/_shared/conformance/aiSurfaces.ts`, re-derived from source by its own contract test.
 
-**This reopening adds no control and touches none.** Rewriting the `confidence_score` guidelines is a
+**The intent-routing reopening (2026-09-05) does touch this section, in two additive ways.** It adds
+two `ALLOWED_INTERPOLATIONS` entries in `aiGuard/wrappingCoverage.ts` for the `ALREADY STORED` line —
+one for the `DraftStep` member that labels it, one for the schema key names it lists, the second
+entered by hand because the scan skips that shape under its own documented false negative 4. Neither
+widens what may reach a prompt: both sides of the line are platform vocabulary, and `state.content`
+decides only which names appear, never their spelling, which `classifyIntent.test.ts` asserts against
+a `content` whose own keys are hostile. It also adds a `fallback_triggered` emitter on the node's
+catch — telemetry, zero-baseline, forwarded to Sentry, replacing a silence. `pnpm classify` reports
+this branch as a **control change with no new authority**, which is why one auditor ran over the
+modified control rather than a full design pass.
+
+**The `confidence_score` reopening added no control and touched none.** Rewriting its guidelines is a
 change *inside* an already-registered entry point — `documentation-process.md` §3a calls that neither
 new authority nor a modified control, so no design pass runs and the controls above are inherited by
 reference unchanged. The wrapping the node already applies (`wrapUntrustedContent` over
@@ -502,11 +517,16 @@ costs one run — about $0.002 — and it decides whether prompt work can succee
   provider outage look identical from downstream — except that the fallback now emits
   `fallback_triggered`, so the outage half is visible. Nothing but the eval distinguishes the other
   half.
-- **`ALREADY STORED` lists every step, and scoping it to the current one is a mistake with a
-  measurement attached.** The first implementation showed only the current step's stored keys;
-  accuracy stayed at 80.0% while the failing rows changed completely, because `revise` is mostly a
-  request about a step the instructor has already left, and "this step holds nothing" reads as
-  "nothing is stored anywhere".
+- **`ALREADY STORED` lists every step, and that choice is an argument rather than a measurement.**
+  Every row of the golden set passes `content: {}`, so the per-step listing renders as "nothing stored
+  yet" on all twenty and is **inert under the eval**. The first implementation scoped the line to the
+  current step; accuracy stayed at 80.0% while the failing rows changed completely, but between those
+  two runs the header wording and the Decide bullets moved together, so the delta cannot be attributed
+  to either. The listing spans every step because scoping evidence to the current step is wrong on its
+  face for a classifier whose main job is reaching backwards — not because a number said so.
+- **The 85.0% measures the empty-content prompt.** Production populates `state.content`, so real turns
+  see a prompt shape no golden row covers. Rows with populated `content` are what this set needs
+  first.
 - **The golden set is off-limits to the prompt.** Rows 04, 06, 08 and 18 are the fixture this work is
   measured against; naming their content in the prompt turns the eval into a lookup. A contract test
   enforces this, so it does not depend on anyone remembering.

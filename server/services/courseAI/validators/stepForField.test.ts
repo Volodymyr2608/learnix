@@ -27,6 +27,22 @@ describe("stepForField", () => {
 	});
 
 	/**
+	 * `in` walked the prototype chain and resolved all eight of these to `basic`,
+	 * the first step tested. The field name comes from the model, and an
+	 * instructor writing a JavaScript course says "constructor" meaning nothing by
+	 * it — so this was reachable by accident, and it failed toward a confident
+	 * revise rather than toward the clarify a null produces.
+	 *
+	 * Generated from `Object.prototype` rather than listed, so a runtime that
+	 * grows a new prototype member is covered without anyone remembering.
+	 */
+	it("resolves nothing for a key only the prototype chain holds", () => {
+		for (const key of Object.getOwnPropertyNames(Object.prototype)) {
+			expect([key, stepForField(key)]).toEqual([key, null]);
+		}
+	});
+
+	/**
 	 * Generated from the schemas rather than listed, so a field added tomorrow is
 	 * covered without anyone remembering to extend this file. That is the whole
 	 * claim of the resolver: the map is the schema, not a copy of it.

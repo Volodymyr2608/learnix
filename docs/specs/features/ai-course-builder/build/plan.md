@@ -76,8 +76,8 @@ because a number nobody recorded is a number nobody can regress against.
   map is derived from the schemas, never hand-maintained"*
 - **Commit:** `feat(courseAI): resolve a revise target from the schema that holds the field`
 
-- [x] Write the failing test · [ ] Run it, see it FAIL (`stepForField` does not exist)
-- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [x] Run it, see it FAIL (`stepForField` does not exist)
+- [x] Implement · [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
 
 ---
 
@@ -99,9 +99,9 @@ because a number nobody recorded is a number nobody can regress against.
   a `clarify`, never a null target"*
 - **Commit:** `fix(courseAI): classify the field, not the step`
 
-- [x] Write the failing test · [ ] Run it, see it FAIL (`reviseField` is not in the schema)
-- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean
-- [x] `pnpm vitest run server/services/courseAI` green · [ ] Commit
+- [x] Write the failing test · [x] Run it, see it FAIL (`reviseField` is not in the schema)
+- [x] Implement · [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean
+- [x] `pnpm vitest run server/services/courseAI` green · [x] Commit
 
 ---
 
@@ -123,8 +123,8 @@ because a number nobody recorded is a number nobody can regress against.
   Edge case that pins row 02
 - **Commit:** `fix(courseAI): tell the classifier what the step has already stored`
 
-- [x] Write the failing test · [ ] Run it, see it FAIL (the prompt carries no stored-key line)
-- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [x] Run it, see it FAIL (the prompt carries no stored-key line)
+- [x] Implement · [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
 
 ---
 
@@ -144,8 +144,8 @@ because a number nobody recorded is a number nobody can regress against.
 - **AC:** spec.md — *"A model failure inside `classify_intent` emits `fallback_triggered`"*
 - **Commit:** `feat(courseAI): make the classifier's silent fallback an event`
 
-- [x] Write the failing test · [ ] Run it, see it FAIL (nothing is emitted)
-- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [x] Run it, see it FAIL (nothing is emitted)
+- [x] Implement · [x] Run it, see it PASS · [x] `pnpm typecheck` + `pnpm check` clean · [x] Commit
 
 ---
 
@@ -162,8 +162,8 @@ because a number nobody recorded is a number nobody can regress against.
 - **AC:** spec.md — *"The node meets its own gate"*
 - **Commit:** `test(evals): record what intent routing measures after the fix`
 
-- [x] Run the eval, record the FAIL (80.0%, four rows) · [ ] Run it after Tasks 1–4, see ≥ 85%
-- [x] Run it a second time, confirm the direction holds · [ ] Commit the figures
+- [x] Run the eval, record the FAIL (80.0%, four rows) · [x] Run it after Tasks 1–4, see ≥ 85%
+- [x] Run it a second time, confirm the direction holds · [x] Commit the figures
 
 > **If a run still fails on 02 rather than on 03/13/14**, the resolver worked and the
 > stored-versus-collected rule did not — those are different repairs, and the row-by-row outcome is
@@ -181,7 +181,7 @@ because a number nobody recorded is a number nobody can regress against.
 - **AC:** Gate Docs (`documentation-process.md` §7)
 - **Commit:** `docs(course-builder): record what intent routing measured`
 
-- [x] Update spec.md · [ ] `status: in-progress → stable` · [ ] `pnpm spec:sync` · [ ] Commit
+- [x] Update spec.md · [x] `status: in-progress → stable` · [x] `pnpm spec:sync` · [x] Commit
 
 ---
 
@@ -193,11 +193,31 @@ failing rows changed completely, 02/03/13/14 → 07/15/16/19. The plan's four ta
 and four others broke, and only the row list said so — the number alone would have read as "no
 effect".
 
-The diagnosis was in the change, not the fixture: `revise` is mostly a request about a step the
-instructor has already **left**, so a line reporting that the current step holds nothing reads as
-"nothing is stored anywhere". Widening it to every step, attributed, recovered row 07 and reached
-85.0%. Stating the placement rule only in the cross-step direction then cost row 11 — the
-requirements step's own content pulled into `revise` — and completing the rule symmetrically fixed it.
+The reading at the time was that the evidence had been scoped too narrowly: `revise` is mostly a
+request about a step the instructor has already **left**, so a line reporting that the current step
+holds nothing reads as "nothing is stored anywhere". Widening it to every step, attributed, recovered
+row 07 and reached 85.0%. Stating the placement rule only in the cross-step direction then cost row
+11 — the requirements step's own content pulled into `revise` — and completing the rule symmetrically
+fixed it.
+
+**That reading is not what the measurement can support, and the correction matters more than the
+number.** Every row of this golden set passes `content: {}` (`classifyIntent.eval.ts:41`; the dataset
+has no `content` field at all), so `storedByStep` is the empty string on all twenty rows and the
+prompt always reads `ALREADY STORED: nothing stored yet`. **The per-step listing is inert under the
+eval.** Between the two variants the measurement therefore saw only (a) the header losing the words
+"IN THIS STEP" — which is itself a claim about scope, so not nothing — and (b) the Decide bullets,
+rewritten in the same commit. Two levers moved together, which is the exact thing this feature's spec
+forbids two sections earlier, and the honest statement is that the 80 → 85 delta cannot be attributed
+between them.
+
+Two consequences worth carrying forward rather than burying:
+
+- **The 85.0% measures the empty-content prompt only.** In production `state.content` is populated, so
+  real turns see a prompt shape that no golden row covers. Rows with populated `content` are the
+  first thing this set needs — ahead of simply growing it.
+- **The per-step attribution is a design argument, not a measured one.** It stays because scoping
+  evidence to the current step is wrong on its face for a classifier whose main job is reaching
+  backwards — but "wrong on its face" is where it rests, and the comment in the node now says so.
 
 | | Accuracy | Failing rows |
 |---|---|---|
@@ -210,6 +230,48 @@ requirements step's own content pulled into `revise` — and completing the rule
 One class remains: an addition aimed at an earlier step, phrased tentatively, while a later one is
 being collected. At n=20 one row is five points, so the set's resolution is now the binding
 constraint — which is a reason to grow the set, not to keep tuning wording against twenty rows.
+
+## What review and audit added, and what they left open
+
+Both passes converged on the same two findings, and one of them was the plan's own claim.
+
+**Fixed on this branch:**
+
+- **`field in shape` walked the prototype chain**, so `"constructor"`, `"toString"`, `"__proto__"`
+  and five siblings all resolved to `basic` — the first step tested. The field name comes from the
+  model, and an instructor writing a JavaScript course says "constructor" meaning nothing by it, so
+  this was reachable by accident before it was reachable by intent, and it failed toward a confident
+  `revise` on the ungated path rather than toward a `clarify`. Fixed twice over: `Object.hasOwn` in
+  the resolver, and `reviseField` closed to a `z.enum` of the schemas' own keys so the case is
+  unrepresentable at the boundary rather than caught after it. The enum also hands the model the key
+  vocabulary the prompt never gave it, which was a false-positive source in the other direction.
+- **`title` was schema-unique but language-ambiguous.** "Rename section 2" invited `reviseField:
+  "title"` → `basic`, handing `revise_prior_field` a section request while asking it to regenerate the
+  course's own attributes. A prompt clause now says section and lesson titles are part of `sections`.
+- **`keys.join(", ")` was outside the wrapping scan**, under its documented false negative 4. Entered
+  in `ALLOWED_INTERPOLATIONS` with its claim, and the false-negative note corrected from one such
+  shape to two — a blind spot nobody lists reads as coverage.
+- **The node's JSDoc and `graph-contract.md` row 12** no longer matched what the node reads or how it
+  fails. Both updated.
+- **Test hygiene:** the stub now applies the real schema (renaming `reviseField` in one place and not
+  the other would otherwise leave every test green), `beforeEach` clears, `promptOf` reads the last
+  call rather than the first.
+
+**Left open, deliberately, each with its owner named:**
+
+- **The golden set pins `content: {}`,** so the `ALREADY STORED` input is inert under measurement and
+  production sees a prompt shape no row covers. Populating `content` per row plus a contract test that
+  every `revise` row carries a stored key of its expected target is the next change on this set —
+  ahead of growing it. Not done here because editing the set mid-fix destroys the before/after
+  comparison this branch rests on.
+- **`graphContract.contract.test.ts` checks that the four JSDoc labels exist, not that they are
+  accurate.** Collecting `state.<x>` reads from each node body via the TS AST and asserting they
+  appear in `Reads:` would make this class of drift mechanical instead of reviewable. Worth its own
+  change; it touches every node.
+- **`reason` is discarded.** The plan promised the clarify question would ride in it; carrying it
+  needs a new state field and a graph-contract change. `chat_response` composes its own question via
+  `clarifyIntentPrompt`, so nothing is lost — recorded because an unstated deviation is how a plan
+  stops being the record.
 
 ## Why the plan is thin
 

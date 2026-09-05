@@ -19,8 +19,17 @@ import { getExtractionSchemaForStep } from "./getExtractionSchemaForStep";
  *
  * Returns `null` when no schema declares the key. The caller turns that into a
  * question for the instructor, never into a revise with no target.
+ *
+ * `Object.hasOwn`, not `in`: `in` walks the prototype chain, and a Zod `.shape`
+ * is an ordinary object, so `"constructor"`, `"toString"` and `"__proto__"` all
+ * resolved to the first step tested — `basic`. The field name is chosen by the
+ * model, and an instructor writing a JavaScript course says "constructor"
+ * without meaning anything by it, so this was reachable by accident before it
+ * was reachable by anyone's intent. It failed in the wrong direction too: a
+ * confident revise on a step nobody named, down the path that runs neither
+ * `validate` nor `confidence_score`, instead of the `clarify` a null produces.
  */
 export const stepForField = (field: string): DraftStep | null =>
-	Object.values(DraftStep).find(
-		(step) => field in getExtractionSchemaForStep(step).shape,
+	Object.values(DraftStep).find((step) =>
+		Object.hasOwn(getExtractionSchemaForStep(step).shape, field),
 	) ?? null;
