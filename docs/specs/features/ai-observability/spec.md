@@ -214,13 +214,33 @@ redacted.
 added per model call, against a 3 s L2 budget and a 30 s per-call timeout — i.e. under 0.04% of the
 smallest existing budget. No network I/O, no `await` on a sink, no serialization of message content.
 
-**What this feature measures rather than declares.** The p95 budgets and cost ceilings that five
-specs listed as "Not measured" are filled *after* this ships, from its baseline. Writing them here as
-targets first would be inventing numbers, which is the failure mode
-[`ai-eval-strategy.md`](../../ai-eval-strategy.md) and `docFigures.ts` exist to prevent. As of
-2026-09-05 the five specs name what each surface emits and, where the inputs are capped, the token
-ceiling that follows arithmetically from them; the two numbers still open — a p95 target and a cost
-ceiling per user — are the ones that need the baseline, and this spec is their owner.
+**Latency targets, set 2026-09-05 from a measured per-call baseline.** A *threshold* and a *baseline*
+are different objects, and conflating them is what left these blank for six weeks: a baseline is a
+claim about what **is** and cannot be invented, while a threshold is a claim about what is
+**acceptable** and is a decision. What was genuinely missing was the per-call measurement — every
+latency figure until then came from an eval firing rows through `Promise.all`, so it carried provider
+queueing rather than a per-call number (`usage.ts` marks those `@N-way`). A sequential run closed
+that: `classify_intent` p95 **877 ms** (n=34), `confidence_score` p95 **1 237 ms** (n=40), stream TTFT
+p95 **1 514 ms** (n=12), L2 guard p95 **1 099 ms**.
+
+| Target | Value | Derivation |
+|---|---|---|
+| One structured model call, p95 | **≤ 2 000 ms** | worst measured p95 is 1 237 ms; ×1.6 headroom, under the 3 s L2 budget |
+| Tutor first token (TTFT), p95 | **≤ 3 000 ms** | composed from measured parts — L2 1 099 + TTFT 1 514 = 2 613 — **composed, not measured end to end** |
+| `courseAI` turn to end of stream, p95 | **≤ 15 000 ms** | 6–8 nodes × 0.9–1.2 s + one stream (p95 2.25 s); ≈×2 headroom |
+| Turn-failure alert | **> 5% over 15 min** | a **choice**, not an observation; replaced by a measured rate the moment traffic exists |
+| `fallback_triggered` | **any occurrence is investigated** | designed baseline is zero, so a percentage would be weaker than the mechanism already in place |
+
+The gap between a target and a hard bound is deliberate: 15 s against the 120 s turn deadline is ×8,
+because the deadline is a **circuit breaker** rather than a target — bring them together and it starts
+firing on healthy turns and gets switched off. Derivation and the measurement it rests on:
+`docs/tech-review-prep/area-4/perf-report.md` §11.
+
+**Still open, and not the same kind of thing.** A **cost ceiling per user** needs *usage patterns* —
+how many turns an instructor takes per session, how many sessions per course — which no local
+measurement produces. And a **production p50/p95 and failure-rate baseline** needs a denominator.
+Both wait on traffic; the targets above do not, and §11 says what each rests on so the difference
+stays visible.
 
 **Bounds this feature inherits and must not move** (`aiLimits/modelDefaults.ts`, `topicRelevance.ts`):
 one call 30 s with 2 retries; one turn 120 s; graph recursion 25, agent recursion 12; L2 relevance

@@ -277,8 +277,9 @@ how much an instructor wrote, and the trio multiplies that input by three. The o
 ≤ 800 characters, ≤ 7 concepts, ≤ 15 glossary entries) cap only the completion side; the
 `contentHash` cache is what actually bounds spend over time.
 
-**Still not set:** the p95 target and the per-generation cost ceiling. Owner is the baseline in
-[`ai-observability`](../ai-observability/spec.md) §Performance.
+**p95 targets set 2026-09-05** — one structured call ≤ 2 000 ms, derived from a measured per-call
+baseline in [`ai-observability`](../ai-observability/spec.md) §Performance. **Still not set:** the
+per-generation cost ceiling, which needs usage patterns rather than latency.
 
 ## Observability
 

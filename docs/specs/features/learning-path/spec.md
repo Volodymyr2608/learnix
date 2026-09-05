@@ -271,8 +271,9 @@ lesson, serialised into one human message — so prompt size scales with the can
 anything the student typed. The rate limit (1/min per student+course) bounds how often that happens,
 not how large it gets.
 
-**Still not set:** the p95 target and the per-run cost ceiling, owned by the baseline in
-[`ai-observability`](../ai-observability/spec.md) §Performance.
+**p95 targets set 2026-09-05** — one structured call ≤ 2 000 ms, derived from a measured per-call
+baseline in [`ai-observability`](../ai-observability/spec.md) §Performance. **Still not set:** the
+per-run cost ceiling, which needs usage patterns rather than latency and stays with that owner.
 
 ## Observability
 

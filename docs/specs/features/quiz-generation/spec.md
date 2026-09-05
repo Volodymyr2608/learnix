@@ -233,8 +233,11 @@ cheap generation and a dozen-call one, and until now nothing distinguished them.
 how much the instructor wrote — and it is re-read on every retry, which multiplies that input by up to
 three. The output bounds (3–5 questions, 4 options) cap only the completion side.
 
-**Still not set:** the p95 target and the per-generation cost ceiling — numbers the baseline in
-[`ai-observability`](../ai-observability/spec.md) §Performance owns, not ones this spec can declare.
+**p95 targets set 2026-09-05** — one structured call ≤ 2 000 ms, from the measured per-call baseline
+in [`ai-observability`](../ai-observability/spec.md) §Performance. This surface is the one most likely
+to test it: `quizGeneration` measured p95 **4 014 ms** under an eval's concurrency, and its output is
+the longest of any node here (137 tokens), which is what drives latency. **Still not set:** the
+per-generation cost ceiling.
 
 ## Observability
 
