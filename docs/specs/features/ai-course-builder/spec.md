@@ -1,6 +1,6 @@
 ---
 feature: ai-course-builder
-status: in-progress
+status: stable
 models: [CourseGeneration, CourseGenerationMessage]
 depends-on: [course]
 ---

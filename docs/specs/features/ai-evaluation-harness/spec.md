@@ -1,6 +1,6 @@
 ---
 feature: ai-evaluation-harness
-status: in-progress
+status: stable
 models: []
 depends-on: [ai-tutor-guardrails, ai-input-trust-boundary]
 ---
