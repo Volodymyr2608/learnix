@@ -5,10 +5,12 @@ import {
 	categoryGate,
 	type EvalResult,
 	flakyRows,
+	formatRowOutcomes,
 	formatScoreTable,
 	precisionGate,
 	retentionGate,
 	rowStability,
+	type SampleOutcome,
 	type ScoredRow,
 } from "./score";
 
@@ -393,5 +395,66 @@ describe("precisionGate with nothing predicted", () => {
 		vi.spyOn(console, "error").mockImplementation(() => {});
 
 		expect(precisionGate("t", [], 0.9)).toBe(false);
+	});
+});
+
+/**
+ * A gate says how many rows were wrong. For a classifier that is not enough to
+ * act on: the wrong intent, the right intent with the wrong resolved target, and
+ * a `clarify` where the model declined to choose are three defects with three
+ * repairs, and the failure list spells all of them `15, 19`.
+ */
+describe("formatRowOutcomes", () => {
+	const sample = (
+		id: string,
+		ok: boolean,
+		actual: string,
+		expected = "revise:objectives",
+	): SampleOutcome => ({ id, ok, expected, actual });
+
+	it("names a row that failed every sample, and what the node returned instead", () => {
+		const table = formatRowOutcomes([
+			sample("15", false, "continue:null"),
+			sample("15", false, "continue:null"),
+			sample("15", false, "continue:null"),
+		]);
+
+		expect(table).toContain("15");
+		expect(table).toContain("0/3");
+		expect(table).toContain("revise:objectives");
+		expect(table).toMatch(/continue:null\s+×3/);
+	});
+
+	/** The split between the two is the number a single draw cannot report. */
+	it("lists every distinct return of a flaky row, with its count", () => {
+		const table = formatRowOutcomes([
+			sample("16", false, "continue:null"),
+			sample("16", false, "continue:null"),
+			sample("16", true, "revise:objectives"),
+		]);
+
+		expect(table).toContain("1/3");
+		expect(table).toMatch(/continue:null\s+×2/);
+		expect(table).toMatch(/revise:objectives\s+×1/);
+	});
+
+	it("leaves out a row that passed every sample", () => {
+		const table = formatRowOutcomes([
+			sample("02", true, "continue:null", "continue:null"),
+			sample("15", false, "continue:null"),
+		]);
+
+		expect(table).not.toContain("02");
+		expect(table).toContain("15");
+	});
+
+	/**
+	 * An empty string, not a header over nothing: a heading with no rows under it
+	 * reads as "the table failed to render", which is the opposite of the news.
+	 */
+	it("renders nothing at all when no row failed", () => {
+		expect(
+			formatRowOutcomes([sample("02", true, "continue:null", "continue:null")]),
+		).toBe("");
 	});
 });

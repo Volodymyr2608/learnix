@@ -142,6 +142,68 @@ export const formatScoreTable = (
 	return [header, ...lines].join("\n");
 };
 
+/** One draw of one row: what was asked of the node, and what it returned. */
+export type SampleOutcome = {
+	id: string;
+	ok: boolean;
+	/**
+	 * The row's label and the node's answer, each already rendered to one string
+	 * by the caller. Two strings rather than a typed pair keeps this usable by
+	 * any classifier: what counts as "the answer" differs per surface, and the
+	 * formatter has no business knowing.
+	 */
+	expected: string;
+	actual: string;
+};
+
+/**
+ * What the node returned for the rows that failed — the classifier's sibling of
+ * `formatScoreTable`.
+ *
+ * A gate answers "how many were wrong". For a classifier that is not enough to
+ * act on: the wrong `intent`, the right intent with the wrong resolved target,
+ * and a `clarify` where the model declined to choose at all are three defects
+ * with three different repairs, and the failure list spells all three the same
+ * way. Reading `15, 19` off that list and rewriting the prompt is how a fix gets
+ * aimed at a defect the node does not have.
+ *
+ * Distinct returns are listed with counts rather than one example per row: a
+ * flaky row usually returns two different things, and the split between them is
+ * the number worth reading.
+ */
+export const formatRowOutcomes = (
+	outcomes: readonly SampleOutcome[],
+): string => {
+	const ids = [...new Set(outcomes.map((outcome) => outcome.id))];
+
+	const lines = ids.flatMap((id) => {
+		const draws = outcomes.filter((outcome) => outcome.id === id);
+		const passed = draws.filter((outcome) => outcome.ok).length;
+		if (passed === draws.length) return [];
+
+		const counts = new Map<string, number>();
+		for (const draw of draws)
+			counts.set(draw.actual, (counts.get(draw.actual) ?? 0) + 1);
+
+		const returned = [...counts]
+			.sort(
+				([aValue, aCount], [bValue, bCount]) =>
+					bCount - aCount || aValue.localeCompare(bValue),
+			)
+			.map(
+				([actual, count]) =>
+					`${" ".repeat(13)}returned  ${actual.padEnd(24)}×${count}`,
+			);
+
+		return [
+			`  ${id.padEnd(6)}${`${passed}/${draws.length}`.padStart(3)}  expected  ${draws[0]?.expected ?? ""}`,
+			...returned,
+		];
+	});
+
+	return lines.join("\n");
+};
+
 /**
  * How many rows that SHOULD clear the threshold still do.
  *
