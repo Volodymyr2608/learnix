@@ -256,6 +256,33 @@ export const isStale = (
 	recordedAt: string,
 ): boolean => reconciled === null || reconciled < recordedAt;
 
+/**
+ * The marker a measurement carries. Deliberately the same shape as
+ * `RECONCILED`: prose that reads as prose and parses as a date, because a
+ * second style of marker is a second thing to remember.
+ *
+ * Anchored on the word so an unrelated date elsewhere in the passage — and
+ * these documents are full of them — is not read as a claim about when the
+ * number was produced.
+ */
+const MEASURED = /\bmeasured\s+(\d{4}-\d{2}-\d{2})/;
+
+export const measuredOn = (passage: string): string | null =>
+	MEASURED.exec(forMatching(passage))?.[1] ?? null;
+
+/**
+ * Did the run that produced a figure touch every row the corpus holds today?
+ *
+ * Inequality in either direction answers no. Rows added after the run make the
+ * figure partial coverage presented as complete; rows deleted after it make the
+ * denominator unreproducible. Both leave a reader unable to take the number at
+ * face value, which is the only thing this predicate is for.
+ */
+export const coversWholeCorpus = (
+	measuredRows: number,
+	corpusRows: number,
+): boolean => measuredRows === corpusRows;
+
 /** Documents whose figures come from the tutor baseline. */
 export const RECONCILED_DOCS: readonly string[] = [
 	STRATEGY_PATH,

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
 	asWord,
+	coversWholeCorpus,
 	datasetForEval,
 	datasetRows,
 	docFigures,
@@ -9,6 +10,7 @@ import {
 	forMatching,
 	INDIRECT_DATASET_PATH,
 	isStale,
+	measuredOn,
 	PINNED_CLAIMS,
 	pinnedClaims,
 	RECONCILED_DOCS,
@@ -167,6 +169,68 @@ describe("the eval map in ai-eval-strategy.md matches the datasets it describes"
  * twelve-row denominator survived the corpus growing to sixteen with every
  * check in this file green.
  */
+/**
+ * The second half of the pair, and the one that reaches what pinning cannot.
+ *
+ * A measurement describes the system that existed when it ran. No test can
+ * decide whether that system is still the current one — but it can refuse a
+ * measurement that does not say when it ran, which leaves the reader able to
+ * decide. Same shape as `reconciledOn` / `isStale`, one section down.
+ */
+describe("a measurement says when it was measured", () => {
+	it("reads the marker off a single line", () => {
+		expect(measuredOn("The wrap flips 1 in 12, measured 2026-08-09.")).toBe(
+			"2026-08-09",
+		);
+	});
+
+	it("reads the marker even when markdown wrapped it mid-sentence", () => {
+		expect(
+			measuredOn(
+				"The wrap flips 1 in 12,\nmeasured\n2026-08-09, over twelve rows.",
+			),
+		).toBe("2026-08-09");
+	});
+
+	it("returns null when nothing says when", () => {
+		expect(measuredOn("The wrap flips 1 payload in 12.")).toBeNull();
+	});
+
+	/**
+	 * Documents are full of dates. Only the one behind the marker is a claim
+	 * about when the number was produced.
+	 */
+	it("does not mistake another date in the prose for the marker", () => {
+		expect(
+			measuredOn("Recorded 2026-09-02. The wrap flips 1 in 12."),
+		).toBeNull();
+	});
+});
+
+/**
+ * A corpus that grew after the run is the quieter half of the same problem: the
+ * figure is right, the denominator is right, and together they read as complete
+ * coverage of a set four rows larger than anything the run touched.
+ */
+describe("a run that covered less than its corpus", () => {
+	it("is complete when the corpus has not grown", () => {
+		expect(coversWholeCorpus(12, 12)).toBe(true);
+	});
+
+	it("is partial when the corpus grew after the run", () => {
+		expect(coversWholeCorpus(12, 16)).toBe(false);
+	});
+
+	/**
+	 * A run covering more rows than the corpus holds means rows were deleted
+	 * after it — the figure is equally unsafe to read as current, so it is not
+	 * complete either.
+	 */
+	it("is not complete when the corpus shrank after the run", () => {
+		expect(coversWholeCorpus(16, 12)).toBe(false);
+	});
+});
+
 describe("a claim can read a corpus other than the tutor set", () => {
 	const figures = docFigures();
 
