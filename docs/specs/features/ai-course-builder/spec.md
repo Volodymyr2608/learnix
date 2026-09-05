@@ -1,6 +1,6 @@
 ---
 feature: ai-course-builder
-status: in-progress
+status: stable
 models: [CourseGeneration, CourseGenerationMessage]
 depends-on: [course]
 ---
@@ -179,7 +179,9 @@ not retyped — plus:
 **Intent routing** (reopened 2026-09-05; each line is an eval row on `courseAI:classifyIntent`):
 
 - **The node meets its own gate:** `≥ 85%` of rows classify with both `intent` and the resolved
-  revise target correct. Measured 80.0% (16/20) on 2026-09-05.
+  revise target correct. **80.0% (16/20) before, 85.0% (17/20) after** — two runs, identical rows
+  (2026-09-05). At n=20 one row is five points, so the set's resolution is the binding constraint on
+  this number, not the prompt's.
 - **The model names the field; the step is derived, not guessed.** `classify_intent` returns the
   stored field the instructor wants changed, and the step is resolved from
   `getExtractionSchemaForStep`'s own shapes. A step the model could not have chosen cannot be
@@ -198,6 +200,15 @@ not retyped — plus:
 - **A model failure inside `classify_intent` emits `fallback_triggered`.** The node catches its own
   errors and returns `continue`; a provider outage and a genuine "continue" are indistinguishable
   downstream, and the taxonomy already has the event for exactly this class.
+
+**What the fix did not close, measured rather than assumed.** Three rows still fail, and they are one
+class: an addition aimed at an *earlier* step, phrased tentatively, while a later one is being
+collected — *"also add an objective about machine learning"* said during requirements, *"maybe add one
+more objective?"*. The prompt now states the rule in both directions (content belonging to the current
+step is `continue` however phrased; content belonging to another step is a `revise` of that step), and
+pushing harder on this class is what regressed a row in the opposite direction during
+implementation — *"Students should already know basic HTML and CSS"*, which is the requirements step's
+own content, got pulled into `revise`. The two directions trade against each other at this set size.
 - **The prompt is the only lever this reopening moves.** `CONFIDENCE_THRESHOLD` stays **0.8** and the
   handover semantics stay as §Validation describes them. Two levers changed at once cannot be told
   apart afterwards, and the threshold is documented in three places (this spec, `graph-contract.md`,
@@ -488,7 +499,14 @@ costs one run — about $0.002 — and it decides whether prompt work can succee
   the title" has to know that mapping from somewhere, and the prompt is not where it is.
 - **`classify_intent` fails silently by design, which is why its accuracy is worth gating.** The node
   catches its own model errors and falls back to `intent: "continue"`, so a bad classification and a
-  provider outage look identical from downstream. Nothing but the eval distinguishes them.
+  provider outage look identical from downstream — except that the fallback now emits
+  `fallback_triggered`, so the outage half is visible. Nothing but the eval distinguishes the other
+  half.
+- **`ALREADY STORED` lists every step, and scoping it to the current one is a mistake with a
+  measurement attached.** The first implementation showed only the current step's stored keys;
+  accuracy stayed at 80.0% while the failing rows changed completely, because `revise` is mostly a
+  request about a step the instructor has already left, and "this step holds nothing" reads as
+  "nothing is stored anywhere".
 - **The golden set is off-limits to the prompt.** Rows 04, 06, 08 and 18 are the fixture this work is
   measured against; naming their content in the prompt turns the eval into a lookup. A contract test
   enforces this, so it does not depend on anyone remembering.

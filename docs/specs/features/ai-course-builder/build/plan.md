@@ -76,8 +76,8 @@ because a number nobody recorded is a number nobody can regress against.
   map is derived from the schemas, never hand-maintained"*
 - **Commit:** `feat(courseAI): resolve a revise target from the schema that holds the field`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (`stepForField` does not exist)
-- [ ] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (`stepForField` does not exist)
+- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -99,9 +99,9 @@ because a number nobody recorded is a number nobody can regress against.
   a `clarify`, never a null target"*
 - **Commit:** `fix(courseAI): classify the field, not the step`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (`reviseField` is not in the schema)
-- [ ] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean
-- [ ] `pnpm vitest run server/services/courseAI` green · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (`reviseField` is not in the schema)
+- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean
+- [x] `pnpm vitest run server/services/courseAI` green · [ ] Commit
 
 ---
 
@@ -123,8 +123,8 @@ because a number nobody recorded is a number nobody can regress against.
   Edge case that pins row 02
 - **Commit:** `fix(courseAI): tell the classifier what the step has already stored`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (the prompt carries no stored-key line)
-- [ ] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (the prompt carries no stored-key line)
+- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -144,8 +144,8 @@ because a number nobody recorded is a number nobody can regress against.
 - **AC:** spec.md — *"A model failure inside `classify_intent` emits `fallback_triggered`"*
 - **Commit:** `feat(courseAI): make the classifier's silent fallback an event`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (nothing is emitted)
-- [ ] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Write the failing test · [ ] Run it, see it FAIL (nothing is emitted)
+- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -162,8 +162,8 @@ because a number nobody recorded is a number nobody can regress against.
 - **AC:** spec.md — *"The node meets its own gate"*
 - **Commit:** `test(evals): record what intent routing measures after the fix`
 
-- [ ] Run the eval, record the FAIL (80.0%, four rows) · [ ] Run it after Tasks 1–4, see ≥ 85%
-- [ ] Run it a second time, confirm the direction holds · [ ] Commit the figures
+- [x] Run the eval, record the FAIL (80.0%, four rows) · [ ] Run it after Tasks 1–4, see ≥ 85%
+- [x] Run it a second time, confirm the direction holds · [ ] Commit the figures
 
 > **If a run still fails on 02 rather than on 03/13/14**, the resolver worked and the
 > stored-versus-collected rule did not — those are different repairs, and the row-by-row outcome is
@@ -181,9 +181,35 @@ because a number nobody recorded is a number nobody can regress against.
 - **AC:** Gate Docs (`documentation-process.md` §7)
 - **Commit:** `docs(course-builder): record what intent routing measured`
 
-- [ ] Update spec.md · [ ] `status: in-progress → stable` · [ ] `pnpm spec:sync` · [ ] Commit
+- [x] Update spec.md · [ ] `status: in-progress → stable` · [ ] `pnpm spec:sync` · [ ] Commit
 
 ---
+
+## What the measurement changed during execution
+
+Task 3 shipped twice. The first implementation scoped `ALREADY STORED` to the **current** step, and
+the eval refused it in the most instructive way available: accuracy stayed at **80.0%** while the
+failing rows changed completely, 02/03/13/14 → 07/15/16/19. The plan's four target rows were fixed
+and four others broke, and only the row list said so — the number alone would have read as "no
+effect".
+
+The diagnosis was in the change, not the fixture: `revise` is mostly a request about a step the
+instructor has already **left**, so a line reporting that the current step holds nothing reads as
+"nothing is stored anywhere". Widening it to every step, attributed, recovered row 07 and reached
+85.0%. Stating the placement rule only in the cross-step direction then cost row 11 — the
+requirements step's own content pulled into `revise` — and completing the rule symmetrically fixed it.
+
+| | Accuracy | Failing rows |
+|---|---|---|
+| before | 80.0% (16/20) | 02, 03, 13, 14 |
+| stored keys, current step only | 80.0% (16/20) | 07, 15, 16, 19 |
+| stored keys, all steps | 85.0% (17/20) | 15, 16, 19 |
+| cross-step rule only | 85–90%, unstable | 11, 15, (19) |
+| **shipped** (rule in both directions) | **85.0% (17/20)** | **15, 16, 19** — two runs, identical |
+
+One class remains: an addition aimed at an earlier step, phrased tentatively, while a later one is
+being collected. At n=20 one row is five points, so the set's resolution is now the binding
+constraint — which is a reason to grow the set, not to keep tuning wording against twenty rows.
 
 ## Why the plan is thin
 
