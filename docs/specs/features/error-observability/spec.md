@@ -46,8 +46,16 @@ closed-shape server action (AC 7). Browser reporting is a later decision, not a 
 accepted single observability and evaluation system for AI features
 ([ADR-013](../../../adr/013-langsmith-tracing-evals.md)); it is wired but disabled, and **this
 feature does not turn it on**. Out of scope: `LANGSMITH_TRACING` in production, `aiMetrics.ts`,
-token/cost accounting, latency budgets as NFRs, the broken streaming `traced()` wrapper, trace
-flushing, and the R8 trace-retention policy. AI code appears below only where it currently throws an
+token/cost accounting, latency budgets as NFRs, trace flushing, and the R8 trace-retention policy.
+
+**Correction (2026-09-05): `traced()` is not a broken streaming wrapper.** This file called it one,
+and the claim was never tested. On `langsmith@0.6.3` a run wrapping `async () => <async iterable>` —
+the exact shape `lessonAI.service.ts:175` uses — passes every chunk through in order, stays lazy
+(first chunk at 59 ms rather than after the generator is drained), and closes its run with the chunks
+recorded as outputs. Measured, not read: `traceable.js:754` resolves the promise, sees an async
+iterable and wraps it. The real risk the wrapper carries is **flush on a frozen serverless function**,
+which is a different problem with a different fix (`after()` from `next/server`, Next 16, unused in
+this codebase today) — and it is the one still listed above. AI code appears below only where it currently throws an
 error away, writes a raw `console.error`, or leaks model text.
 
 ## Functional scope
