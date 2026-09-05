@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	asWord,
 	beforeAfterItems,
+	CURRENT_TOOL_NAMES,
 	coversWholeCorpus,
 	datasetForEval,
 	datasetRows,
@@ -15,12 +16,14 @@ import {
 	PINNED_CLAIMS,
 	pinnedClaims,
 	RECONCILED_DOCS,
+	RETIRED_TOOL_NAMES,
 	reconciledOn,
 	registeredEvals,
 	STRATEGY_PATH,
 	sampledEvals,
 	strategyMapCells,
 	tutorFigures,
+	uncitedToolNames,
 } from "./docFigures";
 
 /**
@@ -292,6 +295,85 @@ describe("every before/after measurement in the strategy states when it ran", ()
 		expect(
 			beforeAfterItems("## 3. The map\n\n**1. Not this** ✅ — no date here.\n"),
 		).toEqual([]);
+	});
+});
+
+/**
+ * The weaker half of the pair, kept because the class is real rather than
+ * because it catches §7 — the mastery-clause table names no tool at all, which
+ * is why the dating rule above exists.
+ *
+ * What this holds is the other shape: a document that goes on naming a tool
+ * after the tool is gone, with nothing in the sentence to tell a reader the
+ * mechanism it describes was retired. Citing the ADR is the cheapest marker
+ * that is also exact — unlike "removed" or "gone", it names *which* decision,
+ * and it does not rot when someone rewords the sentence around it.
+ */
+describe("a tool name that no longer exists cites the ADR that removed it", () => {
+	it.each(RECONCILED_DOCS)("%s", (file) => {
+		expect(uncitedToolNames(readFileSync(file, "utf-8"))).toEqual([]);
+	});
+
+	it("accepts a tool the agent still holds", () => {
+		expect(
+			uncitedToolNames("The tutor calls `ask_concept_check` here."),
+		).toEqual([]);
+	});
+
+	it("rejects a retired tool named with no decision behind it", () => {
+		expect(
+			uncitedToolNames("The tutor calls `mark_concept_understood` here."),
+		).toEqual(["mark_concept_understood"]);
+	});
+
+	it("accepts the same sentence once it cites the ADR", () => {
+		expect(
+			uncitedToolNames("`mark_concept_understood` was removed by ADR-033."),
+		).toEqual([]);
+	});
+
+	/**
+	 * A citation two paragraphs away does not tell the reader of this sentence
+	 * anything, so the scope is the sentence.
+	 */
+	it("does not accept a citation from a different sentence", () => {
+		expect(
+			uncitedToolNames(
+				"ADR-033 changed the mastery scale.\n\nThe tutor calls `mark_concept_understood`.",
+			),
+		).toEqual(["mark_concept_understood"]);
+	});
+
+	/**
+	 * A detector that matches nothing passes every document, which is the
+	 * failure mode this repo has now hit three times. Here that means the
+	 * registry must be non-empty AND its names must actually occur.
+	 */
+	it("finds a retired name in the corpus at all", () => {
+		const corpus = RECONCILED_DOCS.map((file) =>
+			readFileSync(file, "utf-8"),
+		).join("\n");
+
+		expect(
+			Object.keys(RETIRED_TOOL_NAMES).filter((name) => corpus.includes(name)),
+		).not.toEqual([]);
+	});
+
+	/**
+	 * A name in both lists is a contradiction — the tool is either held or
+	 * retired — and it would silently make the retired entry unreachable.
+	 */
+	it("never calls a tool the agent still holds retired", () => {
+		expect(
+			Object.keys(RETIRED_TOOL_NAMES).filter((name) =>
+				CURRENT_TOOL_NAMES.includes(name),
+			),
+		).toEqual([]);
+	});
+
+	it("reads the agent's current tool names from the closed literal", () => {
+		expect(CURRENT_TOOL_NAMES).toContain("ask_concept_check");
+		expect(CURRENT_TOOL_NAMES).toHaveLength(4);
 	});
 });
 

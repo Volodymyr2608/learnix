@@ -297,6 +297,62 @@ export const RECONCILED_DOCS: readonly string[] = [
 	"docs/specs/features/ai-tutor-guardrails/security.md",
 ];
 
+/**
+ * The tools the tutor agent actually holds, read from the closed literal that
+ * defines them rather than copied here. A list copied into this file would be
+ * one more thing to keep in step, which is the class of problem this module is
+ * for.
+ */
+export const CURRENT_TOOL_NAMES: readonly string[] = Array.from(
+	readFileSync("server/services/lessonAI/toolPolicy.ts", "utf-8")
+		.split("export const ALLOWED_TOOL_NAMES = [")[1]
+		?.split("] as const")[0]
+		?.matchAll(/"([a-z_]+)"/g) ?? [],
+).flatMap((match) => (match[1] ? [match[1]] : []));
+
+/**
+ * Tools this repo has retired, each with the decision that retired it.
+ *
+ * A registry rather than a shape, and the first attempt is why: matching
+ * `snake_case` with three segments flagged seventeen names across these
+ * documents — `unsafe_tool_call`, `guard_off_topic`, `system_prompt_echo`,
+ * `tools_not_called`. Security-event outcomes, rule ids and dataset fields all
+ * wear the same shape as a tool name, and no regex over the name alone tells
+ * them apart.
+ *
+ * The cost is honest and worth stating: this catches a retired tool only if
+ * someone added it here. That is not the weakness it looks like — the entry is
+ * written in the commit that deletes the tool, which is the one moment the
+ * knowledge is certain to exist — but it is why this check is the weaker half
+ * of the pair. The dating rule is what covers the case nobody remembered.
+ */
+export const RETIRED_TOOL_NAMES: Readonly<Record<string, string>> = {
+	/** Removed 2026-08-30: the tutor asks a check; the server grades it. */
+	mark_concept_understood: "ADR-033",
+};
+
+/**
+ * Retired tool names in a document that do not sit in a sentence naming the ADR
+ * that retired them.
+ *
+ * Scoped to the sentence on purpose: a citation two paragraphs away tells the
+ * reader of *this* sentence nothing. `ADR-NNN` is the marker rather than a word
+ * like "removed" or "gone", because it names which decision and survives the
+ * sentence being reworded around it.
+ */
+export const uncitedToolNames = (doc: string): string[] =>
+	Array.from(
+		new Set(
+			forMatching(doc)
+				.split(/(?<=[.!?])\s+|\n{2,}/)
+				.flatMap((sentence) =>
+					Object.keys(RETIRED_TOOL_NAMES).filter(
+						(name) => sentence.includes(name) && !/ADR-\d{3}/.test(sentence),
+					),
+				),
+		),
+	);
+
 export type BeforeAfterItem = {
 	/** Its number in the section, for the failure message. */
 	n: number;
