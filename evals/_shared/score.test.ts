@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	accuracyGate,
 	type CategoryEvalResult,
 	categoryGate,
+	type EvalResult,
 	flakyRows,
 	formatScoreTable,
+	retentionGate,
 	rowStability,
 	type ScoredRow,
 } from "./score";
@@ -231,5 +234,89 @@ describe("formatScoreTable", () => {
 
 		expect(table).toMatch(/score/i);
 		expect(table.split("\n").filter((line) => /\d/.test(line))).toEqual([]);
+	});
+});
+
+/**
+ * Precision alone is a gate a broken node can pass by giving up.
+ *
+ * The failure it cannot see is not the degenerate one — `accuracyGate` scores an
+ * empty prediction set 0 and fails it. It is the partial collapse: a handful of
+ * unmistakable rows kept above the line and everything else surrendered to a
+ * manual Accept. That reads as perfect precision while the feature quietly stops
+ * working, so the run holds a floor under how many complete rows survive.
+ */
+describe("retentionGate", () => {
+	const scored = (id: string, score: number, expected: boolean): ScoredRow => ({
+		id,
+		score,
+		expected,
+	});
+
+	/** Ten complete rows above the line, one below, and nine sparse rows. */
+	const eleven = (retained: number): ScoredRow[] => [
+		...Array.from({ length: retained }, (_, i) => scored(`ok${i}`, 0.9, true)),
+		...Array.from({ length: 11 - retained }, (_, i) =>
+			scored(`dropped${i}`, 0.4, true),
+		),
+		...Array.from({ length: 9 }, (_, i) => scored(`sparse${i}`, 0.3, false)),
+	];
+
+	it("passes when the floor is met exactly", () => {
+		silence();
+
+		expect(retentionGate("t", eleven(10), { threshold: 0.8, floor: 10 })).toBe(
+			true,
+		);
+	});
+
+	it("fails one row below the floor", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(retentionGate("t", eleven(9), { threshold: 0.8, floor: 10 })).toBe(
+			false,
+		);
+	});
+
+	/**
+	 * The case the second gate exists for: three rich rows kept, eight complete
+	 * ones abandoned, not a single false positive. Precision reads 100%.
+	 */
+	it("fails the collapse that precision reports as perfect", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const collapsed = eleven(3);
+		const highConf: EvalResult[] = collapsed
+			.filter((r) => r.score >= 0.8)
+			.map((r) => ({ id: r.id, ok: r.expected }));
+
+		expect(accuracyGate("precision", highConf, 0.85)).toBe(true);
+		expect(
+			retentionGate("retention", collapsed, { threshold: 0.8, floor: 10 }),
+		).toBe(false);
+	});
+
+	it("names the complete rows that dropped, so a red run is actionable", () => {
+		const log = silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		retentionGate("t", eleven(9), { threshold: 0.8, floor: 10 });
+
+		expect(log.mock.calls.flat().join(" ")).toContain("dropped0");
+	});
+});
+
+/**
+ * Pinned because the obvious refactor is wrong: `precisionGate` returns 1 for an
+ * empty prediction set and would pass a node that advanced nothing at all.
+ */
+describe("accuracyGate on an empty set", () => {
+	it("scores zero rather than one", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(accuracyGate("t", [], 0.85)).toBe(false);
 	});
 });

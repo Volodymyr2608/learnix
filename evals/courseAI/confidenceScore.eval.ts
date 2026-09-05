@@ -7,6 +7,7 @@ import {
 	accuracyGate,
 	type EvalResult,
 	formatScoreTable,
+	retentionGate,
 } from "../_shared/score";
 import {
 	formatCallStats,
@@ -112,9 +113,18 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 		.filter((r) => r.score >= 0.8)
 		.map((r) => ({ id: r.id, ok: r.expected }));
 
-	return accuracyGate(
+	const precise = accuracyGate(
 		"confidenceScore calibration (score≥0.8 → complete)",
 		highConf,
 		0.85,
 	);
+
+	// Both gates run before either verdict is returned: a red run should say
+	// which half moved, and short-circuiting hides the half that did not.
+	const retained = retentionGate("confidenceScore", raw, {
+		threshold: 0.8,
+		floor: 10,
+	});
+
+	return precise && retained;
 }

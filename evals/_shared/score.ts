@@ -142,6 +142,46 @@ export const formatScoreTable = (
 	return [header, ...lines].join("\n");
 };
 
+/**
+ * How many rows that SHOULD clear the threshold still do.
+ *
+ * The companion to a precision gate, and not an optional one. Precision asks
+ * "of the rows we advanced, how many deserved it" — a question a node maximises
+ * by advancing almost nothing. `accuracyGate` catches only the total surrender
+ * (an empty set scores 0); the reachable failure is partial, and it reads as a
+ * perfect score: keep three unmistakable rows above the line, push the other
+ * eight complete ones under it, and the run reports 100% while eight instructors
+ * are sent to a manual Accept they did not need.
+ *
+ * The floor is deliberately below the full count. A gate that reddens when one
+ * row drifts across the line teaches its readers to ignore it, and drift is what
+ * a provider does between two runs of the same prompt.
+ */
+export const retentionGate = (
+	label: string,
+	rows: readonly ScoredRow[],
+	{ threshold, floor }: { threshold: number; floor: number },
+): boolean => {
+	const complete = rows.filter((row) => row.expected);
+	const retained = complete.filter((row) => row.score >= threshold);
+	const dropped = complete.filter((row) => row.score < threshold);
+
+	console.log(
+		`${label} retention: ${retained.length}/${complete.length} complete rows at or above ${threshold} (min ${floor})`,
+	);
+	if (dropped.length)
+		console.log(`${label} dropped:`, dropped.map((row) => row.id).join(", "));
+
+	if (retained.length < floor) {
+		console.error(
+			`FAIL: ${label} retained ${retained.length} complete rows, below the floor of ${floor}`,
+		);
+		return false;
+	}
+
+	return true;
+};
+
 export function accuracyGate(
 	label: string,
 	results: EvalResult[],
