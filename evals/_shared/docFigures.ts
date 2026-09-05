@@ -18,6 +18,12 @@ export const TUTOR_DATASET_PATH = "evals/datasets/lessonAI/tutor.jsonl";
 export const TUTOR_BASELINE_PATH = "evals/baselines/lessonAI-tutor.json";
 export const STRATEGY_PATH = "docs/specs/ai-eval-strategy.md";
 export const RUNNER_PATH = "evals/runEvals.ts";
+/**
+ * The `aiGuard:indirect` corpus. It is quoted in two documents as the
+ * denominator of the wrap A/B and belongs to no baseline of its own, so the
+ * only honest source for its size is the file.
+ */
+export const INDIRECT_DATASET_PATH = "evals/datasets/aiGuard/indirect.jsonl";
 export const EVALS_DIR = "evals";
 
 /** One category's deterministic result, as the committed baseline records it. */
@@ -148,6 +154,27 @@ export const tutorFigures = (): TutorFigures => {
 	};
 };
 
+/**
+ * Everything a pinned claim may quote: the tutor figures, plus the figures that
+ * come from somewhere else entirely.
+ *
+ * The split matters. `TutorFigures` is derived from one dataset and one
+ * baseline, and for as long as that was the whole input, a claim could only be
+ * written about numbers those two files produced. A sentence quoting any other
+ * corpus was unpinnable — not rejected, simply invisible — and the
+ * `aiGuard:indirect` denominator sat at twelve for the three weeks after the
+ * corpus grew to sixteen without a single check going red.
+ */
+export type DocFigures = TutorFigures & {
+	/** Rows in the `aiGuard:indirect` corpus, read at call time. */
+	indirectRows: number;
+};
+
+export const docFigures = (): DocFigures => ({
+	...tutorFigures(),
+	indirectRows: datasetRows(INDIRECT_DATASET_PATH),
+});
+
 /** `passed/total` for one category, as the prose spells it. */
 export const passRate = (
 	figures: TutorFigures,
@@ -229,6 +256,54 @@ export const isStale = (
 	recordedAt: string,
 ): boolean => reconciled === null || reconciled < recordedAt;
 
+/**
+ * The marker a measurement carries. Deliberately the same shape as
+ * `RECONCILED`: prose that reads as prose and parses as a date, because a
+ * second style of marker is a second thing to remember.
+ *
+ * Anchored on the word so an unrelated date elsewhere in the passage — and
+ * these documents are full of them — is not read as a claim about when the
+ * number was produced.
+ *
+ * Case-insensitive because a marker routinely opens a sentence, and the first
+ * real one did: `Measured 2026-08-18, against a tutor that still held a write
+ * tool`. That is a property of English, not a loophole — the word and an ISO
+ * date immediately after it are still both required.
+ */
+const MEASURED = /\bmeasured\s+(\d{4}-\d{2}-\d{2})/i;
+
+export const measuredOn = (passage: string): string | null =>
+	MEASURED.exec(forMatching(passage))?.[1] ?? null;
+
+/**
+ * Did the run that produced a figure touch every row the corpus holds today?
+ *
+ * Inequality in either direction answers no. Rows added after the run make the
+ * figure partial coverage presented as complete; rows deleted after it make the
+ * denominator unreproducible. Both leave a reader unable to take the number at
+ * face value, which is the only thing this predicate is for.
+ */
+export const coversWholeCorpus = (
+	measuredRows: number,
+	corpusRows: number,
+): boolean => measuredRows === corpusRows;
+
+/**
+ * Rows the published `aiGuard:indirect` A/B actually covered, and the day it
+ * ran. Recorded here because nothing else records it: the corpus file knows how
+ * many rows it holds **today**, the baseline directory holds nothing for this
+ * eval, and the published ratio is a fact about a run that no longer exists
+ * anywhere a test can reach.
+ *
+ * Without this, a prose denominator could be edited from 12 to 16 and every
+ * check in this file would stay green — the corpus really does hold sixteen
+ * rows, so the sentence would be pinned to a true number while claiming coverage
+ * the run never had. That is the failure this constant exists to make
+ * impossible, and it is why the constant is here rather than in the prose it
+ * checks.
+ */
+export const INDIRECT_MEASURED = { rows: 12, on: "2026-08-09" } as const;
+
 /** Documents whose figures come from the tutor baseline. */
 export const RECONCILED_DOCS: readonly string[] = [
 	STRATEGY_PATH,
@@ -237,6 +312,136 @@ export const RECONCILED_DOCS: readonly string[] = [
 	"docs/specs/features/ai-evaluation-harness/spec.md",
 	"docs/specs/features/ai-tutor-guardrails/security.md",
 ];
+
+/**
+ * The tools the tutor agent actually holds, read from the closed literal that
+ * defines them rather than copied here. A list copied into this file would be
+ * one more thing to keep in step, which is the class of problem this module is
+ * for.
+ */
+const TOOL_POLICY_PATH = "server/services/lessonAI/toolPolicy.ts";
+
+export const currentToolNames = (): readonly string[] =>
+	Array.from(
+		readFileSync(TOOL_POLICY_PATH, "utf-8")
+			.split("export const ALLOWED_TOOL_NAMES = [")[1]
+			?.split("] as const")[0]
+			?.matchAll(/"([a-z][a-z0-9_]*)"/g) ?? [],
+	).flatMap((match) => (match[1] ? [match[1]] : []));
+
+/**
+ * Tools this repo has retired, each with the decision that retired it.
+ *
+ * A registry rather than a shape, and the first attempt is why: matching
+ * `snake_case` with three segments flagged seventeen names across these
+ * documents — `unsafe_tool_call`, `guard_off_topic`, `system_prompt_echo`,
+ * `tools_not_called`. Security-event outcomes, rule ids and dataset fields all
+ * wear the same shape as a tool name, and no regex over the name alone tells
+ * them apart.
+ *
+ * The cost is honest and worth stating: this catches a retired tool only if
+ * someone added it here. That is not the weakness it looks like — the entry is
+ * written in the commit that deletes the tool, which is the one moment the
+ * knowledge is certain to exist — but it is why this check is the weaker half
+ * of the pair. The dating rule is what covers the case nobody remembered.
+ */
+export const RETIRED_TOOL_NAMES: Readonly<Record<string, string>> = {
+	/** Removed 2026-08-30: the tutor asks a check; the server grades it. */
+	mark_concept_understood: "ADR-033",
+};
+
+/**
+ * A sentence break: terminal punctuation followed by something that starts a
+ * new sentence. The lookahead keeps `e.g.` and `i.e.` from splitting mid-clause
+ * — `ADR-033 removed it, e.g. mark_concept_understood is gone.` is one
+ * sentence, and splitting it turned CI red on correct prose, which is how a
+ * pattern gets loosened instead of fixed.
+ */
+const SENTENCE_BREAK =
+	/(?<!\b(?:e\.g|i\.e|cf|etc|vs|approx|Fig|No)\.)(?<=[.!?])\s+(?=[A-Z"`*[])|\n{2,}/;
+
+/**
+ * Retired tool names in a document that do not sit in a sentence naming **the**
+ * ADR that retired them.
+ *
+ * Three things are deliberate. The citation must be the ADR the registry
+ * records, not merely some ADR: a sentence citing ADR-022 beside a change
+ * ADR-033 made points the reader at the wrong decision, and a check that accepts
+ * it makes the registry's value decorative. The scope is the sentence, because a
+ * citation two paragraphs away tells the reader of *this* sentence nothing. And
+ * the name is matched on word boundaries, so a longer identifier that merely
+ * contains it — the security-event outcome `mark_concept_understood_denied`,
+ * say — is not read as the tool.
+ */
+export const uncitedToolNames = (doc: string): string[] =>
+	Array.from(
+		new Set(
+			forMatching(doc)
+				.split(SENTENCE_BREAK)
+				.flatMap((sentence) =>
+					Object.entries(RETIRED_TOOL_NAMES)
+						.filter(
+							([name, adr]) =>
+								new RegExp(`\\b${name}\\b`).test(sentence) &&
+								!sentence.includes(adr),
+						)
+						.map(([name]) => name),
+				),
+		),
+	);
+
+/** Stands in when an item's heading does not parse, so the item is still checked. */
+export const UNPARSED_TITLE = "(heading did not parse)";
+
+export type BeforeAfterItem = {
+	/** Its number in the section, for the failure message. */
+	n: number;
+	/** Its bold heading, for the failure message. */
+	title: string;
+	/** The day it was measured, or `null` when it does not say. */
+	measured: string | null;
+};
+
+/**
+ * The before/after measurements §7 carries, one per numbered item.
+ *
+ * Scoped to that section the way `strategyMapCells` is scoped to §3, and for
+ * the same reason: other sections number things too, and only these are claims
+ * about a run that produced a figure.
+ *
+ * The date is read from the whole block, not from the heading's own sentence,
+ * because a measurement routinely states when it ran several sentences in. The
+ * cost of that is worth knowing: an item's block runs to the next item or to the
+ * end of the section, so an undated item followed by unrelated prose carrying
+ * some other `measured <date>` borrows it. The scope is the block, not the
+ * claim, and the last item's block is the widest.
+ */
+export const beforeAfterItems = (doc: string): BeforeAfterItem[] => {
+	const section = doc.split(/^## /m).find((s) => s.startsWith("7. "));
+	if (!section) return [];
+
+	// Split on the item marker itself, keeping it, so an item runs to the start
+	// of the next one — a measurement's date may sit several sentences after its
+	// heading, and routinely does.
+	return section.split(/^(?=\*\*\d+\.\s)/m).flatMap((block) => {
+		// Marker and title are read separately on purpose. One pattern for both
+		// dropped any item whose title carried emphasis — `**1. A *thing***` —
+		// silently, so no date check ran on it and nothing reported the absence.
+		// An item that announces itself is always returned; only its title
+		// degrades, and it says so.
+		const marker = /^\*\*(\d+)\./.exec(block);
+		if (!marker?.[1]) return [];
+
+		return [
+			{
+				n: Number(marker[1]),
+				title:
+					/^\*\*\d+\.\s*(.+?)\*\*/.exec(block)?.[1]?.trim() ?? UNPARSED_TITLE,
+				measured: measuredOn(block),
+			},
+		];
+	});
+};
 
 export type StrategyMapCell = { evalId: string; rows: number | null };
 
@@ -268,7 +473,7 @@ export type PinnedClaim = {
 	/** Must match once; its groups are the figures. */
 	pattern: RegExp;
 	/** The machine's value for each group, in order. */
-	expected: (figures: TutorFigures) => string[];
+	expected: (figures: DocFigures) => string[];
 };
 
 /**
@@ -348,6 +553,42 @@ export const PINNED_CLAIMS: readonly PinnedClaim[] = [
 		expected: (f) => passRate(f, "missing-info"),
 	},
 	{
+		file: STRATEGY_PATH,
+		what: "the rows the wrap A/B actually covered",
+		pattern: /flips \*\*1 payload\s*in (\d+)\*\*, measured (\d{4}-\d{2}-\d{2})/,
+		expected: () => [String(INDIRECT_MEASURED.rows), INDIRECT_MEASURED.on],
+	},
+	{
+		file: "docs/ai-defence/strategy.md",
+		what: "the same A/B, restated in the cross-surface defence strategy",
+		pattern:
+			/flips \*\*1 payload in (\d+)\*\*, measured (\d{4}-\d{2}-\d{2})[^.]*it holds (\d+) rows today/,
+		expected: (f) => [
+			String(INDIRECT_MEASURED.rows),
+			INDIRECT_MEASURED.on,
+			String(f.indirectRows),
+		],
+	},
+	{
+		file: "docs/specs/features/ai-tutor-guardrails/security.md",
+		what: "the same covered rows, restated in S13 §3",
+		pattern:
+			/ran\s+(\w+) indirect payloads twice[^.]*measured (\d{4}-\d{2}-\d{2})/,
+		expected: () => [asWord(INDIRECT_MEASURED.rows), INDIRECT_MEASURED.on],
+	},
+	{
+		file: STRATEGY_PATH,
+		what: "the size of the indirect corpus behind the wrap A/B",
+		pattern: /The corpus holds \*\*(\d+) rows\*\* today/,
+		expected: (f) => [String(f.indirectRows)],
+	},
+	{
+		file: "docs/specs/features/ai-tutor-guardrails/security.md",
+		what: "the same corpus, restated in S13 §3",
+		pattern: /the corpus holds (\d+) rows today/,
+		expected: (f) => [String(f.indirectRows)],
+	},
+	{
 		file: "docs/adr/031-eval-fidelity-and-baselines.md",
 		what: "the deterministic result behind the judge's value",
 		pattern:
@@ -357,7 +598,7 @@ export const PINNED_CLAIMS: readonly PinnedClaim[] = [
 ];
 
 export const pinnedClaims = (
-	figures: TutorFigures,
+	figures: DocFigures,
 ): (Omit<PinnedClaim, "expected"> & { expected: string[] })[] =>
 	PINNED_CLAIMS.map((claim) => ({
 		file: claim.file,

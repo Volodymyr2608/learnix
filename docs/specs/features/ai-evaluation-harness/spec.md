@@ -192,7 +192,37 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
     [`ai-eval-rubric.md`](../../ai-eval-rubric.md), ADR-031 and
     [`ai-tutor-guardrails/security.md`](../ai-tutor-guardrails/security.md) matches the dataset and
     the baseline it comes from, and each of those documents states a reconciliation date no earlier
-    than the baseline's own `recordedAt`.
+    than the baseline's own `recordedAt`. **A figure quoted over a corpus other than the tutor set is
+    pinned to a machine source too**, and for the `aiGuard:indirect` A/B that means two different
+    numbers with two different sources: the **denominator of the published ratio** is pinned to
+    `INDIRECT_MEASURED`, the module's record of what the 2026-08-09 run covered, and the
+    **corpus size** quoted beside it is pinned to `indirect.jsonl`. The denominator must not track
+    the file — the run measured twelve rows and no later growth changes that — which is exactly why
+    it needs a recorded source of its own rather than none.
+14. **Every before/after measurement in [`ai-eval-strategy.md`](../../ai-eval-strategy.md) §7 states
+    the date it was measured.** A measurement describes the system that existed when it ran; §7's
+    two items describe systems that have since changed — the `aiGuard:indirect` corpus grew, and the
+    mastery-clause table measures a write tool ADR-033 deleted — and neither says so. Criterion 13
+    cannot reach this: that table's columns read *"write refused"*, *"write correctly granted"*, so
+    there is no figure to pin and no tool name to look up. A date is the smallest thing that is both
+    mechanically checkable and sufficient — a reader who sees `measured 2026-08-18` can decide for
+    themselves what has moved since.
+14a. **A registered retired tool name cites the ADR that retired it.** Any name in
+    `RETIRED_TOOL_NAMES` appearing in the documents of criterion 13 sits in a sentence naming **that**
+    ADR — not merely some ADR, since a sentence citing ADR-022 beside a change ADR-033 made points
+    the reader at the wrong decision. Matching is on word boundaries, so a longer identifier
+    containing the name is not read as the tool.
+
+    **Scope, stated rather than implied:** this catches a retired tool only if someone registered it,
+    which is why it is the weaker half of the pair. The registry entry is written in the commit that
+    deletes the tool — the one moment the knowledge is certain to exist — and criterion 14's dating
+    rule is what covers the tool nobody remembered. An earlier draft of this criterion checked any
+    `snake_case` name against `ALLOWED_TOOL_NAMES`; run against the real corpus it flagged seventeen
+    security-event outcomes, rule ids and dataset fields, because they wear exactly the same shape.
+15. **A figure measured over fewer rows than the corpus now holds says so.** Where a corpus grew
+    after the run that produced its published number, the sentence names the rows the run covered and
+    the rows added since. Partial coverage presented as complete is the failure mode; re-running is
+    a separate task, because it moves a number three documents quote.
 
 ## Edge cases
 
@@ -232,6 +262,12 @@ variable. Controls are inherited by reference from
 [`ai-tutor-guardrails/security.md`](../ai-tutor-guardrails/security.md) **S6** (indirect injection:
 untrusted text is wrapped with `wrapUntrustedContent` and the prompt carries `UNTRUSTED_DATA_CLAUSE`)
 and [ADR-022](../../../adr/022-ai-input-trust-boundary.md).
+
+**Reconfirmed for criteria 14–15 (2026-09-05).** That reopening touches `evals/_shared/docFigures.ts`,
+its contract test and three documents. It reads `ALLOWED_TOOL_NAMES` and `indirect.jsonl` at test
+time and changes neither; it adds no tool, node, entry point, procedure, route, model, migration or
+environment variable, and modifies no runtime control — `docFigures` is a CI check, not a boundary a
+request passes through. Same verdict, same inherited controls, recorded rather than assumed.
 
 One threat is specific to this feature and is not inherited, so it is stated here and appears as
 acceptance criterion 3:
@@ -306,6 +342,8 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Rubric axes match the judge's schema, in both directions | `evals/_shared/judgeRubric.contract.test.ts` |
 | A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
 | Documented figures match the dataset and the baseline; every document quoting the baseline is dated no earlier than it | `evals/_shared/docFigures.contract.test.ts` |
+| The `aiGuard:indirect` denominator is the rows `INDIRECT_MEASURED` records the run covering; the corpus size quoted beside it is `indirect.jsonl`'s row count; and while the two differ, the documents must carry the growth note | `evals/_shared/docFigures.contract.test.ts` |
+| A registered retired tool name cites *its own* ADR in the same sentence; another ADR does not satisfy it, an abbreviation does not split the sentence, and a longer identifier containing the name is not the tool | `evals/_shared/docFigures.contract.test.ts` |
 
 Online, `pnpm eval`, never in CI: `lessonAI:tutor` (54 rows × 3 samples, 15 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
@@ -370,3 +408,15 @@ Online, `pnpm eval`, never in CI: `lessonAI:tutor` (54 rows × 3 samples, 15 cat
 - **Deterministic first.** Anything checkable with an assertion is checked with one; the judge is
   reserved for what has no correct string. The reverse — judging what a substring could settle — is
   slower, costlier and noisier for no gain.
+- **`docFigures` pins numbers, and a retired mechanism is not a number.** The check was built around
+  `TutorFigures`, so everything it can verify is derived from the tutor dataset and its baseline.
+  Two things slipped past it for that reason and are what criteria 14–15 exist to close: the
+  `aiGuard:indirect` denominator belongs to a corpus the module could not read, and the mastery-clause
+  before/after table in `ai-eval-strategy.md` §7 counts writes into `ConceptMastery` that only the
+  tool ADR-033 deleted could make. **That table names no tool at all** — its columns read *"write
+  refused"*, *"write correctly granted"* — which is exactly why neither pinning nor a name lookup
+  reaches it, and why criterion 14 is a date rather than either. Every figure in it is still correct
+  as a measurement of the system that existed on 2026-08-18; what was wrong is that nothing said so,
+  and a reader had no way to tell a historical table from a current one. Generalise from this rather
+  than from the two instances: the module verifies what it can derive, so anything it cannot derive
+  needs either a new derivation or an explicit marker — never trust.
