@@ -54,7 +54,8 @@ import the guard?"*.
 **Rank matters more than the list.** L4, L5 and L6 are enforcement: they hold whether or not the
 model cooperates. L1, L2 and L3 are filters: they reduce how often the model is asked to misbehave,
 and they are measurably imperfect. The platform's own number — `aiGuard:indirect` — is that wrapping
-untrusted data flips **1 payload in 12**. L3 is mitigation, never a boundary.
+untrusted data flips **1 payload in 12**, measured 2026-08-09 over the twelve rows that corpus held
+then; it holds 16 rows today. L3 is mitigation, never a boundary.
 
 Wherever this document says a defence "holds", it means an L4/L5/L6 control. Where it says "reduces",
 it means L1/L2/L3.

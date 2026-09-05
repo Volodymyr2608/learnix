@@ -1,6 +1,6 @@
 ---
 feature: ai-evaluation-harness
-status: in-progress
+status: stable
 models: []
 depends-on: [ai-tutor-guardrails, ai-input-trust-boundary]
 ---
@@ -193,8 +193,12 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
     [`ai-tutor-guardrails/security.md`](../ai-tutor-guardrails/security.md) matches the dataset and
     the baseline it comes from, and each of those documents states a reconciliation date no earlier
     than the baseline's own `recordedAt`. **A figure quoted over a corpus other than the tutor set is
-    pinned to that corpus's own row count** — the `aiGuard:indirect` A/B is quoted as *"1 payload in
-    N"* in two documents, and `N` is read from `indirect.jsonl` rather than from the sentence.
+    pinned to a machine source too**, and for the `aiGuard:indirect` A/B that means two different
+    numbers with two different sources: the **denominator of the published ratio** is pinned to
+    `INDIRECT_MEASURED`, the module's record of what the 2026-08-09 run covered, and the
+    **corpus size** quoted beside it is pinned to `indirect.jsonl`. The denominator must not track
+    the file — the run measured twelve rows and no later growth changes that — which is exactly why
+    it needs a recorded source of its own rather than none.
 14. **Every before/after measurement in [`ai-eval-strategy.md`](../../ai-eval-strategy.md) §7 states
     the date it was measured.** A measurement describes the system that existed when it ran; §7's
     two items describe systems that have since changed — the `aiGuard:indirect` corpus grew, and the
@@ -203,11 +207,18 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
     there is no figure to pin and no tool name to look up. A date is the smallest thing that is both
     mechanically checkable and sufficient — a reader who sees `measured 2026-08-18` can decide for
     themselves what has moved since.
-14a. **A retired tool name is never left reading as current.** Any name in `ALLOWED_TOOL_NAMES`'s
-    shape appearing in the five documents of criterion 13 either is one of those four names or sits
-    in a sentence that names the ADR which removed it. This is the weaker half of the pair and is
-    kept because the class is real, not because it catches §7: it holds `security.md`'s two
-    references to `mark_concept_understood` to citing ADR-033.
+14a. **A registered retired tool name cites the ADR that retired it.** Any name in
+    `RETIRED_TOOL_NAMES` appearing in the documents of criterion 13 sits in a sentence naming **that**
+    ADR — not merely some ADR, since a sentence citing ADR-022 beside a change ADR-033 made points
+    the reader at the wrong decision. Matching is on word boundaries, so a longer identifier
+    containing the name is not read as the tool.
+
+    **Scope, stated rather than implied:** this catches a retired tool only if someone registered it,
+    which is why it is the weaker half of the pair. The registry entry is written in the commit that
+    deletes the tool — the one moment the knowledge is certain to exist — and criterion 14's dating
+    rule is what covers the tool nobody remembered. An earlier draft of this criterion checked any
+    `snake_case` name against `ALLOWED_TOOL_NAMES`; run against the real corpus it flagged seventeen
+    security-event outcomes, rule ids and dataset fields, because they wear exactly the same shape.
 15. **A figure measured over fewer rows than the corpus now holds says so.** Where a corpus grew
     after the run that produced its published number, the sentence names the rows the run covered and
     the rows added since. Partial coverage presented as complete is the failure mode; re-running is
@@ -331,8 +342,8 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Rubric axes match the judge's schema, in both directions | `evals/_shared/judgeRubric.contract.test.ts` |
 | A reply aimed at the judge is wrapped; a reply merely *explaining* injection still scores | `evals/_shared/judge.test.ts`, plus row `inject-04` in the tutor set |
 | Documented figures match the dataset and the baseline; every document quoting the baseline is dated no earlier than it | `evals/_shared/docFigures.contract.test.ts` |
-| The `aiGuard:indirect` denominator quoted in prose is the row count of `indirect.jsonl`, not a number typed once | `evals/_shared/docFigures.contract.test.ts` |
-| No documented tool name is absent from `ALLOWED_TOOL_NAMES` unless the sentence carries a historical marker; a marker that names no date or no ADR does not satisfy it | `evals/_shared/docFigures.contract.test.ts` |
+| The `aiGuard:indirect` denominator is the rows `INDIRECT_MEASURED` records the run covering; the corpus size quoted beside it is `indirect.jsonl`'s row count; and while the two differ, the documents must carry the growth note | `evals/_shared/docFigures.contract.test.ts` |
+| A registered retired tool name cites *its own* ADR in the same sentence; another ADR does not satisfy it, an abbreviation does not split the sentence, and a longer identifier containing the name is not the tool | `evals/_shared/docFigures.contract.test.ts` |
 
 Online, `pnpm eval`, never in CI: `lessonAI:tutor` (54 rows × 3 samples, 15 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,

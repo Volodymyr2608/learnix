@@ -154,7 +154,6 @@ export const tutorFigures = (): TutorFigures => {
 	};
 };
 
-/** `passed/total` for one category, as the prose spells it. */
 /**
  * Everything a pinned claim may quote: the tutor figures, plus the figures that
  * come from somewhere else entirely.
@@ -176,6 +175,7 @@ export const docFigures = (): DocFigures => ({
 	indirectRows: datasetRows(INDIRECT_DATASET_PATH),
 });
 
+/** `passed/total` for one category, as the prose spells it. */
 export const passRate = (
 	figures: TutorFigures,
 	category: string,
@@ -288,6 +288,22 @@ export const coversWholeCorpus = (
 	corpusRows: number,
 ): boolean => measuredRows === corpusRows;
 
+/**
+ * Rows the published `aiGuard:indirect` A/B actually covered, and the day it
+ * ran. Recorded here because nothing else records it: the corpus file knows how
+ * many rows it holds **today**, the baseline directory holds nothing for this
+ * eval, and the published ratio is a fact about a run that no longer exists
+ * anywhere a test can reach.
+ *
+ * Without this, a prose denominator could be edited from 12 to 16 and every
+ * check in this file would stay green — the corpus really does hold sixteen
+ * rows, so the sentence would be pinned to a true number while claiming coverage
+ * the run never had. That is the failure this constant exists to make
+ * impossible, and it is why the constant is here rather than in the prose it
+ * checks.
+ */
+export const INDIRECT_MEASURED = { rows: 12, on: "2026-08-09" } as const;
+
 /** Documents whose figures come from the tutor baseline. */
 export const RECONCILED_DOCS: readonly string[] = [
 	STRATEGY_PATH,
@@ -303,12 +319,15 @@ export const RECONCILED_DOCS: readonly string[] = [
  * one more thing to keep in step, which is the class of problem this module is
  * for.
  */
-export const CURRENT_TOOL_NAMES: readonly string[] = Array.from(
-	readFileSync("server/services/lessonAI/toolPolicy.ts", "utf-8")
-		.split("export const ALLOWED_TOOL_NAMES = [")[1]
-		?.split("] as const")[0]
-		?.matchAll(/"([a-z_]+)"/g) ?? [],
-).flatMap((match) => (match[1] ? [match[1]] : []));
+const TOOL_POLICY_PATH = "server/services/lessonAI/toolPolicy.ts";
+
+export const currentToolNames = (): readonly string[] =>
+	Array.from(
+		readFileSync(TOOL_POLICY_PATH, "utf-8")
+			.split("export const ALLOWED_TOOL_NAMES = [")[1]
+			?.split("] as const")[0]
+			?.matchAll(/"([a-z][a-z0-9_]*)"/g) ?? [],
+	).flatMap((match) => (match[1] ? [match[1]] : []));
 
 /**
  * Tools this repo has retired, each with the decision that retired it.
@@ -332,26 +351,47 @@ export const RETIRED_TOOL_NAMES: Readonly<Record<string, string>> = {
 };
 
 /**
- * Retired tool names in a document that do not sit in a sentence naming the ADR
- * that retired them.
+ * A sentence break: terminal punctuation followed by something that starts a
+ * new sentence. The lookahead keeps `e.g.` and `i.e.` from splitting mid-clause
+ * — `ADR-033 removed it, e.g. mark_concept_understood is gone.` is one
+ * sentence, and splitting it turned CI red on correct prose, which is how a
+ * pattern gets loosened instead of fixed.
+ */
+const SENTENCE_BREAK =
+	/(?<!\b(?:e\.g|i\.e|cf|etc|vs|approx|Fig|No)\.)(?<=[.!?])\s+(?=[A-Z"`*[])|\n{2,}/;
+
+/**
+ * Retired tool names in a document that do not sit in a sentence naming **the**
+ * ADR that retired them.
  *
- * Scoped to the sentence on purpose: a citation two paragraphs away tells the
- * reader of *this* sentence nothing. `ADR-NNN` is the marker rather than a word
- * like "removed" or "gone", because it names which decision and survives the
- * sentence being reworded around it.
+ * Three things are deliberate. The citation must be the ADR the registry
+ * records, not merely some ADR: a sentence citing ADR-022 beside a change
+ * ADR-033 made points the reader at the wrong decision, and a check that accepts
+ * it makes the registry's value decorative. The scope is the sentence, because a
+ * citation two paragraphs away tells the reader of *this* sentence nothing. And
+ * the name is matched on word boundaries, so a longer identifier that merely
+ * contains it — the security-event outcome `mark_concept_understood_denied`,
+ * say — is not read as the tool.
  */
 export const uncitedToolNames = (doc: string): string[] =>
 	Array.from(
 		new Set(
 			forMatching(doc)
-				.split(/(?<=[.!?])\s+|\n{2,}/)
+				.split(SENTENCE_BREAK)
 				.flatMap((sentence) =>
-					Object.keys(RETIRED_TOOL_NAMES).filter(
-						(name) => sentence.includes(name) && !/ADR-\d{3}/.test(sentence),
-					),
+					Object.entries(RETIRED_TOOL_NAMES)
+						.filter(
+							([name, adr]) =>
+								new RegExp(`\\b${name}\\b`).test(sentence) &&
+								!sentence.includes(adr),
+						)
+						.map(([name]) => name),
 				),
 		),
 	);
+
+/** Stands in when an item's heading does not parse, so the item is still checked. */
+export const UNPARSED_TITLE = "(heading did not parse)";
 
 export type BeforeAfterItem = {
 	/** Its number in the section, for the failure message. */
@@ -368,6 +408,13 @@ export type BeforeAfterItem = {
  * Scoped to that section the way `strategyMapCells` is scoped to §3, and for
  * the same reason: other sections number things too, and only these are claims
  * about a run that produced a figure.
+ *
+ * The date is read from the whole block, not from the heading's own sentence,
+ * because a measurement routinely states when it ran several sentences in. The
+ * cost of that is worth knowing: an item's block runs to the next item or to the
+ * end of the section, so an undated item followed by unrelated prose carrying
+ * some other `measured <date>` borrows it. The scope is the block, not the
+ * claim, and the last item's block is the widest.
  */
 export const beforeAfterItems = (doc: string): BeforeAfterItem[] => {
 	const section = doc.split(/^## /m).find((s) => s.startsWith("7. "));
@@ -376,14 +423,20 @@ export const beforeAfterItems = (doc: string): BeforeAfterItem[] => {
 	// Split on the item marker itself, keeping it, so an item runs to the start
 	// of the next one — a measurement's date may sit several sentences after its
 	// heading, and routinely does.
-	return section.split(/^(?=\*\*\d+\. )/m).flatMap((block) => {
-		const head = /^\*\*(\d+)\. ([^*]+)\*\*/.exec(block);
-		if (!head?.[1] || !head[2]) return [];
+	return section.split(/^(?=\*\*\d+\.\s)/m).flatMap((block) => {
+		// Marker and title are read separately on purpose. One pattern for both
+		// dropped any item whose title carried emphasis — `**1. A *thing***` —
+		// silently, so no date check ran on it and nothing reported the absence.
+		// An item that announces itself is always returned; only its title
+		// degrades, and it says so.
+		const marker = /^\*\*(\d+)\./.exec(block);
+		if (!marker?.[1]) return [];
 
 		return [
 			{
-				n: Number(head[1]),
-				title: head[2].trim(),
+				n: Number(marker[1]),
+				title:
+					/^\*\*\d+\.\s*(.+?)\*\*/.exec(block)?.[1]?.trim() ?? UNPARSED_TITLE,
 				measured: measuredOn(block),
 			},
 		];
@@ -498,6 +551,30 @@ export const PINNED_CLAIMS: readonly PinnedClaim[] = [
 		what: "what `missing-info` does now the prompt asks for the missing detail",
 		pattern: /`missing-info` now passes every assertion \((\d+)\/(\d+)\)/,
 		expected: (f) => passRate(f, "missing-info"),
+	},
+	{
+		file: STRATEGY_PATH,
+		what: "the rows the wrap A/B actually covered",
+		pattern: /flips \*\*1 payload\s*in (\d+)\*\*, measured (\d{4}-\d{2}-\d{2})/,
+		expected: () => [String(INDIRECT_MEASURED.rows), INDIRECT_MEASURED.on],
+	},
+	{
+		file: "docs/ai-defence/strategy.md",
+		what: "the same A/B, restated in the cross-surface defence strategy",
+		pattern:
+			/flips \*\*1 payload in (\d+)\*\*, measured (\d{4}-\d{2}-\d{2})[^.]*it holds (\d+) rows today/,
+		expected: (f) => [
+			String(INDIRECT_MEASURED.rows),
+			INDIRECT_MEASURED.on,
+			String(f.indirectRows),
+		],
+	},
+	{
+		file: "docs/specs/features/ai-tutor-guardrails/security.md",
+		what: "the same covered rows, restated in S13 §3",
+		pattern:
+			/ran\s+(\w+) indirect payloads twice[^.]*measured (\d{4}-\d{2}-\d{2})/,
+		expected: () => [asWord(INDIRECT_MEASURED.rows), INDIRECT_MEASURED.on],
 	},
 	{
 		file: STRATEGY_PATH,

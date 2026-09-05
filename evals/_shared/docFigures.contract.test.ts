@@ -3,14 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
 	asWord,
 	beforeAfterItems,
-	CURRENT_TOOL_NAMES,
 	coversWholeCorpus,
+	currentToolNames,
 	datasetForEval,
 	datasetRows,
 	docFigures,
 	drawsMoreThanOnce,
 	forMatching,
 	INDIRECT_DATASET_PATH,
+	INDIRECT_MEASURED,
 	isStale,
 	measuredOn,
 	PINNED_CLAIMS,
@@ -23,6 +24,7 @@ import {
 	sampledEvals,
 	strategyMapCells,
 	tutorFigures,
+	UNPARSED_TITLE,
 	uncitedToolNames,
 } from "./docFigures";
 
@@ -167,13 +169,6 @@ describe("the eval map in ai-eval-strategy.md matches the datasets it describes"
 });
 
 /**
- * `TutorFigures` is everything the module could derive, so everything a claim
- * could assert came from one dataset and one baseline. The `aiGuard:indirect`
- * A/B is quoted in two documents and belongs to neither — which is why a
- * twelve-row denominator survived the corpus growing to sixteen with every
- * check in this file green.
- */
-/**
  * The second half of the pair, and the one that reaches what pinning cannot.
  *
  * A measurement describes the system that existed when it ran. No test can
@@ -244,6 +239,24 @@ describe("a run that covered less than its corpus", () => {
 	it("is not complete when the corpus shrank after the run", () => {
 		expect(coversWholeCorpus(16, 12)).toBe(false);
 	});
+
+	/**
+	 * The predicate had no caller until review said so. This is it: the recorded
+	 * run is what the prose denominator is pinned to, and while it covers less
+	 * than the corpus, both documents must carry the growth note. When the two
+	 * numbers meet — someone re-runs the A/B on all sixteen rows — this case
+	 * goes red and the note is removed with the same commit that moves the
+	 * figure.
+	 */
+	it("still describes partial coverage of the indirect corpus", () => {
+		expect(
+			coversWholeCorpus(INDIRECT_MEASURED.rows, docFigures().indirectRows),
+		).toBe(false);
+	});
+
+	it("records fewer measured rows than the corpus holds", () => {
+		expect(INDIRECT_MEASURED.rows).toBeLessThan(docFigures().indirectRows);
+	});
 });
 
 /**
@@ -272,6 +285,24 @@ describe("every before/after measurement in the strategy states when it ran", ()
 
 	it.each(items)("item $n — $title", ({ measured }) => {
 		expect(measured).not.toBeNull();
+	});
+
+	/**
+	 * Found in review: one pattern for marker and title dropped an item whose
+	 * title carried emphasis, so no date check ran on it and nothing said so.
+	 */
+	it("keeps an item whose title carries emphasis", () => {
+		expect(
+			beforeAfterItems(
+				"## 7. Baselines\n\n**1. A *thing*** — no date.\n\n**2. Another** — no date.\n",
+			).map((item) => item.n),
+		).toEqual([1, 2]);
+	});
+
+	it("says so when a heading does not parse rather than dropping it", () => {
+		expect(
+			beforeAfterItems("## 7. Baselines\n\n**1. unterminated — no date.\n"),
+		).toEqual([{ n: 1, title: UNPARSED_TITLE, measured: null }]);
 	});
 
 	it("reads an undated item as undated", () => {
@@ -326,6 +357,34 @@ describe("a tool name that no longer exists cites the ADR that removed it", () =
 		).toEqual(["mark_concept_understood"]);
 	});
 
+	/**
+	 * Found in review: the check accepted *any* ADR, so a sentence citing the
+	 * wrong decision passed and the registry's value did nothing.
+	 */
+	it("rejects a sentence citing some other ADR", () => {
+		expect(
+			uncitedToolNames(
+				"The guard wraps untrusted text per ADR-022, and `mark_concept_understood` still writes.",
+			),
+		).toEqual(["mark_concept_understood"]);
+	});
+
+	/** Also from review: `e.g.` split the clause and reddened correct prose. */
+	it("does not split a clause at an abbreviation", () => {
+		expect(
+			uncitedToolNames(
+				"ADR-033 removed it, e.g. `mark_concept_understood` is gone.",
+			),
+		).toEqual([]);
+	});
+
+	/** And: a longer identifier that merely contains the name is not the tool. */
+	it("does not read a longer identifier as the tool", () => {
+		expect(
+			uncitedToolNames("The event `mark_concept_understood_denied` fired."),
+		).toEqual([]);
+	});
+
 	it("accepts the same sentence once it cites the ADR", () => {
 		expect(
 			uncitedToolNames("`mark_concept_understood` was removed by ADR-033."),
@@ -366,17 +425,24 @@ describe("a tool name that no longer exists cites the ADR that removed it", () =
 	it("never calls a tool the agent still holds retired", () => {
 		expect(
 			Object.keys(RETIRED_TOOL_NAMES).filter((name) =>
-				CURRENT_TOOL_NAMES.includes(name),
+				currentToolNames().includes(name),
 			),
 		).toEqual([]);
 	});
 
 	it("reads the agent's current tool names from the closed literal", () => {
-		expect(CURRENT_TOOL_NAMES).toContain("ask_concept_check");
-		expect(CURRENT_TOOL_NAMES).toHaveLength(4);
+		expect(currentToolNames()).toContain("ask_concept_check");
+		expect(currentToolNames()).toHaveLength(4);
 	});
 });
 
+/**
+ * `TutorFigures` is everything the module could derive, so everything a claim
+ * could assert came from one dataset and one baseline. The `aiGuard:indirect`
+ * A/B is quoted in three documents and belongs to neither — which is why a
+ * twelve-row denominator survived the corpus growing to sixteen with every
+ * check in this file green.
+ */
 describe("a claim can read a corpus other than the tutor set", () => {
 	const figures = docFigures();
 

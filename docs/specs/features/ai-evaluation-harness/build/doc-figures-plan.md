@@ -319,3 +319,39 @@ Recorded because the plan is history and history that hides its corrections is w
    `plan.md`, destroying the judge's frozen build history. Caught by `git diff` during final
    verification and restored from HEAD; the plan moved here. §1a says a plan is kept and never
    updated — the failure was writing to the path rather than beside it.
+
+7. **`coversWholeCorpus` shipped without a caller, and the plan did not say so.** Task 2 built the
+   predicate and said it was not wired to a document yet; Task 4 was where it should have landed and
+   shipped a pinned corpus-size claim instead. Nobody noticed until code review, which is the honest
+   record: six deviations were disclosed and this one was not, and a deviation log with a hole in it
+   is worth less than none. Closed by giving the module `INDIRECT_MEASURED` — the rows the published
+   run actually covered, and the day it ran — so the predicate has a real caller and the prose
+   denominator has a machine source. The gap it leaves without that: rewriting *"1 payload in 12"* to
+   *"1 payload in 16"* would have kept every check green, because the corpus really does hold sixteen
+   rows, and the sentence would have been pinned to a true number while claiming coverage the run
+   never had.
+
+## What code review changed
+
+One reviewer, mandate correctness and conventions (`superpowers:requesting-code-review`). No
+security audit: `pnpm classify` reported `STANDARD-OR-DIRECT` with no new authority and no control
+touched. Five Important findings, all confirmed by probing the parsers directly rather than taken on
+trust, and all fixed:
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | `uncitedToolNames` accepted **any** ADR number, so `RETIRED_TOOL_NAMES`'s value was decorative and a sentence citing ADR-022 beside an ADR-033 change passed | the registry's own ADR must be the cited one |
+| 2 | `coversWholeCorpus` had no caller — see deviation 7 | `INDIRECT_MEASURED`, plus two claims pinning the denominator |
+| 3 | `spec.md` described two checks that did not ship — including AC 14a in its **rejected** shape | criteria and scenario rows rewritten to what the code does |
+| 4 | a third live copy of the figure in `docs/ai-defence/strategy.md`, outside every check's reach | dated and pinned |
+| 5 | `beforeAfterItems` silently **dropped** an item whose title carried emphasis, so no date check ran on it | marker and title read separately; an item that announces itself is never dropped |
+
+Plus six Minor, all taken: the sentence splitter no longer breaks at `e.g.`, name matching is
+word-anchored, `currentToolNames()` is lazy and accepts digits, two misplaced docstrings moved, the
+block-scope of a measurement date is documented, and two overlong lines rewrapped.
+
+**The finding worth keeping:** #3 is the same defect this branch exists to remove. A feature built to
+stop documents outrunning their code had, in its own spec, a criterion describing a check that was
+abandoned during implementation — and nothing mechanical could catch it, because a spec's prose about
+a check is not a figure. That is the honest limit of this whole approach, and it is why the review
+seat is not optional.
