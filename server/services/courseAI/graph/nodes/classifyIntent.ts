@@ -51,7 +51,7 @@ const outSchema = z.object({
 
 /**
  * Purpose: classifies the current turn as continue / revise / clarify and resolves the step to revise
- * from the field the model names.
+ * from the field the model names; a target that resolves to the step being collected is a continue.
  * Reads: history, userMessage, currentStep, content, instructorId, generationId.
  * Writes: intent, reviseTarget.
  * Fails: never propagates — a model error is caught locally and falls back to intent "continue",
@@ -111,11 +111,17 @@ export const classifyIntent = withNodeErrors(
 			USER'S NEW MESSAGE:
 			${state.userMessage}
 
-			Decide:
-			- "continue": the user is approving, moving forward, asking a question, or supplying content for the CURRENT step for the first time. A step still being collected has produced nothing to revise, so answering its question is always "continue" — even when the user says "add".
-			- "revise": the user wants to change content an EARLIER step already produced, or content this step produced on an earlier turn. Look at ALREADY STORED and at the conversation: content named there exists and can be revised. The distinction is produced-already versus being-collected-now, not adding versus approving.
-			- The content the user names decides the step, and the rule has two halves. If what they describe belongs to CURRENT STEP, it is "continue" — they are answering the question this step asked, whether they phrase it as a statement, a suggestion, or an addition. If it belongs to a different step — objectives while collecting requirements, requirements while collecting the curriculum — it is a "revise" of that step, whatever verb they use and however tentatively they put it.
-			- "clarify": you genuinely cannot tell which of the two it is, or you cannot tell which stored field the user means. Use sparingly.
+			Decide in two steps, in this order.
+
+			1. Which step's content is the user talking about? The four steps own different things. "basic" owns the course's own title, subtitle, description, category, level, language and duration. "objectives" owns what a student will be able to do after the course. "requirements" owns what a student must already know before starting. "curriculum" owns the sections and the lessons inside them. A turn that names no content at all — an approval, an affirmation, a question, a request for suggestions — belongs to CURRENT STEP.
+			2. Compare that step with CURRENT STEP.
+			- the same step: "continue". The user is answering the question this step asked, whether they phrase it as a statement, a suggestion, an addition, or a correction of something they said a moment ago.
+			- an EARLIER step: "revise" of that step.
+			- you cannot tell which step owns the content: "clarify". Use sparingly.
+
+			The verb does not decide, the content does. Words like "add", "also", "maybe", "I think", "change" and "go back" each introduce both answers depending on which step owns what is being named, so routing on them is routing on phrasing. Tentativeness is not a reason to prefer "continue" either: a hesitant request about an earlier step is still about that earlier step.
+
+			ALREADY STORED says what each step has saved so far. Use it to name the field, not to choose the step — an earlier step is revisable whether or not it has stored anything yet.
 
 			When returning "revise", set reviseField to the name of the stored field to change. Name the field, not the step; the step is looked up from it. Section and lesson titles are part of "sections" — a request to rename or reorder a section names "sections", not "title", which is the course's own title.
 			When returning "clarify", write a short friendly question in "reason" that resolves the ambiguity.
@@ -138,6 +144,26 @@ export const classifyIntent = withNodeErrors(
 			// revise_prior_field, which answers a null target with "I couldn't tell
 			// which field to revise" and ends the turn. Asking is recoverable.
 			if (!target) return { intent: "clarify" as const, reviseTarget: null };
+
+			// A revise of the step being collected is a continue, and the comparison
+			// is made here rather than asked of the model.
+			//
+			// Measured, not assumed: on "Students should already know basic HTML and
+			// CSS", said while `requirements` was the current step, the model
+			// returned `revise: requirements` in nine draws of nine and gave its own
+			// reason as "the user is stating what students should already know before
+			// starting the course". It identified the owning step correctly and then
+			// did not compare it with CURRENT STEP. The prompt states that comparison
+			// in both directions already, so more wording would have been aimed at a
+			// defect the model does not have.
+			//
+			// The comparison is arithmetic over two enum values, for the same reason
+			// the step is resolved from the schema instead of named by the model. It
+			// also strictly narrows what a turn can do: `revise_prior_field` writes
+			// `content[target]` before the output boundary, and this routes such a
+			// turn back to the ordinary extraction path instead.
+			if (target === state.currentStep)
+				return { intent: "continue" as const, reviseTarget: null };
 
 			return { intent: "revise" as const, reviseTarget: target };
 		} catch {

@@ -125,6 +125,46 @@ describe("classify_intent — the step is resolved, never named by the model", (
 		expect(out.reviseTarget).toBeNull();
 	});
 
+	/**
+	 * The failure this closes, measured rather than argued: on "Students should
+	 * already know basic HTML and CSS" — said while `requirements` is the step
+	 * being collected — the model returned `revise: requirements` in nine draws
+	 * of nine, with the reason "the user is stating what students should already
+	 * know before starting the course". It identified the step correctly and then
+	 * did not compare it with the current one.
+	 *
+	 * More prompt wording was the wrong repair: the rule was already stated, in
+	 * both directions, and the model's own reason shows it got the analysis right.
+	 * The comparison is arithmetic over two enum values and belongs here, for the
+	 * same reason the step itself is resolved from the schema rather than named by
+	 * the model.
+	 */
+	it("treats a revise of the step being collected as a continue", async () => {
+		mockInvoke.mockResolvedValueOnce({
+			intent: "revise",
+			reviseField: "requirements",
+			reason: "The user is stating what students should already know.",
+		});
+
+		expect(await run({ currentStep: DraftStep.requirements })).toEqual({
+			intent: "continue",
+			reviseTarget: null,
+		});
+	});
+
+	it("still revises a step the instructor has moved past", async () => {
+		mockInvoke.mockResolvedValueOnce({
+			intent: "revise",
+			reviseField: "requirements",
+			reason: "",
+		});
+
+		expect(await run({ currentStep: DraftStep.curriculum })).toEqual({
+			intent: "revise",
+			reviseTarget: DraftStep.requirements,
+		});
+	});
+
 	it("leaves continue alone", async () => {
 		mockInvoke.mockResolvedValueOnce({
 			intent: "continue",
