@@ -241,29 +241,33 @@ not retyped — plus:
 - **A model failure inside `classify_intent` emits `fallback_triggered`.** The node catches its own
   errors and returns `continue`; a provider outage and a genuine "continue" are indistinguishable
   downstream, and the taxonomy already has the event for exactly this class.
-- **The class the prompt has to close, once the instrument stopped adding to it.** An addition aimed
-  at an *earlier* step, phrased tentatively, while a later step is being collected: *"Also add an
-  objective about machine learning concepts"* said during requirements (row 15) and *"I'm not sure,
-  maybe add one more objective?"* (row 19). Both reach `revise:objectives` in **all three samples**.
-  Row 16 was in this list and is not a member: it fails only with the empty content the eval used to
-  supply. **The comparison that pins the defect is row 07** — *"I want to go back and add a 5th
-  objective"*, same step, same target — which passes three of three either way. Nothing about the
-  step differs; only how the instructor phrased it, which is precisely what a routing rule may not
-  depend on.
-- **The floor binds before the rate does, and that is the target.** 17 scored rows × 3 samples = 51.
-  The 85% rate needs 44 of them and stands at 42; the floor needs every gated row off zero and three
-  rows sit there. Fixing all three takes the rate to 51/51, so **the floor is the binding constraint
-  and the rate cannot be satisfied around it** — a prompt that trades one of the three away for
-  points elsewhere still fails.
-- **The opposite direction may not regress, and it is not drift — it is already broken.** Content
-  belonging to the step being collected stays `continue`: *"Students should already know basic HTML
-  and CSS"* during requirements (row 11), *"Add objective: understand numpy and pandas"* during
-  objectives (02), *"The course should teach variables, functions, and DOM manipulation"* (10).
-  Single-sample runs read row 11 as failing one run in three; **three samples read it as failing
-  eight draws of nine**, returning `revise:requirements` while `requirements` is the step being
-  collected — the node revising the current step into itself. It is a defect of the same size as 15
-  and 19, in the opposite direction, and the first pass created it by pushing on the class above.
-  Both directions therefore move together or the change is not done.
+- **The verb does not decide; the content does.** An addition aimed at an *earlier* step reaches
+  `revise` of that step however tentatively it is phrased — *"Also add an objective about machine
+  learning concepts"* said during requirements (row 15), *"I'm not sure, maybe add one more
+  objective?"* (row 19) — in all three samples. **The comparison that pins it is row 07**, *"I want to
+  go back and add a 5th objective"*: same step, same target, and it passed throughout. Nothing about
+  the step differed, only the phrasing, which is exactly what a routing rule may not key on. The
+  prompt now names the step's content first and compares second; the clause it replaced ("a step
+  still being collected has nothing to revise, even when the user says add") was written for row 02
+  and over-fired on anything phrased as an addition.
+- **The floor binds before the rate does, and that is what made the target unfudgeable.** 17 scored
+  rows × 3 samples = 51. The 85% rate needed 44 and stood at 42; the floor needed every gated row off
+  zero and three sat there, so **no trade could satisfy the rate around it**. Met at **51/51 and 9/9
+  in three consecutive runs**, nothing flaky.
+- **A `revise` that resolves to the step being collected is a `continue`, decided in the node.** The
+  model names a field, `stepForField` resolves the step, and a target equal to `currentStep` routes to
+  the ordinary extraction path instead of `revise_prior_field`. This is a narrowing: `revise_prior_field`
+  writes `content[target]` *before* the output boundary (see §Security exclusion 2), and this turn no
+  longer can.
+- **The opposite direction holds, and it is not held by wording.** Content belonging to the step
+  being collected stays `continue`: *"Students should already know basic HTML and CSS"* during
+  requirements (row 11), *"Add objective: understand numpy and pandas"* during objectives (02),
+  *"The course should teach variables, functions, and DOM manipulation"* (10). Row 11 was not drift —
+  single samples read it as failing one run in three, three samples as failing eight draws of nine.
+  Asked why, the model answered *"the user is stating what students should already know before
+  starting the course"*: it had named the owning step correctly and simply did not compare it with
+  `currentStep`. **More prompt wording would have been aimed at a defect the model does not have**,
+  which is why that comparison is arithmetic in the node instead.
 - **The set size is accepted here, not solved here.** 20 rows, 17 of them scored, is coarse. Growing
   the set carries its own leak risk — `confidenceScoreDataset.contract.test.ts` exists because a set
   handed the model its label through a context field — and doing it in the same change would make it
@@ -415,11 +419,11 @@ code:**
   call site. Without it a chained graph's worst case is the sum of every node's per-call budget.
 - `GRAPH_RECURSION_LIMIT` **25**.
 - Model: `gpt-4o-mini` on every node.
-- `classify_intent` prompt: **559 tokens**, mean over 17 calls, measured 2026-09-05 — the figure
-  *before* the intent-routing second pass; the plan reports the after, and a routing rule the model
-  has to read is paid on every turn that has a history. Sampling its eval 3× takes one run from 17
-  calls at **$0.002** to 51 at about **$0.006**: that is the price of a number that does not move ten
-  points on unchanged code.
+- `classify_intent` prompt: **658 tokens**, up from 559 on 2026-09-05. The two-step routing rule is
+  read on every turn that has a history — **+18%** on that node's input. Named rather than buried:
+  the half of the fix that could not be carried by wording moved into the node instead, and this is
+  what the half that stayed cost. Its eval went from 17 calls at **$0.002** to 51 at **$0.005**, which
+  is the price of a number that does not move ten points on unchanged code.
 - `confidence_score` prompt: **629 tokens**, up from 442 on 2026-09-05. The calibration fix is
   written into the guidelines, so it is paid on every turn — about **+42%** on that node's input, and
   $0.002 → $0.003 for one 20-row eval run. Named rather than buried: a scoring rule the model has to
