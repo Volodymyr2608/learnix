@@ -1,6 +1,6 @@
 ---
 feature: ai-course-builder
-status: in-progress
+status: stable
 models: [CourseGeneration, CourseGenerationMessage]
 depends-on: [course]
 ---
@@ -108,21 +108,32 @@ persisted.
 `routeAfterConfidence` returns `hold`, the graph ends without `persist_and_emit`, and the UI shows an
 explicit Accept button. Low confidence is not a failure — it is the handover to a human.
 
-**The threshold is only as good as what the node scores against it, and today it is not good enough.**
-Measured 2026-09-03 on the repaired `courseAI:confidenceScore` set: of the 15 steps the node scored
+**The threshold is only as good as what the node scores against it — fixed 2026-09-05.** Measured
+2026-09-03 on the repaired `courseAI:confidenceScore` set: of the 15 steps the node scored
 `≥ 0.8`, **11 were genuinely complete — 73.3% against the eval's own 0.85 gate**, twice in a row. The
 four false positives are a one-objective step (`"Learn Python"`), a one-requirement step
 (`"some experience"`), a curriculum of one `Section 1` holding one `Lesson 1`, and two two-word
 objectives (`"use AWS"`, `"understand cloud"`). Each auto-advanced: the handover this section
 describes did not happen on the steps that most needed it.
 
-The cause is a contradiction inside the prompt rather than the model. Its guidelines say *"If
-EXTRACTED DATA has all required fields and the content is specific… score at least 0.85"* and *"A
-brief conversation is not a reason to score low"*, while a lower band exists for *"generic titles, few
-lessons"*. A one-word objective satisfies the floor rule (the field is present and non-empty) and the
-band rule (it is generic) at once, and the floor wins. **Presence of a field is being scored as
-specificity.** That is what this reopening fixes, in the prompt — the 0.8 threshold and the handover
-semantics above do not move.
+The cause was a contradiction inside the prompt rather than the model. Its guidelines said *"If
+EXTRACTED DATA has all required fields and the content is specific… score at least 0.85"*, while a
+lower band existed for *"generic titles, few lessons"*. A one-word objective satisfied the floor rule
+(the field is present and non-empty) and the band rule (it is generic) at once, and the floor won.
+**Presence of a field was being scored as specificity.**
+
+**What the distribution showed, and why no threshold could have fixed it.** Printing every row's score
+turned a count into a diagnosis: **thirteen of the twenty rows came back at exactly 0.90**, two of
+them false positives tied with every genuinely complete draft in the set. The floor rule was not
+raising four scores, it was collapsing the top of the range. That settles the alternative repair with
+arithmetic rather than preference — above 0.85 the surviving set is 11 true and 2 false (**84.6%,
+still under the gate**), and above 0.90 nothing survives at all, so **no cut point in (0.8, 1] reaches
+0.85**. Freezing `CONFIDENCE_THRESHOLD` was not a stylistic choice about documentation churn.
+
+**After the fix** (2026-09-05, two runs, same verdict): precision **100% (11/11)**, retention
+**11/11** against a floor of 10. The four false positives sit at 0.60, 0.50, 0.50 and 0.30, and the
+gap between the lowest complete row and the highest sparse one is **0.20** where it had been zero.
+The 0.8 threshold and the handover semantics above did not move.
 
 **5. Model output.** Two checks with different jobs. The `output_boundary` node runs the shared
 boundary silently inside the graph; the route's `finally` runs `validateModelText` **unconditionally
@@ -270,6 +281,10 @@ code:**
   call site. Without it a chained graph's worst case is the sum of every node's per-call budget.
 - `GRAPH_RECURSION_LIMIT` **25**.
 - Model: `gpt-4o-mini` on every node.
+- `confidence_score` prompt: **555 tokens**, up from 442 on 2026-09-05. The calibration fix is
+  written into the guidelines, so it is paid on every turn — about **+25%** on that node's input, and
+  $0.002 → $0.003 for one 20-row eval run. Named rather than buried: a scoring rule the model has to
+  read is not free, and this is the cheapest place to see what it cost.
 
 **Not bounded, and it is the one gap on this surface with a user-visible failure mode:** no tool call
 has a timeout. A tool that hangs holds the stream open until the client aborts, and the turn deadline
@@ -386,14 +401,20 @@ costs one run — about $0.002 — and it decides whether prompt work can succee
   correlated with `expected.complete`, so the node was scoring a leaked label rather than the data.
   The set is repaired and `confidenceScoreDataset.contract.test.ts` pins the shape; the 73.3% is what
   the node has been doing all along, first visible once the leak was closed.
-- **Never quote this node's accuracy without saying which set it came from.** Numbers taken before
-  2026-09-03 (91.7%) and after (73.3%) measure different questions, and the earlier one is not a
-  baseline to regress against.
+- **Never quote this node's accuracy without saying which set it came from, and which prompt.** There
+  are three numbers, and they answer three different questions: **91.7%** (pre-repair set, leaking its
+  own labels), **73.3%** (repaired set, old prompt — what the node had been doing all along), and
+  **100%** (repaired set, current prompt, 2026-09-05). Only the last two are comparable, and only the
+  last is current.
 - **Do not "fix" this node by moving `CONFIDENCE_THRESHOLD`.** The constant is 0.8 in
-  `graph/nodes/confidenceScore.ts` and is documented in three places; the measured defect is a floor
-  rule inside the prompt, and a cut point cannot repair a ranking. If a future run shows a false
-  positive outscoring a true row, the answer is a different scoring instruction — or a different
-  signal — not a higher bar.
+  `graph/nodes/confidenceScore.ts` and is documented in three places, and on the pre-fix prompt **no
+  value of it reached the gate** — the false positives were tied with the true rows at 0.90, not
+  merely above the line. A cut point cannot separate equal scores. If a future run shows the bands
+  collapsing again, the repair is the scoring instruction, not the bar.
+- **The prompt asks for spread on purpose.** The line *"Two drafts of visibly different quality must
+  not receive the same score"* is load-bearing, not decoration: score compression at the top is the
+  failure this node had, and it is invisible in a pass rate. `formatScoreTable` in the eval prints the
+  distribution so the next reader sees it without having to suspect it.
 - **The golden set is off-limits to the prompt.** Rows 04, 06, 08 and 18 are the fixture this work is
   measured against; naming their content in the prompt turns the eval into a lookup. A contract test
   enforces this, so it does not depend on anyone remembering.
