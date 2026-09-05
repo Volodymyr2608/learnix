@@ -101,6 +101,46 @@ export function categoryGate(
 	return allPassed;
 }
 
+/**
+ * The floor a rate cannot express: no row in a gated category may fail every
+ * draw.
+ *
+ * `categoryGate` reports an average, and an average is exactly what lets a row
+ * that has never once passed hide behind drift on its neighbours. Fifteen solid
+ * rows and two that always fail is 88% — over any bar this repo sets — while two
+ * of the seventeen behaviours the set exists to check are simply broken. That is
+ * not a rounding difference and it should not read as one.
+ *
+ * The companion argument to `retentionGate`'s: a single number can always be
+ * satisfied by moving the wrong thing, so the run holds two.
+ *
+ * The floor follows the category rather than the whole run. A category with no
+ * threshold is a measurement nobody has set a bar for yet (`categoryGate`), and
+ * a measurement is allowed to contain rows that never pass — that is often the
+ * finding.
+ */
+export const alwaysFailingGate = (
+	label: string,
+	stability: readonly RowStability[],
+	thresholds: Record<string, number>,
+): boolean => {
+	const never = stability.filter(
+		(row) => row.passed === 0 && thresholds[row.category] !== undefined,
+	);
+
+	if (never.length === 0) return true;
+
+	console.log(
+		`\n${label} rows that never passed:`,
+		never.map((row) => row.id).join(", "),
+	);
+	console.error(
+		`FAIL: ${label} — ${never.length} gated row(s) failed every sample; a rate over the bar does not make that drift`,
+	);
+
+	return false;
+};
+
 export type ScoredRow = { id: string; score: number; expected: boolean };
 
 /**

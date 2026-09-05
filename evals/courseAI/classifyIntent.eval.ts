@@ -1,6 +1,7 @@
 import { DraftStep } from "@/generated/prisma";
 import { classifyIntent } from "@/server/services/courseAI/graph/nodes/classifyIntent";
 import {
+	alwaysFailingGate,
 	type CategoryEvalResult,
 	categoryGate,
 	flakyRows,
@@ -114,23 +115,24 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 	if (outcomes)
 		console.log(`\nclassifyIntent — what the node returned:\n${outcomes}`);
 
-	// Two facts a single draw cannot produce, and they are different facts: a row
-	// that never passes is a defect, a row that passes sometimes is a coin. The
-	// table above says what was returned; this says how reliably.
+	// A row that passes sometimes is a coin, and a single draw reports it as a
+	// confident boolean either way. The rows that never pass are named by
+	// `alwaysFailingGate` below, which also fails the run for them.
 	const stability = rowStability(results);
-	const never = stability.filter((row) => row.passed === 0);
 	const flaky = flakyRows(stability);
 
 	console.log(
-		`  fails every sample:  ${never.map((row) => row.id).join(", ") || "none"}`,
-	);
-	console.log(
-		`  flaky:               ${
+		`  flaky:  ${
 			flaky
 				.map((row) => `${row.id} (${row.passed}/${row.samples})`)
 				.join(", ") || "none"
 		}`,
 	);
 
-	return categoryGate("classifyIntent", results, GATES);
+	// Both, and neither short-circuits: a run that fails the rate should still
+	// print which rows are broken outright, because they are different repairs.
+	const rateHeld = categoryGate("classifyIntent", results, GATES);
+	const floorHeld = alwaysFailingGate("classifyIntent", stability, GATES);
+
+	return rateHeld && floorHeld;
 }

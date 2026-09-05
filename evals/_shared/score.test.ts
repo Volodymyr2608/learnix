@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	accuracyGate,
+	alwaysFailingGate,
 	type CategoryEvalResult,
 	categoryGate,
 	type EvalResult,
@@ -456,5 +457,90 @@ describe("formatRowOutcomes", () => {
 		expect(
 			formatRowOutcomes([sample("02", true, "continue:null", "continue:null")]),
 		).toBe("");
+	});
+});
+
+/**
+ * The second number `confidenceScore` taught this file to want. A rate is an
+ * average, and an average lets a row that has never once passed hide behind
+ * drift on its neighbours — which is exactly how "rows 15 and 19 always fail"
+ * reads as a rounding difference rather than a defect.
+ */
+describe("alwaysFailingGate", () => {
+	const draws = (
+		id: string,
+		category: string,
+		passed: number,
+		samples = 3,
+	): CategoryEvalResult[] =>
+		Array.from({ length: samples }, (_, i) => ({
+			id,
+			category,
+			ok: i < passed,
+		}));
+
+	const fifteenSolid = Array.from({ length: 15 }, (_, i) =>
+		draws(`ok-${i}`, "classified", 3),
+	).flat();
+
+	it("fails a run whose rate passes while two rows never pass at all", () => {
+		silence();
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const results = [
+			...fifteenSolid,
+			...draws("15", "classified", 0),
+			...draws("19", "classified", 0),
+		];
+
+		// The point of the pair: the rate is 45/51 = 88%, comfortably over the
+		// bar, and the run is still broken.
+		expect(categoryGate("t", results, { classified: 0.85 })).toBe(true);
+		expect(
+			alwaysFailingGate("t", rowStability(results), { classified: 0.85 }),
+		).toBe(false);
+		expect(error).toHaveBeenCalled();
+	});
+
+	it("names the rows that never passed", () => {
+		const log = silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		alwaysFailingGate(
+			"t",
+			rowStability([
+				...fifteenSolid,
+				...draws("15", "classified", 0),
+				...draws("19", "classified", 0),
+			]),
+			{ classified: 0.85 },
+		);
+
+		expect(log.mock.calls.flat().join(" ")).toContain("15, 19");
+	});
+
+	it("passes when every row passes at least once", () => {
+		silence();
+
+		const results = [
+			...fifteenSolid,
+			...draws("15", "classified", 1),
+			...draws("19", "classified", 1),
+		];
+
+		expect(
+			alwaysFailingGate("t", rowStability(results), { classified: 0.85 }),
+		).toBe(true);
+	});
+
+	/** The floor follows the category, exactly as `categoryGate` does. */
+	it("ignores a never-passing row in a category nobody gated", () => {
+		silence();
+
+		const results = [...fifteenSolid, ...draws("red", "measured-only", 0)];
+
+		expect(
+			alwaysFailingGate("t", rowStability(results), { classified: 0.85 }),
+		).toBe(true);
 	});
 });
