@@ -101,6 +101,47 @@ export function categoryGate(
 	return allPassed;
 }
 
+export type ScoredRow = { id: string; score: number; expected: boolean };
+
+/**
+ * Every row's score against its label, ordered — the twenty numbers behind the
+ * one a gate prints.
+ *
+ * A gate answers "how many were wrong". This answers the question that decides
+ * what to do about it: **where** the wrong ones sit. False positives clustered
+ * below every correct row mean the model ordered the set correctly and the cut
+ * point is misplaced — a prompt, or in principle a threshold, can move that. A
+ * false positive scoring above a correct row means the ranking itself is broken,
+ * and no cut point exists that separates them; wording the prompt differently is
+ * then the wrong repair to reach for.
+ *
+ * The distinction is invisible in the pass/fail line, and it is the difference
+ * between a fix and a fix-shaped guess.
+ */
+export const formatScoreTable = (
+	rows: readonly ScoredRow[],
+	threshold: number,
+): string => {
+	const header = `  ${"row".padEnd(6)}${"score".padStart(5)}  label`;
+
+	const lines = [...rows]
+		.sort((a, b) => b.score - a.score)
+		.map((row) => {
+			// Below the threshold nothing advanced, so an incomplete row there is
+			// the node behaving correctly — marking it would report recall as if
+			// it were precision.
+			const falsePositive = row.score >= threshold && !row.expected;
+
+			return (
+				`  ${row.id.padEnd(6)}${row.score.toFixed(2).padStart(5)}  ` +
+				`${(row.expected ? "complete" : "sparse").padEnd(9)}` +
+				`${falsePositive ? " <- false positive" : ""}`
+			);
+		});
+
+	return [header, ...lines].join("\n");
+};
+
 export function accuracyGate(
 	label: string,
 	results: EvalResult[],

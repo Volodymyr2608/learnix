@@ -3,7 +3,11 @@ import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
 import { confidenceScore } from "@/server/services/courseAI/graph/nodes/confidenceScore";
 import { formatRunCost, takeRecordedUsage } from "../_shared/cost";
-import { accuracyGate, type EvalResult } from "../_shared/score";
+import {
+	accuracyGate,
+	type EvalResult,
+	formatScoreTable,
+} from "../_shared/score";
 import {
 	formatCallStats,
 	summariseCalls,
@@ -83,6 +87,10 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 	console.log(
 		`High-confidence predictions: ${raw.filter((r) => r.score >= 0.8).length}/${raw.length}`,
 	);
+	// Printed before the gate, because the gate's verdict is not the finding —
+	// the shape of the distribution is. See `formatScoreTable`.
+	console.log(`\nScores, highest first:`);
+	console.log(formatScoreTable(raw, 0.8));
 
 	const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(0);
 	console.log(`\nCost of this run (${elapsedSeconds}s wall clock):`);
