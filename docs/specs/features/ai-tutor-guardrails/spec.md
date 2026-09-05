@@ -952,12 +952,29 @@ amendments to ADR-022 and ADR-024, not a new ADR: no decision is being reversed,
 - L2 relevance call: **3 s** timeout.
 - Model: `gpt-4o-mini`, temperature 0.4, streaming.
 
-**Not measured, and this is a stated gap rather than an omission.** There is no p95 latency budget,
-no per-turn token ceiling and no cost ceiling for this feature, because nothing measures them:
-LangSmith is tracing-only and off by default, and there is no metrics module. Owner is workstream D
-of `ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3. Until it exists, the ceilings above bound
-*volume and prompt size*, not spend per turn — the two are only loosely related, and a change that
-lengthens the system prompt or adds a tool round-trip moves cost without touching any number here.
+**Measured since 2026-09-03** — [`ai-observability`](../ai-observability/spec.md), ADR-035. Every
+model call on this surface emits `latencyMs`, `promptTokens`, `completionTokens` and `costUsd`; every
+turn emits `calls`, `wallMs`, `ttftMs` and the turn total, aborted turns included, because a turn
+missing from the sample biases every statistic computed over it. The sentence that stood here — "no
+metrics module, LangSmith is tracing-only" — is no longer true, and its owner is gone with it:
+`ai-hardening-plan.md` was removed 2026-08-26.
+
+**Structural ceiling on one turn — derived from the bounds above, not measured.** Every input to the
+prompt is capped, so the prompt is: history **≤ 8,000 characters** (`MODEL_CONTEXT_CHAR_BUDGET`,
+trimmed by whole messages), the student's message **≤ 2,000**, and each retrieval tool returns at most
+**k = 8 chunks × 1,000 characters** (`chunker.ts`) under an agent loop of `recursionLimit` **12** —
+at most six tool returns. Worst case is therefore **≈ 58,000 characters, ~14,000 tokens** at four
+characters per token: an arithmetic bound on the shape, with the metric above now reporting the actual
+figure per call. This surface has a ceiling because its inputs do; `study-guide` and `quiz-generation`,
+whose input is a whole lesson body with no length cap, have none.
+
+**Still not set: the budgets.** A p95 target and a cost ceiling per student are numbers a baseline
+produces, not ones a spec declares. [`ai-observability`](../ai-observability/spec.md) §Performance
+sequences them after the metric ships for that reason — writing them first is the invented-figure
+failure mode [`ai-eval-strategy.md`](../../ai-eval-strategy.md) and `docFigures.ts` exist to prevent —
+and that baseline is the owner. Until it lands, the ceilings above bound *volume and prompt size*
+rather than spend: a longer system prompt or an extra tool round-trip moves cost without touching any
+number here.
 
 ## Observability
 

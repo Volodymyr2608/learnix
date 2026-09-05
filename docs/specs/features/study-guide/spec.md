@@ -265,11 +265,20 @@ change adds a second render path — hence acceptance criterion 10.
 - The `contentHash` cache is the real saving: regenerating an unchanged lesson costs **zero** model
   calls.
 
-**Not measured**, the same stated gap the other AI surfaces carry: no p95 latency budget, no
-per-generation token or cost ceiling, because nothing measures them. Owner is workstream D of
-`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3. The input side is unbounded in a way
-the others are not — a lesson body has no length cap before it reaches the prompt, so the cost of one
-generation scales with how much an instructor wrote.
+**Measured since 2026-09-03** — [`ai-observability`](../ai-observability/spec.md), ADR-035: each of
+the three parallel calls emits its own `latencyMs`, `promptTokens`, `completionTokens` and `costUsd`,
+and the generation emits one turn line. The per-call split is what makes the parallel trio readable:
+`wallMs` for the turn is the slowest of the three, while `costUsd` is the sum of all three, and a
+single number would have conflated them.
+
+**No structural token ceiling, and the input side is unbounded in a way the others are not** — a
+lesson body has no length cap before it reaches the prompt, so the cost of one generation scales with
+how much an instructor wrote, and the trio multiplies that input by three. The output bounds (summary
+≤ 800 characters, ≤ 7 concepts, ≤ 15 glossary entries) cap only the completion side; the
+`contentHash` cache is what actually bounds spend over time.
+
+**Still not set:** the p95 target and the per-generation cost ceiling. Owner is the baseline in
+[`ai-observability`](../ai-observability/spec.md) §Performance.
 
 ## Observability
 

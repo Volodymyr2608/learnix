@@ -19,14 +19,16 @@ behaviour. Nothing about what a student or instructor sees changes.
 ## Business goal
 
 Five feature specs (`ai-tutor-guardrails`, `ai-course-builder`, `quiz-generation`, `learning-path`,
-`study-guide`) each carry the same paragraph: *"Not measured, and this is a stated gap rather than an
-omission. There is no p95 latency budget, no per-turn token ceiling and no cost ceiling."* Those
-sentences are the deliverable this feature exists to delete.
+`study-guide`) each carried the same paragraph: *"Not measured, and this is a stated gap rather than
+an omission. There is no p95 latency budget, no per-turn token ceiling and no cost ceiling."* Those
+sentences were the deliverable this feature existed to delete, and **they were deleted 2026-09-05**:
+each of the five §Performance sections now names what its surface emits, and what remains unset is
+only the *budgets*, whose owner is the baseline below rather than a removed plan file.
 
-Concretely, three questions cannot be answered today and are answerable the day this ships: which AI
+Concretely, three questions could not be answered before this shipped and are answerable now: which AI
 operation costs the most, which model calls are slow or failing, and what one turn of each flow
-actually costs. Until they are answerable, the ceilings that *do* exist (rate limits, context
-windows, recursion caps) bound volume and prompt size but not spend — and a change that lengthens a
+actually costs. Until a baseline is taken the ceilings that *do* exist (rate limits, context windows,
+recursion caps) still bound volume and prompt size but not spend — and a change that lengthens a
 system prompt or adds a tool round-trip moves cost without touching any number anyone tracks.
 
 The second goal is cheaper to state: `evals/_shared/cost.ts` already prices a run, and a second price
@@ -212,10 +214,13 @@ redacted.
 added per model call, against a 3 s L2 budget and a 30 s per-call timeout — i.e. under 0.04% of the
 smallest existing budget. No network I/O, no `await` on a sink, no serialization of message content.
 
-**What this feature measures rather than declares.** The p95 budgets, per-turn token ceilings and
-cost ceilings that five specs list as "Not measured" are filled *after* this ships, from its baseline.
-Writing them here as targets first would be inventing numbers, which is the failure mode
-[`ai-eval-strategy.md`](../../ai-eval-strategy.md) and `docFigures.ts` exist to prevent.
+**What this feature measures rather than declares.** The p95 budgets and cost ceilings that five
+specs listed as "Not measured" are filled *after* this ships, from its baseline. Writing them here as
+targets first would be inventing numbers, which is the failure mode
+[`ai-eval-strategy.md`](../../ai-eval-strategy.md) and `docFigures.ts` exist to prevent. As of
+2026-09-05 the five specs name what each surface emits and, where the inputs are capped, the token
+ceiling that follows arithmetically from them; the two numbers still open — a p95 target and a cost
+ceiling per user — are the ones that need the baseline, and this spec is their owner.
 
 **Bounds this feature inherits and must not move** (`aiLimits/modelDefaults.ts`, `topicRelevance.ts`):
 one call 30 s with 2 retries; one turn 120 s; graph recursion 25, agent recursion 12; L2 relevance

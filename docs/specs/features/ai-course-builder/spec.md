@@ -212,9 +212,21 @@ code:**
 
 **Not bounded, and it is the one gap on this surface with a user-visible failure mode:** no tool call
 has a timeout. A tool that hangs holds the stream open until the client aborts, and the turn deadline
-does not cover it. **Not measured:** no p95, no per-turn token or cost ceiling — workstream D of
-`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3, which §5 deliberately sequences after
-metrics exist.
+does not cover it. **Measured since 2026-09-03** — [`ai-observability`](../ai-observability/spec.md), ADR-035. One
+metric line per node (`latencyMs`, `promptTokens`, `completionTokens`, `costUsd`) and one per turn
+(`calls`, `wallMs`, `ttftMs`, the turn total). This is the surface the metric was shaped around: a
+turn here is 6–8 nodes, and only a per-node split answers *which* node is expensive — a turn total
+alone would have hidden it.
+
+**No structural token ceiling, and the reason is the graph, not the input.** The student's message is
+capped at 2,000 characters, but each node feeds its output forward into the next node's prompt, so
+per-turn prompt size is bounded only by `GRAPH_RECURSION_LIMIT` **25** and the 120 s turn deadline —
+both bounds on *count and wall time*, not on tokens. This is the one AI surface here where the ceiling
+has to come from the measurement rather than from arithmetic over the inputs.
+
+**Still not set:** the p95 target and the per-turn cost ceiling. Owner is the baseline in
+[`ai-observability`](../ai-observability/spec.md) §Performance, which sequences them after the metric
+ships deliberately.
 
 ## Observability
 

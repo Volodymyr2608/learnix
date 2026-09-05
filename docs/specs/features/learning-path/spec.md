@@ -259,12 +259,20 @@ than no path on a surface whose whole job is to tell a student what to do next.
   are what the deadline and the recursion limit actually bound.
 - The `skipLLM` branch costs **zero** model calls; the cache costs zero until the student asks.
 
-**Not measured**, the same gap the other AI surfaces carry: no p95 latency budget, no per-run token
-or cost ceiling. Owner is workstream D of
-`ai-hardening-plan.md` *(removed 2026-08-26; in git history)* §3. The unbounded quantity here is
-**enrichment**: `gatherEnrichment` fetches a summary, concept list and up to 5 quiz attempts per
-unique candidate lesson, and the whole thing is serialised into one human message — so prompt size
-scales with the candidate count, not with anything the student typed.
+**Measured since 2026-09-03** — [`ai-observability`](../ai-observability/spec.md), ADR-035: per-call
+`latencyMs`, `promptTokens`, `completionTokens`, `costUsd`, and a per-run turn line carrying `calls`
+and the total. `calls` is the field that matters here, for the same reason the deadline exists: a
+merge loop inside a reflection loop makes the spread between the cheap run and the worst case wider
+than on any other surface, and only the count separates them.
+
+**No structural token ceiling, and the unbounded quantity is named:** **enrichment**.
+`gatherEnrichment` fetches a summary, concept list and up to 5 quiz attempts per unique candidate
+lesson, serialised into one human message — so prompt size scales with the candidate count, not with
+anything the student typed. The rate limit (1/min per student+course) bounds how often that happens,
+not how large it gets.
+
+**Still not set:** the p95 target and the per-run cost ceiling, owned by the baseline in
+[`ai-observability`](../ai-observability/spec.md) §Performance.
 
 ## Observability
 
