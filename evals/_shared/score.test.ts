@@ -6,6 +6,7 @@ import {
 	type EvalResult,
 	flakyRows,
 	formatScoreTable,
+	precisionGate,
 	retentionGate,
 	rowStability,
 	type ScoredRow,
@@ -335,5 +336,62 @@ describe("accuracyGate on an empty set", () => {
 		vi.spyOn(console, "error").mockImplementation(() => {});
 
 		expect(accuracyGate("t", [], 0.85)).toBe(false);
+	});
+});
+
+/**
+ * The hole this closes was not hypothetical for long.
+ *
+ * `precisionGate` divided true positives by all positives and returned 1 when
+ * there were none — "of the rows we advanced, all deserved it" is vacuously
+ * true of a run that advanced nothing. `courseAI:assessCompletion` reported
+ * "precision on ready=true: 100.0%" for months while making zero model calls:
+ * the eval passed an empty user message, the node's first guard returned early
+ * on exactly that, every prediction came back false, and the gate called it
+ * perfect.
+ *
+ * An absent measurement is not a passing one. It is also not 0% precision —
+ * which is why the run says what happened rather than printing a number that
+ * invites the reader to interpret it.
+ */
+describe("precisionGate with nothing predicted", () => {
+	const row = (id: string, predicted: boolean, expected: boolean) => ({
+		id,
+		predicted,
+		expected,
+	});
+
+	it("fails when no row was predicted true", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(
+			precisionGate("t", [row("a", false, true), row("b", false, false)], 0.9),
+		).toBe(false);
+	});
+
+	it("says the run measured nothing rather than reporting a precision", () => {
+		const log = silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		precisionGate("t", [row("a", false, true)], 0.9);
+
+		expect(log.mock.calls.flat().join(" ")).toMatch(/nothing|no rows/i);
+	});
+
+	it("still scores a run that predicted something", () => {
+		silence();
+
+		expect(
+			precisionGate("t", [row("a", true, true), row("b", false, true)], 0.9),
+		).toBe(true);
+	});
+
+	/** An empty results array is the same absence, reached from further away. */
+	it("fails on an empty result set", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(precisionGate("t", [], 0.9)).toBe(false);
 	});
 });

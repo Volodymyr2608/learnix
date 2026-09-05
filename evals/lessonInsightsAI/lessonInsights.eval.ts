@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { insightsChain } from "@/server/services/lessonInsightsAI/chains/parallel.chain";
 import { accuracyGate } from "../_shared/score";
+import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
 
 type Row = {
 	id: string;
@@ -19,6 +20,8 @@ const DATASET = resolve(
 );
 
 export async function runLessonInsightsEval(): Promise<boolean> {
+	const recorder = usageRecorder();
+	const startedAt = startRunUsage();
 	const rows: Row[] = readFileSync(DATASET, "utf-8")
 		.split("\n")
 		.filter(Boolean)
@@ -26,7 +29,10 @@ export async function runLessonInsightsEval(): Promise<boolean> {
 
 	const results = await Promise.all(
 		rows.map(async (r) => {
-			const out = await insightsChain.invoke({ content: r.input.content });
+			const out = await insightsChain.invoke(
+				{ content: r.input.content },
+				recorder.config,
+			);
 			const summaryLower = out.summary.summary.toLowerCase();
 			const summaryOk = r.expected.summary_contains.every((kw) =>
 				summaryLower.includes(kw.toLowerCase()),
@@ -38,6 +44,8 @@ export async function runLessonInsightsEval(): Promise<boolean> {
 			return { id: r.id, ok: summaryOk && conceptsOk && glossaryOk };
 		}),
 	);
+
+	reportRunUsage(recorder, startedAt, results.length);
 
 	return accuracyGate("lessonInsights", results, 0.9);
 }

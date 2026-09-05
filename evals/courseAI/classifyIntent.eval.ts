@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
 import { classifyIntent } from "@/server/services/courseAI/graph/nodes/classifyIntent";
 import { accuracyGate, type EvalResult } from "../_shared/score";
+import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
 
 type Row = {
 	id: string;
@@ -31,31 +32,36 @@ const loadDataset = (): Row[] =>
 		.map((l) => JSON.parse(l) as Row);
 
 export async function runClassifyIntentEval(): Promise<boolean> {
+	const recorder = usageRecorder();
+	const startedAt = startRunUsage();
 	const data = loadDataset();
 	const results: EvalResult[] = await Promise.all(
 		data.map(async (row) => {
-			const out = await classifyIntent({
-				generationId: "eval",
-				instructorId: "eval",
-				currentStep: DraftStep[row.currentStep],
-				content: {},
-				history: row.history.map((h) => ({ ...h, step: DraftStep[h.step] })),
-				mode: "chat",
-				userMessage: row.userMessage,
-				intent: null,
-				reviseTarget: null,
-				toolCalls: [],
-				pendingToolCalls: [],
-				assessReady: false,
-				assessClarify: null,
-				draftStepData: undefined,
-				confidence: 0,
-				shouldAutoAdvance: false,
-				assistantText: "",
-				validationErrors: null,
-				outputRejected: false,
-				messages: [],
-			});
+			const out = await classifyIntent(
+				{
+					generationId: "eval",
+					instructorId: "eval",
+					currentStep: DraftStep[row.currentStep],
+					content: {},
+					history: row.history.map((h) => ({ ...h, step: DraftStep[h.step] })),
+					mode: "chat",
+					userMessage: row.userMessage,
+					intent: null,
+					reviseTarget: null,
+					toolCalls: [],
+					pendingToolCalls: [],
+					assessReady: false,
+					assessClarify: null,
+					draftStepData: undefined,
+					confidence: 0,
+					shouldAutoAdvance: false,
+					assistantText: "",
+					validationErrors: null,
+					outputRejected: false,
+					messages: [],
+				},
+				recorder.config,
+			);
 			const ok =
 				out.intent === row.expected.intent &&
 				(out.reviseTarget ?? null) ===
@@ -65,5 +71,7 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 			return { id: row.id, ok };
 		}),
 	);
+	reportRunUsage(recorder, startedAt, data.length);
+
 	return accuracyGate("classifyIntent", results, 0.85);
 }

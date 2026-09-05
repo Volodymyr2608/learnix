@@ -201,9 +201,21 @@ export function accuracyGate(
 	return true;
 }
 
-// Precision gate: penalises false positives (predicted=true, expected=false) more
-// harshly than false negatives. Used by evals where premature advancement is
-// more costly than excessive caution.
+/**
+ * Precision gate: penalises false positives (predicted=true, expected=false)
+ * more harshly than false negatives. Used by evals where premature advancement
+ * is more costly than excessive caution.
+ *
+ * **A run that predicted nothing fails.** "Of the rows we advanced, all deserved
+ * it" is vacuously true of a run that advanced none, and this gate used to
+ * return 1 for exactly that. `courseAI:assessCompletion` reported 100% while
+ * making zero model calls: its eval passed an empty user message, the node's
+ * first guard returned early on it, every prediction came back false, and the
+ * gate called the absence perfect. An absent measurement is not a passing one.
+ *
+ * It is not 0% precision either, which is why the failure says what happened
+ * instead of printing a number a reader would try to interpret.
+ */
 export function precisionGate(
 	label: string,
 	results: Array<{ id: string; predicted: boolean; expected: boolean }>,
@@ -213,10 +225,15 @@ export function precisionGate(
 	const falsePositives = results.filter(
 		(r) => r.predicted && !r.expected,
 	).length;
-	const precision =
-		truePositives + falsePositives === 0
-			? 1
-			: truePositives / (truePositives + falsePositives);
+	if (truePositives + falsePositives === 0) {
+		console.log(`${label}: no rows predicted true — this run measured nothing`);
+		console.error(
+			`FAIL: ${label} made no positive predictions, so its precision is undefined rather than perfect`,
+		);
+		return false;
+	}
+
+	const precision = truePositives / (truePositives + falsePositives);
 	console.log(
 		`${label} precision on ready=true: ${(precision * 100).toFixed(1)}%`,
 	);

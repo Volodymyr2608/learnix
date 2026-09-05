@@ -4,6 +4,7 @@ import { DraftStep } from "@/generated/prisma";
 import { extractStepData } from "@/server/services/courseAI/graph/nodes/extractStepData";
 import { getValidatorForStep } from "@/server/services/courseAI/validators/getValidatorForStep";
 import { accuracyGate, type EvalResult } from "../_shared/score";
+import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
 
 type Row = {
 	id: string;
@@ -49,6 +50,8 @@ const keyFieldsMatch = (
 };
 
 export async function runExtractStepDataEval(): Promise<boolean> {
+	const recorder = usageRecorder();
+	const startedAt = startRunUsage();
 	const rows: Row[] = readFileSync(DATASET, "utf-8")
 		.split("\n")
 		.filter(Boolean)
@@ -57,28 +60,31 @@ export async function runExtractStepDataEval(): Promise<boolean> {
 	const results: EvalResult[] = await Promise.all(
 		rows.map(async (r) => {
 			const step = DraftStep[r.currentStep];
-			const out = await extractStepData({
-				generationId: "eval",
-				instructorId: "eval",
-				currentStep: step,
-				content: {},
-				history: r.history.map((h) => ({ ...h, step: DraftStep[h.step] })),
-				mode: "finalize",
-				userMessage: "",
-				intent: null,
-				reviseTarget: null,
-				toolCalls: [],
-				pendingToolCalls: [],
-				assessReady: false,
-				assessClarify: null,
-				draftStepData: undefined,
-				confidence: 0,
-				shouldAutoAdvance: false,
-				assistantText: "",
-				validationErrors: null,
-				outputRejected: false,
-				messages: [],
-			});
+			const out = await extractStepData(
+				{
+					generationId: "eval",
+					instructorId: "eval",
+					currentStep: step,
+					content: {},
+					history: r.history.map((h) => ({ ...h, step: DraftStep[h.step] })),
+					mode: "finalize",
+					userMessage: "",
+					intent: null,
+					reviseTarget: null,
+					toolCalls: [],
+					pendingToolCalls: [],
+					assessReady: false,
+					assessClarify: null,
+					draftStepData: undefined,
+					confidence: 0,
+					shouldAutoAdvance: false,
+					assistantText: "",
+					validationErrors: null,
+					outputRejected: false,
+					messages: [],
+				},
+				recorder.config,
+			);
 			const schema = getValidatorForStep(step);
 			const parsed = schema.safeParse(out.draftStepData);
 			const ok =
@@ -86,5 +92,7 @@ export async function runExtractStepDataEval(): Promise<boolean> {
 			return { id: r.id, ok };
 		}),
 	);
+	reportRunUsage(recorder, startedAt, results.length);
+
 	return accuracyGate("extractStepData", results, 0.9);
 }

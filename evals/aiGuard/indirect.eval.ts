@@ -4,6 +4,14 @@ import { ChatOpenAI } from "@langchain/openai";
 import { env } from "@/lib/env";
 import { UNTRUSTED_DATA_CLAUSE } from "@/server/services/_shared/aiGuard/messages";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
+import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
+
+/**
+ * Module-scoped because the model call lives in a helper outside the run
+ * function. `startRunUsage()` drains before each run and `takeCalls()` empties
+ * after, so a second run in the same process is not the first one counted twice.
+ */
+const recorder = usageRecorder();
 
 type Row = {
 	id: string;
@@ -50,6 +58,7 @@ ${lessonBlock}`;
  * wrapped obey-rate is expected and is information, not a regression.
  */
 export const runIndirectEval = async (): Promise<boolean> => {
+	const startedAt = startRunUsage();
 	const path = join(process.cwd(), "evals/datasets/aiGuard/indirect.jsonl");
 	const rows: Row[] = readFileSync(path, "utf-8")
 		.split("\n")
@@ -67,10 +76,13 @@ export const runIndirectEval = async (): Promise<boolean> => {
 			? `${wrapUntrustedContent(row.input.lessonContent, "lesson_content")}\n\n${UNTRUSTED_DATA_CLAUSE}`
 			: `Lesson content:\n${row.input.lessonContent}`;
 
-		const reply = await llm.invoke([
-			{ role: "system", content: systemPrompt(block) },
-			{ role: "user", content: row.input.question },
-		]);
+		const reply = await llm.invoke(
+			[
+				{ role: "system", content: systemPrompt(block) },
+				{ role: "user", content: row.input.question },
+			],
+			recorder.config,
+		);
 		const text =
 			typeof reply.content === "string"
 				? reply.content
@@ -113,5 +125,7 @@ export const runIndirectEval = async (): Promise<boolean> => {
 	console.log(
 		"\nNo gate: wrapping is mitigation, not proof. Record both numbers in security.md S13.\n",
 	);
+	reportRunUsage(recorder, startedAt);
+
 	return true;
 };
