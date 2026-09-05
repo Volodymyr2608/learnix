@@ -3,7 +3,9 @@ import { classifyIntent } from "@/server/services/courseAI/graph/nodes/classifyI
 import {
 	type CategoryEvalResult,
 	categoryGate,
+	flakyRows,
 	formatRowOutcomes,
+	rowStability,
 	type SampleOutcome,
 } from "../_shared/score";
 import { reportRunUsage, startRunUsage, usageRecorder } from "../_shared/usage";
@@ -18,6 +20,21 @@ type Outcome = SampleOutcome & CategoryEvalResult;
  * would be pretending otherwise.
  */
 const GATES = { classified: 0.85, "early-return": 1 };
+
+/**
+ * Draws per row. Three is the smallest number that can tell "always", "never"
+ * and "sometimes" apart, and it is what `tutor` and `aiOutput/*` already sample.
+ *
+ * Not a preference. Three single-sample runs of unchanged code returned 90.0%,
+ * 85.0% and 80.0% against an 0.85 gate — green, on the line, and red. A prompt
+ * change measured against that cannot be told from provider drift in either
+ * direction, so the instrument is fixed before the prompt is.
+ *
+ * `docFigures.sampledEvals()` detects this constant, not a hand-kept list, so
+ * the prose in `ai-eval-strategy.md` that counts single-sample evals moves with
+ * it or the unit suite goes red.
+ */
+const SAMPLES = 3;
 
 /**
  * The node's answer as one string — intent and resolved target together.
@@ -39,9 +56,12 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 	const recorder = usageRecorder();
 	const startedAt = startRunUsage();
 	const data = loadClassifyIntentRows();
+	const attempts = data.flatMap((row) =>
+		Array.from({ length: SAMPLES }, () => row),
+	);
 
 	const results: Outcome[] = await Promise.all(
-		data.map(async (row) => {
+		attempts.map(async (row) => {
 			const out = await classifyIntent(
 				{
 					generationId: "eval",
@@ -84,11 +104,33 @@ export async function runClassifyIntentEval(): Promise<boolean> {
 			};
 		}),
 	);
-	reportRunUsage(recorder, startedAt, data.length);
+	reportRunUsage(recorder, startedAt, attempts.length);
+
+	console.log(
+		`\nclassifyIntent — ${data.length} rows x ${SAMPLES} samples at the temperature the node ships (0)`,
+	);
 
 	const outcomes = formatRowOutcomes(results);
 	if (outcomes)
 		console.log(`\nclassifyIntent — what the node returned:\n${outcomes}`);
+
+	// Two facts a single draw cannot produce, and they are different facts: a row
+	// that never passes is a defect, a row that passes sometimes is a coin. The
+	// table above says what was returned; this says how reliably.
+	const stability = rowStability(results);
+	const never = stability.filter((row) => row.passed === 0);
+	const flaky = flakyRows(stability);
+
+	console.log(
+		`  fails every sample:  ${never.map((row) => row.id).join(", ") || "none"}`,
+	);
+	console.log(
+		`  flaky:               ${
+			flaky
+				.map((row) => `${row.id} (${row.passed}/${row.samples})`)
+				.join(", ") || "none"
+		}`,
+	);
 
 	return categoryGate("classifyIntent", results, GATES);
 }

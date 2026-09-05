@@ -219,7 +219,7 @@ describe("the claim registry stays honest", () => {
 
 describe("numbers written as words", () => {
 	it("spells the counts the prose uses", () => {
-		expect(asWord(9)).toBe("nine");
+		expect(asWord(8)).toBe("eight");
 		expect(asWord(13)).toBe("thirteen");
 	});
 
@@ -234,6 +234,7 @@ describe("which evals draw more than one sample", () => {
 			"evals/aiGuard/redteam.eval.ts",
 			"evals/aiOutput/falsePositive.eval.ts",
 			"evals/aiOutput/leakRecall.eval.ts",
+			"evals/courseAI/classifyIntent.eval.ts",
 			"evals/lessonAI/tutor.eval.ts",
 		]);
 	});
