@@ -298,6 +298,23 @@ describe("retentionGate", () => {
 		).toBe(false);
 	});
 
+	/**
+	 * The mirror of the `accuracyGate([])` pin below. It behaves correctly today
+	 * because 0 < floor, but a refactor to a rate — `retained / complete` — would
+	 * introduce a 0/0 and nothing here would catch the vacuous pass.
+	 */
+	it("fails rather than passing vacuously when no row is complete", () => {
+		silence();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(
+			retentionGate("t", [scored("sparse", 0.3, false)], {
+				threshold: 0.8,
+				floor: 10,
+			}),
+		).toBe(false);
+	});
+
 	it("names the complete rows that dropped, so a red run is actionable", () => {
 		const log = silence();
 		vi.spyOn(console, "error").mockImplementation(() => {});

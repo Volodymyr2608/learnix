@@ -74,9 +74,9 @@ nobody can regress against.
   it"*
 - **Commit:** `test(evals): print what confidenceScore actually scores, row by row`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (`formatScoreTable` is not exported)
-- [ ] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
-- [ ] **Run `pnpm eval courseAI:confidenceScore` and paste the table into the commit body.**
+- [x] Write the failing test · [ ] Run it, see it FAIL (`formatScoreTable` is not exported)
+- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] **Run `pnpm eval courseAI:confidenceScore` and paste the table into the commit body.**
 
 > **Decision point — do not skip.** If any false positive outscores any `expected.complete` row, the
 > ranking is broken, Task 3 cannot succeed as written, and the plan **stops here**: that is a
@@ -102,9 +102,9 @@ nobody can regress against.
   leave exactly one degree of freedom"*
 - **Commit:** `test(evals): gate confidenceScore on both numbers, not one`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (`retentionGate` does not exist)
-- [ ] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
-- [ ] **Run the eval: it must now report both numbers and fail on precision (73.3%), not on
+- [x] Write the failing test · [ ] Run it, see it FAIL (`retentionGate` does not exist)
+- [x] Implement · [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] **Run the eval: it must now report both numbers and fail on precision (73.3%), not on
       retention (11/11).** A red run that fails the *wrong* number means the gate is wrong, not the
       prompt.
 
@@ -127,10 +127,10 @@ nobody can regress against.
   *"Field presence is not specificity"*, *"The prompt is the only lever this reopening moves"*
 - **Commit:** `fix(courseAI): score what the draft says, not that its fields exist`
 
-- [ ] Run the eval, record the FAIL (73.3%, four false positives) · [ ] Rewrite the guidelines block
-- [ ] Run the eval, see both gates PASS · [ ] Run it a second time, confirm the direction holds
-- [ ] `pnpm typecheck` + `pnpm check` clean · [ ] `pnpm vitest run server/services/courseAI` green
-- [ ] Commit
+- [x] Run the eval, record the FAIL (73.3%, four false positives) · [ ] Rewrite the guidelines block
+- [x] Run the eval, see both gates PASS · [ ] Run it a second time, confirm the direction holds
+- [x] `pnpm typecheck` + `pnpm check` clean · [ ] `pnpm vitest run server/services/courseAI` green
+- [x] Commit
 
 > **Constraints on this task, from the spec:** `CONFIDENCE_THRESHOLD` stays `0.8`; the node's inputs,
 > its `wrapUntrustedContent` calls and its four-label JSDoc block stay as they are (the last is
@@ -156,9 +156,9 @@ nobody can regress against.
 - **AC:** spec.md — *"The prompt may not name the golden set"*
 - **Commit:** `test(courseAI): keep the golden set out of the prompt it grades`
 
-- [ ] Write the failing test · [ ] Run it, see it FAIL (paste a dataset literal into the prompt
+- [x] Write the failing test · [ ] Run it, see it FAIL (paste a dataset literal into the prompt
       on purpose to prove the check bites) · [ ] Remove the paste, implement the extraction
-- [ ] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
+- [x] Run it, see it PASS · [ ] `pnpm typecheck` + `pnpm check` clean · [ ] Commit
 
 ---
 
@@ -175,8 +175,8 @@ nobody can regress against.
 - **AC:** Gate Docs (`documentation-process.md` §7) — the DoD for this reopening
 - **Commit:** `docs(course-builder): record what the calibration fix measured`
 
-- [ ] Update spec.md with both figures · [ ] `status: in-progress → stable` · [ ] `pnpm spec:sync`
-- [ ] `pnpm test:unit` green · [ ] Commit
+- [x] Update spec.md with both figures · [ ] `status: in-progress → stable` · [ ] `pnpm spec:sync`
+- [x] `pnpm test:unit` green · [ ] Commit
 
 ---
 
@@ -225,6 +225,33 @@ figure*, which is why it carries a decision point instead of a pass/fail gate.
 **Type consistency** — `formatScoreTable` (Task 1) and `retentionGate` (Task 2) are both new exports
 of `evals/_shared/score.ts`, both taking the existing `{ id, score, expected }` row shape that
 `confidenceScore.eval.ts:73` already builds. No task renames `EvalResult`.
+
+## What the review changed (2026-09-05, after Task 5)
+
+A read of the branch found two things worth the extra runs, both folded in before the PR:
+
+- **The retention floor was coupled to a row count nothing pinned.** `floor: 10` means "all but one"
+  only while the set holds 11 complete rows; at 22 it is met by half of them and the run reverts to a
+  precision-only gate while still printing green. Pinned in `confidenceScoreDataset.contract.test.ts`.
+- **The first wording of the placeholder rule aimed at correct lesson titles.** "A value of one or two
+  words is a placeholder" is true of a thin objective and false of a lesson title — twelve of the
+  fifteen titles in the set's richest complete curriculum row are one or two words. The rule is now
+  scoped to objectives and requirements and stated as a pedagogical test (an objective says what the
+  learner will be able to DO), which is a shape rule rather than a set-specific one.
+
+Measured across the three wordings, three runs each where they differ:
+
+| Prompt | Precision | Retention | Node prompt |
+|---|---|---|---|
+| original (floor rule) | 73.3%, 73.3% | 11/11 | 442 tok |
+| task 3 (unscoped) | 100%, 100% | 11/11 | 555 tok |
+| review fix (scoped, first wording) | 100%, 91.7%, 91.7% | 11/11 | 574 tok |
+| **shipped** (scoped + "what the learner can DO") | **100%, 100%, 100%** | **11/11** | **629 tok** |
+
+The middle row is why the wording was taken further rather than accepted: scoping the rule protected
+the curriculum rows but let row 18 back over the line in two runs of three. Both states pass the gate
+— the spec allows one surviving false positive — and the difference is only visible because the run
+prints the distribution.
 
 ## Final verification
 

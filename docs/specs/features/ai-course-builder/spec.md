@@ -130,7 +130,7 @@ arithmetic rather than preference — above 0.85 the surviving set is 11 true an
 still under the gate**), and above 0.90 nothing survives at all, so **no cut point in (0.8, 1] reaches
 0.85**. Freezing `CONFIDENCE_THRESHOLD` was not a stylistic choice about documentation churn.
 
-**After the fix** (2026-09-05, two runs, same verdict): precision **100% (11/11)**, retention
+**After the fix** (2026-09-05, three runs, same verdict): precision **100% (11/11)**, retention
 **11/11** against a floor of 10. The four false positives sit at 0.60, 0.50, 0.50 and 0.30, and the
 gap between the lowest complete row and the highest sparse one is **0.20** where it had been zero.
 The 0.8 threshold and the handover semantics above did not move.
@@ -162,7 +162,9 @@ not retyped — plus:
   `expected.complete` — reported *and* met, not reported only.
 - **A placeholder never auto-advances.** `objectives: ["Learn Python"]`, `requirements:
   ["some experience"]`, a curriculum of one `"Section 1"` containing one `"Lesson 1"`, and
-  `objectives: ["use AWS", "understand cloud"]` each score **< 0.8** (rows 04, 06, 08, 18).
+  `objectives: ["use AWS", "understand cloud"]` are each **expected** to score **< 0.8** (rows 04,
+  06, 08, 18) — measured at 0.50, 0.50, 0.50 and 0.60. The *gate* admits at most one of them above
+  the line, per the arithmetic below; the run that admits one is green and still worth reading.
 - **Caution is not bought by refusing to advance.** The same run keeps **at least 10 of the 11**
   `expected.complete` rows at `≥ 0.8`. Precision alone is maximised by a node that scores everything
   low, so the run gates on both numbers or on neither. The floor is 10 rather than 11 to leave one row
@@ -281,8 +283,8 @@ code:**
   call site. Without it a chained graph's worst case is the sum of every node's per-call budget.
 - `GRAPH_RECURSION_LIMIT` **25**.
 - Model: `gpt-4o-mini` on every node.
-- `confidence_score` prompt: **555 tokens**, up from 442 on 2026-09-05. The calibration fix is
-  written into the guidelines, so it is paid on every turn — about **+25%** on that node's input, and
+- `confidence_score` prompt: **629 tokens**, up from 442 on 2026-09-05. The calibration fix is
+  written into the guidelines, so it is paid on every turn — about **+42%** on that node's input, and
   $0.002 → $0.003 for one 20-row eval run. Named rather than buried: a scoring rule the model has to
   read is not free, and this is the cheapest place to see what it cost.
 
@@ -415,6 +417,15 @@ costs one run — about $0.002 — and it decides whether prompt work can succee
   not receive the same score"* is load-bearing, not decoration: score compression at the top is the
   failure this node had, and it is invisible in a pass rate. `formatScoreTable` in the eval prints the
   distribution so the next reader sees it without having to suspect it.
+- **The bands leave (0.75, 0.8) empty on purpose.** The "thin" band stops at 0.75 so a thin draft
+  cannot land *on* the cut point, which `>=` would admit. Tidying the bands into contiguous ranges
+  reads like a cleanup and is a behaviour change.
+- **The "says what the learner will be able to do" test is scoped to objectives and requirements.**
+  A lesson title names a topic by design — twelve of the fifteen titles in the set's richest complete
+  curriculum row are one or two words. An unscoped "short values are placeholders" rule aims straight
+  at them, which is a retention failure (instructors forced to Accept correct steps) rather than a
+  precision one, and no contract test can see it: the anti-overfit test forbids the set's literals,
+  not its shapes.
 - **The golden set is off-limits to the prompt.** Rows 04, 06, 08 and 18 are the fixture this work is
   measured against; naming their content in the prompt turns the eval into a lookup. A contract test
   enforces this, so it does not depend on anyone remembering.

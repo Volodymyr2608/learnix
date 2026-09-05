@@ -47,8 +47,20 @@ const strings = (value: unknown): string[] => {
 	return [];
 };
 
+/**
+ * Folds every non-alphanumeric run to one space, not just whitespace.
+ *
+ * The realistic way to smuggle a row past this check is not cunning, it is a
+ * hyphen: `learn-python` in a prompt would slip through a whitespace-only
+ * normaliser while `learn python` is caught. Folding punctuation on both sides
+ * strictly widens the net and costs nothing — the literals this set carries are
+ * words, not syntax.
+ */
 const normalise = (text: string): string =>
-	text.toLowerCase().replace(/\s+/g, " ").trim();
+	text
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
 
 const isRecognisable = (text: string): boolean =>
 	text.length >= 6 && text.split(" ").length >= 2;

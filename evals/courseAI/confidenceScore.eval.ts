@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DraftStep } from "@/generated/prisma";
-import { confidenceScore } from "@/server/services/courseAI/graph/nodes/confidenceScore";
+import {
+	CONFIDENCE_THRESHOLD,
+	confidenceScore,
+} from "@/server/services/courseAI/graph/nodes/confidenceScore";
 import { formatRunCost, takeRecordedUsage } from "../_shared/cost";
 import {
 	accuracyGate,
@@ -86,12 +89,12 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 	);
 
 	console.log(
-		`High-confidence predictions: ${raw.filter((r) => r.score >= 0.8).length}/${raw.length}`,
+		`High-confidence predictions: ${raw.filter((r) => r.score >= CONFIDENCE_THRESHOLD).length}/${raw.length}`,
 	);
 	// Printed before the gate, because the gate's verdict is not the finding —
 	// the shape of the distribution is. See `formatScoreTable`.
 	console.log(`\nScores, highest first:`);
-	console.log(formatScoreTable(raw, 0.8));
+	console.log(formatScoreTable(raw, CONFIDENCE_THRESHOLD));
 
 	const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(0);
 	console.log(`\nCost of this run (${elapsedSeconds}s wall clock):`);
@@ -110,7 +113,7 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 
 	// Calibration: among high-confidence predictions (score≥0.8), measure fraction that are actually complete
 	const highConf: EvalResult[] = raw
-		.filter((r) => r.score >= 0.8)
+		.filter((r) => r.score >= CONFIDENCE_THRESHOLD)
 		.map((r) => ({ id: r.id, ok: r.expected }));
 
 	const precise = accuracyGate(
@@ -121,8 +124,12 @@ export async function runConfidenceScoreEval(): Promise<boolean> {
 
 	// Both gates run before either verdict is returned: a red run should say
 	// which half moved, and short-circuiting hides the half that did not.
+	// floor 10 of the set's 11 complete rows — one row of provider drift, no
+	// more. `confidenceScoreDataset.contract.test.ts` pins that count, since a
+	// grown set would make this floor trivially satisfiable and quietly turn the
+	// run back into a precision-only gate.
 	const retained = retentionGate("confidenceScore", raw, {
-		threshold: 0.8,
+		threshold: CONFIDENCE_THRESHOLD,
 		floor: 10,
 	});
 

@@ -66,6 +66,21 @@ describe("confidenceScore golden set carries a conversation, not a verdict", () 
 		expect(rows.length).toBeGreaterThanOrEqual(20);
 	});
 
+	/**
+	 * The eval's retention floor is 10, and 10 means "all but one" only while
+	 * this set holds 11 complete rows. Grow the set to 22 complete rows and the
+	 * floor is met by half of them — retention stops constraining anything and
+	 * the run silently reverts to the precision-only gate it was two-sided to
+	 * replace. Shrink it to 10 and the floor becomes "retain every one", the
+	 * reddens-on-drift behaviour the spec argues against by name.
+	 *
+	 * So the count is a parameter of the gate, not a property of the file, and
+	 * changing it means choosing a new floor in the same commit.
+	 */
+	it("holds the 11 complete rows the retention floor of 10 is derived from", () => {
+		expect(rows.filter((row) => row.expected.complete).length).toBe(11);
+	});
+
 	it.each(
 		messages.map((m) => [`${m.id}/${m.step}/${m.role}`, m.content]),
 	)("%s grades nothing", (_label, content) => {
