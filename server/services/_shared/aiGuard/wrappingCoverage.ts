@@ -114,6 +114,12 @@ export type AllowedInterpolation = {
  * cannot be written down as a sentence here is not a claim worth honouring.
  */
 export const ALLOWED_INTERPOLATIONS: AllowedInterpolation[] = [
+	{
+		file: "server/services/courseAI/graph/nodes/classifyIntent.ts",
+		expression: "step",
+		reason:
+			"A DraftStep enum member iterated straight off Object.values(DraftStep) while building the ALREADY STORED line — it is not read from state at all, so no user or model value can reach it. What it labels are key names taken from the step's own Zod shape, which are equally the platform's own vocabulary; neither side carries content.",
+	},
 	// --- values folded into a history line that is wrapped where it is rendered
 	{
 		file: "server/services/courseAI/graph/nodes/assessCompletion.ts",
