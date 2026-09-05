@@ -4,6 +4,7 @@ import {
 	asWord,
 	datasetForEval,
 	datasetRows,
+	drawsMoreThanOnce,
 	forMatching,
 	isStale,
 	PINNED_CLAIMS,
@@ -229,6 +230,25 @@ describe("numbers written as words", () => {
 });
 
 describe("which evals draw more than one sample", () => {
+	/**
+	 * Found by breaking the check on purpose, which is what that step is for:
+	 * dropping `classifyIntent` back to `SAMPLES = 1` left this file green. The
+	 * detector matched the constant's PRESENCE, so an eval drawing each row once
+	 * counted as sampled — a check that could not fail for the case it is named
+	 * after, which is the class of defect this whole reopening is about.
+	 */
+	it("does not count an eval that declares one draw", () => {
+		expect(drawsMoreThanOnce("const SAMPLES = 3;")).toBe(true);
+		expect(drawsMoreThanOnce("const SAMPLES = 1;")).toBe(false);
+		expect(drawsMoreThanOnce("const ROWS = 20;")).toBe(false);
+	});
+
+	it("ignores a constant that only appears in a comment", () => {
+		expect(drawsMoreThanOnce("// const SAMPLES = 3;\nconst x = 1;")).toBe(
+			false,
+		);
+	});
+
 	it("finds the sampled evals by the constant they declare", () => {
 		expect(sampledEvals()).toEqual([
 			"evals/aiGuard/redteam.eval.ts",
