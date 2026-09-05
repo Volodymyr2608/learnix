@@ -444,6 +444,18 @@ export const PINNED_CLAIMS: readonly PinnedClaim[] = [
 		expected: (f) => passRate(f, "missing-info"),
 	},
 	{
+		file: STRATEGY_PATH,
+		what: "the size of the indirect corpus behind the wrap A/B",
+		pattern: /The corpus holds \*\*(\d+) rows\*\* today/,
+		expected: (f) => [String(f.indirectRows)],
+	},
+	{
+		file: "docs/specs/features/ai-tutor-guardrails/security.md",
+		what: "the same corpus, restated in S13 §3",
+		pattern: /the corpus holds (\d+) rows today/,
+		expected: (f) => [String(f.indirectRows)],
+	},
+	{
 		file: "docs/adr/031-eval-fidelity-and-baselines.md",
 		what: "the deterministic result behind the judge's value",
 		pattern:

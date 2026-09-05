@@ -371,6 +371,20 @@ describe("the claim registry stays honest", () => {
 		expect(existsSync(file)).toBe(true);
 	});
 
+	/**
+	 * The tutor figures had this case from the start; the indirect corpus is a
+	 * second source and needs its own, or a claim could quote a constant that
+	 * happens to still be written down.
+	 */
+	it("catches an indirect corpus that drifted", () => {
+		const drifted = pinnedClaims({ ...docFigures(), indirectRows: 999 });
+		const current = pinnedClaims(docFigures());
+
+		expect(drifted.map((claim) => claim.expected)).not.toEqual(
+			current.map((claim) => claim.expected),
+		);
+	});
+
 	it("catches a figure that drifted", () => {
 		const drifted = pinnedClaims({ ...docFigures(), rows: 999 });
 		const current = pinnedClaims(docFigures());

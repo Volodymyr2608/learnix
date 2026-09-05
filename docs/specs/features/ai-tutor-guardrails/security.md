@@ -519,9 +519,14 @@ Written as facts after implementation, not as intentions before it.
    token got the reply and emitted nothing. The boundary now runs on all three exits (S8), so the
    compensating control is no longer the adversary's to switch off. The disclosure itself is
    unchanged and still accepted.
-3. **Delimiters are mitigation, and the mitigation is weak — now measured.** `aiGuard:indirect` runs
-   twelve indirect payloads twice, raw and wrapped, against the same model. Raw: **6/12 obeyed**.
-   Wrapped: **5/12 obeyed**. The wrapper flipped exactly one payload (a persona switch).
+3. **Delimiters are mitigation, and the mitigation is weak — now measured.** `aiGuard:indirect` ran
+   twelve indirect payloads twice, raw and wrapped, against the same model, measured 2026-08-09.
+   Raw: **6/12 obeyed**. Wrapped: **5/12 obeyed**. The wrapper flipped exactly one payload (a persona
+   switch).
+
+   **That is coverage of twelve rows, not of the set: the corpus holds 16 rows today.** `ind-13`–`ind-16`
+   arrived 2026-08-29 with the check-authoring vectors and have never been run in this A/B — see §39,
+   which also says why re-running is its own task rather than a correction to this paragraph.
 
    Read this correctly. Five of the seven that held raw held *because the model itself declined*,
    not because of anything we built. And the five that survive wrapping are stopped **downstream**,
