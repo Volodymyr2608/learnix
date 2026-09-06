@@ -1,5 +1,14 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { detectInjection } from "./detectInjection";
+import { BLOCK_THRESHOLD } from "./patterns";
+
+type LegitRow = {
+	id: string;
+	input: { text: string };
+	expected: { outcome: string };
+};
 
 describe("detectInjection — blocks unambiguous attacks", () => {
 	const attacks: [string, string][] = [
@@ -120,5 +129,73 @@ describe("detectInjection — scoring", () => {
 
 	it("handles empty input", () => {
 		expect(detectInjection("").verdict).toBe("allow");
+	});
+});
+
+/**
+ * The false-positive ratchet the change classifier requires alongside any recall
+ * work on this control (`ai-guard-encoding-coverage/security.md` S7).
+ *
+ * `detectInjection.corpus.test.ts` looks like it already covers this and does
+ * not: it is a `toMatchSnapshot` over the union of both datasets, so a
+ * legitimate row that starts blocking is recorded as blocking and stays green.
+ * This asserts the property instead of the value, and it names the row that
+ * moved.
+ *
+ * The corpus is adversarial on purpose — the platform teaches *Intro to AI
+ * Security*, so these rows quote real attack strings and must still be allowed.
+ */
+describe("detectInjection — the legitimate corpus is never blocked at L1", () => {
+	const LEGIT = readFileSync(
+		join(process.cwd(), "evals/datasets/aiGuard/adversarial.jsonl"),
+		"utf-8",
+	)
+		.split("\n")
+		.filter(Boolean)
+		.map((line) => JSON.parse(line) as LegitRow)
+		.filter((row) => row.expected.outcome === "allow");
+
+	it("has rows to check", () => {
+		expect(LEGIT.length).toBeGreaterThanOrEqual(64);
+	});
+
+	it.each(
+		LEGIT.map((row) => [row.id, row.input.text]),
+	)("%s is not blocked", (_id, text) => {
+		expect(detectInjection(text).verdict).not.toBe("block");
+	});
+
+	/**
+	 * The other direction, and the reason this is a ratchet rather than a pass:
+	 * every one of these sits within one rule of `BLOCK_THRESHOLD` (40). That
+	 * distance — not the 0 above — is the real false-positive budget, and a
+	 * change that spends it is the change that breaks the next one.
+	 *
+	 * Pinned by id and score so a diff says *which* row moved. Growing this list
+	 * is allowed; doing it silently is not.
+	 */
+	it("pins the rows already inside one rule of the block threshold", () => {
+		const suspect = LEGIT.map((row) => ({
+			id: row.id,
+			score: detectInjection(row.input.text).score,
+		}))
+			.filter((row) => row.score > 0 && row.score < BLOCK_THRESHOLD)
+			.sort((a, b) => a.id.localeCompare(b.id));
+
+		expect(suspect).toEqual([
+			{ id: "legit-02", score: 30 },
+			{ id: "legit-03", score: 20 },
+			{ id: "legit-04", score: 35 },
+			{ id: "legit-05", score: 25 },
+			{ id: "legit-06", score: 35 },
+			{ id: "legit-07", score: 35 },
+			{ id: "legit-10", score: 20 },
+			{ id: "legit-11", score: 20 },
+			{ id: "legit-15", score: 20 },
+			{ id: "legit-20", score: 35 },
+			{ id: "legit-41", score: 35 },
+			{ id: "legit-49", score: 35 },
+			{ id: "legit-57", score: 35 },
+		]);
 	});
 });

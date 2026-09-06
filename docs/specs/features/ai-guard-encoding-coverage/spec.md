@@ -1,6 +1,6 @@
 ---
 feature: ai-guard-encoding-coverage
-status: planned
+status: in-progress
 models: []
 depends-on: [ai-input-trust-boundary, ai-guard-multilingual-coverage, ai-tutor-guardrails]
 ---
