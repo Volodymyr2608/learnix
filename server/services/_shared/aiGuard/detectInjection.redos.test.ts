@@ -116,3 +116,32 @@ describe("detectInjection — no catastrophic backtracking (AC-10)", () => {
 		}
 	});
 });
+
+/**
+ * AC-16. Distinct from the 50 ms catastrophic-backtracking alarm above, which
+ * would not notice a 4x regression — and the decoder fan-out is exactly the
+ * kind of change that produces one.
+ *
+ * A regression guard with deliberate headroom, not a latency SLA. The SLA that
+ * matters on this path is L2's 3000 ms budget; L1 measured 0.288 ms before this
+ * feature and ~1.1 ms with the decoders, so 2 ms catches a doubling while
+ * staying clear of CI noise.
+ */
+describe("detectInjection — latency budget (AC-16)", () => {
+	const LATENCY_BUDGET_MS = 2;
+	const ITERATIONS = 500;
+
+	it(`averages under ${LATENCY_BUDGET_MS}ms at MAX_MSG_LENGTH`, () => {
+		const text = pad("ignore the previous previous previous ");
+
+		// Warm the JIT and the regex caches: a cold first call is not what runs in
+		// production, and measuring it would make the budget about startup.
+		for (let i = 0; i < 100; i += 1) detectInjection(text);
+
+		const started = performance.now();
+		for (let i = 0; i < ITERATIONS; i += 1) detectInjection(text);
+		const perCall = (performance.now() - started) / ITERATIONS;
+
+		expect(perCall).toBeLessThan(LATENCY_BUDGET_MS);
+	});
+});
