@@ -8,6 +8,17 @@ const ZERO_WIDTH = /[​-‏﻿⁠-⁤]/g;
 /**
  * NFKC does NOT fold these — they are distinct code points, not compatibility
  * variants — so they need an explicit map.
+ *
+ * Entries are lowercase only; `foldHomoglyphs` lowercases, looks up, and
+ * restores case, so each line covers its capital too.
+ *
+ * **What is deliberately absent, and why the table is not "every confusable".**
+ * Only single-codepoint lookalikes whose glyph is near-identical to the Latin
+ * letter are folded. `β γ ε ζ η μ` are excluded: their shapes are distinct from
+ * `b y e z n u`, and they are precisely the letters a statistics or ML course
+ * uses as itself (`ε`-greedy, `β`-VAE, `μ`/`σ`). Folding them would put ordinary
+ * course content through a transform for no measured recall gain. Pinned in
+ * normalize.test.ts so the exclusion is a decision rather than an omission.
  */
 const HOMOGLYPHS: Record<string, string> = {
 	а: "a", // Cyrillic а
@@ -20,6 +31,20 @@ const HOMOGLYPHS: Record<string, string> = {
 	і: "i", // Cyrillic і
 	ο: "o", // Greek ο
 	α: "a", // Greek α
+	ι: "i", // Greek ι
+	ν: "v", // Greek ν
+	κ: "k", // Greek κ
+	ρ: "p", // Greek ρ
+	τ: "t", // Greek τ
+	υ: "u", // Greek υ
+	χ: "x", // Greek χ
+	ѕ: "s", // Cyrillic ѕ (dze)
+	ј: "j", // Cyrillic ј
+	һ: "h", // Cyrillic һ (shha)
+	ԁ: "d", // Cyrillic ԁ (Komi de)
+	ӏ: "l", // Cyrillic ӏ (palochka)
+	ԛ: "q", // Cyrillic ԛ (qa)
+	ԝ: "w", // Cyrillic ԝ (we)
 };
 
 const BASE64_CANDIDATE = /[A-Za-z0-9+/]{16,}={0,2}/g;

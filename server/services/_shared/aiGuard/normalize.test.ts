@@ -21,6 +21,49 @@ describe("normalizeForMatching", () => {
 		expect(normalized).toContain("IGNORE");
 	});
 
+	it.each([
+		["Greek iota", "\u03B9gnore", "ignore"],
+		["Greek nu", "re\u03BDeal", "reveal"],
+		["Greek kappa", "\u03BAey", "key"],
+		["Greek rho", "\u03C1rompt", "prompt"],
+		["Greek tau", "\u03C4hem", "them"],
+		["Greek upsilon", "yo\u03C5r", "your"],
+		["Greek chi", "\u03C7ml", "xml"],
+		["Cyrillic dze", "\u0455ystem", "system"],
+		["Cyrillic je", "\u0458son", "json"],
+		["Cyrillic shha", "\u04BBidden", "hidden"],
+		["Cyrillic komi de", "\u0501isregard", "disregard"],
+		["Cyrillic palochka", "ru\u04CFes", "rules"],
+		["Cyrillic qa", "\u051Buery", "query"],
+		["Cyrillic we", "\u051Dord", "word"],
+	])("folds %s to its Latin lookalike", (_name, obfuscated, expected) => {
+		expect(normalizeForMatching(obfuscated).normalized).toContain(expected);
+	});
+
+	it("folds an uppercase Greek homoglyph via the lowercase table entry", () => {
+		// The table holds lowercase only; foldHomoglyphs lowercases, looks up and
+		// restores case. Greek capital iota (U+0399) lowercases to U+03B9, which
+		// is what makes this work without a second table.
+		expect(normalizeForMatching("\u0399gnore").normalized).toContain("Ignore");
+	});
+
+	/**
+	 * The letters deliberately NOT in the table. Their glyphs are distinct from
+	 * the Latin letters they would map to, and they are exactly what a statistics
+	 * or ML course uses as itself — folding them would run ordinary course
+	 * content through a transform for no measured gain.
+	 */
+	it.each([
+		"\u03B2",
+		"\u03B3",
+		"\u03B5",
+		"\u03B6",
+		"\u03B7",
+		"\u03BC",
+	])("leaves %s alone — it is used as itself in course content", (letter) => {
+		expect(normalizeForMatching(letter).normalized).toBe(letter);
+	});
+
 	it("folds homoglyphs inside decoded base64 segments", () => {
 		// Homoglyph + base64 combined: the decoded segment is matched directly,
 		// so it needs the same folding as the top-level text.
