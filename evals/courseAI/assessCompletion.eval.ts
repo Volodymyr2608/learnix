@@ -17,6 +17,23 @@ type Row = {
 	expected: { ready: boolean };
 };
 
+export type Decision = "ready" | "not_ready" | "ask";
+
+/**
+ * The node's decision, read back from the two fields it writes. `ask` is the
+ * one that has to be recovered: it sets `assessClarify` and leaves
+ * `assessReady` false, so a run scoring the boolean alone cannot tell a
+ * clarifying question from a refusal to advance.
+ */
+export const decisionOf = (out: {
+	assessReady: boolean;
+	assessClarify: string | null;
+}): Decision => {
+	if (out.assessReady) return "ready";
+	if (out.assessClarify !== null) return "ask";
+	return "not_ready";
+};
+
 const DATASET = resolve(
 	process.cwd(),
 	"evals/datasets/courseAI/assessCompletion.jsonl",
