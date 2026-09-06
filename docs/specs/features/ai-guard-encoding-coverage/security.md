@@ -277,7 +277,15 @@ quotation, which is a different feature.
    weight design rather than introduced here; fixing it requires L1 to
    distinguish quotation from instruction, which no regex layer does.
 
-8. **The denominator is small and biased toward misses.** 34 rows, deliberately selected as
+9. **Enforcement recall is measured from one draw per attack row, and at least one row is flaky.**
+   `rt-manyshot-01` is refused 7/8 by the shipped guard; a single draw therefore reports 94.1% or
+   91.2% depending on the coin. `redteam.eval.ts` already samples `allow` rows five times each for
+   exactly this reason (`ALLOW_ROW_SAMPLES`) and samples attack rows once. Any enforcement number
+   quoted from this eval carries roughly ±3 points of instrument noise, and a movement of one row
+   between runs is not evidence of anything. Fixing it means sampling attack rows too — a change to
+   the instrument, deliberately not made in the change that moves the number.
+
+10. **The denominator is small and biased toward misses.** 34 rows, deliberately selected as
    techniques the guard is not known to cover (`redteam.eval.ts` docstring). A four-row gain is
    +11.7 points on this set and an unknown quantity on real traffic. The honest claim is "four named
    obfuscations now resolve to `guard_blocked`", not "detection improved by 12%".
