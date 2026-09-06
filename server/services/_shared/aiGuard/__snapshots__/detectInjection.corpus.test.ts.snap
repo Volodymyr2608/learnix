@@ -723,22 +723,22 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-homo produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-leet produces a stable verdict and score 1`] = `
 {
-  "score": 0,
-  "verdict": "allow",
+  "score": 65,
+  "verdict": "block",
 }
 `;
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-rev produces a stable verdict and score 1`] = `
 {
-  "score": 0,
-  "verdict": "allow",
+  "score": 65,
+  "verdict": "block",
 }
 `;
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-rot13 produces a stable verdict and score 1`] = `
 {
-  "score": 0,
-  "verdict": "allow",
+  "score": 65,
+  "verdict": "block",
 }
 `;
 

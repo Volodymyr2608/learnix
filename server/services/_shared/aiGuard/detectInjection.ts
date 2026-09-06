@@ -22,9 +22,11 @@ const verdictFor = (score: number): L1Verdict => {
  * "suspect" never blocks on its own; the orchestrator escalates it to L2.
  */
 export const detectInjection = (text: string): L1Result => {
-	const { normalized, decodedSegments } = normalizeForMatching(text);
-	const haystacks = [normalized, ...decodedSegments];
-	const { score, matchedRuleIds } = scoreMatches(haystacks, INJECTION_PATTERNS);
+	const { haystacks } = normalizeForMatching(text);
+	const { score, matchedRuleIds } = scoreMatches(
+		haystacks.map((haystack) => haystack.text),
+		INJECTION_PATTERNS,
+	);
 
 	return { verdict: verdictFor(score), score, matchedRuleIds };
 };

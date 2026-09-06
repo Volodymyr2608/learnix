@@ -1,8 +1,21 @@
-import { DECODERS } from "./decoders";
+import { DECODERS, type DecoderId } from "./decoders";
+
+/**
+ * One view of the message for the catalogue to be matched against, labelled
+ * with what produced it. `"raw"` is the message itself after normalization;
+ * every other source is a decoder.
+ *
+ * The label is not decoration: it is what lets a security event say whether an
+ * attack arrived in plaintext or obfuscated, which is the difference between
+ * someone guessing and someone working the problem.
+ */
+export type Haystack = {
+	source: DecoderId | "raw";
+	text: string;
+};
 
 export type NormalizedText = {
-	normalized: string;
-	decodedSegments: string[];
+	haystacks: Haystack[];
 };
 
 const ZERO_WIDTH = /[​-‏﻿⁠-⁤]/g;
@@ -70,21 +83,23 @@ const foldHomoglyphs = (text: string): string =>
 const foldForMatching = (text: string): string =>
 	foldHomoglyphs(text.normalize("NFKC").replace(ZERO_WIDTH, ""));
 
-/**
- * base64 lives in the decoder registry with the other encodings; this layer's
- * job is only to normalize what it returns. Decoded segments are matched
- * directly, so they need the same folding as the top-level text — otherwise
- * base64 combined with a homoglyph substitution slips past both.
- */
-const decodeBase64Segments = (text: string): string[] => {
-	const base64 = DECODERS.find((decoder) => decoder.id === "base64");
-	if (!base64) return [];
-	return base64.decode(text).map(foldForMatching);
-};
-
-export const normalizeForMatching = (text: string): NormalizedText => ({
-	normalized: foldForMatching(text),
+export const normalizeForMatching = (text: string): NormalizedText => {
 	// Candidates are located in the RAW text: normalizing first could alter the
 	// base64 alphabet and break detection.
-	decodedSegments: decodeBase64Segments(text),
-});
+	const raw = foldForMatching(text);
+	const haystacks: Haystack[] = [{ source: "raw", text: raw }];
+	const seen = new Set([raw]);
+
+	for (const decoder of DECODERS) {
+		for (const decoded of decoder.decode(text)) {
+			const folded = foldForMatching(decoded);
+			// A decoder that reproduces a view we already hold contributes nothing
+			// but a second pass over the whole catalogue.
+			if (folded.length === 0 || seen.has(folded)) continue;
+			seen.add(folded);
+			haystacks.push({ source: decoder.id, text: folded });
+		}
+	}
+
+	return { haystacks };
+};
