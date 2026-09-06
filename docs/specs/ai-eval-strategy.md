@@ -93,7 +93,7 @@ one class that needs a human.
 | `lessonAI:tutor` | tutor | 54, 15 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` / `check-question` at 0.85; 12 other categories **measured only** |
 | `courseAI:classifyIntent` | course builder | 20 | intent enum against the real graph node | `accuracyGate` 0.85 |
 | `courseAI:extractStepData` | course builder | 40 | structured extraction | `accuracyGate` 0.9 |
-| `courseAI:assessCompletion` | course builder | 20 | step-completion judgement | `precisionGate` 0.9 — a false "done" costs more than a false "not yet" |
+| `courseAI:assessCompletion` | course builder | 23 | proceed / hold / clarify on the latest turn | `categoryGate` (model rows 0.85, guard rows 1.0) + `precisionGate` 0.9 — a false "done" costs more than a false "not yet" |
 | `courseAI:confidenceScore` | course builder | 20 | calibration of high-confidence predictions | `accuracyGate` 0.85 |
 | `quizAI:quizGeneration` | quiz | 6 | schema + semantic validity of generated quizzes | `accuracyGate` 0.9 |
 | `lessonInsightsAI:lessonInsights` | insights | 6 | concepts / summary / glossary shape | `accuracyGate` 0.9 |
