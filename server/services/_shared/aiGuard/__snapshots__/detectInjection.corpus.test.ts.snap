@@ -2,6 +2,7 @@
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -9,6 +10,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-01 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 45,
   "verdict": "block",
 }
@@ -16,6 +18,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-02 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 45,
   "verdict": "block",
 }
@@ -23,6 +26,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-03 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-04 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 40,
   "verdict": "block",
 }
@@ -30,6 +34,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-04 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-05 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 45,
   "verdict": "block",
 }
@@ -37,6 +42,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-05 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-06 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -44,6 +50,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-06 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-07 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -51,6 +58,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-07 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-08 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 85,
   "verdict": "block",
 }
@@ -58,6 +66,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-08 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-09 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -65,6 +74,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-09 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-10 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 75,
   "verdict": "block",
 }
@@ -72,6 +82,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-10 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-11 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -79,6 +90,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-11 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-12 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 90,
   "verdict": "block",
 }
@@ -86,6 +98,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-12 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-13 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -93,6 +106,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-13 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-14 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -100,6 +114,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-14 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-15 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -107,6 +122,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-15 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-16 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 90,
   "verdict": "block",
 }
@@ -114,6 +130,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-16 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-17 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -121,6 +138,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-17 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-18 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -128,6 +146,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-18 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-19 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -135,6 +154,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-19 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-20 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 90,
   "verdict": "block",
 }
@@ -142,6 +162,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-20 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-21 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -149,6 +170,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-21 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-22 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 55,
   "verdict": "block",
 }
@@ -156,6 +178,9 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-22 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [
+    "base64",
+  ],
   "score": 65,
   "verdict": "block",
 }
@@ -163,6 +188,9 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-01 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [
+    "base64",
+  ],
   "score": 65,
   "verdict": "block",
 }
@@ -170,6 +198,9 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-02 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [
+    "normalization",
+  ],
   "score": 65,
   "verdict": "block",
 }
@@ -177,6 +208,9 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-03 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-04 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [
+    "normalization",
+  ],
   "score": 45,
   "verdict": "block",
 }
@@ -184,6 +218,9 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-04 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-05 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [
+    "normalization",
+  ],
   "score": 65,
   "verdict": "block",
 }
@@ -191,6 +228,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > inj-obf-05 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -198,6 +236,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-01 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 30,
   "verdict": "suspect",
 }
@@ -205,6 +244,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-02 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 20,
   "verdict": "suspect",
 }
@@ -212,6 +252,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-03 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-04 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -219,6 +260,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-04 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-05 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 25,
   "verdict": "suspect",
 }
@@ -226,6 +268,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-05 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-06 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -233,6 +276,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-06 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-07 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -240,6 +284,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-07 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-08 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -247,6 +292,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-08 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-09 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -254,6 +300,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-09 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-10 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 20,
   "verdict": "suspect",
 }
@@ -261,6 +308,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-10 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-11 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 20,
   "verdict": "suspect",
 }
@@ -268,6 +316,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-11 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-12 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -275,6 +324,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-12 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-13 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -282,6 +332,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-13 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-14 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -289,6 +340,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-14 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-15 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 20,
   "verdict": "suspect",
 }
@@ -296,6 +348,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-15 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-16 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -303,6 +356,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-16 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-17 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -310,6 +364,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-17 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-18 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -317,6 +372,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-18 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-19 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -324,6 +380,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-19 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-20 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -331,6 +388,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-20 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-21 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -338,6 +396,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-21 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-22 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -345,6 +404,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-22 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-23 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -352,6 +412,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-23 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-24 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -359,6 +420,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-24 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-25 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -366,6 +428,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-25 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-26 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -373,6 +436,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-26 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-27 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -380,6 +444,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-27 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-28 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -387,6 +452,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-28 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-29 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -394,6 +460,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-29 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-30 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -401,6 +468,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-30 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-31 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -408,6 +476,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-31 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-32 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -415,6 +484,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-32 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-33 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -422,6 +492,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-33 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-34 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -429,6 +500,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-34 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-35 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -436,6 +508,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-35 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-36 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -443,6 +516,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-36 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-37 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -450,6 +524,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-37 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-38 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -457,6 +532,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-38 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-39 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -464,6 +540,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-39 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-40 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -471,6 +548,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-40 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-41 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -478,6 +556,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-41 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-42 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -485,6 +564,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-42 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-43 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -492,6 +572,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-43 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-44 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -499,6 +580,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-44 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-45 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -506,6 +588,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-45 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-46 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -513,6 +596,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-46 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-47 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -520,6 +604,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-47 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-48 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -527,6 +612,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-48 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-49 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -534,6 +620,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-49 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-50 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -541,6 +628,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-50 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-51 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -548,6 +636,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-51 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-52 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -555,6 +644,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-52 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-53 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -562,6 +652,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-53 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-54 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -569,6 +660,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-54 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-55 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -576,6 +668,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-55 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-56 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -583,6 +676,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-56 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-57 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -590,6 +684,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-57 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-58 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -597,6 +692,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-58 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-59 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -604,6 +700,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-59 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-60 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -611,6 +708,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-60 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-61 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -618,6 +716,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-61 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-62 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -625,6 +724,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-62 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-63 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -632,6 +732,47 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-63 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > legit-64 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-65 produces a stable verdict and score 1`] = `
+{
+  "obfuscations": [],
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-66 produces a stable verdict and score 1`] = `
+{
+  "obfuscations": [],
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-67 produces a stable verdict and score 1`] = `
+{
+  "obfuscations": [],
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-68 produces a stable verdict and score 1`] = `
+{
+  "obfuscations": [],
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-69 produces a stable verdict and score 1`] = `
+{
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -639,6 +780,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-64 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -646,6 +788,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-01 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -653,6 +796,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-02 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -660,6 +804,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-03 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-04 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -667,6 +812,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-04 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-05 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -674,6 +820,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-05 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-06 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -681,6 +828,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-06 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-07 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -688,6 +836,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-07 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-08 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -695,6 +844,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-08 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-09 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -702,6 +852,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-09 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > off-10 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -709,6 +860,9 @@ exports[`detectInjection — English corpus baseline (AC-1) > off-10 produces a 
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-b64 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [
+    "base64",
+  ],
   "score": 65,
   "verdict": "block",
 }
@@ -716,34 +870,47 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-b64 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-homo produces a stable verdict and score 1`] = `
 {
-  "score": 0,
-  "verdict": "allow",
+  "obfuscations": [
+    "normalization",
+  ],
+  "score": 65,
+  "verdict": "block",
 }
 `;
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-leet produces a stable verdict and score 1`] = `
 {
-  "score": 0,
-  "verdict": "allow",
+  "obfuscations": [
+    "leetspeak",
+  ],
+  "score": 65,
+  "verdict": "block",
 }
 `;
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-rev produces a stable verdict and score 1`] = `
 {
-  "score": 0,
-  "verdict": "allow",
+  "obfuscations": [
+    "reversed",
+  ],
+  "score": 65,
+  "verdict": "block",
 }
 `;
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-rot13 produces a stable verdict and score 1`] = `
 {
-  "score": 0,
-  "verdict": "allow",
+  "obfuscations": [
+    "rot13",
+  ],
+  "score": 65,
+  "verdict": "block",
 }
 `;
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-spaced produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -751,6 +918,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-spaced prod
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-zw produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -758,6 +926,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-enc-zw produces
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-hypo-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -765,6 +934,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-hypo-01 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-hypo-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -772,6 +942,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-hypo-02 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-hypo-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -779,6 +950,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-hypo-03 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -786,6 +958,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-01 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -793,6 +966,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-02 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 25,
   "verdict": "suspect",
 }
@@ -800,6 +974,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-03 produces 
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-de produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -807,6 +982,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-de pr
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-es produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -814,6 +990,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-es pr
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-fr produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -821,6 +998,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-l2-bypass-fr pr
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-de produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -828,6 +1006,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-de produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-es produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -835,6 +1014,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-es produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-fr produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 65,
   "verdict": "block",
 }
@@ -842,6 +1022,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-fr produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-mix produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 30,
   "verdict": "suspect",
 }
@@ -849,6 +1030,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-mix produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-pl produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -856,6 +1038,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-pl produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-uk produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -863,6 +1046,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-lang-uk produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -870,6 +1054,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-01 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -877,6 +1062,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-02 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -884,6 +1070,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-03 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-04 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -891,6 +1078,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-04 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-05 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -898,6 +1086,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-manip-05 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-manyshot-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -905,6 +1094,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-manyshot-01 pro
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -912,6 +1102,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-01 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -919,6 +1110,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-02 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -926,6 +1118,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-reach-03 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-residual-uk-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -933,6 +1126,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-residual-uk-02 
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-residual-zh produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -940,6 +1134,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-residual-zh pro
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-role-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -947,6 +1142,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-role-01 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-role-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -954,6 +1150,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-role-02 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-role-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -961,6 +1158,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-role-03 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-split-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -968,6 +1166,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-split-01 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-split-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 35,
   "verdict": "suspect",
 }
@@ -975,6 +1174,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-split-02 produc
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-virt-01 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -982,6 +1182,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-virt-01 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-virt-02 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -989,6 +1190,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-virt-02 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-virt-03 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }
@@ -996,6 +1198,7 @@ exports[`detectInjection — English corpus baseline (AC-1) > rt-virt-03 produce
 
 exports[`detectInjection — English corpus baseline (AC-1) > rt-virt-04 produces a stable verdict and score 1`] = `
 {
+  "obfuscations": [],
   "score": 0,
   "verdict": "allow",
 }

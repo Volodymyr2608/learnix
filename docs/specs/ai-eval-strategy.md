@@ -98,7 +98,7 @@ one class that needs a human.
 | `quizAI:quizGeneration` | quiz | 6 | schema + semantic validity of generated quizzes | `accuracyGate` 0.9 |
 | `lessonInsightsAI:lessonInsights` | insights | 6 | concepts / summary / glossary shape | `accuracyGate` 0.9 |
 | `learningPathAI:learningPath` | path | 8 | step plan against server-side state | `accuracyGate` 0.8 |
-| `aiGuard:adversarial` | shared L1/L2 | 101 | block rate across attack techniques, plus false positives on legitimate rows | `accuracyGate` 0.85 **and** `precisionGate` 0.95 |
+| `aiGuard:adversarial` | shared L1/L2 | 106 | block rate across attack techniques, plus false positives on legitimate rows | `accuracyGate` 0.85 **and** `precisionGate` 0.95 |
 | `aiGuard:redteam` | shared L1/L2 | 42 | enforcement recall and detection recall, per technique | **none** — coverage probe |
 | `aiGuard:indirect` | shared L3 | 16 | the same payload raw vs `wrapUntrustedContent`-wrapped | **none** — before/after measurement |
 | `aiOutput:falsePositive` | shared L5 | 42 × 5 surfaces × 3 samples | how often the output boundary refuses legitimate model text | **none** — deliberate ([`security.md`](features/ai-tutor-guardrails/security.md) S11) |

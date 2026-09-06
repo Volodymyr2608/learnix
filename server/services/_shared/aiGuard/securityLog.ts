@@ -52,6 +52,9 @@ export const logSecurityEvent = (event: SecurityEvent): void => {
 			ruleIds: event.ruleIds,
 			score: event.score,
 			...(event.subject ? { subject: event.subject } : {}),
+			...(event.obfuscations?.length
+				? { obfuscations: event.obfuscations }
+				: {}),
 		},
 		`[aiGuard] ${event.outcome}`,
 	);

@@ -1,4 +1,5 @@
 import type { AiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
+import type { Obfuscation } from "./normalize";
 export type GuardLayer = "L1" | "L2";
 export type GuardOutcome = "allow" | "off_topic" | "blocked";
 export type L1Verdict = "allow" | "suspect" | "block";
@@ -7,6 +8,12 @@ export type L1Result = {
 	verdict: L1Verdict;
 	score: number;
 	matchedRuleIds: string[];
+	/**
+	 * Which obfuscations surfaced a rule the message as sent did not match on its
+	 * own: a decoder id, or `"normalization"` for homoglyph / zero-width / NFKC.
+	 * Empty for a payload typed out in plain ASCII.
+	 */
+	obfuscations: Obfuscation[];
 };
 
 export type GuardDomain = {
@@ -124,4 +131,11 @@ export type SecurityEvent = {
 	ruleIds: string[];
 	score: number;
 	subject?: SecuritySubject;
+	/**
+	 * Which obfuscations surfaced the payload, when any did. Id-only and closed,
+	 * like `ruleIds` and `subject`: the point of this field set being exhaustive
+	 * by type is that there is nowhere to put the message text, and a provenance
+	 * field typed as `string[]` would have quietly reopened that.
+	 */
+	obfuscations?: Obfuscation[];
 };
