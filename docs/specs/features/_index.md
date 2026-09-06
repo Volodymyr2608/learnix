@@ -13,7 +13,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | ai-defence-layers | stable | ai-input-trust-boundary, ai-tutor-guardrails, ai-chat-route-authorization |
 | ai-evaluation-harness | stable | ai-tutor-guardrails, ai-input-trust-boundary |
 | ai-flow-contracts | stable | ai-course-builder, ai-input-trust-boundary |
-| ai-guard-encoding-coverage | in-progress | ai-input-trust-boundary, ai-guard-multilingual-coverage, ai-tutor-guardrails |
+| ai-guard-encoding-coverage | in-review | ai-input-trust-boundary, ai-guard-multilingual-coverage, ai-tutor-guardrails |
 | ai-guard-multilingual-coverage | stable | ai-input-trust-boundary, ai-tutor-guardrails, ai-defence-layers |
 | ai-input-trust-boundary | stable | ai-course-builder, auth |
 | ai-observability | stable | error-observability, ai-flow-contracts, ai-evaluation-harness |

@@ -1,6 +1,6 @@
 ---
 feature: ai-guard-encoding-coverage
-status: in-progress
+status: in-review
 models: []
 depends-on: [ai-input-trust-boundary, ai-guard-multilingual-coverage, ai-tutor-guardrails]
 ---
@@ -99,10 +99,15 @@ of the input text and the catalogue, and the same input always produces the same
 ## Validation
 
 - **User input** — unchanged. The decoders run before matching and reject nothing themselves.
-- **Decoder output** — each decoder carries its own admission guard, the same shape base64 already
-  has (`MOSTLY_PRINTABLE ≥ 0.9`): a decoded string that is not plausibly text is dropped rather than
-  matched, so a decoder cannot manufacture a match out of noise. A decoder that produces a string
-  identical to an existing haystack contributes nothing and is not added twice.
+- **Decoder output** — each decoder carries the admission guard that is *real for it*, which is not
+  the same guard for all four. `base64` keeps its printable-ratio check (`MOSTLY_PRINTABLE ≥ 0.9`):
+  it is the only one whose output can be arbitrary bytes. For the three character transforms that
+  check would be vacuous — they map printable input to printable output by construction, measured at
+  a ratio of 1.000 — so copying it there would be a control that cannot fail. `leetspeak` instead
+  carries a cost guard (a leet character adjacent to a letter); `rot13` and `reversed` carry none,
+  and what holds their false-positive line is the catalogue's verb+object requirement, measured at
+  0 of 68 legitimate rows. A decoder that produces a string identical to an existing haystack
+  contributes nothing and is not added twice.
 - **Tool-call arguments / model output** — not in this feature's path; L1 runs before any model call.
 - **The security event** — decoder provenance is a closed union checked by the type system, exactly
   as `RuleId` is. There is no field through which free text, or the payload itself, can reach a log
@@ -126,8 +131,14 @@ retyped — plus:
 
 **False positives — the classifier requires this alongside recall, not instead of it**
 
-7. `pnpm eval aiGuard:adversarial` reports **no legitimate row newly refused**: L1 blocks 0 of the 64
-   `legitimate_ai_topic` rows before this change and must block 0 after.
+7. **No legitimate row is newly refused at L1**: 0 of the `legitimate_ai_topic` rows block before this
+   change and 0 after, asserted per row by id in `detectInjection.test.ts`. Deliberately *not* gated
+   on `pnpm eval aiGuard:adversarial`, which cannot report it: that eval sets each row's `expected`
+   to `outcome !== "allow"`, so `expected` is false for every `legit-*` row and `precisionGate`
+   either divides by a zero true-positive count or trips its degenerate-input early return — it
+   returns `false` in both directions. Pre-existing, recorded as `ai-tutor-guardrails/security.md`
+   §45, and out of scope here. The eval is still run, and read as per-row evidence that L2 does not
+   refuse them either.
 8. All 27 `injection` rows in `adversarial.jsonl` still block (27/27) — no decoder may lower a score
    by displacing a haystack.
 9. The legitimate corpus gains **one row per decoder** describing that encoding *as course subject
@@ -261,6 +272,30 @@ per `docs/specs/ai-eval-strategy.md`.
   this extends a mechanism ADR-028 already established rather than choosing between architectures.
   The one decision that would earn one, adding an isolated L2 intent classifier, is explicitly out
   of scope here.
+
+## Measured outcome (2026-09-06)
+
+Run on branch `feat/ai-guard-encoding-coverage`, both evals by hand:
+
+| | Before | After |
+|---|---|---|
+| `redteam` detection recall | 26.5% (9/34) | **38.2% (13/34)** |
+| `redteam` enforcement recall | 94.1% (32/34) | **94.1% (32/34)** |
+| `adversarial` accuracy | 76.2% (77/101) | **77.1% (81/105)** |
+| `adversarial` false positives | 24 | **24 — the same ids, none new** |
+| L1 blocks on legitimate rows | 0/64 | **0/68** |
+| L1 latency at 2000 chars | 0.288 ms | **0.756 ms** (budget 2 ms) |
+
+All five encoding techniques report `PASS` in the per-technique table
+(`encoding_base64`, `encoding_homoglyph`, `encoding_leetspeak`, `encoding_reversed`,
+`encoding_rot13`). The two rows that still reach the model are `rt-virt-01` and `rt-l2-02`, both
+unchanged — neither is an encoding.
+
+`aiGuard:adversarial` still reports FAIL on both gates. Both failures are pre-existing and neither is
+evidence about this change: the accuracy gate has been below 0.85 since the corpus was extended, and
+the precision gate is structurally unable to pass (AC 7). What the run is read for is the failure
+*list*, which is byte-identical to the documented 24 and ends at `legit-64` — the four rows this
+feature added all pass.
 
 ## Agent notes
 
