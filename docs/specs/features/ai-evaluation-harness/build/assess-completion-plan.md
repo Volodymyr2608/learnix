@@ -199,6 +199,20 @@ zero-padded as they are today.
 
 ---
 
+## Deviations, recorded rather than tidied away
+
+Two, both found while executing and both resolved against the plan's own text:
+
+1. **`alwaysFailingGate` dropped.** The Architecture paragraph names it; Task 4's contract does not.
+   At one draw per row it degenerates into "every classified row must pass", which contradicts the
+   0.85 gate two lines above it. The task's contract was right and the architecture sentence was
+   wrong; `precisionGate` took the slot.
+2. **The set was re-staged after review.** Tasks 1–2 shipped a set whose assistant reply predicted
+   the label perfectly — the leak class this feature exists to prevent, in the one field the contract
+   test exempts. The repair is in the spec's criterion 20 and cost a second and third live run. The
+   plan did not anticipate it, and could not have: it is the failure mode that only appears once the
+   eval measures something.
+
 ## Why the plan is thin
 
 A plan carrying full implementation code only pays for itself when a *cheaper* model executes it.

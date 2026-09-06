@@ -93,7 +93,7 @@ one class that needs a human.
 | `lessonAI:tutor` | tutor | 54, 15 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` / `check-question` at 0.85; 12 other categories **measured only** |
 | `courseAI:classifyIntent` | course builder | 20 | intent enum against the real graph node | `accuracyGate` 0.85 |
 | `courseAI:extractStepData` | course builder | 40 | structured extraction | `accuracyGate` 0.9 |
-| `courseAI:assessCompletion` | course builder | 23 | proceed / hold / clarify on the latest turn | `categoryGate` (model rows 0.85, guard rows 1.0) + `precisionGate` 0.9 — a false "done" costs more than a false "not yet" |
+| `courseAI:assessCompletion` | course builder | 25 | proceed / hold / clarify on the latest turn | `categoryGate` (model rows 0.85, guard rows 1.0) + `precisionGate` 0.9 — a false "done" costs more than a false "not yet" |
 | `courseAI:confidenceScore` | course builder | 20 | calibration of high-confidence predictions | `accuracyGate` 0.85 |
 | `quizAI:quizGeneration` | quiz | 6 | schema + semantic validity of generated quizzes | `accuracyGate` 0.9 |
 | `lessonInsightsAI:lessonInsights` | insights | 6 | concepts / summary / glossary shape | `accuracyGate` 0.9 |
@@ -375,7 +375,20 @@ Ordered by how much they would mislead a reader who did not know them.
    the dimension itself is still not being measured. The fix remains a better dimension, not a looser
    string.
 9. **Eight of thirteen evals are single-sample and pooled.** 🚧 §3. Everything §6 says about
-   distributions applies to them too; it just has not been instrumented yet.
+   distributions applies to them too; it just has not been instrumented yet. `courseAI:assessCompletion`
+   is the one to watch: 22 gated rows at 0.85 leaves a three-failure margin, and four of its rows sit
+   deliberately in the gray zone, so a single draw will report prompt drift and provider drift
+   identically — the situation that took `classifyIntent` off this list on 2026-09-05.
+10. **`courseAI:assessCompletion` fails its own gates on first honest measurement.** 🚧 The eval was
+    repaired on 2026-09-06 and its first run that actually reached the model reads **19/22 (86.4%)**
+    on the gated category and **88.9% precision**, under the 0.9 bar. Three rows, and all three are
+    the node disagreeing with its own shipped prompt: a bare "right" after a proposal returns `ready`
+    — a false "done", which is the exact cost `precisionGate` exists to punish — and "ok" / "sure" at
+    the very start of a conversation return `ask`, where the prompt says in as many words not to.
+    The `ready` row is contestable ("right" reads as confirmation to some ears, as an ambiguous
+    acknowledgement to others) and is left contested rather than relabelled: tuning a label to match
+    the model is the failure this whole harness exists to prevent. Fixing the prompt is a separate
+    change through its own chain — the same order P1 followed, instrument first.
 
 ## 10. What goes to a human, and why
 

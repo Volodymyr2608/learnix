@@ -1,6 +1,6 @@
 ---
 feature: ai-evaluation-harness
-status: in-progress
+status: stable
 models: []
 depends-on: [ai-tutor-guardrails, ai-input-trust-boundary]
 ---
@@ -247,11 +247,24 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
     correct behaviour and was also the mechanism of P2. At least one row per clause asserts
     `assessReady: false` **with no model call**, so the guard is pinned by a row that exercises it
     rather than by the absence of any row that does.
-20. **A field a dataset adds to the prompt inherits criterion 12.** The latest-user-turn field is
-    rendered into the node's conversation context, so it is subject to the same authoring rule: it
-    carries only what its author could have written before seeing the expected answer, and the
-    contract test that enforces this for `confidenceScore` covers it too. A leak here would move
-    scores up, which is the one direction no gate, baseline or figure check can see.
+20. **A field a dataset adds to the prompt inherits criterion 12, and where a regex cannot reach,
+    the staging does.** The latest-user-turn field carries only what its author could have written
+    before seeing the expected answer. But criterion 12's regexes read vocabulary, and the leak this
+    set actually shipped was *stance*: every `ready` row's assistant reply was a settled
+    confirmation, every `not_ready` row's was the change already made, and all four `ask` rows ended
+    in an either/or question — a model ignoring the user turn entirely could have scored 20/20, and
+    no word list sees that. So the set is staged instead: rows are grouped into contexts, every row
+    in a context carries byte-identical `history`, each proposal context carries all three decisions,
+    and the assistant's reply is one constant across the file. The field cannot correlate with the
+    label because it does not vary with it.
+
+    **The realism cost is stated, not hidden.** `assistantText` is the reply to the turn being
+    judged, so a realistic one reacts to that turn; holding it constant means no run measures what
+    the node does with an informative reply. Staging the proposal there instead — the intermediate
+    version — pushed the node toward `ask` on six unambiguous rows, because it read its own either/or
+    question as the latest thing it had said. Attribution was worth more than realism here; a set
+    that wants both needs the reply varied *independently* of the label, which is a second axis and a
+    second measurement.
 
 ## Edge cases
 
@@ -370,7 +383,7 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Dataset floors: JSONL parses, ≥5 rows, unique ids | `evals/datasets/datasets.contract.test.ts` |
 | Usage recorder: a call is charged to its own row under concurrency; an unreported usage, and a call that errored, are booked at zero rather than dropped; a call that never ended reports as open; `takeCalls` empties; p95 by nearest rank on 0, 1 and 20 calls | `evals/_shared/usage.test.ts` |
 | `confidenceScore` set: no context field grades its row or counts the draft, rows carry off-step and multi-turn messages, `expected` stays untouched | `evals/courseAI/confidenceScoreDataset.contract.test.ts` |
-| `assessCompletion` set: every row carries a non-empty latest user turn, every expectation names one of the node's three decisions, each guard clause has a row, and no context field grades its own row | `evals/courseAI/assessCompletionDataset.contract.test.ts` |
+| `assessCompletion` set: every row carries a non-empty latest user turn, every expectation names one of the node's three decisions, each guard clause has a row, no field written in the instructor's voice grades its own row, and the staged context cannot predict the label — one conversation per context, all three decisions on each proposal context, the assistant's reply constant across the file | `evals/courseAI/assessCompletionDataset.contract.test.ts` |
 | Precision on an empty positive set fails and says the run measured nothing rather than printing a rate | `evals/_shared/score.test.ts` |
 | Tutor dataset: category coverage, every row assertable, bait rows stage empty retrieval, tool-abuse rows forbid the write tool, leak rows use real markers | `evals/lessonAI/tutorDataset.contract.test.ts` |
 | Judged categories are the ones whose quality is a judgement | `evals/lessonAI/tutorDataset.test.ts` |
