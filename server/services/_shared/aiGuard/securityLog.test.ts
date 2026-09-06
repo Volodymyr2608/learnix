@@ -89,6 +89,36 @@ describe("logSecurityEvent", () => {
 		});
 	});
 
+	it("echoes the decoders that surfaced an obfuscated payload", () => {
+		logSecurityEvent({
+			feature: "lessonAI",
+			userId: "student-1",
+			layer: "L1",
+			outcome: "guard_blocked",
+			ruleIds: ["en:override-ignore-prior"],
+			score: 65,
+			decoders: ["rot13"],
+		});
+
+		const [fields] = mockLogger.warn.mock.calls[0] ?? [];
+		expect(fields).toMatchObject({ decoders: ["rot13"] });
+	});
+
+	it("omits decoders entirely for a plaintext payload", () => {
+		logSecurityEvent({
+			feature: "lessonAI",
+			userId: "student-1",
+			layer: "L1",
+			outcome: "guard_blocked",
+			ruleIds: ["en:override-ignore-prior"],
+			score: 65,
+			decoders: [],
+		});
+
+		const [fields] = mockLogger.warn.mock.calls[0] ?? [];
+		expect(Object.keys(fields as object)).not.toContain("decoders");
+	});
+
 	it("omits subject entirely when the caller passes none", () => {
 		logSecurityEvent({
 			feature: "quizAI",
