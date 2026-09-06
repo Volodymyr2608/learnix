@@ -637,6 +637,34 @@ exports[`detectInjection — English corpus baseline (AC-1) > legit-64 produces 
 }
 `;
 
+exports[`detectInjection — English corpus baseline (AC-1) > legit-65 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-66 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-67 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
+exports[`detectInjection — English corpus baseline (AC-1) > legit-68 produces a stable verdict and score 1`] = `
+{
+  "score": 0,
+  "verdict": "allow",
+}
+`;
+
 exports[`detectInjection — English corpus baseline (AC-1) > off-01 produces a stable verdict and score 1`] = `
 {
   "score": 0,
