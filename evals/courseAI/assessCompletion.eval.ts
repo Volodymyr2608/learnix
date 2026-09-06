@@ -23,7 +23,9 @@ export type Decision = "ready" | "not_ready" | "ask";
 type Row = {
 	id: string;
 	category: "classified" | "early-return";
+	/** Both are read by the dataset contract test, not by this runner. */
 	guard?: "empty-message" | "revise" | "clarify";
+	context: string;
 	currentStep: keyof typeof DraftStep;
 	intent: "continue" | "revise" | "clarify";
 	history: {

@@ -35,6 +35,9 @@ type Row = {
 	category: "classified" | "early-return";
 	/** Only on `early-return` rows: which guard clause the row exercises. */
 	guard?: "empty-message" | "revise" | "clarify";
+	/** The staged conversation the turn answers. Rows sharing one are identical
+	 * in every field but `userMessage`, `intent` and the expectation. */
+	context: string;
 	currentStep: string;
 	intent: "continue" | "revise" | "clarify";
 	history: { role: string; content: string; step: string }[];
@@ -62,13 +65,27 @@ const DECISIONS: Decision[] = ["ready", "not_ready", "ask"];
  * realistic one summarises and counts ("4 sections with 11 lessons total"). The
  * authoring rule binds what the row's author writes in the instructor's voice,
  * not what the assistant is depicted as having said.
+ *
+ * That exemption used to be a promise. The first version of this set kept it and
+ * still leaked: every `ready` row's `assistantText` was a settled confirmation,
+ * every `not_ready` row's was the change already carried out, and all four `ask`
+ * rows ended in an either/or question — so the field predicted the label
+ * perfectly and a model ignoring `userMessage` entirely could have scored 20/20.
+ * Found in review, not by a regex, because no regex can see stance.
+ *
+ * The exemption is now backed by construction instead: rows are grouped into
+ * *contexts*, every row in a context carries byte-identical `history` and
+ * `assistantText`, and each proposal context carries all three decisions. The
+ * field cannot correlate with the label because it does not vary with it. That
+ * is what `describe("the staged context cannot predict the label")` pins.
  */
 const authoredAsUser = rows.flatMap((row) => [
 	{ label: `${row.id}/userMessage`, content: row.userMessage },
 	...row.history
+		.map((message, index) => ({ ...message, index }))
 		.filter((message) => message.role === "user")
-		.map((message, index) => ({
-			label: `${row.id}/history[${index}]`,
+		.map((message) => ({
+			label: `${row.id}/history[${message.index}]`,
 			content: message.content,
 		})),
 ]);
@@ -174,6 +191,22 @@ describe("assessCompletion rows expect the node's own decisions", () => {
 			classified.filter((row) => row.expected.decision === "ready").length,
 		).toBeGreaterThanOrEqual(8);
 	});
+
+	/**
+	 * The other two counts are gate parameters as well, and only the `ask` one is
+	 * obviously so: at a single `ask` row, a total collapse of the clarify path
+	 * still scores 19/20 = 95% and clears the 0.85 gate untouched. Four is what
+	 * makes that failure land at 80% and redden the run. `not_ready` carries the
+	 * margin for the whole category, so it is pinned for the same reason.
+	 */
+	it.each([
+		["ask", 4],
+		["not_ready", 8],
+	] as const)("holds at least %d %s rows, because the gate needs them", (decision, floor) => {
+		expect(
+			classified.filter((row) => row.expected.decision === decision).length,
+		).toBeGreaterThanOrEqual(floor);
+	});
 });
 
 describe("the guard that hid the defect is pinned by rows, not by absence", () => {
@@ -196,6 +229,85 @@ describe("the guard that hid the defect is pinned by rows, not by absence", () =
 	)("%s sets the state its guard clause reads", (_label, row) => {
 		if (row.guard === "empty-message") expect(row.intent).toBe("continue");
 		else expect(row.intent).toBe(row.guard);
+	});
+});
+
+describe("the staged context cannot predict the label", () => {
+	const contexts = [...new Set(rows.map((row) => row.context))];
+	const proposals = contexts.filter((name) => name.endsWith("-proposal"));
+
+	it.each(
+		contexts.map((name) => [name] as const),
+	)("%s stages one conversation, byte for byte", (name) => {
+		const inContext = rows.filter((row) => row.context === name);
+		const staged = new Set(
+			inContext.map((row) =>
+				JSON.stringify({
+					history: row.history,
+					assistantText: row.assistantText,
+					currentStep: row.currentStep,
+				}),
+			),
+		);
+
+		expect(staged.size).toBe(1);
+	});
+
+	/**
+	 * `assistantText` is the reply to **this** turn — the node appends it after
+	 * `userMessage` (`assessCompletion.ts:44-53`), so it is not the proposal that
+	 * preceded the turn; that lives in `history`. A realistic reply therefore
+	 * reacts to the very message being judged, which is why the first version of
+	 * this set leaked through it and the second, which staged the proposal there,
+	 * pushed the node toward `ask` on rows that were not ambiguous.
+	 *
+	 * Held to one constant across the whole file instead. The realism cost is
+	 * stated rather than hidden: no run here measures what the node does with an
+	 * informative reply. What it buys is that every decision the run scores is
+	 * attributable to `userMessage` alone.
+	 */
+	it("holds the assistant's reply constant across the whole set", () => {
+		expect([...new Set(rows.map((row) => row.assistantText))]).toHaveLength(1);
+	});
+
+	/**
+	 * The negative control, and the reason the whole set is arranged this way: if
+	 * one staged conversation leads to all three decisions, then nothing outside
+	 * `userMessage` can carry the answer.
+	 */
+	it.each(
+		proposals.map((name) => [name] as const),
+	)("%s carries all three decisions on the same staged conversation", (name) => {
+		const decisions = rows
+			.filter((row) => row.context === name && row.category === "classified")
+			.map((row) => row.expected.decision);
+
+		expect([...new Set(decisions)].sort()).toEqual([...DECISIONS].sort());
+	});
+
+	/**
+	 * `conversation-start` is single-label on purpose and is the one context
+	 * exempt from the rule above: the shipped prompt says not to ask when the
+	 * conversation has only just started, so nothing there can be `ready` or
+	 * `ask`. Its rows exist to be the minimal pair — the same acknowledgement
+	 * that means `ask` after a proposal means `not_ready` here.
+	 */
+	it("pairs an ambiguous acknowledgement across two contexts", () => {
+		const acknowledgements = classified.filter(
+			(row) => row.userMessage.trim().split(/\s+/).length === 1,
+		);
+		const byWord = new Map<string, Set<string>>();
+		for (const row of acknowledgements) {
+			const word = row.userMessage.trim().toLowerCase();
+			byWord.set(
+				word,
+				(byWord.get(word) ?? new Set()).add(row.expected.decision),
+			);
+		}
+
+		expect([...byWord.values()].some((decisions) => decisions.size > 1)).toBe(
+			true,
+		);
 	});
 });
 
