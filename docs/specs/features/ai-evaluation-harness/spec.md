@@ -224,6 +224,48 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
     the rows added since. Partial coverage presented as complete is the failure mode; re-running is
     a separate task, because it moves a number three documents quote.
 
+16. **An eval drives its node through the field the node actually reads.** `courseAI:assessCompletion`
+    passed `userMessage: ""` — the exact field `assessCompletion`'s first guard tests — so every row
+    returned on line one and no row ever reached the model. Each row of `assessCompletion.jsonl`
+    carries the latest user turn as its own field, the eval passes it as `state.userMessage`, and a
+    contract test fails on a row whose driving field is absent or empty. This is criterion 11's
+    call-count check from the other side: that one catches the absence after the run, this one stops
+    the run being authored that way.
+17. **A dataset asks the question its node answers.** `assessCompletion` decides whether the latest
+    user message signals *proceed*; the set as authored graded whether the step's *content was
+    complete*, which is `confidenceScore`'s question — so even correctly wired, it would have scored
+    the node against a contract the node does not have. Every row's expectation names one of the
+    node's own three decisions, and the rows are phrased as the turns that distinguish them:
+    approval, change request, and the ambiguous acknowledgement.
+18. **The run measures all three decisions, not two.** The node returns `ready` / `not_ready` / `ask`
+    and writes `assessClarify` on the third; scoring only the boolean `assessReady` makes `ask`
+    indistinguishable from `not_ready`, leaving the clarify path unmeasured for the same reason the
+    node was. The run reports accuracy across the three decisions and keeps `precisionGate` at 0.9
+    on `ready`, because a premature advance costs the instructor more than excess caution does.
+19. **The guard that hid the defect is itself measured.** `assessCompletion` returns early on an
+    empty `userMessage`, on `intent: "revise"` and on `intent: "clarify"`; that early return is
+    correct behaviour and was also the mechanism of P2. At least one row per clause asserts
+    `assessReady: false` **with no model call**, so the guard is pinned by a row that exercises it
+    rather than by the absence of any row that does.
+20. **A field a dataset adds to the prompt inherits criterion 12, and where a regex cannot reach,
+    the staging does.** The latest-user-turn field carries only what its author could have written
+    before seeing the expected answer. But criterion 12's regexes read vocabulary, and the leak this
+    set actually shipped was *stance*: every `ready` row's assistant reply was a settled
+    confirmation, every `not_ready` row's was the change already made, and all four `ask` rows ended
+    in an either/or question — a model ignoring the user turn entirely could have scored 20/20, and
+    no word list sees that. So the set is staged instead: rows are grouped into contexts, every row
+    in a context carries byte-identical `history`, each proposal context carries all three decisions,
+    and the assistant's reply is one constant across the file. The field cannot correlate with the
+    label because it does not vary with it.
+
+    **The realism cost is stated, not hidden.** `assistantText` is the reply to the turn being
+    judged, so a realistic one reacts to that turn; holding it constant means no run measures what
+    the node does with an informative reply. Staging the proposal there instead — the intermediate
+    version — pushed the node toward `ask` on six unambiguous rows, because it read its own either/or
+    question as the latest thing it had said. Attribution was worth more than realism here; a set
+    that wants both needs the reply varied *independently* of the label, which is a second axis and a
+    second measurement.
+
 ## Edge cases
 
 - **Empty retrieval.** A hallucination-bait row sets `retrieved: ""`, and the stub returns the exact
@@ -239,6 +281,12 @@ Applies: [`docs/constitution.md`](../../../constitution.md) — inherited, not r
   hand-written prompt fails the contract test, so the list cannot grant permission nobody needs.
 - **Flaky rows.** A row passing 2 of 3 samples is neither a pass nor a failure and is reported as
   its own class.
+- **A row that never reaches the model.** Scored as a defect, not as a prediction: a row whose
+  driving field cannot reach past the node's guards is a hole in the dataset, and the run says which
+  rows those were rather than folding their `false` into a precision.
+- **A decision the eval cannot see.** `ask` returns `assessReady: false` exactly as `not_ready` does;
+  read through the boolean alone the two are one outcome, so the clarify path can regress to zero
+  without moving a number.
 
 ## Failure & fallback
 
@@ -335,6 +383,8 @@ Offline, in `pnpm test:unit` — no network, no key:
 | Dataset floors: JSONL parses, ≥5 rows, unique ids | `evals/datasets/datasets.contract.test.ts` |
 | Usage recorder: a call is charged to its own row under concurrency; an unreported usage, and a call that errored, are booked at zero rather than dropped; a call that never ended reports as open; `takeCalls` empties; p95 by nearest rank on 0, 1 and 20 calls | `evals/_shared/usage.test.ts` |
 | `confidenceScore` set: no context field grades its row or counts the draft, rows carry off-step and multi-turn messages, `expected` stays untouched | `evals/courseAI/confidenceScoreDataset.contract.test.ts` |
+| `assessCompletion` set: every row carries a non-empty latest user turn, every expectation names one of the node's three decisions, each guard clause has a row, no field written in the instructor's voice grades its own row, and the staged context cannot predict the label — one conversation per context, all three decisions on each proposal context, the assistant's reply constant across the file | `evals/courseAI/assessCompletionDataset.contract.test.ts` |
+| Precision on an empty positive set fails and says the run measured nothing rather than printing a rate | `evals/_shared/score.test.ts` |
 | Tutor dataset: category coverage, every row assertable, bait rows stage empty retrieval, tool-abuse rows forbid the write tool, leak rows use real markers | `evals/lessonAI/tutorDataset.contract.test.ts` |
 | Judged categories are the ones whose quality is a judgement | `evals/lessonAI/tutorDataset.test.ts` |
 | Judge schema bounds; a failure is never a score; failure reasons distinguish a failed call from an unscorable answer | `evals/_shared/judge.test.ts` |
