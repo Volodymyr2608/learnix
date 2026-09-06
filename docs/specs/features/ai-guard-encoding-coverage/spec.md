@@ -1,6 +1,6 @@
 ---
 feature: ai-guard-encoding-coverage
-status: in-review
+status: stable
 models: []
 depends-on: [ai-input-trust-boundary, ai-guard-multilingual-coverage, ai-tutor-guardrails]
 ---
@@ -12,7 +12,7 @@ the normalized message plus any base64 segments it decodes. Every other obfuscat
 apply to the same sentence (ROT13, leetspeak digits, reversed text) leaves L1 scoring zero, and the
 homoglyph fold table that is supposed to catch alphabet substitution is missing entries whose
 siblings it already holds. This feature adds three decoders to `normalize.ts`, completes that table,
-and makes a security event name which decoder surfaced the payload.
+and makes a security event name which obfuscation surfaced the payload.
 
 ## Business goal
 
@@ -44,7 +44,8 @@ platform's flagship course is *Intro to AI Security*, contains attack strings ve
 - Every decoder composes with the existing base64 pass and with the four-language pattern union from
   `ai-guard-multilingual-coverage` — a decoded segment is matched against the whole catalogue, so a
   ROT13'd Spanish payload is covered without a Spanish-specific decoder.
-- A `guard_blocked` or `guard_suspect` event names **which decoder** surfaced the payload, so
+- A `guard_blocked` or `guard_suspect` event names **which obfuscation** surfaced the payload — a
+  decoder id, or `normalization` for a lookalike alphabet or an in-word zero-width character — so
   obfuscated traffic is distinguishable from naive traffic in the log.
 
 ## Unsupported use cases
@@ -87,10 +88,15 @@ finite.
 
 ## Outputs
 
-`normalizeForMatching` returns the haystack set it already returns, extended with one labelled entry
-per decoder that produced a distinct string. `detectInjection` returns the unchanged `L1Result`
-(`verdict`, `score`, `matchedRuleIds`) plus the closed-vocabulary decoder provenance for whichever
-haystacks contributed a match. `guardUserInput`'s `GuardResult` is unchanged — this feature moves
+`normalizeForMatching` returns a labelled haystack set: the message **exactly as sent**, its
+normalized form when that differs, and one entry per decoder that produced a distinct string.
+`detectInjection` returns `L1Result` (`verdict`, `score`, `matchedRuleIds`) plus
+`obfuscations` — the closed-vocabulary provenance of whichever views contributed a rule the message
+as sent did not match on its own.
+
+**The unfolded view is load-bearing, not a leftover.** `\b` is ASCII-only, so folding in place turns
+a boundary character into a word character and *destroys* matches. Keeping the message as sent is
+what makes normalization additive; see `security.md` S5-High. `guardUserInput`'s `GuardResult` is unchanged — this feature moves
 rows from `off_topic` to `blocked`, it does not add an outcome.
 
 Nothing here is probabilistic: L1 is synchronous regex matching, so every output is a pure function
@@ -98,7 +104,10 @@ of the input text and the catalogue, and the same input always produces the same
 
 ## Validation
 
-- **User input** — unchanged. The decoders run before matching and reject nothing themselves.
+- **User input** — unchanged. The decoders run before matching and reject nothing themselves. They
+  are fed the **normalized** text, not the original, so a single zero-width or fullwidth character
+  cannot be used to route around a decoder; `base64` is the declared exception, because normalizing
+  can rewrite characters inside the base64 alphabet and break the decode.
 - **Decoder output** — each decoder carries the admission guard that is *real for it*, which is not
   the same guard for all four. `base64` keeps its printable-ratio check (`MOSTLY_PRINTABLE ≥ 0.9`):
   it is the only one whose output can be arbitrary bytes. For the three character transforms that
@@ -150,21 +159,30 @@ retyped — plus:
 
 **Provenance**
 
-11. A payload whose score came from a decoded haystack names the decoder responsible on the event it
-    emits — `guard_blocked` at or above threshold, `guard_suspect` below it. A plaintext payload
-    emits the same event with no decoder named.
-12. The decoder vocabulary is closed and derived, not retyped — a value that is not a real decoder
-    fails to type-check, mirroring `RULE_ID_VOCABULARY` (`patterns/index.ts`).
+11. A payload whose score came from a view other than the message as sent names the obfuscation
+    responsible on the event it emits — `guard_blocked` at or above threshold, `guard_suspect` below
+    it. A plaintext payload emits the same event with none named. A lookalike-alphabet payload names
+    `normalization`.
+12. The obfuscation vocabulary is closed and derived, not retyped — a value that is not a real
+    decoder fails to type-check, mirroring `RULE_ID_VOCABULARY` (`patterns/index.ts`). The narrowing
+    from a haystack source to an obfuscation is a real type predicate, not a cast: a cast would let a
+    future third source value walk into the event's closed vocabulary silently.
 13. No security event carries decoded text, raw text, or any free-form string. Enforced by the
     absence of such a field on the type, not by redaction.
+13a. **Normalization is additive.** For any input, L1's score is never below what the same input
+    scores with no normalization at all. Asserted over every entry in the fold table plus zero-width
+    and NFKC (`normalize.contract.test.ts`).
 
 **Determinism and cost**
 
 14. `detectInjection` stays synchronous and network-free.
 15. `detectInjection.redos.test.ts` still passes within its 50 ms alarm at `MAX_MSG_LENGTH`, with a
     pathological input added per decoder.
-16. Measured L1 wall time at 2000 characters stays under **2 ms/call** (0.288 ms today; 1.14 ms
-    measured with three extra haystacks).
+16. **The fan-out is bounded**, asserted as total haystack characters (< 12,000) rather than as wall
+    time. A stopwatch in a parallel test runner measures the runner — the same worst case that takes
+    1.34 ms standalone exceeds a 2 ms assertion under contention — so the deterministic quantity is
+    the one pinned. Measured ceiling ~9,400 characters across every shape, including the input that
+    maximises distinct base64 segments. Wall time is covered by the existing 50 ms alarm.
 
 ## Edge cases
 
@@ -173,9 +191,15 @@ retyped — plus:
 - **A decoder that is an involution.** ROT13 and reversal are their own inverses, so applying them to
   already-plaintext English produces garbage that must not match. This is what criterion 7 checks:
   ROT13 of ordinary English is not English.
-- **Leetspeak on legitimate technical prose.** `' OR 1=1 --` (`legit-24`) folds to `OR i=i`, and
-  `Web 2.0` to `Web 2.o`. Measured harmless against the current catalogue, but this is the decoder
-  with the largest surface for accidental matches and the reason criterion 9 exists.
+- **Leetspeak on legitimate technical prose.** The precondition requires a leet character *adjacent
+  to a letter*, so `' OR 1=1 --` (`legit-24`) and `Web 2.0` are not decoded at all — the digits are
+  separated by spaces and a period. Measured: the rows it does admit are `legit-09/48/56/64`, which
+  contain `L1`/`L2`, and none of them matches. This is still the decoder with the largest surface for
+  accidental matches, and the reason criterion 9 exists.
+- **Normalization must add a view, never rewrite the only one.** `\b` is ASCII-only: `instructionsι`
+  matches `\binstructions\b` and `instructionsi` does not, so folding in place would silently
+  *remove* coverage and turn the fold table into an evasion alphabet. Pinned by
+  `normalize.contract.test.ts` over the real table plus zero-width and NFKC.
 - **Composed obfuscation** — base64 of a ROT13 payload, or leetspeak inside a homoglyph substitution.
   Single-pass per decoder is the deliberate bound; a payload that needs two decoders chained is not
   covered and is not a regression, since it is not covered today either.
@@ -246,12 +270,14 @@ one auditor at `/qa` rather than a design pass at `/spec`.
 
 | Level | File | Scenario |
 |---|---|---|
-| unit | `normalize.test.ts` | each decoder in isolation: decodes its own encoding; leaves plaintext alone; drops non-text output at the printable guard; is a no-op on empty input |
+| unit | `decoders.test.ts` | each decoder in isolation: decodes its own encoding; leaves plaintext alone; drops non-text output at its admission guard; is a no-op on empty input |
 | unit | `normalize.test.ts` | the completed homoglyph table: each added code point folds, and the uppercase form folds via the existing case-restoring path |
 | unit | `detectInjection.test.ts` | an encoded payload reaches `block`; the same payload's plaintext already did; provenance names the right decoder |
 | unit | `detectInjection.redos.test.ts` | one pathological input per decoder, within the 50 ms alarm at 2000 chars |
 | unit | `detectInjection.corpus.test.ts` | the legitimate corpus does not regress |
-| contract | `patterns.contract.test.ts` | the decoder vocabulary is closed and derived, not retyped |
+| contract | `decoders.contract.test.ts` | the decoder vocabulary is closed and derived, not retyped; every decoder is pure and synchronous |
+| contract | `normalize.contract.test.ts` | normalization is additive — no fold-table entry, zero-width character or fullwidth digit scores below the unnormalized text |
+| contract | `patterns.contract.test.ts` | no pattern carries a `g`/`y` flag, which would make the second attribution pass order-dependent |
 | unit | `securityLog.test.ts` | an event with decoder provenance logs it; no event can carry text |
 | eval | `pnpm eval aiGuard:redteam` | detection recall ≥ 13/34, enforcement recall ≥ 32/34 (criterion 5) |
 | eval | `pnpm eval aiGuard:adversarial` | 27/27 injections still blocked, 0/64 legitimate rows blocked at L1, including the four new decoder-topic rows |
@@ -268,10 +294,11 @@ per `docs/specs/ai-eval-strategy.md`.
 - The precedent for widening L1 along one axis: `../ai-guard-multilingual-coverage/spec.md`.
 - Correctness: the tests named above.
 - Build history (frozen, never updated): `build/plan.md`.
-- Decisions: an ADR is decided at `/qa` by the three-month test. Current read — **not warranted**:
-  this extends a mechanism ADR-028 already established rather than choosing between architectures.
-  The one decision that would earn one, adding an isolated L2 intent classifier, is explicitly out
-  of scope here.
+- Decisions: [`docs/adr/036-l1-coverage-by-decoding-not-by-patterns.md`](../../../adr/036-l1-coverage-by-decoding-not-by-patterns.md).
+  Written at `/qa`: the drafting read was that this only extends ADR-028's mechanism, but the branch
+  produced three decisions that outlive it — coverage grows by views and not by weights, the block
+  threshold is a cliff, and anything that alters text before matching must add a view rather than
+  rewrite one. The last was found by breaking, not by design.
 
 ## Measured outcome (2026-09-06)
 
@@ -283,13 +310,23 @@ Run on branch `feat/ai-guard-encoding-coverage`, both evals by hand:
 | `redteam` enforcement recall | 94.1% (32/34) | **94.1% (32/34)** |
 | `adversarial` accuracy | 76.2% (77/101) | **77.1% (81/105)** |
 | `adversarial` false positives | 24 | **24 — the same ids, none new** |
-| L1 blocks on legitimate rows | 0/64 | **0/68** |
-| L1 latency at 2000 chars | 0.288 ms | **0.756 ms** (budget 2 ms) |
+| L1 blocks on legitimate rows | 0/64 | **0/69** |
+| L1 worst-case latency at 2000 chars | 0.288 ms | **1.34 ms**, measured standalone |
+| L1 worst-case haystack characters | ~4,000 | **~9,400** (budget 12,000) |
+
+The adversarial numbers above were taken at 105 rows; `legit-69` brings the corpus to 106 and has
+not been re-run through the live eval, having been added after it. Its L1 verdict is pinned by the
+corpus test.
 
 All five encoding techniques report `PASS` in the per-technique table
 (`encoding_base64`, `encoding_homoglyph`, `encoding_leetspeak`, `encoding_reversed`,
 `encoding_rot13`). The two rows that still reach the model are `rt-virt-01` and `rt-l2-02`, both
 unchanged — neither is an encoding.
+
+**Re-measured after the `/qa` fixes** (additive normalization, decoders fed normalized text, the
+`obfuscations` rename): every number above is unchanged. Three obfuscation bypasses the code review
+found are closed — `leet + zero-width`, `leet + fullwidth` and `rot13 + fullwidth` all went
+`allow` → `block` — and the audit's fold-table regression is closed with it.
 
 `aiGuard:adversarial` still reports FAIL on both gates. Both failures are pre-existing and neither is
 evidence about this change: the accuracy gate has been below 0.85 since the corpus was extended, and
