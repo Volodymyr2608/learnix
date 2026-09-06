@@ -1,16 +1,31 @@
 import { DECODERS, type DecoderId } from "./decoders";
 
 /**
- * One view of the message for the catalogue to be matched against, labelled
- * with what produced it. `"raw"` is the message itself after normalization;
- * every other source is a decoder.
+ * How a view of the message was obtained, when it was not the message itself.
  *
- * The label is not decoration: it is what lets a security event say whether an
- * attack arrived in plaintext or obfuscated, which is the difference between
- * someone guessing and someone working the problem.
+ * `"normalization"` covers homoglyph folding, zero-width stripping and NFKC
+ * together, deliberately without saying which — they are one pass and the code
+ * cannot honestly attribute between them. Naming it is still worth more than
+ * silence: it separates "arrived with lookalike or invisible characters" from
+ * "typed out in ASCII", which is the distinction the telemetry exists for.
+ */
+export type Obfuscation = DecoderId | "normalization";
+
+/**
+ * One view of the message for the catalogue to be matched against, labelled
+ * with what produced it.
+ *
+ * `"raw"` is the message **exactly as sent** — deliberately not normalized. That
+ * is load-bearing rather than incidental: `\b` is ASCII-only and every rule ends
+ * in one, so a Greek or Cyrillic code point is a word boundary before folding
+ * and a word character after it. Folding in place therefore *destroys* matches
+ * (`instructionsι` folds to `instructionsi`, and `\binstructions\b` stops
+ * matching), which made the fold table an evasion alphabet rather than a
+ * defence. Keeping the unfolded view is what makes normalization additive, as it
+ * always claimed to be. Pinned by `normalize.contract.test.ts`.
  */
 export type Haystack = {
-	source: DecoderId | "raw";
+	source: Obfuscation | "raw";
 	text: string;
 };
 
@@ -63,6 +78,14 @@ const HOMOGLYPHS: Record<string, string> = {
 };
 
 /**
+ * Exported for `normalize.contract.test.ts`, which asserts that inserting any of
+ * them never scores below the unnormalized text. A table entry is a potential
+ * evasion character, so the test has to enumerate the real table rather than a
+ * copy that can drift from it.
+ */
+export const FOLDED_CODE_POINTS = Object.keys(HOMOGLYPHS);
+
+/**
  * Case-aware: the map holds only lowercase code points, but the uppercase
  * variants are distinct code points that NFKC does not fold either. Looking up
  * the lowercased char and restoring the original case covers both without
@@ -84,20 +107,33 @@ const foldForMatching = (text: string): string =>
 	foldHomoglyphs(text.normalize("NFKC").replace(ZERO_WIDTH, ""));
 
 export const normalizeForMatching = (text: string): NormalizedText => {
-	// Candidates are located in the RAW text: normalizing first could alter the
-	// base64 alphabet and break detection.
-	const raw = foldForMatching(text);
-	const haystacks: Haystack[] = [{ source: "raw", text: raw }];
-	const seen = new Set([raw]);
+	const normalized = foldForMatching(text);
+
+	// The unfolded original first, so a rule that folding would have broken still
+	// matches. Everything after it is additive by construction.
+	const haystacks: Haystack[] = [{ source: "raw", text }];
+	const seen = new Set([text]);
+
+	const add = (source: Haystack["source"], candidate: string): void => {
+		// A view already held contributes nothing but a second pass over the whole
+		// catalogue. Note the consequence for attribution: where two sources
+		// produce the same string, only the first is credited.
+		if (candidate.length === 0 || seen.has(candidate)) return;
+		seen.add(candidate);
+		haystacks.push({ source, text: candidate });
+	};
+
+	add("normalization", normalized);
 
 	for (const decoder of DECODERS) {
-		for (const decoded of decoder.decode(text)) {
-			const folded = foldForMatching(decoded);
-			// A decoder that reproduces a view we already hold contributes nothing
-			// but a second pass over the whole catalogue.
-			if (folded.length === 0 || seen.has(folded)) continue;
-			seen.add(folded);
-			haystacks.push({ source: decoder.id, text: folded });
+		// Decoders see the NORMALIZED text, not the original: the zero-width and
+		// NFKC controls are older than this registry, and feeding a decoder around
+		// them would let one invisible character disable it. base64 is the
+		// exception it declares — normalizing first can alter the base64 alphabet
+		// and break the decode outright.
+		const input = decoder.consumesRawText ? text : normalized;
+		for (const decoded of decoder.decode(input)) {
+			add(decoder.id, foldForMatching(decoded));
 		}
 	}
 

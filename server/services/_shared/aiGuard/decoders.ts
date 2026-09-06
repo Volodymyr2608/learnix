@@ -40,7 +40,14 @@ export type DecoderId = (typeof DECODER_ID_VOCABULARY)[number];
 export type Decoder = {
 	id: DecoderId;
 	/** Pure and synchronous — L1 runs before the first token of every turn. */
-	decode: (raw: string) => string[];
+	decode: (input: string) => string[];
+	/**
+	 * Set only by base64. Every other decoder is fed the NORMALIZED text so that
+	 * zero-width and NFKC cannot be used to slip around it; base64 must see the
+	 * original, because normalizing can rewrite characters inside the base64
+	 * alphabet and break the decode outright.
+	 */
+	consumesRawText?: true;
 };
 
 const BASE64_CANDIDATE = /[A-Za-z0-9+/]{16,}={0,2}/g;
@@ -103,23 +110,34 @@ const LEET: Record<string, string> = {
 };
 
 /**
+ * Derived from the map, never retyped beside it. Written by hand, the class and
+ * the map drift silently: adding `8: "b"` to the map would compile, pass, and do
+ * nothing at all.
+ */
+const LEET_CLASS = `[${Object.keys(LEET)
+	.map((char) => char.replace(/[$@]/g, "\\$&"))
+	.join("")}]`;
+
+/**
  * A leet character sitting *inside* a word. A cost guard rather than a
  * correctness one — it keeps the overwhelming majority of messages, which carry
  * ordinary standalone digits ("add 3 lessons"), from growing a haystack nothing
  * can match.
  */
-const LEET_CANDIDATE = /[a-z][013457@$]|[013457@$][a-z]/i;
+const LEET_CANDIDATE = new RegExp(`[a-z]${LEET_CLASS}|${LEET_CLASS}[a-z]`, "i");
 
-const leetspeak = (raw: string): string[] => {
-	if (!LEET_CANDIDATE.test(raw)) return [];
-	return [raw.replace(/[013457@$]/g, (char) => LEET[char] ?? char)];
+const leetspeak = (input: string): string[] => {
+	if (!LEET_CANDIDATE.test(input)) return [];
+	return [
+		input.replace(new RegExp(LEET_CLASS, "g"), (char) => LEET[char] as string),
+	];
 };
 
 const reversed = (raw: string): string[] =>
 	raw.length === 0 ? [] : [[...raw].reverse().join("")];
 
 export const DECODERS: readonly Decoder[] = [
-	{ id: ID.base64, decode: decodeBase64 },
+	{ id: ID.base64, decode: decodeBase64, consumesRawText: true },
 	{ id: ID.rot13, decode: rot13 },
 	{ id: ID.leetspeak, decode: leetspeak },
 	{ id: ID.reversed, decode: reversed },

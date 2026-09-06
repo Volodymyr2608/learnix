@@ -29,6 +29,13 @@ describe("detectInjection — English corpus baseline (AC-1)", () => {
 		CORPUS.map((row) => [row.id, row.input.text as string]),
 	)("%s produces a stable verdict and score", (_id, text) => {
 		const result = detectInjection(text);
-		expect({ verdict: result.verdict, score: result.score }).toMatchSnapshot();
+		// `obfuscations` rides along deliberately: attribution is the part of the
+		// guard with the least hand-written test surface, and snapshotting it buys
+		// regression coverage across every row in both corpora for free.
+		expect({
+			verdict: result.verdict,
+			score: result.score,
+			obfuscations: result.obfuscations,
+		}).toMatchSnapshot();
 	});
 });

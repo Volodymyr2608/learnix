@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { normalizeForMatching } from "./normalize";
 
-/** The message itself after normalization — what used to be `normalized`. */
+/**
+ * The normalized view. `"raw"` is now the message exactly as sent — keeping it
+ * unfolded is what makes normalization additive (see normalize.contract.test.ts)
+ * — so the folded text lives under its own source, and is absent entirely when
+ * normalization changed nothing.
+ */
 const raw = (text: string): string => {
-	const found = normalizeForMatching(text).haystacks.find(
-		(haystack) => haystack.source === "raw",
-	);
-	if (!found) throw new Error("no raw haystack");
-	return found.text;
+	const { haystacks } = normalizeForMatching(text);
+	const folded = haystacks.find((h) => h.source === "normalization");
+	const asSent = haystacks.find((h) => h.source === "raw");
+	if (!asSent) throw new Error("no raw haystack");
+	return (folded ?? asSent).text;
 };
 
 /** Everything a given decoder contributed. */

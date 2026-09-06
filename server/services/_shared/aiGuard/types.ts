@@ -1,5 +1,5 @@
 import type { AiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
-import type { DecoderId } from "./decoders";
+import type { Obfuscation } from "./normalize";
 export type GuardLayer = "L1" | "L2";
 export type GuardOutcome = "allow" | "off_topic" | "blocked";
 export type L1Verdict = "allow" | "suspect" | "block";
@@ -9,11 +9,11 @@ export type L1Result = {
 	score: number;
 	matchedRuleIds: string[];
 	/**
-	 * Which decoders surfaced a rule the raw view did not. Empty for a plaintext
-	 * payload, and empty for a homoglyph one — folding is normalization applied
-	 * to every haystack, not a decoder (see decoders.ts).
+	 * Which obfuscations surfaced a rule the message as sent did not match on its
+	 * own: a decoder id, or `"normalization"` for homoglyph / zero-width / NFKC.
+	 * Empty for a payload typed out in plain ASCII.
 	 */
-	decoders: DecoderId[];
+	obfuscations: Obfuscation[];
 };
 
 export type GuardDomain = {
@@ -132,10 +132,10 @@ export type SecurityEvent = {
 	score: number;
 	subject?: SecuritySubject;
 	/**
-	 * Which decoders surfaced the payload, when any did. Id-only and closed, like
-	 * `ruleIds` and `subject`: the point of this field set being exhaustive by
-	 * type is that there is nowhere to put the message text, and a provenance
+	 * Which obfuscations surfaced the payload, when any did. Id-only and closed,
+	 * like `ruleIds` and `subject`: the point of this field set being exhaustive
+	 * by type is that there is nowhere to put the message text, and a provenance
 	 * field typed as `string[]` would have quietly reopened that.
 	 */
-	decoders?: DecoderId[];
+	obfuscations?: Obfuscation[];
 };

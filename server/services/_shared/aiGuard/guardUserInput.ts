@@ -37,7 +37,7 @@ export const guardUserInput = async (
 			outcome: "guard_blocked",
 			ruleIds: l1.matchedRuleIds,
 			score: l1.score,
-			...(l1.decoders.length > 0 ? { decoders: l1.decoders } : {}),
+			obfuscations: l1.obfuscations,
 		});
 		return {
 			outcome: "blocked",
@@ -59,7 +59,7 @@ export const guardUserInput = async (
 			outcome: "guard_suspect",
 			ruleIds: l1.matchedRuleIds,
 			score: l1.score,
-			...(l1.decoders.length > 0 ? { decoders: l1.decoders } : {}),
+			obfuscations: l1.obfuscations,
 		});
 	}
 
