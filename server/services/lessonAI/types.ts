@@ -59,17 +59,35 @@ export type ToolAuthorization =
 	  }
 	| { authorized: false; message: string };
 
-export type ReplyValidationRuleId =
-	| "system_prompt_echo"
-	| "untrusted_data_echo"
-	| "verbatim_chunk_echo"
-	| "off_origin_link"
-	| "validator_error"
+/**
+ * Every rule the output boundary can report, in precedence order.
+ *
+ * A runtime array with the type derived from it, never a union retyped beside a
+ * list — the same mechanism and the same reason as `RULE_ID_VOCABULARY`
+ * (`_shared/aiGuard/patterns/index.ts`) and `DECODER_ID_VOCABULARY`
+ * (`_shared/aiGuard/decoders.ts`): a second hand-authored source of truth
+ * drifts, and this one already did. `concept_check_answer_echo` shipped while
+ * `flow-contract.md`, `spec.md` and `security.md` all still described a
+ * four-rule boundary.
+ *
+ * `replyRules.contract.test.ts` reads this array and fails when a document that
+ * describes the boundary does not name one of its rules, so a sixth rule cannot
+ * be added without the prose following it.
+ */
+export const REPLY_VALIDATION_RULE_IDS = [
+	"system_prompt_echo",
+	"untrusted_data_echo",
+	"verbatim_chunk_echo",
+	"off_origin_link",
+	"validator_error",
 	/**
 	 * The reply named the answer to the check authored on the same turn. Unlike
 	 * every other id here it does not reject the reply — it discards the check.
 	 */
-	| "concept_check_answer_echo";
+	"concept_check_answer_echo",
+] as const;
+
+export type ReplyValidationRuleId = (typeof REPLY_VALIDATION_RULE_IDS)[number];
 
 export type ReplyValidationResult =
 	/**
