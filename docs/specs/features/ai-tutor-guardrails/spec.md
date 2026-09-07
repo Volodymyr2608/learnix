@@ -169,6 +169,20 @@ rejects it when it contains fragments of the system prompt, an echo of `<untrust
 verbatim dump of a retrieved chunk, or a markdown link/image pointing at an off-origin URL. The
 validator throwing counts as a rejection, not a pass.
 
+**4a. The same boundary can spare the reply and drop the question.** When the reply names the correct
+option of the check authored on the same turn, `concept_check_answer_echo` returns
+`{ valid: true, suppressCheck: true }`: the reply stands, and the buffered check is thrown away
+unwritten with a routine `tool_call_declined`. This is the one outcome that is neither pass nor fail,
+and the asymmetry is the point. The correct option is by construction a phrase from the lesson the
+tutor has just been explaining, so exact containment here has a structurally high false-positive rate
+— unlike `system_prompt_echo`, whose markers never occur in legitimate prose. Failing closed on the
+**check** costs the student one question they can be asked again; failing closed on the **reply**
+would destroy a legitimate turn on a collision. The needle floor
+(`MIN_ECHO_NEEDLE_LENGTH`, eight characters) exists because the rule fails in the direction that
+removes the feature: a one-word answer such as `NULL` or `true` appears in almost any honest reply
+about the lesson that taught it, and without the floor every check on that concept would disappear
+with no signal at all.
+
 Order of operations, and the honest name for it — **"validated before persistence, retracted before
 completion"**, not "validated before display":
 
@@ -435,11 +449,17 @@ a model**, which is why it does not pass `guardUserInput`: guarding a value that
 -held strings and goes nowhere near a prompt would be theatre. If a future feature ever feeds it to a
 model — "explain my mistake" — that feature registers as its own guarded entry point.
 
-**3. Model output** (station 19) — `validateReply`, fail-closed, four rules in fixed precedence:
-`system_prompt_echo` → `untrusted_data_echo` → `verbatim_chunk_echo` → `off_origin_link`. A validator
-that **throws is a rejection**, logged as `validator_error`, never a pass. For off-origin links the
-server-side regex is a pre-filter over four CommonMark spellings; the client's `urlTransform`
-renderer, which sees the final AST, is the real enforcement point.
+**3. Model output** (station 19) — `validateReply`, fail-closed, four **rejecting** rules in fixed
+precedence: `system_prompt_echo` → `untrusted_data_echo` → `verbatim_chunk_echo` → `off_origin_link`.
+A validator that **throws is a rejection**, logged as `validator_error`, never a pass. For off-origin
+links the server-side regex is a pre-filter over four CommonMark spellings; the client's
+`urlTransform` renderer, which sees the final AST, is the real enforcement point.
+
+A fifth rule, `concept_check_answer_echo`, runs on the same pass and **rejects nothing** — it returns
+`suppressCheck`, so the reply is delivered and persisted while the check authored on the same turn is
+discarded unwritten (item 4a). The full vocabulary is `REPLY_VALIDATION_RULE_IDS` in
+`lessonAI/types.ts`, from which `ReplyValidationRuleId` is derived, and
+`replyRules.contract.test.ts` fails when this document stops naming one of its members.
 
 **4. Upstream model output used as configuration** (station 10). `lessonInsights.concepts` is
 LLM-generated JSON with no schema behind it and it becomes the tool allowlist. Each entry is filtered

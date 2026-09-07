@@ -272,10 +272,28 @@ authorizing identifier to the action — the id that passed the access check is 
 never a second value from the request (ADR-023).
 
 **Output.** `validateReply` runs fail-closed over the assembled reply and rejects it when it contains:
-a distinctive phrase from the static system prompt; an echo of `<untrusted_data>` markup; a verbatim
-run of retrieved content; or a link/image whose destination is off-origin.
+a distinctive phrase from the static system prompt (`system_prompt_echo`); an echo of
+`<untrusted_data>` markup (`untrusted_data_echo`); a verbatim run of retrieved content
+(`verbatim_chunk_echo`); or a link/image whose destination is off-origin (`off_origin_link`).
 
-**Requirement.** A validator that throws counts as a rejection, not a pass.
+**Requirement.** A validator that throws counts as a rejection, not a pass — reported as
+`validator_error`.
+
+**Requirement — the boundary has one non-rejecting rule, and it must stay non-rejecting.**
+`concept_check_answer_echo` fires when the reply names the correct option of the check authored on the
+same turn. It returns `suppressCheck`: the reply is delivered and persisted, and the check is
+discarded unwritten with a routine `tool_call_declined` (S11). Promoting it to a rejection would be a
+control regression, not a tightening — the correct option is by construction a phrase from the lesson
+just explained, so its false-positive rate is structurally high, and rejecting the reply would
+destroy legitimate turns on a collision. Its needle floor of eight characters is part of the control:
+without it, a one-word answer key that occurs in ordinary prose would silently suppress every check
+on that concept (accepted residual, S13).
+
+**Requirement — the rule vocabulary is closed and derived.** `REPLY_VALIDATION_RULE_IDS`
+(`lessonAI/types.ts`) is the single list; `ReplyValidationRuleId` is derived from it, so a rule the
+boundary can report cannot exist outside the vocabulary. `replyRules.contract.test.ts` fails when this
+document, `spec.md` or `flow-contract.md` stops naming one of its members — the prose cannot fall
+behind the boundary again without CI going red.
 
 **Requirement — the output boundary runs on every exit of the turn, not only on completion.** A turn
 ends three ways: normal completion, client abort, and a mid-stream provider error. All three run
