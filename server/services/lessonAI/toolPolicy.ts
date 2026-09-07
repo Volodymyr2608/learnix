@@ -88,13 +88,19 @@ const deny = (ctx: ToolPolicyContext, ruleId: string): ToolAuthorization => {
  * no secret in "this lesson has no concepts recorded yet".
  *
  * The dividing line against `deny` is whether the call is evidence of an
- * ATTACK, not whether it failed. `unsafe_tool_call` is the taxonomy's only
- * zero-baseline outcome and the only one securityLog forwards: its value is
- * that a single occurrence means something. Structural mistakes — a stem too
- * short, two options that fold together, a key rendered differently from the
- * option it names — are what a cooperative model produces on an authoring task
- * nothing has measured it on, and filing them under the alert would retire the
- * alert. Authority and rendered markup stay on `deny`.
+ * ATTACK, not whether it failed. `unsafe_tool_call` is the only zero-baseline,
+ * forwarded outcome THIS policy can emit — the other is `tool_call_declined`,
+ * whose baseline is not zero by construction — and its value is that a single
+ * occurrence means something. (The taxonomy has two more zero-baseline
+ * outcomes, `fallback_triggered` and `content_revised_retained`; neither is
+ * reachable from here. `FORWARD_TO_SENTRY` in `securityLog.ts` is the register,
+ * and it is total by type so the list cannot be read off a comment.)
+ *
+ * Structural mistakes — a stem too short, two options that fold together, a key
+ * rendered differently from the option it names — are what a cooperative model
+ * produces on an authoring task nothing has measured it on, and filing them
+ * under the alert would retire the alert. Authority and rendered markup stay on
+ * `deny`.
  *
  * Grounding did too, until item 16. A model that has already retrieved earlier
  * in the conversation stops retrieving, so `check_not_grounded` fired on
