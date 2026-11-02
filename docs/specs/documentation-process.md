@@ -61,7 +61,7 @@ docs/templates/
 Only two documents are used per feature: `spec.md` (the living design) and `build/plan.md` (the
 detailed implementation plan, produced with `writing-plans`). The earlier 4-document flow
 (`requirements.md → spec.md → plan.md → validation.md`) is retired — fold problem/scope into
-`spec.md`'s Business goal / Supported use cases, and verification into the plan's per-task tests and its
+`spec.md`'s Problem statement / Business / user value / Functional requirements, and verification into the plan's per-task tests and its
 `## Final verification` section.
 
 Everything an agent needs to navigate starts at `features/_index.md`. Features shipped before
@@ -290,30 +290,47 @@ finished — `courseAI` alone has had five follow-on PRs after its initial ship.
 still read-only by convention; a human flips it back to `in-progress` to reopen it — see Example 5
 below for it in action.
 
-Sections, in order. `R` = required in every spec; `C` = conditional, delete when it does not apply;
-`AI` = conditional everywhere else but **mandatory on an AI surface**:
+Sections, in order. Since **2026-11-02** specs follow the Spec Driven Development standard: problem →
+discovery → requirements → alternatives → decision → acceptance, with section names taken from the
+IDP that set it. `R` = required in every spec written under the standard; `C` = conditional, delete
+when it does not apply; `AI` = conditional everywhere else but **mandatory on an AI surface**:
 
 | # | Section | | Carries |
 |---|---|---|---|
 | 1 | **Description** | R | What the feature *is*, before why. Two or three sentences. |
-| 2 | **Business goal** | R | Why it exists, in business terms — whose problem, what changes when it ships. |
-| 3 | **Supported use cases** | R | What it does *right now*. No "previously / now" diffing — that's what git history is for. |
-| 4 | **Unsupported use cases** | C | What it deliberately does not do, so the next reader doesn't re-litigate a scope call or file the absence as a bug. |
-| 5 | **Inputs** | AI | Trusted vs untrusted channels and the file/function enforcing each boundary. |
-| 6 | **Outputs** | AI | Shape, consumer, rendering or persistence channel; for a probabilistic output, what is guaranteed and what isn't. |
-| 7 | **Validation** | AI | What is checked, where, and what a failure does — rejection, correction, or fallback. On an AI surface: user input, tool-call arguments, model output. |
-| 8 | **Acceptance criteria** | R | The DoD, inheriting `docs/constitution.md` rather than restating it. For AI features, phrase each one so it could become an eval case directly (mirrors the `evals/` pyramid in `CLAUDE.md`). |
-| 9 | **Edge cases** | AI | The cases a reader would otherwise have to find in the code. |
-| 10 | **Failure & fallback** | AI | Per failure: what the user sees, what is persisted, what is emitted, fail-open or fail-closed. A named-node flow links its matrix in `flow-contract.md` / `graph-contract.md` instead of duplicating it. |
-| 11 | **Security** | AI | The `/spec` threat-pass output (see §3d) — threats kept, control per threat, anything accepted. Complex tier moves it to a sibling `security.md`. |
-| 12 | **Performance** | AI | Latency budget (p95), token/cost ceiling, rate limits, and the size bounds that keep them true. |
-| 13 | **Observability** | AI | What the feature emits, what reaches an alerting destination, and what is structurally excluded from an event rather than redacted. |
-| 14 | **Test & eval scenarios** | AI | Which scenarios prove the criteria, and at which level (unit / integration / contract / eval). Evals never run in PR CI, so the spec is where a reader learns they exist. |
-| 15 | **Source of truth** | R | The pointer list for this feature — spec, ADR, flow contract, tests, frozen plan. The standing rule is §1a; this section names the artifacts. |
-| — | **Agent notes** | R | Anything an agent needs that isn't visible from reading the code (e.g. "tool_router routes are order-sensitive," "confidence_score ≥0.8 auto-advances"). |
+| 2 | **Problem statement** | R | The problem **with no solution in it** — who hits it, when, what it costs today, what happens if we do nothing. |
+| 3 | **Business / user value** | R | What the user gains, what the business gains, and where they pull against each other. *(Was `Business goal`.)* |
+| 4 | **Discovery** | R | What had to be learned before choosing a solution: question → finding → source. AI-proposed findings say how they were verified. |
+| 5 | **Ambiguities** | R | What was unclear at the start and how each closed — answered, decided, or left open with an owner. |
+| 6 | **Assumptions** | R | What the spec relies on without proof, how it could be verified, what changes if it is false. |
+| 7 | **Constraints** | C | Non-negotiable limits — external API behavior, existing ADRs, legal/financial rules — each with its source. |
+| 8 | **User flow** | R | Main path and every branch (reject, error, cancel, retry), with the actor at each step. |
+| 9 | **Functional requirements** | R | What it does — current behavior once shipped, no "previously / now" diffing. *(Was `Supported use cases`.)* |
+| 10 | **Unsupported use cases** | C | What it deliberately does not do, so the next reader doesn't re-litigate a scope call or file the absence as a bug. |
+| 11 | **Inputs** | AI | Trusted vs untrusted channels and the file/function enforcing each boundary. |
+| 12 | **Outputs** | AI | Shape, consumer, rendering or persistence channel; for a probabilistic output, what is guaranteed and what isn't. |
+| 13 | **Validation** | AI | What is checked, where, and what a failure does. On an AI surface: user input, tool-call arguments, model output. |
+| 14 | **Non-functional requirements** | C | Parent of the five subsections below; keep only the ones that constrain this feature. |
+| 14a | ↳ **Performance** | AI | Latency budget (p95), cost ceiling, rate limits, and the size bounds that keep them true. |
+| 14b | ↳ **Security** | AI | The `/spec` threat-pass output (§3d) — threats kept, control per threat, anything accepted. Complex tier moves it to a sibling `security.md`. |
+| 14c | ↳ **Accessibility** | C | Keyboard path, labels, focus, contrast — for new UI. |
+| 14d | ↳ **Observability** | AI | What the feature emits, what reaches an alerting destination, what is structurally excluded. |
+| 14e | ↳ **Maintainability** | C | The seam a future change will touch and what protects it. |
+| 15 | **Edge cases** | AI | The cases a reader would otherwise have to find in the code. |
+| 16 | **Failure scenarios** | AI | Per failure: what the user sees, what is persisted, what is emitted, fail-open or fail-closed. *(Was `Failure & fallback`.)* |
+| 17 | **Alternatives** | R | Per non-trivial decision, ≥2 real options including the one not taken. Complex tier: summary + link to the ADR. |
+| 18 | **Trade-offs** | R | Options compared against criteria named before comparing; link any experiment or measurement. |
+| 19 | **Decision** | R | What was chosen and why *in this context*, with the evidence behind any number. "The model suggested it" is not a reason. |
+| 20 | **Acceptance criteria** | R | The DoD, inheriting `docs/constitution.md`. Each line traceable to a requirement or control. For AI features, phrase each so it could become an eval case. |
+| 21 | **Test & eval scenarios** | AI | Which scenarios prove the criteria, and at which level (unit / integration / contract / eval). |
+| 22 | **Source of truth** | R | The pointer list for this feature — spec, ADR, flow contract, tests, frozen plan. The standing rule is §1a. |
+| — | **Agent notes** | R | Anything an agent needs that isn't visible from reading the code. This repo's own addition. |
 
-The fifteen numbered rows are the fields a feature specification must be able to answer; `Agent
-notes` is this repo's own addition and is not one of them.
+**Discovery comes before the solution.** Rows 2–8 are written before any option is picked; a Problem
+statement that names a button, endpoint or table is a solution in disguise. Rows 17–19 then make the
+choice reviewable: someone who disagrees should be able to point at the criterion or the evidence
+they dispute. The AI-assisted trail behind those choices (what was proposed, what was verified,
+what was rejected) is kept as findings in Discovery and Decision, not as a separate document.
 
 **Why the `AI` rows stop being optional the moment a model is in the path**: an untrusted input and a
 probabilistic output have a contract that does not follow from the types the way an ordinary
@@ -323,18 +340,24 @@ not an implementation detail; a model call has a cost nothing else in the codeba
 control nobody can see firing is indistinguishable from one that stopped working.
 
 Everywhere else the conditional rows are delete-if-not-applicable — an empty heading is worse than no
-heading. `features/ai-tutor-guardrails/spec.md` is the filled reference. Older specs are **not**
-backfilled: they pick the sections up when they are next reopened, which is also when
-`Purpose` / `Functional scope` split into `Description` + `Business goal` / `Supported use cases`.
+heading. Older specs are **not** backfilled: the 26 written before 2026-11-02 keep their sections and
+old names (`Business goal`, `Supported use cases`, `Failure & fallback`, top-level `## Security` /
+`## Performance` / `## Observability`), and pick the new standard up when they are next reopened.
 
 **The `AI` rows are enforced, not requested.**
 `server/services/_shared/conformance/specSections.contract.test.ts` reads the section list from the
 template itself, takes the set of AI surfaces from the `AI_SURFACES` registry (which its own contract
 test re-derives from the source, so a surface cannot dodge the check by staying undeclared), and
 fails when the spec that owns a surface is missing a mandatory section. `Security` is satisfied by a
-sibling `security.md`, as complex tier does. Specs still carrying the debt are pinned by name in that
+sibling `security.md`, as complex tier does; an old section name satisfies its renamed row, and a
+subsection may sit at `##` or `###`. Specs still carrying the debt are pinned by name in that
 file's `PENDING` map — the list can shrink and never grow, and a spec that gains one section while
 dropping another does not net out to green.
+
+**The `R` rows are enforced the same way.** The same test holds every spec not on its
+`LEGACY_SPECS` list to the required rows. That list holds the 26 specs predating the standard and
+can only shrink: a new spec is held to the standard from its first commit, and a legacy spec that
+already complies fails the test until it is dropped from the list.
 
 ---
 
@@ -411,15 +434,36 @@ separate audit pass.
    ## Description
    A per-student list of saved courses, added and removed from the browse and course-detail pages
    and read back from the sidebar.
-   ## Business goal
-   Students browsing courses they aren't ready to buy need a way to bookmark them instead of losing
-   the course in their history.
-   ## Supported use cases
+   ## Problem statement
+   A student who finds a course they aren't ready to buy has nowhere to keep it; they lose it in
+   their history and the sale is lost with it.
+   ## Business / user value
+   Student: return to a course without searching again. Business: a recoverable purchase intent.
+   ## Discovery
+   | Question | Finding | Source |
+   |---|---|---|
+   | Do students revisit courses today? | ~18% of course-page views are repeat views by the same user | analytics query, linked |
+   ## Ambiguities
+   - One list or several? Decided: one (see Decision).
+   ## Assumptions
+   - A saved course converts better than an unsaved one — unverified; measure saves → purchases.
+   ## User flow
+   Browse → heart icon → saved (toast) → sidebar "Wishlist" → open course → buy or remove.
+   ## Functional requirements
    - Add/remove a course to the caller's wishlist from the browse/course-detail page.
    - `wishlist.list` (studentProcedure) returns the caller's saved courses, newest first.
    - Wishlisted courses that get unpublished are silently dropped from the list.
    ## Unsupported use cases
-   - No sharing, no price-drop notification — one private list per student (decided in brainstorming).
+   - No sharing, no price-drop notification — one private list per student.
+   ## Alternatives
+   Storage: a `WishlistItem` table vs a `savedCourseIds` array on `User`.
+   ## Trade-offs
+   | Criterion | Table | Array on User |
+   |---|---|---|
+   | Ordering / timestamps | yes | no |
+   | Cascade on unpublish | FK | manual sweep |
+   ## Decision
+   Table — "newest first" needs a timestamp, and unpublish cleanup comes free with the FK.
    ## Acceptance criteria
    - Adding an already-wishlisted course is a no-op, not an error.
    - Wishlist count badge in the sidebar matches `wishlist.list` length.
@@ -429,8 +473,9 @@ separate audit pass.
    ## Agent notes
    - Mirrors the `Enrollment` repository pattern (BaseRepository), not a new abstraction.
    ```
-   Six sections, not fifteen: this feature has no untrusted input, no model call, and no security
-   surface, so the conditional rows are deleted rather than filled with "n/a".
+   The fourteen `R` rows, nothing else: no untrusted input, no model call, no security surface, so
+   the conditional rows are deleted rather than filled with "n/a". The Discovery numbers are
+   illustrative — a real spec links the query that produced them.
 3. Produce the detailed `build/plan.md` with `writing-plans` (from `docs/templates/plan.md`) and get
    it approved before writing code.
 4. Implement with TDD against the harness (repository integration test, router test, component test).
@@ -444,9 +489,9 @@ separate audit pass.
 purchases (real ADR-019 money flow already in the repo).
 
 1. Write `features/subscriptions/spec.md` (new `Subscription` model, webhook handling for
-   `invoice.paid`, interaction with the existing `transferStatus: pending` sweep logic — framed as
-   Description / Business goal / Supported use cases / Acceptance criteria / Source of truth / Agent
-   notes, plus the money-surface conditionals), then the detailed
+   `invoice.paid`, interaction with the existing `transferStatus: pending` sweep logic — framed by
+   the `R` rows of §4 — with the charge-model and proration choices in Alternatives / Trade-offs /
+   Decision — plus the money-surface conditionals), then the detailed
    `build/plan.md` (TDD task breakdown via `writing-plans`), approved before code.
 2. Because this touches money and an external service (Stripe) and changes the payout model,
    it clears the 3-month-test → write `docs/adr/020-subscriptions.md` explaining why recurring

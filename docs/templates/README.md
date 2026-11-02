@@ -6,7 +6,7 @@ standard / complex tiers):
 
 | File | Produces | Answers | Influences |
 |------|----------|---------|-----------|
-| [`feature-spec.md`](./feature-spec.md) | `features/<slug>/spec.md` | **Why & what** — fifteen fields (Description, Business goal, Supported / Unsupported use cases, Inputs, Outputs, Validation, Acceptance criteria, Edge cases, Failure & fallback, Security, Performance, Observability, Test & eval scenarios, Source of truth) plus Agent notes; six required, the rest delete-if-not-applicable and mandatory on an AI surface | the living-spec model (ADR-020) |
+| [`feature-spec.md`](./feature-spec.md) | `features/<slug>/spec.md` | **Why & what** — Spec Driven Development standard (2026-11-02): Problem statement → Business / user value → Discovery → Ambiguities → Assumptions → Constraints → User flow → Functional / Non-functional requirements → Edge cases → Failure scenarios → Alternatives → Trade-offs → Decision → Acceptance criteria, plus the AI-surface rows and Agent notes; fourteen required (enforced by `specSections.contract.test.ts`), the rest delete-if-not-applicable and mandatory on an AI surface | the living-spec model (ADR-020) |
 | [`plan.md`](./plan.md) | `features/<slug>/build/plan.md` | **How (execution)** — bite-sized TDD tasks with real code, exact paths, commits, and a final verification section | superpowers `writing-plans`, BMAD dev stories |
 
 The earlier 4-document flow (`requirements.md → spec.md → plan.md → validation.md`) is retired:

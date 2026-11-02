@@ -30,12 +30,23 @@ The intent: <intent>$ARGUMENTS</intent>
      `brainstorming` (the spec is the design) — read it and confirm scope with the user instead.
    - Otherwise run `superpowers:brainstorming` to pin scope (boundaries, what's explicitly out).
    - Create `docs/specs/features/<slug>/spec.md` from `docs/templates/feature-spec.md` with
-     `status: planned`. Fill the six required sections per §4 (Description / Business goal /
-     Supported use cases / Acceptance criteria / Source of truth / Agent notes), plus every
-     conditional section that applies — on an **AI surface** all nine conditionals are mandatory
-     (Inputs, Outputs, Validation, Edge cases, Failure & fallback, Security, Performance,
-     Observability, Test & eval scenarios), and deleting one is not an option the tier allows. For
-     AI features, phrase each acceptance criterion so it could become an eval case directly.
+     `status: planned`, following the Spec Driven Development standard (§4). **Discovery first:**
+     fill Problem statement, Business / user value, Discovery, Ambiguities, Assumptions, Constraints
+     and User flow *before* proposing any solution — a Problem statement that names a button,
+     endpoint or table is a solution in disguise. Every Discovery finding carries its source (code
+     path, ADR, external doc URL, experiment); a finding you, the agent, proposed says how it was
+     verified. Ask the developer the open questions instead of guessing — a guess goes under
+     Assumptions, labelled as one.
+   - Then Functional requirements and the conditionals that apply, then **Alternatives / Trade-offs /
+     Decision**: for each non-trivial decision, at least two real options, criteria named before
+     comparing, and the evidence behind any number. Present the options to the developer and let
+     them decide; record your own recommendation and whether it was taken. On an **AI surface** all
+     nine `AI` rows are mandatory (Inputs, Outputs, Validation, Performance, Security,
+     Observability, Edge cases, Failure scenarios, Test & eval scenarios), and deleting one is not
+     an option the tier allows. For AI features, phrase each acceptance criterion so it could become
+     an eval case directly.
+   - The fourteen `R` rows are enforced by `specSections.contract.test.ts` for every spec not on its
+     legacy list — run it before handing the spec over.
    - For **complex** work (money / auth / new external service / risky migration) note that an ADR will
      be required at the `/qa` gate.
 

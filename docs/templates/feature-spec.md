@@ -6,48 +6,90 @@ depends-on: []
 ---
 
 <!--
-Sections below are the fifteen fields a feature spec carries, in reading order. Delete the guidance
-text as you fill each one.
+The sections below follow the Spec Driven Development standard adopted 2026-11-02
+(`documentation-process.md` §4): problem → discovery → requirements → alternatives → decision →
+acceptance. Delete the guidance text as you fill each one.
 
-Required in every spec: Description, Business goal, Supported use cases, Acceptance criteria,
-Source of truth, Agent notes.
+Three kinds of section — §4's table is the authoritative list:
 
-Everything else is delete-if-not-applicable — an empty heading is worse than no heading.
+- Required in every spec: Description, Problem statement, Business / user value, Discovery,
+  Ambiguities, Assumptions, User flow, Functional requirements, Alternatives, Trade-offs, Decision,
+  Acceptance criteria, Source of truth, Agent notes. Enforced by
+  `specSections.contract.test.ts` for every spec not on its legacy list.
+- Conditional — delete when it does not apply (an empty heading is worse than no heading):
+  Constraints, Unsupported use cases, and the Non-functional requirements subsections.
+- Mandatory on an AI surface (a prompt, a model call, an agent tool, a RAG path, or model-authored
+  rendering), no exceptions: Inputs, Outputs, Validation, Performance, Security, Observability,
+  Edge cases, Failure scenarios, Test & eval scenarios.
 
-Mandatory for an AI surface (a prompt, a model call, an agent tool, a RAG path, or model-authored
-rendering), no exceptions: Inputs, Outputs, Validation, Edge cases, Failure & fallback, Security,
-Performance, Observability, Test & eval scenarios. See `documentation-process.md` §4 for why each of
-those stops being optional the moment a model is in the path.
+Discovery-first: the first six sections are written BEFORE any solution is chosen. If Problem
+statement names a button, an endpoint or a table, it is a solution in disguise — rewrite it.
 -->
 
 ## Description
 
-What the feature *is*, in two or three sentences — the thing a reader who has never seen it needs
-before anything else makes sense. Not why it exists (that's the next section), not how it's built.
+What the feature *is*, in two or three sentences — the orientation a reader who has never seen it
+needs before anything else makes sense. Not why it exists, not how it's built.
 
-## Business goal
+## Problem statement
 
-Why it exists, in business terms: who needs it, what it costs them today, what changes when it
-ships. One paragraph. If you cannot name whose problem this solves, the feature is not ready to
-spec.
+The problem, stated **without a solution in it**: who hits it, in what situation, and what it costs
+them today. "A student unhappy with a course cannot get their money back without emailing support"
+— not "add a refund button". Include what happens if we do nothing.
 
-## Supported use cases
+## Business / user value
 
-What the feature does *right now*. Describe current behavior only — no "previously / now" diffing;
-git history covers that. Bullet per use case, each one something a reader could go and try.
+Why solving it matters, split by party: what the user gains, what the product or business gains,
+and where those two pull against each other (that tension is usually where the hard decisions sit).
+If you cannot name whose problem this solves, the feature is not ready to spec.
+
+## Discovery
+
+What had to be learned before a solution could be chosen. Per finding: the question, the answer,
+and the **source** (code path, ADR, external doc URL, experiment, measurement). Mark what an AI
+assistant proposed and how it was verified — the full trail lives in the decision log, this section
+keeps the findings that shaped the spec.
+
+| Question | Finding | Source |
+|---|---|---|
+
+## Ambiguities
+
+What was unclear or contradictory at the start, and how each was resolved — answered, decided (link
+the Decision), or deliberately left open (and who owns closing it). An ambiguity resolved by
+guessing belongs in Assumptions instead.
+
+## Assumptions
+
+What the spec relies on **without proof**, each with how it could be verified and what changes if it
+turns out false. A claim about user behavior with no data behind it is an assumption, not a fact.
+
+## Constraints
+
+Fixed limits the solution must live within and cannot negotiate: an external API's behavior, an
+existing ADR, a legal or financial rule, a deadline. Each with its source.
+
+## User flow
+
+The main path step by step, then each branch: rejection, error, cancel, retry. Name the actor at each
+step. A small Mermaid diagram is welcome when branches cross.
+
+## Functional requirements
+
+What the feature does — the behavior a reader could go and try. Bullet per requirement. Once
+shipped, this describes current behavior only; no "previously / now" diffing, git history covers
+that.
 
 ## Unsupported use cases
 
 What it deliberately does **not** do, and — where the reader would otherwise wonder — one clause on
-why not. This is the section that stops the next person re-litigating a scope decision or filing the
-absence as a bug. Name the thing that was cut, not every conceivable non-feature.
+why not. This stops the next person re-litigating a scope decision or filing the absence as a bug.
 
 ## Inputs
 
 Every channel data arrives through, split into **trusted** and **untrusted**, and where each
 untrusted one crosses its boundary (the file and function that enforces it, not "at the API layer").
-Required for any AI surface: an untrusted input has a contract that does not follow from its type
-the way an ordinary argument's does.
+Required for any AI surface.
 
 ## Outputs
 
@@ -57,64 +99,85 @@ not.
 
 ## Validation
 
-What is checked, where, and what happens to input that fails — per boundary named above. Include the
-schema (Zod type or file), the layer that runs it, and whether a failure is a rejection, a
-correction, or a fallback. For an AI surface this covers all three checkpoints: user input, tool-call
-arguments, and model output.
+What is checked, where, and what happens to input that fails — per boundary named above: the schema
+(Zod type or file), the layer that runs it, and whether a failure is a rejection, a correction, or a
+fallback. For an AI surface: user input, tool-call arguments, and model output.
 
-## Acceptance criteria
+## Non-functional requirements
 
-Applies: [`docs/constitution.md`](../constitution.md) — the standing constraints (structure, style,
-error handling, security, testing) are inherited, not retyped here — plus the feature-specific
-criteria below.
+Only the qualities that actually constrain this feature — delete subsections that don't. Numbers,
+not adjectives; where a number is not yet measured, say so and name who owns measuring it.
 
-The definition of done. Each line judgeable pass/fail by a reviewer. For AI features, phrase each one
-so it could become an eval case directly.
+### Performance
+
+Latency budget (p95), cost ceiling, rate limits, and the size bounds that keep them true.
+
+### Security
+
+The output of the `/spec` threat pass (`security-auditor` and/or `llm-security-auditor` in `design`
+mode): threats kept, the control answering each, anything deliberately accepted. Every control here
+must also appear as an acceptance criterion. Complex tier moves this to a sibling `security.md`.
+
+### Accessibility
+
+Keyboard path, screen-reader labels, focus handling, contrast — for any new UI.
+
+### Observability
+
+What this feature emits and what it deliberately does not: events or metrics, their fields, which
+reach an alerting destination, and — on an AI surface — the fields structurally excluded rather than
+redacted.
+
+### Maintainability
+
+What keeps this changeable: the seam a future change will most likely touch, and what protects it
+(a contract test, a single owner module, a documented invariant).
 
 ## Edge cases
 
 The cases a reader would otherwise have to discover from the code: empty inputs, concurrent callers,
 partial state, the second click on the same button.
 
-## Failure & fallback
+## Failure scenarios
 
-What happens when a dependency fails — per failure, not in general: the model call errors, the rate
-limit trips, a tool times out, validation rejects, confidence lands low, the stream drops mid-reply.
-For each: what the user sees, what is persisted (usually nothing), what is emitted, and whether the
-system fails **open** or **closed**. A flow with named nodes puts the per-node matrix in its
-`flow-contract.md` / `graph-contract.md` and links to it from here rather than duplicating it.
+What happens when a dependency fails — per failure, not in general. For each: what the user sees,
+what is persisted, what is emitted, and whether the system fails **open** or **closed**. A flow with
+named nodes puts the per-node matrix in its `flow-contract.md` / `graph-contract.md` and links it.
 
-## Security
+## Alternatives
 
-Only when the feature has a security or AI surface. Holds the output of the `/spec` threat pass
-(`security-auditor` and/or `llm-security-auditor` in `design` mode): the threats kept, the control
-answering each, and anything deliberately accepted. Every control here must also appear as an
-acceptance criterion above, since that is what `/plan` turns into a task and `/qa` checks back.
+For every non-trivial decision, at least two real options — including the one not taken. Name the
+decision, then the options. If a decision genuinely has one option, say so in a line and why. For
+complex tier the full analysis lives in the ADR; summarise here and link it.
 
-For **complex** tier this moves to a sibling `security.md` (plus `threat-model.md` when warranted) —
-see `features/ai-tutor-guardrails/`.
+## Trade-offs
 
-## Performance
+How the options compare, against criteria named **before** comparing: complexity, risk, cost, product
+impact, technical impact. A table per decision works well. Where the comparison rests on an
+experiment or measurement, link it.
 
-Latency budget (p95), token/cost ceiling, rate limits, and the size bounds that keep them true
-(context window trimming, chunk counts, retry caps). Numbers, not adjectives; where a number is not
-yet measured, say so and name who owns measuring it.
+| Criterion | Option A | Option B |
+|---|---|---|
 
-## Observability
+## Decision
 
-What this feature emits, and what it deliberately does not. Name the events or metrics, the fields
-they carry, which of them reach an alerting destination rather than only the log, and — for any AI
-surface — the fields that are *structurally* excluded rather than redacted. Required whenever the
-feature has an AI surface or a security control: a control nobody can see firing is indistinguishable
-from one that stopped working.
+What was chosen per decision, and **why in this context** — the argument a reviewer can disagree
+with, plus the evidence (research, experiment, measurement) behind any number. "The model suggested
+it" or "it was simpler" is not a reason on its own.
+
+## Acceptance criteria
+
+Applies: [`docs/constitution.md`](../constitution.md) — the standing constraints are inherited, not
+retyped here — plus the feature-specific criteria below.
+
+The definition of done. Each line judgeable pass/fail by a reviewer and traceable to a requirement
+or a security control above. For AI features, phrase each so it could become an eval case directly.
 
 ## Test & eval scenarios
 
 The scenarios that prove the criteria above, mapped to where they live: unit (`*.test.ts`),
 integration (`*.integration.test.ts`), contract (`*.contract.test.ts`), eval (`evals/`). Name the
-adversarial and degradation cases explicitly — the happy path is the one nobody forgets. An AI
-surface names its eval set here; evals never run in PR CI, so the spec is where the reader learns
-they exist.
+adversarial and degradation cases explicitly.
 
 ## Source of truth
 

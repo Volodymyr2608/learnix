@@ -148,17 +148,19 @@ Three tiers, decided from what the change actually touches, not from how the req
   ADR. Go straight to `systematic-debugging` + `test-driven-development` against the harness.
 - **standard** — new feature or behavior change, built from existing patterns. One living
   `docs/specs/features/<slug>/spec.md`, created from
-  [`docs/templates/feature-spec.md`](docs/templates/feature-spec.md) — fifteen fields, six of them
-  required (Description / Business goal / Supported use cases / Acceptance criteria / Source of
-  truth / Agent notes) and the rest delete-if-not-applicable, except on an AI surface where they are
-  mandatory (`documentation-process.md` §4). Run `brainstorming` first to pin scope.
+  [`docs/templates/feature-spec.md`](docs/templates/feature-spec.md) — the Spec Driven Development
+  standard (since 2026-11-02): problem → discovery → requirements → alternatives → decision →
+  acceptance. Fourteen required rows (incl. Problem statement, Discovery, Ambiguities, Assumptions,
+  User flow, Alternatives / Trade-offs / Decision), enforced by `specSections.contract.test.ts`; the
+  rest delete-if-not-applicable, except on an AI surface where they are mandatory
+  (`documentation-process.md` §4). Run `brainstorming` first to pin scope.
 - **complex** — touches money, the auth/security model, a new external service, or a data migration
   that's risky/expensive to reverse. Same `spec.md` + detailed `build/plan.md` as standard, distilled
   into `spec.md` on ship, **plus an ADR** in `docs/adr/NNN-<slug>.md`.
 
 Only two documents are used per feature: `spec.md` (the living design) and `build/plan.md` (the
 detailed implementation plan). `requirements.md` and `validation.md` are **not** used — fold the
-problem/scope into `spec.md`'s Business goal / Supported use cases and verification into the plan's per-task
+problem/scope into `spec.md`'s Problem statement / Business / user value / Functional requirements and verification into the plan's per-task
 tests and `## Final verification`.
 
 Features shipped before 2026-06-23 predate this model and have no living spec — their code and tests
