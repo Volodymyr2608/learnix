@@ -159,7 +159,8 @@ Three tiers, decided from what the change actually touches, not from how the req
   into `spec.md` on ship, **plus an ADR** in `docs/adr/NNN-<slug>.md`.
 
 Only two documents are used per feature: `spec.md` (the living design) and `build/plan.md` (the
-detailed implementation plan). `requirements.md` and `validation.md` are **not** used — fold the
+detailed implementation plan). An optional `discovery/` folder may hold the evidence trail behind
+`spec.md` (`documentation-process.md` §2). `requirements.md` and `validation.md` are **not** used — fold the
 problem/scope into `spec.md`'s Problem statement / Business / user value / Functional requirements and verification into the plan's per-task
 tests and `## Final verification`.
 

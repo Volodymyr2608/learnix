@@ -53,6 +53,7 @@ docs/
         spec.md                          ← the one living doc per feature
         build/
           plan.md                        ← detailed implementation plan (standard + complex)
+        discovery/                       ← optional: evidence trail behind spec.md (frozen)
 docs/templates/
   feature-spec.md                        ← template for spec.md
   plan.md                                ← template for build/plan.md
@@ -63,6 +64,20 @@ detailed implementation plan, produced with `writing-plans`). The earlier 4-docu
 (`requirements.md → spec.md → plan.md → validation.md`) is retired — fold problem/scope into
 `spec.md`'s Problem statement / Business / user value / Functional requirements, and verification into the plan's per-task tests and its
 `## Final verification` section.
+
+**Optional `discovery/` folder (since 2026-11-16).** When discovery is done as a separate, longer
+exercise, its records sit beside the spec instead of in an untracked local folder:
+- the question tables;
+- the analysis;
+- the weighted alternatives;
+- the AI decision log;
+- raw AI outputs.
+
+`refund-self-service` is the first example. These records are **evidence, not design**. `spec.md`
+stays the one living document and cites them. Once the spec is approved they are frozen, like `build/plan.md`. Two exceptions keep
+growing:
+- the AI decision log, through implementation and validation;
+- the author's own «why» notes.
 
 Everything an agent needs to navigate starts at `features/_index.md`. Features shipped before
 2026-06-23 predate this model and have no living spec; their code and tests are the record, and the
