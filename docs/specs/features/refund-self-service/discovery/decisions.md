@@ -20,6 +20,16 @@ decisions already made.
 | T4 — who triggers the payout after the window | **Decided 2026-11-15:** Vercel Cron + admin panel + email |
 | S7 — reconciliation with Stripe | **Decided 2026-11-15:** synchronously with `refunds.create` + event replay in cron |
 | Certificate revocation (E2) | **Decided 2026-11-15:** explicit revocation field; verification page is a separate feature |
+| A6 — how the instructor sees held money | **Decided 2026-11-16:** V2, two amounts; refund requests are not shown to the instructor |
+| DC — double charge for the same course | **Decided 2026-11-16:** V3 (guard access) + V2 (auto-refund the duplicate) |
+| OQ-1 — threshold exceeded: request or appeal | **Decided 2026-11-16:** V3, a direct appeal instead of the button |
+| OQ-2 — account-level refund limit | **Decided 2026-11-16:** V2, 3 automatic refunds per 12 months, then a direct appeal |
+| OQ-3 — do platform-initiated refunds use up the student's one refund | **Decided 2026-11-16:** V1, no (admin exception and Dashboard); E2 revised |
+| OQ-4 — notify the instructor of a refund | **Decided 2026-11-16:** V1, no notification; aggregated reasons out of scope |
+| OQ-5 — the admin misses the 14-day appeal review | **Decided 2026-11-16:** V2, reminders + automatic approval on day 14 |
+| OQ-6 — warn on repurchase that there is no refund | **Decided 2026-11-16:** V1, a warning above the buy button |
+| OQ-7a — partial refund in the Dashboard (E3) | **Decided 2026-11-16:** (c), keep access, record and flag; the platform bears it |
+| OQ-7b — dispute and refund on the same payment (E8) | **Decided 2026-11-16:** V1, check for a dispute before the button and the refund |
 | ADR-014 (n8n) → mark superseded | Later, a separate small edit (not Refund) |
 
 ## A1 — who decides on a refund
@@ -826,4 +836,299 @@ security-review: a public page without sign-in shows personal data (name, course
 
 - **Double charge:** if the student was charged twice for the same course and the admin refunds one
   payment, `handleRefund` will cancel the enrollment even though the second payment is valid
-  (`payment.service.ts:167-195`).
+  (`payment.service.ts:167-195`). **Decided 2026-11-16 → §DC below.**
+
+## A6 — how the instructor sees held money
+
+*2026-11-16. Facts from the code, the three options and the recommendation — AI; the choice of V2 and
+"the instructor does not see refund requests" — mine.*
+
+**Context:** after ADR-037 every sale sits in `pending` for 14 days. Today `pending` means only "the
+instructor has not connected Stripe", so an onboarded instructor sees 0 there.
+
+### Facts
+
+| # | Fact | Where |
+|---|---|---|
+| F1 | The instructor sees one "pending" amount in two places: "Pending Payout" on Revenue and "Pending (owed)" in payout settings | `app/_components/Instructor/Revenue/components/RevenueSummaryCards/index.tsx:33-35`; `app/_components/Account/PayoutsSection/components/EarningsTable.tsx:17-18` |
+| F2 | Both are the sum of `transferStatus = "pending"` | `server/repositories/payment.repository.ts:49-55` |
+| F3 | `getOwedBalance` does not filter by `payment.status`: a refunded sale still in `pending` is shown as owed (the UI side of D-5). After ADR-037 a refund moves it to `cancelled` | `payment.repository.ts:49-55` |
+| F4 | ADR-037 adds no "held" status: (a) window open, (b) window closed but Stripe not connected, (c) open refund request or appeal — all are `pending` | ADR-037 §1–2 |
+
+### Options
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| V1 | Leave one "Pending" amount | Rejected | For 14 days the instructor sees money "pending" without knowing why |
+| **V2** | **Two amounts: "On hold until the refund window closes" and "Waiting for Stripe connection"** | **Chosen** | Removes the main confusion at low cost (two aggregations) and reveals nothing about individual students |
+| V3 | V2 + per-sale release date / "refund requested" in the transactions table | Rejected (for now) | More UI; shows the instructor that a specific student asked for a refund before it is decided |
+
+### Decision
+
+**V2.** Case (c), a sale with an open request or appeal, is counted as "on hold", with no sign of the
+request. **The instructor does not see refund requests** (my decision): neither in the amounts nor in
+the transactions table.
+
+- **What I give up:** if an appeal holds a sale past 14 days, the instructor sees money "on hold"
+  longer than expected and does not know why.
+- **I will revisit if:** instructors ask when a specific sale will be paid out — then V3 without the
+  request marker.
+- **Acceptance note:** a refunded sale is never shown as owed (F3).
+
+## DC — double charge for the same course
+
+*2026-11-16. The path to a double charge, the effect on refund, the options and the recommendation — AI;
+the choice of V3 + V2 — mine.*
+
+### Facts
+
+| # | Fact | Where |
+|---|---|---|
+| F1 | Checkout blocks only an `active` / `completed` enrollment. Two tabs opened before paying both pass the check and can both be paid | `server/services/payments/payment.service.ts:57-69` |
+| F2 | `Payment` has no unique constraint on (`studentId`, `courseId`); `Enrollment` does | `prisma/schema/enrollment.prisma:25` |
+| F3 | `handleRefund` finds the enrollment by `studentId + courseId`, not by payment, and cancels it: refunding one of two paid payments removes paid access | `payment.service.ts:178-188` |
+
+Not verified: whether Stripe Checkout can block a repeat payment itself; whether the dev DB has duplicates.
+
+### Options
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| V1 | Expire the previous open Checkout session for the same student + course before creating a new one | Rejected (for now) | Cheap, but does not close the race when both are paid almost at once; useless without V2/V3 |
+| **V2** | **`finalizeCheckout` sees another succeeded payment for the course and refunds the new one at once (`refunds.create`); a technical refund does not count as the student's one refund** | **Chosen** | The duplicate goes back without the student having to notice it and without an admin |
+| **V3** | **`handleRefund` cancels the enrollment only if no other succeeded, non-refunded payment for the course remains** | **Chosen** | Closes the bug itself on every refund path (Dashboard, button, V2) |
+
+### Decision
+
+**V3 + V2.**
+
+- **What I give up:** the Stripe fee on every auto-refunded duplicate (D-7, A8: the platform bears it).
+- **I will revisit if:** duplicates show up regularly — then add V1.
+
+## OQ-1 — opened-lesson threshold exceeded: request, no button, or appeal
+
+*2026-11-16. The conflict between C5.3 and C4, the options and the recommendation — AI; the choice of
+V3 — mine.*
+
+**Conflict.** C5.3 (Analysis): when a condition fails, disable the button rather than accept and deny.
+C4 / M3b: request → automatic decision → one appeal. Disabling the button for the threshold makes
+the appeal unreachable for the only condition where the automation can be wrong ("opened" ≠ "read",
+AS-5). Window, certificate and an earlier refund are facts, so no appeal is needed for them.
+
+| # | Window / certificate / already refunded | Threshold exceeded | Status |
+|---|---|---|---|
+| V1 | No button | Button with a warning → automatic denial → appeal | Rejected: the system accepts a request it will certainly deny |
+| V2 | No button | No button, no appeal | Rejected: an honest student with an empty course has no way out |
+| **V3** | **No button** | **"Appeal to an admin" (reason + files) instead of the button, no automatic denial** | **Chosen** |
+
+### Decision
+
+**V3.** Changes C4: an appeal is either direct (threshold already exceeded, deadline = end of the
+window) or follows an automatic denial (a condition changed between page load and submit, deadline =
+the later of window end or denial + 3 days). Still exactly one appeal per course.
+
+- **What I give up:** two entry points to an appeal instead of one; the rule "an appeal follows a
+  denial" no longer holds.
+- **I will revisit if:** direct appeals make up most of the admin queue — then the threshold is too
+  strict (Q13).
+
+## OQ-2 — account-level refund limit
+
+*2026-11-16. The gap (no number behind "account-level limits" in M3b), the "sampler" scenario, the
+options and the recommendation of N = 3 — AI; the choice of V2, N = 3 and counting only automatic
+refunds — mine.*
+
+**Gap.** D3 stops refunding the same course twice. Nothing stops a "sampler": buy 20 different
+courses, open 3 lessons in each, refund all 20. Each refund passes every rule on its own; the platform
+loses the Stripe fee 20 times (D-7). Udemy refuses on an "excessive number of refunds on the account"
+but publishes no number.
+
+| # | Rule | Status | Reason |
+|---|---|---|---|
+| V1 | No limit, D3 only | Rejected | The sampler passes automatically: fails the K4 veto that chose M3b |
+| **V2** | **At most N automatic refunds per rolling 12 months; beyond that, a direct appeal (OQ-1)** | **Chosen** | Simple to explain and check; an honest student is passed to a human, not blocked |
+| V3 | Refunds / purchases > X% after M purchases | Rejected | Two numbers without data; harder to explain |
+
+### Decision
+
+**V2, N = 3. Only automatic refunds count.** Not counted: duplicate refunds (DC), admin exceptions
+(C3.1), Dashboard refunds, refunds approved on appeal.
+
+- **Why 3:** caps free "sampling" at three courses a year without an admin. A **convention, not a
+  measurement**: there are no users.
+- **What I give up:** a student who honestly bought four unsuitable courses in a year waits for an
+  admin on the fourth.
+- **I will revisit if:** direct appeals triggered by the account limit are mostly approved (the limit
+  is too strict), or the share of refunded purchases grows twice the baseline of the first 4 weeks
+  (the limit is too soft).
+
+## OQ-3 — do platform-initiated refunds use up the student's one refund (D3)
+
+*2026-11-16. The wrong-price scenario, the options, the recommendation and the link to E2 — AI; the
+choice of V1 and revising E2 — mine.*
+
+**Scenario (AI's example; weakened by me in OQ-7a, see the note there).** A course is sold at $200
+instead of $20 (the instructor's mistake). The admin refunds it
+as an exception (C3.1). The student buys again at $20 and after 3 days finds the course unsuitable. If
+the exception counted under D3, they would have no refund right without ever having used it.
+
+| # | Rule | Status | Reason |
+|---|---|---|---|
+| **V1** | **D3 counts only student-initiated refunds: automatic and appeal-approved** | **Chosen** | Same logic as OQ-2: limits apply to the student's right; platform actions do not use it up. Every exception is audited with a reason (R7) |
+| V2 | Every refund counts | Rejected | The student pays for the platform's mistake |
+| V3 | The admin ticks "count as the student's refund" | Rejected | One more decision and audit field for the admin |
+
+### Decision
+
+**V1.** An admin exception (C3.1) and a Dashboard refund (E1) do **not** use up the student's one
+refund of the course.
+
+**What this changes in earlier decisions:** Analysis E2 ("a Dashboard refund counts as the one allowed
+refund") is **revised**: the consequences stay the same (access, records, certificate revoked), but it
+does not count under D3. Spec A5 updated.
+
+- **What I give up:** a student whose course was refunded through the Dashboard can get one more
+  refund of the same course after buying it again. Accepted: a Dashboard refund is rare (emergency
+  path) and always made by the platform.
+- **I will revisit if:** Dashboard refunds stop being rare, which would mean the admin uses the
+  Dashboard instead of the admin panel.
+
+## OQ-4 — notify the instructor of a refund on their sale (Q23)
+
+*2026-11-16. Facts, options and the recommendation — AI; the choice of V1 and recording aggregated
+reasons as out of scope — mine.*
+
+### Facts
+
+| # | Fact | Where |
+|---|---|---|
+| F1 | Only three notification kinds exist: certificate earned, progress near completion, new message. A new sale notifies nobody | `server/services/notifications/notification.service.ts:27,57,100` |
+| F2 | The `refunded` status is already shown on Revenue | `app/_components/Instructor/Revenue/constants/statusClass.ts` |
+| F3 | After ADR-037 a self-service refund happens before release: the instructor loses no money already paid | ADR-037 §1 |
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| **V1** | **No notification; the status on Revenue** | **Chosen** | Consistent with no notification on a sale; nothing to claw back; the reason never reaches the instructor |
+| V2 | Email without the reason | Rejected | A notification for the negative event but not for the positive one |
+| V3 | Email with the reason from the list | Rejected | Pressure on the student (the A6 risk); free text may carry personal data (R6) |
+
+### Decision
+
+**V1.** Aggregated refund reasons per course, without students, are useful feedback for the
+instructor: recorded as **out of scope**, a separate analytics feature (spec, Unsupported use cases).
+
+- **I will revisit if:** instructors ask why their "on hold" amount dropped.
+
+## OQ-5 — the admin misses the 14-day appeal review
+
+*2026-11-16. The conflict with the 31-day worst case, the options, the recommendation and the Stripe
+check — AI; the choice of V2 and asking for the Stripe check — mine.*
+
+### Facts
+
+| # | Fact | Where |
+|---|---|---|
+| F1 | One admin, ~2.5 h/week; with the admin unavailable, the instructor's money is held without a limit | AS-4; Analysis F6 |
+| F2 | The spec promises the instructor a worst case of ≈ 31 days (window + 3 days + 14 days review); without an automatic outcome this bound does not hold | spec, Business / user value |
+| F3 | The daily cron (T4) and Resend email already exist for reminders | T4 |
+| F4 | Stripe documents **no age limit** for refunding a card charge. A refund draws on the available balance; if it is insufficient, it stays pending and fails after 45 days. A disputed charge cannot be refunded. The customer sees the money in ~5–10 business days | [Stripe: refunds](https://docs.stripe.com/refunds), [error codes](https://docs.stripe.com/error-codes), read via `stripe docs` 2026-11-16 |
+
+The AI said from memory that the limit is "much larger than 31 days"; the docs do not state any limit,
+so the claim is neither confirmed nor refuted. For a ~31-day-old charge there is no documented
+obstacle. Balance is not a risk: the instructor's share is held on the platform (ADR-037).
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| V1 | Reminders only | Rejected | The 31-day bound and the "decision by <date>" promise do not hold |
+| **V2** | **Reminders on days 10 and 13, then daily; automatic approval on day 14, marked "overdue" in the audit** | **Chosen** | Keeps both promises; the platform pays for its own delay (same principle as OQ-3) |
+| V3 | Reminders + automatic denial | Rejected | The student loses because of the admin; the appeal loses its meaning |
+
+### Decision
+
+**V2.** An overdue automatic approval counts like an appeal-approved refund for D3 (student-initiated)
+but not for the account limit (OQ-2 counts automatic refunds only).
+
+- **What I give up:** if the admin disappears, an abuser who appealed gets the money. Bounded: one
+  appeal per course, and the account limit narrows who reaches an appeal.
+- **I will revisit if:** any appeal is approved as "overdue": that means the admin capacity
+  assumption (AS-4) failed.
+
+## OQ-6 — warn on repurchase that the course cannot be refunded again (D3)
+
+*2026-11-16. Options and recommendation — AI; the choice of V1 — mine.*
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| **V1** | **Above the buy button: "You have already refunded this course, so this purchase cannot be refunded"** | **Chosen** | Honest; the student does not buy expecting a refund and then go to the bank (a chargeback we do not control) |
+| V2 | No warning | Rejected | The student finds out only when the button is missing |
+
+### Decision
+
+**V1.** Shown only when the earlier refund counts under D3: automatic, appeal-approved or overdue
+(OQ-5). Not shown after an admin exception or a Dashboard refund (OQ-3).
+
+## OQ-7a — partial refund in the Stripe Dashboard (Analysis E3)
+
+*2026-11-16. Facts and the recommendation of (c) — AI; the choice of (c), "the platform bears it" and
+the note on the wrong-price example — mine.*
+
+### Facts
+
+| # | Fact | Where |
+|---|---|---|
+| F1 | Learnix supports only full refunds, but the Dashboard allows a partial one | Q16 |
+| F2 | `handleRefund` treats any refund as full and cancels the enrollment: $5 back out of $100 removes the course | `server/services/payments/payment.service.ts:167-195`; D-13 |
+| F3 | A partial refund is visible in the webhook: `charge.amount_refunded < charge.amount` | Stripe Charge object |
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| (a) | Ignore | Rejected | Our payment says `succeeded` while Stripe says partly refunded; the instructor is paid the full share |
+| (b) | Treat as full (today) | Rejected | The student loses the course over a $5 goodwill credit |
+| **(c)** | **Keep access and records; record the refunded amount, flag "needs review", email the admin** | **Chosen** | Matches what the admin meant: a goodwill compensation |
+
+### Decision
+
+**(c). The platform bears the compensation**; the instructor's share is unchanged. It does not count
+under D3 (a platform action, OQ-3).
+
+**My note on the wrong-price case.** The student sees the price before paying. If a course costs $200
+instead of $20, that is the instructor's choice and the student's choice to buy it, not a platform
+error, so it is not a reason for a compensation. This weakens the example the AI used in OQ-3 and E2
+("admin exception because of a wrong price"). OQ-3 still stands on its principle: platform actions do
+not use up the student's right. *TODO (me): pick a better example of an admin exception for the
+rehearsal (e.g. a course that turned out broken or removed after purchase).*
+
+- **I will revisit if:** partial refunds become frequent, which would mean a real need for partial
+  refunds in Learnix (Q16).
+
+## OQ-7b — a dispute and a refund on the same payment (Analysis E8)
+
+*2026-11-16. The two orders of events, the options and the recommendation — AI; the choice of V1 and
+the request to check order 2 in the Stripe docs — mine.*
+
+### Facts (Stripe docs, read via `stripe docs` 2026-11-16)
+
+| # | Fact | Where |
+|---|---|---|
+| F1 | A disputed charge cannot be refunded: `charge_disputed` / `refund_disputed_payment`; no refund outside the dispute process while a dispute is open | [error codes](https://docs.stripe.com/error-codes); [how disputes work](https://docs.stripe.com/disputes/how-disputes-work) |
+| F2 | **A fully refunded payment cannot be disputed.** A partially refunded one can, even for the full amount | [dispute best practices](https://docs.stripe.com/disputes/prevention/best-practices) |
+| F3 | "You already issued a refund" is listed as evidence to counter a dispute | [dispute categories](https://docs.stripe.com/disputes/categories) |
+| F4 | ADR-037 checks `disputed` before a payout, not before a refund | ADR-037 §1 |
+
+**Order 1 — dispute, then a refund request:** Stripe refuses the second refund (F1); only the
+student-facing state is missing (today it would fall into Branch C as a failure).
+**Order 2 — refund, then a dispute:** for a full refund the card network does not allow it (F2), and
+Learnix makes only full refunds. The double-payment risk remains only for a **partial** Dashboard
+refund (OQ-7a): the student can dispute the full amount; the admin counters with the refund as
+evidence (F3).
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| **V1** | **Check `charge.disputed` before showing the button and before `refunds.create`; if disputed, no button and a "dispute open with your bank" message; `charge_disputed` from Stripe handled as this state, not as a failure** | **Chosen** | Closes order 1; order 2 is closed by Stripe for full refunds |
+| V2 | V1 + freeze a pending request or appeal on `charge.dispute.created` | Rejected | The start of a Disputes feature (E4); V1 already catches the race at decision time |
+
+### Decision
+
+**V1.** Accepted risk: a dispute after a partial Dashboard refund (OQ-7a), answered by the admin in
+Stripe with the refund as evidence. Disputes as a whole stay out of scope (E4).
+

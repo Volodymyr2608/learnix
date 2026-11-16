@@ -134,8 +134,8 @@ without a request?*
 | # | Question | Decision | Open |
 |---|---|---|---|
 | E1 | Manual refund via Dashboard — allowed? | **Yes, as an emergency path.** The main one is refund from the platform: the admin reviews the request and returns the money right there (consistent with Q21) | Whether two paths are optimal — investigate at Alternatives (together with A1) |
-| E2 | Consequences of a refund without a request | **The same** as for a request (D1–D4), and it **counts as the one allowed refund** (D3). The certificate **is revoked**; the review — TBD | There is **no** mechanism to revoke a certificate (certificate = `completedAt`, A2 F7) — a new capability, approach at Alternatives. The review has soft-delete (`deletedAt`), the rating will filter it out (`courseReview.repository.ts:43`) — cheap to remove |
-| E3 | Partial refund in the Dashboard (M3) | **TBD.** Options: (a) ignore — access remains, payment partially refunded; (b) treat as full — as now; (c) don't change access and notify the admin | Specification |
+| E2 | Consequences of a refund without a request | **The same** as for a request (D1–D4), and it **counts as the one allowed refund** (D3) *(changed 2026-11-16: does not count, [decisions §OQ-3](decisions.md))*. The certificate **is revoked**; the review — TBD | There is **no** mechanism to revoke a certificate (certificate = `completedAt`, A2 F7) — a new capability, approach at Alternatives. The review has soft-delete (`deletedAt`), the rating will filter it out (`courseReview.repository.ts:43`) — cheap to remove |
+| E3 | Partial refund in the Dashboard (M3) | **TBD** *(decided 2026-11-16: (c), [decisions §OQ-7a](decisions.md))*. Options: (a) ignore — access remains, payment partially refunded; (b) treat as full — as now; (c) don't change access and notify the admin | Specification |
 | E4 | Dispute / chargeback (M4) | **A separate task, out of Refund's scope** | Record in the spec as a non-goal with accepted risk: chargeback after the window — the instructor has already received the money, the platform bears the loss (Q9, Q25); the student's access is not closed |
 
 ### New requirement following from E1
@@ -340,7 +340,7 @@ fully, 3 partially.
 |---|---|---|
 | **S2** | **Transition period:** Q15 applies the new rules to old purchases, but Q18 doesn't act on them — their shares are already `transferred`. For them, within the window, reversal and the Q9 risk remain | **Real, important.** We analyzed C1–C2 only for new purchases |
 | **N4** | **Empty course and few lessons:** in a course with 3 lessons the first lesson = 33% — a percentage threshold may block exactly the "empty course", the most legitimate reason (Q1) | **Real, strong.** Hits the A2 "by count" decision directly → Alternatives (Q13) |
-| **E8 (part)** | Dispute **and** refund on the same payment → the platform returns the money twice | **Real.** E4 puts disputes out of scope, but "don't refund twice" is already Refund. C2.3 checks dispute only before payout, not before refund |
+| **E8 (part)** | Dispute **and** refund on the same payment → the platform returns the money twice | *(decided 2026-11-16: V1, [decisions §OQ-7b](decisions.md))* **Real.** E4 puts disputes out of scope, but "don't refund twice" is already Refund. C2.3 checks dispute only before payout, not before refund |
 | **E7** | The instructor disconnected Stripe / lost `payouts_enabled` during the hold | Real → Specification |
 | **F6** | The admin is unavailable: under C1.2 the instructor's money is held **without a limit** | Real; related to V2 (SLA) |
 | **F7** | `losses.payments` was verified only in the sandbox (Q25) — verify the production account before launch | Real, cheap |

@@ -443,3 +443,127 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me*
 - **Verdict:** `accepted` (the split) · the draft — TODO
 - **Why:** *TODO (me): in my own words — why these four decisions go in the ADR, and the thresholds and the window — in the spec*
+
+### 2026-11-16 — A6: how the instructor sees held money
+- **Stage:** specification (open question A6)
+- **Context the AI had:** the whole repository (payment repository, instructor Revenue and payout
+  settings UI), ADR-037, `decisions.md`
+- **AI proposed:** facts F1–F4, including that `getOwedBalance` shows a refunded `pending` sale as
+  owed (F3); three options; a recommendation of V2. Flagged as unchecked: whether
+  `getRecentTransactions` already shows the transfer status
+- **My decisions:** V2; the instructor does not see refund requests at all
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted` (V2) · own addition (requests hidden from the instructor)
+- **Why:** *TODO (me): in my own words — why two amounts and why the instructor must not see requests*
+
+### 2026-11-16 — DC: double charge for the same course
+- **Stage:** specification (open question from E2)
+- **Context the AI had:** the whole repository (checkout, `finalizeCheckout`, `handleRefund`, Prisma
+  schema), `decisions.md`
+- **AI proposed:** showed that a double charge is reachable (two tabs, no unique constraint on
+  `Payment`) and that `handleRefund` then removes paid access; three options; a recommendation of
+  V3 + V2, V1 as optional
+- **My decisions:** V3 + V2
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why auto-refund the duplicate instead of only guarding access*
+
+### 2026-11-16 — User flow: the draft of all three flows was written by the AI
+- **Stage:** specification (User flow)
+- **Context the AI had:** `decisions.md`, `analysis.md`, `discovery.md`, ADR-037, the spec so far
+- **AI proposed:** student, admin and instructor flows assembled from the recorded decisions; seven
+  open questions OQ-1–OQ-7 where the decisions are silent or conflict (notably OQ-1: C5.3 "disable
+  the button" vs C4 "auto-denial → appeal"; OQ-2: the M3b account-level limit has no number)
+- **My decisions:** *TODO (me): under review*
+- **How I verified:** *Not verified by me*
+- **Verdict:** TODO
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — OQ-1: a direct appeal when the threshold is exceeded
+- **Stage:** specification (User flow, OQ-1)
+- **Context the AI had:** `analysis.md` (C4, C5.3), `decisions.md` (A1, Q13), the User flow draft
+- **AI proposed:** found the conflict between C5.3 (disable the button) and C4 (denial → appeal);
+  three options; a recommendation of V3 (a direct appeal instead of the button)
+- **My decisions:** V3
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why a direct appeal and not "no button" for the threshold*
+
+### 2026-11-16 — OQ-2: account-level refund limit
+- **Stage:** specification (User flow, OQ-2)
+- **Context the AI had:** `decisions.md` (A1, Q13, platform research), `analysis.md` (R3, D3)
+- **AI proposed:** noticed that M3b names "account-level limits" with no number; the "sampler"
+  scenario; three options; a recommendation of V2 with N = 3 and counting only the student's
+  automatic refunds (left appeal-approved refunds to me)
+- **My decisions:** V2, N = 3, only automatic refunds count
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why a count per 12 months and why 3*
+
+### 2026-11-16 — OQ-3: platform-initiated refunds do not use up the student's one refund; E2 revised
+- **Stage:** specification (User flow, OQ-3)
+- **Context the AI had:** `analysis.md` (C3.1, D3, E2), `decisions.md` (OQ-2)
+- **AI proposed:** the wrong-price scenario; three options; a recommendation of V1; pointed out that
+  V1 conflicts with Analysis E2 (Dashboard refund counts) and offered to revise it
+- **My decisions:** V1; revise E2 so that a Dashboard refund does not count either
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted` · `modified` (E2, my earlier decision, revised)
+- **Why:** *TODO (me): in my own words — why platform actions do not use up the student's right*
+
+### 2026-11-16 — OQ-4: no refund notification to the instructor
+- **Stage:** specification (User flow, OQ-4)
+- **Context the AI had:** `notification.service.ts`, Revenue UI, ADR-037, A6
+- **AI proposed:** facts F1–F3; three options; a recommendation of V1 and the idea of aggregated
+  reasons as a separate feature
+- **My decisions:** V1; aggregated reasons recorded as out of scope
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why the instructor is not told about a refund*
+
+### 2026-11-16 — OQ-5: automatic approval of an overdue appeal; Stripe refund age checked
+- **Stage:** specification (User flow, OQ-5)
+- **Context the AI had:** spec (Business value), `analysis.md` (F6, E10), T4; Stripe docs via
+  `stripe docs /refunds` and `/error-codes`
+- **AI proposed:** pointed out that "reminders only" breaks the 31-day worst case in the spec; three
+  options; a recommendation of V2. Claimed from memory that Stripe allows refunds well beyond 31 days;
+  on my request checked the docs: **no age limit is documented** (claim not confirmed), plus the
+  45-day insufficient-balance failure, disputed-charge refusal and 5–10 business days to the card
+- **My decisions:** V2; asked for the Stripe check before recording
+- **How I verified:** asked for the check; the docs were read by the AI. *Not verified by me*
+- **Verdict:** `accepted` · AI memory claim `unconfirmed`
+- **Why:** *TODO (me): in my own words — why the platform, not the student, pays for a late review*
+
+### 2026-11-16 — OQ-6: warning on repurchase
+- **Stage:** specification (User flow, OQ-6)
+- **Context the AI had:** `analysis.md` (D3), OQ-3, OQ-5
+- **AI proposed:** two options; a recommendation of V1, shown only when the earlier refund counts
+  under D3
+- **My decisions:** V1
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — OQ-7a: partial Dashboard refund kept as a goodwill compensation
+- **Stage:** specification (User flow, OQ-7a / Analysis E3)
+- **Context the AI had:** `analysis.md` (E3), `handleRefund`, OQ-3
+- **AI proposed:** facts F1–F3; the three options from E3; a recommendation of (c); asked who bears
+  the compensation and used "a wrong price by the instructor" as a case for reducing the instructor's share
+- **My decisions:** (c); the platform bears it. **Overruled the AI's example:** the student sees the
+  price before buying, so a $200-instead-of-$20 price is the instructor's and the student's decision,
+  not a platform error. The same example was used by the AI in OQ-3 and E2
+- **How I verified:** reasoning, not code. *Not verified by me*
+- **Verdict:** `accepted` (c) · `rejected` (the AI's wrong-price example)
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — OQ-7b: dispute check before refund; Stripe dispute rules checked
+- **Stage:** specification (User flow, OQ-7b / Analysis E8)
+- **Context the AI had:** `analysis.md` (E4, E8), ADR-037; Stripe docs via `stripe docs /disputes/*`
+- **AI proposed:** split E8 into two orders of events; two options; a recommendation of V1. Said order
+  2 (refund, then dispute) was unverified; on my request read the docs and found that a fully
+  refunded payment cannot be disputed, while a partially refunded one can — which moves the residual
+  risk onto OQ-7a
+- **My decisions:** V1; asked for the order-2 check before recording
+- **How I verified:** asked for the check; the docs were read by the AI. *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
