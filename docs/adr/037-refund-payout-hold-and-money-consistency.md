@@ -3,7 +3,10 @@
 - **Status**: Accepted (2026-11-16)
 - **Date**: 2026-11
 - **Amends**: [ADR-019](019-payments.md) (transfer timing, `TransferStatus`, admin sweep, refunds)
-- **Feature**: `refund-self-service` (spec pending)
+- **Feature**: `refund-self-service`
+- **Amended**: 2026-11-16, after the `/spec` security design pass: the release predicate also
+  waits out the appeal grace period and refunds in progress (§1); the window starts at a new
+  `Payment.paidAt`
 
 ## Context
 
@@ -44,9 +47,13 @@ The product decisions this ADR depends on are recorded in the feature spec, not 
 `finalizeCheckout` no longer transfers at sale time. Every sale stays `pending` until it is
 **eligible for release**:
 
-- the refund window has closed (UTC);
+- the refund window has closed (UTC). It runs from `Payment.paidAt`, a new column set server-side in
+  `finalizeCheckout` from the Stripe charge's `created`; `createdAt` is checkout creation, not payment;
 - there is no open refund request or appeal on the payment (a request filed inside the window holds
   the money until it is decided);
+- *(amended 2026-11-16)* there is no automatically denied request whose appeal deadline has not
+  passed yet, and no request whose refund is processing or failed at Stripe. Without this the job
+  releases during the 3-day appeal grace, and a later approval needs a reversal;
 - `payment.status ≠ refunded`, and the charge in Stripe is neither refunded nor disputed (one
   `charges.retrieve` per release; this catches a refund whose webhook was lost);
 - the instructor's live `payouts_enabled` is true (unchanged from ADR-019).

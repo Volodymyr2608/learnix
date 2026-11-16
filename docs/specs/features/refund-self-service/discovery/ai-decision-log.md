@@ -611,3 +611,57 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
 
+### 2026-11-16 — Security design pass; T11 and three fixes
+- **Stage:** specification (security, §3d)
+- **Context the AI had:** the `security-auditor` agent read the spec, ADR-037, ADR-019, ADR-017 and the
+  payment, webhook, messaging, review, certificate and upload code. Raw output:
+  [`ai-raw/security-design-pass.md`](ai-raw/security-design-pass.md)
+- **AI proposed:** 29 threats with controls and acceptance-criterion lines; five decisions; ten
+  spec/ADR defects. Among them, errors in earlier AI work: T6 (the ADR-037 predicate, drafted by the
+  AI, releases during the appeal grace), T11 (the AI's OQ-5 recommendation lets direct appeals bypass
+  the rules), `paidAt` (used by the AI in the FR terms; the column does not exist), ADR-017 Rule 4
+  conflict. The main session spot-checked `paidAt` and the webhook dedup in code
+- **My decisions:** T11 → V2; fix T6, `paidAt` and ADR-017 without a separate discussion
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted` · the AI's earlier OQ-5 recommendation and ADR-037 draft `corrected` by a
+  second AI pass
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — T10: several accounts accepted as a risk
+- **Stage:** specification (security, T10)
+- **Context the AI had:** the security pass, OQ-2, T11, D-7
+- **AI proposed:** two options; a recommendation of V1 as an accepted risk; noted that without a
+  fingerprint the abuse is not observable, so the revisit trigger is a proxy metric
+- **My decisions:** V1
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — T27: course deletion moved to a separate feature
+- **Stage:** specification (security, T27)
+- **Context the AI had:** the security pass, the course router and repository
+- **AI proposed:** widened the threat from the code (deleting a course hides lessons from every buyer,
+  not only those inside the window); three options; a recommendation of V1 (auto-refund) in Refund +
+  V3 separately; suggested "course deleted after purchase" as the better admin-exception example
+- **My decisions:** **V3 only**, as a separate feature, with my rules: no full deletion of a course
+  with purchases; unpublish only; buyers keep access permanently; no new purchases. Rejected V1
+- **How I verified:** *Not verified by me*
+- **Verdict:** `rejected` (V1 + V3 recommendation) · `modified` (V3 with my rules)
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — FR-S15: appeal files, private store, 30-day retention
+- **Stage:** specification (security, FR-S15)
+- **Context the AI had:** the security pass §3, `vercel.service.ts`, Vercel docs via context7
+- **AI proposed:** the security agent's limits; checked in the Vercel docs that store access is fixed
+  at creation, the 4.5 MB body limit, private storage on Hobby and the Hobby limits; recommended
+  Postgres `bytea`, then a private store; proposed 90 days, then 150 days from payment
+- **My decisions:** a private Blob store (I first asked whether the public one is enough for a pet
+  project, then asked the AI to check the plan); **30 days** after the final decision. I asked
+  whether 90 days is common practice: the AI admitted there is no such standard. When I proposed 30
+  days, the AI checked it against the purpose and found its own 90/150-day reasoning used the wrong
+  purpose (the student's files are not the platform's dispute evidence)
+- **How I verified:** asked for the plan check; the docs were read by the AI. *Not verified by me*
+- **Verdict:** `rejected` (the AI's `bytea`, 90-day and 150-day proposals) · `accepted` (limits,
+  private store)
+- **Why:** *TODO (me)*
+

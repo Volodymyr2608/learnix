@@ -116,13 +116,15 @@ dispute plus refund on the same payment.
 | AS-5 | Opening a lesson approximates consuming it | Not verifiable without viewing telemetry | Known limit: opened ≠ read, so the threshold is a deterrent, not proof |
 | AS-6 | `losses.payments = "application"` on the production account as on sandbox | Check the live account before launch | The negative-balance reasoning changes; the hold is still needed |
 | AS-7 | Vercel Hobby permits this commercial use | Read the terms (the page did not load) | Pro plan or another scheduler |
+| AS-8 | Courses with purchases cannot be deleted (the separate feature in Unsupported use cases ships first or together) | Check before enabling the refund button | Deleting a course sets L = 0, so the threshold becomes 0 and buyers inside the window cannot even reach the button; the admin must refund them as exceptions (T27) |
 
 ## Constraints
 
 | Constraint | Source |
 |---|---|
 | Separate charges and transfers, platform is merchant of record, no `on_behalf_of` | ADR-019 |
-| Payout hold, single release predicate, compare-and-set transfer states, daily cron, event replay | ADR-037 |
+| Payout hold, single release predicate, compare-and-set transfer states, daily cron, event replay | ADR-037 (amended 2026-11-16) |
+| A student may upload files only as refund-appeal evidence, through a private-blob handler | ADR-017 Rule 4 (amended 2026-11-16) |
 | Stripe keeps its processing fee on refund | [Stripe support](https://support.stripe.com/questions/understanding-fees-for-refunded-payments) |
 | Stripe events are retrievable for 30 days; webhooks retry up to 3 days (live) | [Stripe: events](https://docs.stripe.com/api/events/list), [webhooks](https://docs.stripe.com/webhooks) |
 | A disputed charge cannot be refunded (`charge_disputed`, `refund_disputed_payment`). No age limit for refunding a card charge is documented; a refund draws on the available balance and fails after 45 days pending if it is insufficient | [Stripe: refunds](https://docs.stripe.com/refunds), [error codes](https://docs.stripe.com/error-codes) (read via `stripe docs` 2026-11-16) |
@@ -177,8 +179,9 @@ hold ships first, the button 14 days later behind a flag).
   the end of the window for a direct appeal (A1); the later of window end or denial + 3 days after
   an automatic denial (A1′, C4).
 - A3. The appeal goes to the admin queue. The money stays held. The student sees "Appeal under
-  review, decision by <date>" (review ≤ 14 days). If the admin has not decided by then, the appeal
-  is approved automatically and marked "overdue" in the audit (OQ-5).
+  review, decision by <date>" (review ≤ 14 days). If the admin has not decided by then, an appeal
+  that followed an automatic denial is approved automatically and marked "overdue" in the audit
+  (OQ-5). A direct appeal is not: the admin keeps getting reminders (T11).
 - A4. If the admin approves, step 4 follows. If the admin denies, a written reason is mandatory and
   files are optional (C5.2). The decision is final, and the student gets an email.
 
@@ -213,8 +216,8 @@ After an admin exception or a Dashboard refund there is no warning: the refund r
    - the snapshot of conditions from submission: window, opened lessons out of L, certificate,
      account refund history;
    - days left until the 14-day review limit.
-   Reminder emails go out on days 10 and 13, then daily; an appeal not decided by day 14 is approved
-   automatically (OQ-5).
+   Reminder emails go out on days 10 and 13, then daily. An appeal that followed an automatic denial
+   and is not decided by day 14 is approved automatically; a direct appeal never is (OQ-5, T11).
 2. **Decision.** Approve, or deny with a mandatory reason and optional files. The decision cannot be
    edited and is logged (R7).
 3. **Exception (C3.1).** From the admin panel the admin refunds any payment with a mandatory reason,
@@ -255,7 +258,7 @@ After an admin exception or a Dashboard refund there is no warning: the refund r
 | OQ-2 | What is the account-level limit (M3b)? No number is recorded | **Decided 2026-11-16:** at most 3 automatic refunds per rolling 12 months; beyond that, a direct appeal (Decision §OQ-2) | A1 decision |
 | OQ-3 | Does an admin exception count as the student's one refund? | **Decided 2026-11-16: V1, no.** Neither does a Dashboard refund (E2 revised). Only student-initiated refunds count: automatic and appeal-approved (Decision §OQ-3) | C3.1, E2 |
 | OQ-4 | Is the instructor notified of a refund on their sale? | **Decided 2026-11-16: V1, no.** They see the `refunded` status on Revenue (Decision §OQ-4) | Q23 |
-| OQ-5 | What happens if the admin misses the 14-day review limit? | **Decided 2026-11-16: V2.** Reminders on days 10 and 13, then daily; on day 14 the appeal is approved automatically, marked "overdue" (Decision §OQ-5) | F6, V2 |
+| OQ-5 | What happens if the admin misses the 14-day review limit? | **Decided 2026-11-16: V2.** Reminders on days 10 and 13, then daily; on day 14 the appeal is approved automatically, marked "overdue" (Decision §OQ-5). **Narrowed by T11:** direct appeals are never auto-approved | F6, V2 |
 | OQ-6 | Warn at checkout that a repurchased course has no refund? | **Decided 2026-11-16: V1, yes**, only when the earlier refund counts under D3 (Decision §OQ-6) | D3 |
 | OQ-7a | Partial refund in the Dashboard (E3) | **Decided 2026-11-16: (c)**, keep access, record and flag; the platform bears it (Decision §OQ-7a) | analysis E3 |
 | OQ-7b | A dispute and a refund on the same payment (E8) | **Decided 2026-11-16: V1**, check `charge.disputed` before the button and before `refunds.create`; treat `charge_disputed` as this state, not as a failure (Decision §OQ-7b) | analysis E8 |
@@ -267,7 +270,9 @@ my review. **[open]** marks a requirement whose decision is not recorded yet; **
 detail the AI added that no decision states.*
 
 Terms used below:
-- **window**: 14 days from the payment's `paidAt`, in UTC (A3);
+- **window**: 14 days from `Payment.paidAt`, in UTC (A3). `paidAt` is a new column, set server-side
+  in `finalizeCheckout` from the Stripe charge's `created`; `createdAt` is checkout creation, not
+  payment (security pass §5.5);
 - **threshold**: `min(3, ⌊L/2⌋)` opened lessons, where L is the course's non-deleted lessons at
   submission (Q13);
 - **counting refund**: an automatic, appeal-approved or overdue-approved refund. Admin exceptions,
@@ -314,8 +319,14 @@ Terms used below:
   numbers (OQ-1).
 - **FR-S14.** If a condition fails between page load and submit, the request is saved as
   automatically denied, naming the failed condition, and the student may appeal (OQ-1 A1′).
-- **FR-S15.** An appeal takes a reason and evidence files. **[open]** File types, size and count are
-  set by the security pass (S3, C5.3).
+- **FR-S15.** An appeal takes a reason and evidence files (S3, C5.3, FR-S15 decision):
+  - PNG, JPEG or PDF only, checked by content (magic bytes), not by extension;
+  - at most 3 files and 4 MB in total per appeal, sent in one request with the text;
+  - stored in a **private** Vercel Blob store, separate from the public one;
+  - readable only by the payment's student and an admin, through an authorizing route, as a
+    download.
+
+  The admin's files on a denial (FR-A2) follow the same rules.
 - **FR-S16.** Appeal deadline:
   - direct appeal: end of the window;
   - after an automatic denial: the later of window end or denial + 3 days (C4, OQ-1).
@@ -352,7 +363,10 @@ Terms used below:
   and the reason (R7).
 - **FR-A4.** The admin gets a reminder email for an undecided appeal on day 10 and day 13, then daily
   (OQ-5).
-- **FR-A5.** An appeal undecided by day 14 is approved automatically and marked "overdue" (OQ-5).
+- **FR-A5.** An appeal that followed an automatic denial (FR-S14) and is undecided by day 14 is
+  approved automatically and marked "overdue" (OQ-5). A direct appeal (FR-S13: threshold or account
+  limit) is never approved automatically: after day 14 the admin keeps getting a daily reminder and
+  the money stays held (T11).
 - **FR-A6.** From the admin panel the admin can refund any `succeeded` payment as an exception, with
   a mandatory reason. It is recorded and audited the same way as FR-A3 (C3.1).
 - **FR-A7.** The admin gets an email for every Dashboard refund, full or partial. The payment is
@@ -382,6 +396,9 @@ Terms used below:
 **Hold and release**
 - **FR-P1.** A sale creates no transfer. The instructor's net stays held until eligible for release
   (ADR-037 §1).
+- **FR-P2a.** A payment is not eligible for release while an automatically denied request on it
+  still has an appeal right (FR-S16 deadline not passed, no appeal filed), or while a refund on it is
+  processing or failed at Stripe (ADR-037 §1 as amended, security T6).
 - **FR-P2.** Every path that creates a transfer applies the same eligibility predicate:
   - the daily job;
   - "Run job now";
@@ -432,6 +449,12 @@ Dashboard webhook or daily event replay)
 - **FR-P19.** Opening a lesson records which lesson the student opened and when (M3b). Marking it
   "Complete" is unchanged.
 
+**Evidence retention**
+- **FR-P22.** Appeal and denial files are deleted 30 days after the final decision on the appeal by
+  the daily job. They are never deleted while the appeal is undecided. The snapshot of conditions,
+  the texts and the audit stay permanently; they are the platform's evidence in a bank dispute
+  (FR-S15 decision).
+
 **Launch**
 - **FR-P20.** The hold (FR-P1–P5) ships without a flag. The student refund button ships 14 days
   later behind a feature flag (S2).
@@ -452,6 +475,11 @@ Dashboard webhook or daily event replay)
 - **Showing refund requests or appeals to the instructor** (A6).
 - **A public certificate verification page.** A separate feature; refund only records the revocation
   it will rely on (E2).
+- **Protecting buyers when an instructor deletes a course.** Today an instructor can soft-delete a
+  course with paying students, and its lessons disappear for them
+  (`server/api/routers/course.ts:50-62`, `server/repositories/course.repository.ts:99-123`). A
+  separate feature: a course with purchases cannot be deleted, only unpublished; buyers keep access
+  permanently, new purchases stop (T27).
 - **A `/contact` page.** Three dead links point to it (footer, `/programs` "Talk to an Advisor",
   the Enterprise plan on `/pricing`). It is a sales and general-contact page, a separate task; the
   refund channel is the course page (Q21, D-2).

@@ -33,6 +33,10 @@ decisions already made.
 | D1 — messaging after a refund: direction and history | **Decided 2026-11-16:** closed both ways, history read-only |
 | E2-R — the review after a refund | **Decided 2026-11-16:** V3, hidden; a new review after repurchase restores the row |
 | D-2 — the dead `/contact` link | **Decided 2026-11-16:** V1, out of scope; refund text does not point to it |
+| T11 — overdue auto-approval as a bypass (security pass) | **Decided 2026-11-16:** V2, only appeals after an automatic denial are auto-approved; narrows OQ-5 |
+| T10 — one student, several accounts (security pass) | **Decided 2026-11-16:** V1, limit per `userId` only; accepted risk |
+| T27 — the instructor deletes a course inside the window (security pass) | **Decided 2026-11-16:** V3 as a separate feature: courses with purchases cannot be deleted, only unpublished |
+| FR-S15 — appeal files: limits, storage, retention | **Decided 2026-11-16:** PNG/JPEG/PDF, ≤ 3 files, ≤ 4 MB; private Blob store; deleted 30 days after the final decision |
 | ADR-014 (n8n) → mark superseded | Later, a separate small edit (not Refund) |
 
 ## A1 — who decides on a refund
@@ -1024,6 +1028,9 @@ instructor: recorded as **out of scope**, a separate analytics feature (spec, Un
 
 ## OQ-5 — the admin misses the 14-day appeal review
 
+*Narrowed 2026-11-16 by [T11](#t11--overdue-auto-approval-as-a-bypass-security-pass): direct appeals
+are never approved automatically.*
+
 *2026-11-16. The conflict with the 31-day worst case, the options, the recommendation and the Stripe
 check — AI; the choice of V2 and asking for the Stripe check — mine.*
 
@@ -1201,4 +1208,135 @@ It is a sales and general-contact page, not a refund channel; the refund channel
 |---|---|---|---|
 | **V1** | **Out of scope; the refund text on `/pricing` points to the course page** | **Chosen** | A different problem; "cut scope, not the deadline" |
 | V2 | Build a simple `/contact` page here | Rejected | Not part of the refund problem |
+
+## T11 — overdue auto-approval as a bypass (security pass)
+
+*2026-11-16. Found by the `security-auditor` design pass
+([`ai-raw/security-design-pass.md`](ai-raw/security-design-pass.md), T11); options and the
+recommendation — AI (main session); the choice of V2 — mine. The AI's own OQ-5 recommendation
+caused the gap.*
+
+**Gap.** Under OQ-5 any appeal undecided by day 14 is approved. A student over the threshold or the
+account limit files a direct appeal (OQ-1) and, if the admin is away for 14 days, gets the course
+price back. The threshold and the account limit stop binding whenever the admin is absent.
+
+| # | Rule | Status | Reason |
+|---|---|---|---|
+| V1 | Keep OQ-5: every overdue appeal is approved | Rejected | The bypass above |
+| **V2** | **Auto-approve only appeals that followed an automatic denial (A1′); a direct appeal is never auto-approved, the admin keeps getting daily reminders** | **Chosen** | The rules cannot be bypassed by waiting |
+| V3 | Count overdue approvals toward the account limit | Rejected | Does not close it: over the limit the student files a direct appeal again |
+
+### Decision
+
+**V2.** An A1′ appeal is a student caught by a condition that changed under them, so auto-approval
+stays fair there.
+
+- **What I give up:** for a direct appeal the instructor's "≤ 31 days" depends on the admin being
+  there (Analysis F6 returns for this case). Accepted: an absent admin is an operational failure
+  already covered by OQ-5's revisit condition, not the normal mode.
+
+### Fixed without a separate decision (same pass)
+
+- **T6:** the release predicate also excludes a denied request still inside its appeal deadline and a
+  refund processing or failed at Stripe. ADR-037 §1 amended; FR-P2a.
+- **`paidAt`:** `Payment` has no `paidAt` (`prisma/schema/payments.prisma`). New column, set in
+  `finalizeCheckout` from the charge's `created`; the window runs from it. ADR-037 §1, spec terms.
+- **ADR-017 Rule 4:** amended to allow a student upload only for refund-appeal evidence via the
+  private-blob handler.
+
+## T10 — one student, several accounts (security pass)
+
+*2026-11-16. Threat from the `security-auditor` pass (T10); options and the recommendation — AI (main
+session); the choice of V1 — mine.*
+
+**Threat.** The OQ-2 limit (3 automatic refunds per 12 months) is keyed on `userId`; every new
+account gets 3 more "samples". The loss per sample is the Stripe fee (D-7) and up to 3 lessons of
+content. The course price returns to the same card, so there is no cash-out.
+
+| # | Rule | Status | Reason |
+|---|---|---|---|
+| **V1** | **`userId` only; accepted risk** | **Chosen** | Bounded loss; each sample needs a real payment by a real card; no new payment data |
+| V2 | Also count per card fingerprint (`card.fingerprint`, stored at checkout) | Rejected | New payment data; false positives on a shared family card (now routed to a direct appeal that is never auto-approved, T11); a determined abuser uses several cards |
+
+### Decision
+
+**V1, accepted risk** (goes into the spec's Security section as accepted).
+
+- **I will revisit if:** the share of automatically refunded purchases grows twice the baseline of the
+  first 4 weeks (the M3b metric). Without V2 multi-account abuse itself is not observable; this is
+  the proxy.
+
+## T27 — the instructor deletes a course inside the window (security pass)
+
+*2026-11-16. Threat from the `security-auditor` pass (T27); the code check that widened it, options and
+the recommendation of V1 + V3 — AI (main session); the choice of V3 alone, as a separate feature, and
+its rules — mine.*
+
+### Facts
+
+| # | Fact | Where |
+|---|---|---|
+| F1 | An instructor can delete a course with paying students; the router checks only ownership | `server/api/routers/course.ts:50-62` |
+| F2 | Deletion is soft and cascades to sections, lessons and quizzes | `server/repositories/course.repository.ts:99-123` |
+| F3 | For Refund: L = 0, threshold `min(3, 0)` = 0, and the course page is hidden, so the button is unreachable | Q13; F2 |
+| F4 | Independent of Refund: buyers outside the window also lose paid access with no compensation | F1, F2 |
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| V1 | Deleting a course refunds every buyer inside the window automatically | Rejected | Treats a symptom; buyers outside the window stay unprotected |
+| V2 | Normal rules, L from a snapshot at deletion | Rejected | The student has nowhere to click |
+| **V3** | **A course with purchases cannot be deleted, only unpublished** | **Chosen, as a separate feature** | Removes the cause for every buyer |
+
+### Decision
+
+**V3, a separate feature (my rules):** a course with purchases cannot be fully deleted. The
+instructor can only unpublish it. Whoever bought it keeps access permanently; new purchases are not
+possible because the course is unpublished.
+
+**For Refund:** an unpublished course still shows the course page to its buyers, so the normal rules
+apply and L does not collapse. Spec: Unsupported use cases + assumption AS-8 (V3 ships first or
+together; otherwise in-window buyers of a deleted course need admin exceptions).
+
+## FR-S15 — appeal files: limits, storage, retention
+
+*2026-11-16. Limits from the `security-auditor` pass; the Vercel checks (store access fixed at
+creation, 4.5 MB body limit, private storage on all plans, Hobby limits), the storage options, the 90-
+and 150-day proposals and the purpose analysis — AI; the choice of a private store, 30 days, and
+questioning both "pet project → public" and "is 90 days common practice" — mine.*
+
+### Facts (Vercel docs via context7, 2026-11-16)
+
+| # | Fact | Source |
+|---|---|---|
+| F1 | Store access (public or private) is chosen at creation and cannot be changed. Our existing store is public (`server/services/vercel/vercel.service.ts:17-19`), so evidence needs a new private store and its own token in `lib/env.js` | [Vercel Blob](https://vercel.com/docs/vercel-blob) |
+| F2 | Private blobs are read only through our functions with the SDK | same |
+| F3 | Private storage is available on all plans, Hobby included | [Private storage](https://vercel.com/docs/vercel-blob/private-storage) |
+| F4 | Hobby includes 1 GB storage, 10,000 simple and 2,000 advanced operations, 10 GB transfer | [Pricing](https://vercel.com/docs/pricing) |
+| F5 | Function request body limit is 4.5 MB; server uploads are fine up to it | [Function limits](https://vercel.com/docs/functions/limitations) |
+
+### Storage
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| **V1** | **Private Vercel Blob store** | **Chosen** | Evidence may hold personal documents; the authorizing route is needed anyway; cost is one store, one env var |
+| — | The existing public store, as an accepted risk ("pet project") | Rejected | A leaked URL exposes the file to anyone and cannot be revoked; would need ADR-017 rewritten |
+| V2 | Postgres `bytea` | Rejected | Non-standard for files |
+
+### Retention
+
+There is no common-practice number; GDPR art. 5(1)(e) asks for "no longer than necessary for the
+purpose". The AI first proposed 90 days after the decision, then 150 days from payment (to cover the
+120-day chargeback window). **Both rested on a wrong purpose:** the student's files are the student's
+arguments; the platform's evidence in a bank dispute is the policy, the snapshot of conditions, the
+denial reason and the audit, all kept permanently in the database. The files' purpose ends with the
+decision.
+
+**Decision: 30 days after the final decision**, by the daily job; never while the appeal is
+undecided (a decision can come ~31 days after payment). Immediately on account deletion (T29). The
+admin's denial files follow the same rule. Worst case in storage: ~4–5 weeks × 10 appeals × 4 MB ≈
+200 MB, well under the 1 GB Hobby limit.
+
+- **What I give up:** after 30 days the admin cannot reopen the student's files, for example if the
+  student disputes later. Accepted: the platform's own evidence is kept.
+- **I will revisit if:** a bank dispute needs the student's files.
 
