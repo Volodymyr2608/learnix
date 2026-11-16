@@ -678,3 +678,65 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted` · the AI's ADR-037 §2 claim `corrected`
 - **Why:** *TODO (me)*
 
+### 2026-11-16 — Edge cases and Failure scenarios drafted by the AI
+- **Stage:** specification (Edge cases, Failure scenarios)
+- **Context the AI had:** `analysis.md` (S4–S7, F1–F8, R4), `decisions.md`, ADR-037, `security.md`
+- **AI proposed:** 17 edge cases and 13 failure scenarios, each traced to a decision; four **[open]**
+  items with AI suggestions: EC-3 (a deleted opened lesson), EC-12 (account deletion with an open
+  request), FS-3 (a refund that fails at the bank after the effects were applied, which D2 cannot
+  undo), FS-8 (Redis down); four **[AI]** derived rules (EC-4, EC-11, EC-16, EC-17)
+- **My decisions:** *TODO (me): under review*
+- **How I verified:** *Not verified by me*
+- **Verdict:** TODO
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — FS-3: failed refund after the effects were applied
+- **Stage:** specification (Failure scenarios, FS-3)
+- **Context the AI had:** FR-P14, D2, Stripe refund docs (failed refunds)
+- **AI proposed:** found that synchronous effects (FR-P14) plus irreversible cleanup (D2) leave the
+  student with neither money nor course if the bank rejects the refund later; three options; a
+  recommendation of V1 + V2
+- **My decisions:** V1 + V2
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — LLM security pass; AI-C6 accepted as a risk
+- **Stage:** specification (security, LLM, §3d)
+- **Context the AI had:** the `llm-security-auditor` read the tutor route and tools, the embedding
+  repository, study-guide, quiz, learning-path and lesson-assistant code, and
+  `ai-tutor-guardrails/security.md`. Raw output: [`ai-raw/llm-security-design-pass.md`](ai-raw/llm-security-design-pass.md).
+  The main session spot-checked `searchCourseChunks` (course-wide, `embedding.repository.ts:149-163`)
+- **AI proposed:** the tutor's `search_across_course` reads the whole course from one opened lesson,
+  so the threshold can be bypassed without any injection; restrict the tutor, study guide and
+  quizzes to opened lessons (AI-C1…C4); FR-P9 misses `ConceptCheck` and `LearningPathCache`; a
+  refunded course can be recommended back; tracing unverified; ship the gates with the hold. For
+  AI-C6 the main session recommended V1
+- **My decisions:** AI-C6 → V2 (accept the bounded risk), overruling the recommendation
+- **How I verified:** *Not verified by me*
+- **Verdict:** `rejected` (V1 recommendation for AI-C6)
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — REC: refunded courses are not recommended back
+- **Stage:** specification (security, LLM, Q3.4)
+- **Context the AI had:** `enrollment.repository.ts`, FR-P12, D3, OQ-3, OQ-6
+- **AI proposed:** three options; a recommendation of V3
+- **My decisions:** V3
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — LLM controls moved into the spec
+- **Stage:** specification (security, LLM)
+- **Context the AI had:** the LLM pass, `ai-tutor-guardrails/security.md` (S13 §25, the tracing
+  requirement), `lib/env.js`, `.env.example`
+- **AI proposed:** FR-P19a (content only from opened lessons), extended FR-P9 (concept checks, cached
+  learning path), FR-P12 (recompute on all five paths), FR-P20 (gates ship with the hold); the AI
+  controls table in `security.md`; AC-L1…L14; marked S13 §25 reopened in `ai-tutor-guardrails`;
+  tracing inherited from the existing requirement instead of a new control (local `.env.local` has
+  tracing on for development; production not checkable from here)
+- **My decisions:** move as a batch and commit
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+

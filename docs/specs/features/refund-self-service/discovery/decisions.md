@@ -37,6 +37,9 @@ decisions already made.
 | T10 — one student, several accounts (security pass) | **Decided 2026-11-16:** V1, limit per `userId` only; accepted risk |
 | T27 — the instructor deletes a course inside the window (security pass) | **Decided 2026-11-16:** V3 as a separate feature: courses with purchases cannot be deleted, only unpublished |
 | FR-S15 — appeal files: limits, storage, retention | **Decided 2026-11-16:** PNG/JPEG/PDF, ≤ 3 files, ≤ 4 MB; private Blob store; deleted 30 days after the final decision |
+| FS-3 — a refund that fails at the bank after it was applied | **Decided 2026-11-16:** V1 + V2, access restored automatically, the admin returns the money another way |
+| AI-C6 — learning path enriches unopened lessons (LLM pass) | **Decided 2026-11-16:** V2, accepted as a bounded risk |
+| REC — recommend a refunded course back to its refunder (LLM pass) | **Decided 2026-11-16:** V3, never recommend a course with a cancelled enrollment |
 | ADR-014 (n8n) → mark superseded | Later, a separate small edit (not Refund) |
 
 ## A1 — who decides on a refund
@@ -1342,4 +1345,69 @@ admin's denial files follow the same rule. Worst case in storage: ~4–5 weeks �
 - **What I give up:** after 30 days the admin cannot reopen the student's files, for example if the
   student disputes later. Accepted: the platform's own evidence is kept.
 - **I will revisit if:** a bank dispute needs the student's files.
+
+## FS-3 — a refund that fails at the bank after it was applied
+
+*2026-11-16. The chain, the options and the recommendation — AI; the choice of V1 + V2 — mine.*
+
+**Chain.** `refunds.create` succeeds → the effects apply at once (FR-P14): access closed, learning
+records deleted (D2), the held net cancelled → days later the bank rejects the refund (closed card)
+and Stripe returns the money to the platform balance ([Stripe: refunds](https://docs.stripe.com/refunds),
+failed refunds). The student has neither money nor course, and the progress is gone. Insufficient
+platform balance is practically excluded because the net is held; a closed or expired card is rare
+but real, the more so 2–4 weeks after payment.
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| V1 | The admin handles it by hand | **Chosen, with V2** | The money must be returned another way; only a person can do that |
+| V2 | Reactivate the enrollment automatically and tell the student | **Chosen, with V1** | The student is not left with nothing while waiting for the admin |
+| V3 | Delay the D2 cleanup ~10 days so V2 can restore progress too | Rejected | Revisits D2 for a rare case; data kept longer |
+
+### Decision
+
+**V1 + V2** (FR-P27, FS-3). The held net stays cancelled: the instructor's share of a sale whose
+refund failed is **[open]** — AI suggestion: the admin decides it together with returning the money.
+
+- **What I give up:** the student's cleared progress is not restored.
+- **I will revisit if:** failed refunds happen more than rarely — then V3.
+
+## AI-C6 — learning path and unopened lessons (LLM security pass)
+
+*2026-11-16. Found by the `llm-security-auditor` pass
+([`ai-raw/llm-security-design-pass.md`](ai-raw/llm-security-design-pass.md)); the options and the
+recommendation of V1 — AI; the choice of V2 — mine.*
+
+**Fact:** `mergeAndExplain` enriches up to 3 next not-completed lessons, possibly unopened, with
+their study-guide summary, concepts and glossary; without a study guide it already falls back to the
+lesson `description` (`server/services/learningPathAI/nodes/mergeAndExplain.node.ts:32-51`). The
+model writes one sentence per step, at most 5, and regeneration is rate-limited.
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| V1 | Unopened lessons enriched from title + `description` only | Rejected (AI's recommendation) | — |
+| **V2** | **No change; accepted as a bounded risk** | **Chosen** | At most 5 sentences per regeneration; no code change |
+
+- **What I give up:** the rule "a student gets content only from opened lessons" has one exception,
+  the learning path's one-sentence reasons. Recorded in `security.md` as accepted.
+- **I will revisit if:** the learning path starts returning more than one sentence per step, or
+  includes lesson text.
+
+## REC — recommending a refunded course back to its refunder (LLM security pass)
+
+*2026-11-16. Found by the `llm-security-auditor` pass (Q3.4); options and the recommendation of V3 —
+AI; the choice of V3 — mine.*
+
+**Fact:** recommendations exclude only `active` / `completed` enrollments
+(`server/repositories/enrollment.repository.ts:49-58`). After a refund the enrollment is `cancelled`,
+so the refunded course becomes a candidate again. D4 / FR-P12 remove it from the interest embedding,
+not from the candidate list.
+
+| # | Rule | Status | Reason |
+|---|---|---|---|
+| V1 | Exclude after a counting refund only | Rejected | Two cases for a rare difference |
+| V2 | Keep recommending | Rejected | Recommends what the student just rejected; a repurchase has no refund right (OQ-6) |
+| **V3** | **Exclude any course with a cancelled enrollment** | **Chosen** | Simplest rule: add `cancelled` to the existing filter |
+
+- **What I give up:** after an admin exception (OQ-3) the course also disappears from the student's
+  recommendations; search and the catalogue still show it.
 

@@ -864,6 +864,10 @@ The rest are named here as accepted or open.
     enrollment grants full course access — but it rests on that assumption. If sequential/drip
     unlocking is ever added, the tutor bypasses it; and worked solutions an instructor places in a
     later lesson body are reachable early (a facet of §9).
+    **Reopened 2026-11-16 by `refund-self-service`:** the refund threshold counts opened lessons, so
+    course-wide retrieval became a way to consume a course without opening it and keep the automatic
+    refund. Closed there by restricting this tool to opened lessons
+    (`refund-self-service/security.md`, AI-C2).
 26. **Same-origin output URLs are unconditionally permitted** (F6). `inAppUrlTransform` allows any
     relative or same-origin destination. A markdown image to a same-origin endpoint that logs query
     parameters would be a residual zero-click exfiltration channel. No such endpoint is known; the

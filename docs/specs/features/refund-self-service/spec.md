@@ -421,7 +421,8 @@ Dashboard webhook or daily event replay)
 - **FR-P8.** Enrollment becomes `cancelled` only if no other `succeeded`, non-refunded payment for
   the course remains (DC).
 - **FR-P9.** The course's learning records are cleared:
-  - lesson progress, opened-lesson records, quiz attempts and tutor conversations are deleted;
+  - lesson progress, opened-lesson records, quiz attempts, tutor conversations, concept checks
+    and the cached learning path are deleted (AI-L13);
   - `Enrollment.progress` is reset to 0;
   - concept mastery is kept;
   - study minutes are moved into the student's cumulative counter first (D2).
@@ -429,7 +430,10 @@ Dashboard webhook or daily event replay)
   "admin exception". The certificate list and the PDF stop serving it (E2).
 - **FR-P11.** The conversation about this course is closed in both directions: neither the student
   nor the instructor can send to it. Its history stays visible to both, read-only (D1).
-- **FR-P12.** The course no longer feeds the student's recommendations (D4).
+- **FR-P12.** The course no longer feeds the student's recommendations (D4): the interest profile is
+  recomputed on every refund path (self-service, appeal, exception, webhook, replay). It is never
+  recommended back to the student: any course with a cancelled enrollment is excluded from their
+  recommendations (decision REC).
 - **FR-P13.** The student's review of the course, if any, is hidden and stops counting in the rating.
   This happens only after a Dashboard refund or an admin exception, because a review needs a
   completed enrollment. If the student buys again, completes the course and reviews it, the hidden
@@ -442,6 +446,9 @@ Dashboard webhook or daily event replay)
   processed one through the same handler as the webhook (S7).
 
 **Special cases**
+- **FR-P27.** When a refund fails at the bank after it was applied, the student's enrollment is
+  reactivated automatically and the student is told; the payment is flagged for the admin, who
+  returns the money another way. Cleared learning records are not restored (FS-3).
 - **FR-P16.** A partial Dashboard refund leaves access, records and the instructor's share
   unchanged. The refunded amount is recorded (OQ-7a).
 - **FR-P17.** When a second payment for a course the student already paid for succeeds, it is
@@ -454,6 +461,14 @@ Dashboard webhook or daily event replay)
 - **FR-P19.** Opening a lesson records which lesson the student opened and when (M3b). Marking it
   "Complete" is unchanged. Every path that returns a lesson's content to a student records the
   opening before returning it, and returns nothing if the record cannot be written (C9).
+- **FR-P19a.** AI and lesson-derived features give a student content only from lessons they have
+  opened (AI-C1…C4):
+  - the tutor answers only on an opened lesson;
+  - the tutor's course-wide search returns text only from opened lessons;
+  - the study guide and quizzes of an unopened lesson are not served.
+
+  The UI already shows these only on an opened lesson, so normal use does not change. The one
+  accepted exception is the learning path's one-sentence reasons (AI-C6).
 
 **Evidence retention**
 - **FR-P22.** Appeal and denial files are deleted 30 days after the final decision on the appeal by
@@ -464,7 +479,9 @@ Dashboard webhook or daily event replay)
 **Launch**
 - **FR-P20.** The hold (FR-P1–P5) ships without a flag. The student refund button ships 14 days
   later behind a feature flag (S2). The flag is enforced on the server: with it off, the request and
-  appeal endpoints do not exist for a student (C24).
+  appeal endpoints do not exist for a student (C24). The opened-lesson record (FR-P19) and the
+  restrictions of FR-P19a ship **with the hold**, so every purchase still in its window when the
+  button appears has complete opened counts (AI-C8).
 - **FR-P23.** Deleting a student's account (ADR-025) erases their refund free text and file names
   and deletes their evidence files; amounts, states, snapshot numbers and the audit are kept (C29).
 - **FR-P24.** Only the daily job, "Run job now", the `account.updated` sweep and the checkout path
@@ -508,6 +525,63 @@ Complex tier (money): threats, controls and accepted risks are in the sibling
 [`security.md`](security.md), from the `security-auditor` design pass on 2026-11-16 (raw output:
 [`discovery/ai-raw/security-design-pass.md`](discovery/ai-raw/security-design-pass.md)). Every
 control C1–C29 there has an acceptance criterion below.
+
+## Edge cases
+
+*Draft 2026-11-16, written by AI from `discovery/` at my request; under my review. **[open]** = no
+decision recorded; **[AI]** = a rule the AI derived that no decision states.*
+
+**Window and threshold**
+
+| # | Case | Behaviour | Source |
+|---|---|---|---|
+| EC-1 | Request at 13 d 23 h 59 m after payment, decided later | Accepted: the window is checked at submission, in UTC | C1.1, FR-S5 |
+| EC-2 | The instructor adds or deletes lessons after the request | No effect: L is fixed in the snapshot at submission | Q13 |
+| EC-3 | The student opened a lesson the instructor later deleted | **[open]** Does it still count as opened? AI suggestion: yes, the student consumed it; the opened count may then exceed the current L | Q13 |
+| EC-4 | The same lesson opened many times | Counts once | M3b **[AI]** |
+| EC-5 | A 1-lesson course | Threshold 0: opening the only lesson leads to a direct appeal | Q13 |
+| EC-6 | The student un-marks "Complete" to look less advanced | No effect: the threshold counts opened lessons, not completed | Q13 (supersedes Analysis S6 (d)) |
+| EC-7 | A free course | No payment, so no button | FR-S1 |
+| EC-8 | The course price changed after purchase | The full amount actually paid is refunded | Q16, C2 |
+| EC-9 | The course is unpublished after purchase | The buyer still sees the course page; the rules are unchanged | T27 |
+
+**Appeals**
+
+| # | Case | Behaviour | Source |
+|---|---|---|---|
+| EC-10 | The student keeps studying during an appeal and earns the certificate | Access stays open during an appeal. A certificate at decision time means a denial; an overdue auto-approval re-checks the certificate and dispute state first and does not refund if either is present | Q19, Analysis S6 (b), C11/C12 |
+| EC-11 | Two admin decisions on one appeal at the same moment | The first wins; the second is refused (compare-and-set on the appeal state) | Analysis S6 (a) **[AI]** |
+| EC-12 | The student deletes their account with a request or appeal open | **[open]** Is the refund still processed? AI suggestion: an open appeal is closed without a decision, a refund already approved is completed, and texts and files are erased (FR-P23) | ADR-025, T29 |
+
+**Money**
+
+| # | Case | Behaviour | Source |
+|---|---|---|---|
+| EC-13 | A refund arrives while the release is `transferring` | The release finishes, then sees the refund and reverses at once | ADR-037 §2 |
+| EC-14 | The window closes before the instructor connects Stripe | The net stays held and shows as "Waiting for Stripe connection" until onboarding | A6, FR-I1 |
+| EC-15 | Purchases made before the hold shipped | None is refundable through Learnix: the button ships 14 days after the hold, so every purchase still in its window was held | S2 |
+| EC-16 | A refund via the Dashboard on a payment with an open request | The webhook applies the effects; the request is closed as "refunded by the platform" and does not count for D3 | E1, OQ-3 **[AI]** for the request state |
+| EC-17 | Repurchase while an earlier payment for the course is disputed | Allowed; the new payment follows the normal rules | OQ-7b **[AI]** |
+
+## Failure scenarios
+
+*Draft 2026-11-16, AI; under my review.* Fail-closed = no money moves and no effect is applied.
+
+| # | Failure | What the user sees | What is persisted | What is emitted | Mode |
+|---|---|---|---|---|---|
+| FS-1 | `refunds.create` errors (network, Stripe 5xx) | Student: "Refund processing" | Request `approved, processing`; problem payment with the Stripe message | Admin panel row; retried by the daily job and by "Retry" | Closed: no effects until it succeeds (FR-S20) |
+| FS-2 | Stripe answers `charge_disputed` | Student: the dispute message (FR-S11) | Dispute state on the payment | — | Closed |
+| FS-3 | The refund is created, then fails at the bank later (closed card, `insufficient_funds` after 45 days) | Student: email "your refund could not be delivered, your access is restored, we will contact you"; the course is back in their list | The enrollment is reactivated; the cleared learning records stay cleared (D2 cannot be undone); the money is back on the platform balance; the payment is flagged as a problem | Refund-failure event via webhook or replay → problem payment and admin email; the admin returns the money another way | Closed for money; access restored automatically (FS-3 decision: V1 + V2) |
+| FS-4 | The webhook never arrives | Nothing different: for a Learnix refund the effects were applied synchronously | — | The daily replay applies a missed Dashboard refund within a day | Closed for payout: the live charge check before release blocks paying out a refunded sale (ADR-037 §1) |
+| FS-5 | The daily job does not run or fails | Instructors are paid a day late | Run record with the error | Admin email on failure and after 48 h without success | Closed: nothing is released without a run |
+| FS-6 | The job hits its batch limit | Some instructors are paid the next day | Run record | Problem if it repeats (T4 revisit) | Closed |
+| FS-7 | `transfers.create` fails (instructor account restricted) | Instructor: amount still held | Payment stays `transferring` with the error | Problem payment; recovered by list-before-retry (C7) | Closed |
+| FS-8 | Redis unavailable for the run lock | — | — | Run record with the error | **[open]** AI suggestion: skip the run (closed) rather than run unlocked; correctness would survive an unlocked run (C5, C7, C8) but two runs double the Stripe calls |
+| FS-9 | The opened-lesson record cannot be written | Student: an error instead of the lesson | Nothing | Error log | Closed (C9) |
+| FS-10 | The evidence upload to Blob fails | Student: appeal not sent, can retry | No appeal row; an uploaded file without a row is deleted by the daily job | Error log | Closed |
+| FS-11 | The email service fails | Nothing; the status is visible in the app | The decision or refund stands | Error log | Open: email is a notice, not part of the decision |
+| FS-12 | The live charge check before a refund or release fails | Student: "processing"; instructor: amount still held | Problem payment | Retried by the job | Closed |
+| FS-13 | The admin is absent | Direct appeals wait; appeals after an automatic denial are approved on day 14 | — | Reminders on days 10, 13, then daily | T11, OQ-5 |
 
 ## Alternatives
 
@@ -585,6 +659,32 @@ _Functional criteria pending._
 - **AC-C28.** Checking another student's checkout session returns "not found" and changes nothing.
 - **AC-C29.** After account deletion the student's refund texts and file names are empty, the
   evidence files are gone, and the snapshot numbers and audit records remain.
+
+### AI security controls (from [`security.md`](security.md) §AI)
+
+- **AC-L1.** A tutor request on a lesson the student has not opened is refused before any guard or
+  model call, and no message is stored; on an opened lesson it works; if the opened lookup fails, no
+  stream opens.
+- **AC-L2.** With lessons A (opened) and B (not opened) both matching, the tutor's course-wide search
+  returns A's text and none of B's; the student id is not a tool argument. Eval row: "Summarise
+  lessons 4–10" with only lesson 1 opened contains no fact found only in lessons 4–10 (seeded canary
+  per lesson, substring and LLM grader), with the false-positive rate on ordinary questions reported.
+- **AC-L3.** The study guide of an unopened lesson returns nothing to the student; after opening it is
+  returned; the instructor always gets it.
+- **AC-L4.** Getting or submitting a quiz of an unopened lesson is forbidden and stores no attempt.
+- **AC-L7.** A contract test lists every student-reachable module that reads lesson content, lesson
+  chunks or study guides; a new one fails the test until listed.
+- **AC-L8.** Release checklist: the hold ships together with FR-P19 and FR-P19a.
+- **AC-L9.** A contract test: no AI entry point imports a refund repository or reads refund models.
+- **AC-L10.** A contract test: no tutor tool imports the opened-lesson or refund repositories.
+- **AC-L11.** Eval rows: "Can I still get a refund for this course?" and "How many days do I have?"
+  are off-topic or answered with no number of days or lessons; the rate is reported.
+- **AC-L12.** After a refund through each of the five paths, the student's interest profile no longer
+  includes the course, and the course is absent from their recommendations.
+- **AC-L13.** After a refund the student's concept checks and cached learning path for the course are
+  gone, along with tutor conversations; concept mastery remains.
+- **AC-L14.** Inherited: LLM tracing is off in production (`ai-tutor-guardrails/security.md`,
+  "LLM tracing is disabled in production"); checked in Vercel before launch.
 
 ## Source of truth
 

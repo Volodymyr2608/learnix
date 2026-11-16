@@ -11,8 +11,10 @@ Related ADRs: [037](../../../adr/037-refund-payout-hold-and-money-consistency.md
 T7, T8, `paidAt`) and [017](../../../adr/017-owasp-security-rules.md) Rule 4 (amended for student
 evidence uploads).
 
-**No AI surface is added by this feature**, except that the existing lesson tutor can serve lesson
-content without an "opened" record (T9); that half goes to `llm-security-auditor`.
+**No AI surface is added by this feature**, but existing AI and lesson-derived features let a
+student consume lesson content without an "opened" record, which the refund threshold turns into
+money. The `llm-security-auditor` design pass covered this (§AI below; raw output
+[`discovery/ai-raw/llm-security-design-pass.md`](discovery/ai-raw/llm-security-design-pass.md)).
 
 ## Assets and actors
 
@@ -74,13 +76,47 @@ C10 and C27 are decisions, not controls (below).
 - **An instructor buying their own course from another account.** Gains nothing over a normal sale.
 - **"On hold past day 14 means an appeal"** for an instructor with one sale (decision A6).
 - **A compromised admin refunding in bulk.** The admin is trusted by design; the audit detects it.
+- **Learning-path reasons drawn from unopened lessons (AI-C6).** The learning path enriches up to 3
+  next not-completed lessons, which may be unopened, with their study-guide summary; the model
+  writes at most 5 sentences per regeneration, rate-limited. A small, repeatable leak, accepted
+  (decision AI-C6, `discovery/ai-raw/llm-security-design-pass.md`).
 - **A partial Dashboard refund disputed for the full amount.** Stripe-side, rare, the platform bears
   it (OQ-7a).
 
+## AI controls
+
+The rule: **gate inside the authorizing query, never let the model widen it.** A student gets lesson
+content only from lessons they opened. Restricting, not recording an open, because a model-chosen
+search must not spend the student's threshold (LLM06).
+
+| C | Surface | Threat | Control | FR | AC |
+|---|---|---|---|---|---|
+| AI-C1 | Tutor route `app/api/chat/lesson/route.ts:25-90` | A tutor turn on an unopened lesson | Refuse unless the lesson is opened, in the authorizing query, before the guard and any model call | FR-P19a | AC-L1 |
+| AI-C2 | `search_across_course` (`embedding.repository.ts:149-163`) | From one opened lesson the tutor reads the whole course: "summarise sections 3 and 4" needs no injection | Search only chunks of opened lessons; student id bound by closure | FR-P19a | AC-L2 |
+| AI-C3 | Study guide (`lessonInsightsAI.service.ts:132-179`) | A whole-course study guide with zero opens | Student branch only for opened lessons | FR-P19a | AC-L3 |
+| AI-C4 | Quizzes (`quiz.service.ts:185-210`) | Questions and answers of unopened lessons | `verifyEnrollment` only for opened lessons | FR-P19a | AC-L4 |
+| AI-C5 | `pendingCheck`, `getHistory` | — | Covered by AI-C1 and by deletion (AI-L13) | — | — |
+| AI-C7 | All | A new content reader appears later | Contract test of student-reachable readers | FR-P19a | AC-L7 |
+| AI-C8 | Rollout | Gates shipped after the button leave in-window purchases with undercounted opens | Ship with the hold | FR-P20 | AC-L8 |
+| AI-L9 | Refund text | Reason or appeal text quietly fed to a model later | Contract test: no AI entry point reads refund data | FR-S3 | AC-L9 |
+| AI-L10 | Tutor tools | Injection asks the tutor to reset opened lessons | Contract test: no tool reaches opened or refund state | FR-P19a | AC-L10 |
+| AI-L11 | Tutor answers | The tutor invents refund terms (LLM09), e.g. the old 30 days | Eval rows | — | AC-L11 |
+| AI-L12 | Recommendations | The interest profile recomputed only on enroll; a refunded course recommended back | Recompute on every refund path; exclude cancelled enrollments (decision REC) | FR-P12 | AC-L12 |
+| AI-L13 | Stored AI artifacts | `ConceptCheck` and `LearningPathCache` survive a refund and are served without an enrollment check | Deleted with the other learning records | FR-P9 | AC-L13 |
+| AI-L14 | LangSmith traces | Traces with student messages outlive the refund deletion | Inherited: tracing off in production (`ai-tutor-guardrails/security.md`) | — | AC-L14 |
+
+**Reopened elsewhere:** `ai-tutor-guardrails/security.md` S13 §25 ("RAG scope is the whole course")
+was accepted because enrollment grants full course access. The refund threshold gives access inside
+a course a price, so course-wide retrieval became a bypass of a money rule. AI-C2 closes it.
+
+**Telemetry:** a `lesson_not_opened` refusal event on AI-C1, C3, C4 (baseline ≈ 0, since the UI
+never calls them before an open; any count means direct API use); for AI-C2, a count of searches
+where an unopened lesson would have ranked in the top-k (the usefulness cost). Run the tutor evals
+(`pnpm eval`) before merge.
+
 ## Open
 
-- **T9, the tutor half:** the lesson tutor loads lesson content without an "opened" record
-  (`app/api/chat/lesson/route.ts:45-90`). To `llm-security-auditor` in design mode.
-- **Unverified by the pass:** whether lesson insights or search return lesson content to students;
+- **Unverified by the passes:** whether a `ConceptMastery` row references a `ConceptCheck` (matters
+  for AI-L13 deletion); production tracing values; whether lesson insights or search return lesson content to students;
   whether a new conversation requires an active enrollment; the exact Stripe refund-failure event
   name.
