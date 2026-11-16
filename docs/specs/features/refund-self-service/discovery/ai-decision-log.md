@@ -567,3 +567,47 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
 
+### 2026-11-16 — Functional requirements: the whole draft was written by the AI
+- **Stage:** specification (Functional requirements)
+- **Context the AI had:** the spec's User flow, `decisions.md`, `analysis.md` (D1–D4, E2, V7), ADR-037
+- **AI proposed:** 57 requirements in four groups (FR-S student, FR-A admin, FR-I instructor, FR-P
+  money and effects), each traced to a decision; marked **[open]** where no decision exists (appeal
+  file limits, notification matrix V7, batch size, messaging direction D1, the review after a refund,
+  the `/contact` link) and **[AI]** where it added a detail (appeal queue order)
+- **My decisions:** *TODO (me): under review.* I chose a full AI draft over writing the student
+  group myself
+- **How I verified:** *Not verified by me*
+- **Verdict:** TODO
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — D1: messaging closed both ways, history read-only
+- **Stage:** specification (Functional requirements, FR-P11)
+- **Context the AI had:** `analysis.md` (D1, I6), `messaging.service.ts`, A6, OQ-4
+- **AI proposed:** two sub-questions (direction, history), options, a recommendation of V2 + (a), and
+  named the trade-off with A6 (the instructor can infer a refund from the closed conversation)
+- **My decisions:** V2 + (a)
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — E2-R: the review after a refund
+- **Stage:** specification (Functional requirements, FR-P13)
+- **Context the AI had:** `review.service.ts`, `courseReview.repository.ts`, `review.prisma`, Analysis E2
+- **AI proposed:** F1 (a self-refunded student never has a review, which narrows the question to the
+  Dashboard and exception paths); F3 (the unique key blocks a new review after a soft delete, inferred
+  from the schema, not exercised); three options; a recommendation of V3
+- **My decisions:** V3
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — D-2: `/contact` out of scope
+- **Stage:** specification (Functional requirements, FR-P21)
+- **Context the AI had:** `grep "/contact" app/`, Q21, FR-P21
+- **AI proposed:** found three dead links (not only the footer), so `/contact` is a sales page, not
+  a refund channel; a recommendation of V1
+- **My decisions:** V1
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+

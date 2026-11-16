@@ -262,7 +262,186 @@ After an admin exception or a Dashboard refund there is no warning: the refund r
 
 ## Functional requirements
 
-_Pending._
+*Draft 2026-11-16, written by AI from the User flow and `discovery/decisions.md` at my request; under
+my review. **[open]** marks a requirement whose decision is not recorded yet; **[AI]** marks a
+detail the AI added that no decision states.*
+
+Terms used below:
+- **window**: 14 days from the payment's `paidAt`, in UTC (A3);
+- **threshold**: `min(3, ⌊L/2⌋)` opened lessons, where L is the course's non-deleted lessons at
+  submission (Q13);
+- **counting refund**: an automatic, appeal-approved or overdue-approved refund. Admin exceptions,
+  Dashboard refunds and duplicate refunds do not count (OQ-3, DC);
+- **eligible for release**: the ADR-037 §1 predicate.
+
+### FR-S: Student
+
+**Request**
+- **FR-S1.** A student with a `succeeded` payment for a course sees, on the course page, a "Request a
+  refund" button and the window's end date while all request conditions hold (A3, S2).
+- **FR-S2.** Request conditions are:
+  - inside the window;
+  - opened lessons ≤ threshold;
+  - no certificate;
+  - no earlier counting refund of this course;
+  - fewer than 3 automatic refunds on the account in the last 12 months;
+  - no open dispute on the charge (Q12, Q13, D3, OQ-2, OQ-7b).
+- **FR-S3.** The request form takes a reason from a closed list (too easy, too hard, thin content,
+  other) and optional text. It accepts no files (C4, S3, AS-1).
+- **FR-S4.** Before submit, the form states the consequences:
+  - access closes;
+  - progress is erased;
+  - the course can be refunded only once (A4, D2, D3).
+- **FR-S5.** On submit the system re-checks every condition of FR-S2 at that moment and stores a
+  snapshot on the request:
+  - each condition's value;
+  - opened lessons and L;
+  - the account's counting-refund history (C1.1, V6).
+- **FR-S6.** If all conditions hold, the refund is made at once, with no admin step (A1, M3b).
+- **FR-S7.** A student has at most one request and at most one appeal per course purchase (C4).
+
+**No button**
+- **FR-S8.** Outside the window there is no button; the page shows the date the window ended.
+- **FR-S9.** With a certificate the button is disabled and the page says why.
+- **FR-S10.** After a counting refund of this course there is no button (D3).
+- **FR-S11.** With an open dispute there is no button; the page says the refund is decided by the
+  bank (OQ-7b).
+- **FR-S12.** With an existing request or appeal, its status replaces the button.
+
+**Appeal**
+- **FR-S13.** When the threshold or the account limit is exceeded and every other condition holds,
+  the student sees "Appeal to an admin" instead of the button, naming the exceeded condition and its
+  numbers (OQ-1).
+- **FR-S14.** If a condition fails between page load and submit, the request is saved as
+  automatically denied, naming the failed condition, and the student may appeal (OQ-1 A1′).
+- **FR-S15.** An appeal takes a reason and evidence files. **[open]** File types, size and count are
+  set by the security pass (S3, C5.3).
+- **FR-S16.** Appeal deadline:
+  - direct appeal: end of the window;
+  - after an automatic denial: the later of window end or denial + 3 days (C4, OQ-1).
+- **FR-S17.** While an appeal is open, the student sees "Appeal under review, decision by <date>",
+  where the date is the appeal date + 14 days (OQ-5).
+- **FR-S18.** The student sees the admin's denial reason and any files the admin attached (C5.2).
+
+**Outcome**
+- **FR-S19.** After a refund the student sees "Refunded" and a note that the money reaches the card
+  in about 5–10 business days.
+- **FR-S20.** While a Learnix-initiated refund is processing or has failed at Stripe, the student
+  sees "Refund processing"; access and progress do not change until it succeeds (S4).
+- **FR-S21.** The student gets an email:
+  - on refund;
+  - on automatic denial;
+  - on the admin's decision on an appeal (V7).
+
+  **[open]** Full notification matrix (V7).
+
+**Repurchase**
+- **FR-S22.** After any refund the student can buy the course again and starts from scratch (D2).
+- **FR-S23.** After a counting refund, the course page warns above the buy button that this purchase
+  cannot be refunded. There is no warning after a non-counting refund (OQ-6, OQ-3).
+
+### FR-A: Admin
+
+- **FR-A1.** The admin has an appeal queue, oldest first **[AI]**. Each appeal shows:
+  - reason and evidence;
+  - the FR-S5 snapshot;
+  - days left until day 14.
+- **FR-A2.** The admin approves or denies an appeal. A denial requires a written reason and accepts
+  optional files (C5.2).
+- **FR-A3.** An appeal decision cannot be edited or deleted. The system records who decided, when,
+  and the reason (R7).
+- **FR-A4.** The admin gets a reminder email for an undecided appeal on day 10 and day 13, then daily
+  (OQ-5).
+- **FR-A5.** An appeal undecided by day 14 is approved automatically and marked "overdue" (OQ-5).
+- **FR-A6.** From the admin panel the admin can refund any `succeeded` payment as an exception, with
+  a mandatory reason. It is recorded and audited the same way as FR-A3 (C3.1).
+- **FR-A7.** The admin gets an email for every Dashboard refund, full or partial. The payment is
+  flagged "needs review" in the admin panel (C3.2, OQ-7a).
+- **FR-A8.** The admin has a Payouts panel showing:
+  - the job's last run and outcome, with a warning after 48 h without success;
+  - run history;
+  - problem payments with "Retry";
+  - held funds, total and due in the coming days (T4).
+- **FR-A9.** "Run job now" runs the same release job as the cron and replaces the Sweep button
+  (ADR-037 §3).
+- **FR-A10.** The admin gets an email when a job run fails, or when no run has succeeded for 48 h
+  (ADR-037 §3).
+
+### FR-I: Instructor
+
+- **FR-I1.** The instructor's earnings show two held amounts (A6):
+  - "On hold until the refund window closes": not yet eligible for release because of the window or
+    an open request or appeal;
+  - "Waiting for Stripe connection": eligible except for `payouts_enabled`.
+- **FR-I2.** The instructor sees no refund request, appeal, or refund reason (A6, OQ-4).
+- **FR-I3.** A refunded sale shows the `refunded` status on Revenue and is in neither held amount
+  nor "Paid Out". No notification is sent (OQ-4, A6 F3).
+
+### FR-P: Money, payouts and refund effects
+
+**Hold and release**
+- **FR-P1.** A sale creates no transfer. The instructor's net stays held until eligible for release
+  (ADR-037 §1).
+- **FR-P2.** Every path that creates a transfer applies the same eligibility predicate:
+  - the daily job;
+  - "Run job now";
+  - the `account.updated` sweep;
+  - the checkout success path (ADR-037 §1, T4 addendum).
+- **FR-P3.** A daily job releases eligible payments and retries ones stuck in `transferring`, in a
+  bounded batch. **[open]** Batch size (ADR-037 §3.4).
+- **FR-P4.** A payment is transferred at most once, even under concurrent runs or retries
+  (ADR-037 §2).
+- **FR-P5.** Every job run is recorded with:
+  - time;
+  - count processed;
+  - failures with error text;
+  - payment ids (T4).
+
+**Refund effects** (applied once, whichever path triggers them: self-service, appeal, exception,
+Dashboard webhook or daily event replay)
+- **FR-P6.** Payment becomes `refunded`.
+- **FR-P7.** A held transfer becomes `cancelled`. A released one is reversed (ADR-037 §1).
+- **FR-P8.** Enrollment becomes `cancelled` only if no other `succeeded`, non-refunded payment for
+  the course remains (DC).
+- **FR-P9.** The course's learning records are cleared:
+  - lesson progress, opened-lesson records, quiz attempts and tutor conversations are deleted;
+  - `Enrollment.progress` is reset to 0;
+  - concept mastery is kept;
+  - study minutes are moved into the student's cumulative counter first (D2).
+- **FR-P10.** A certificate, if any, is marked revoked, with reason "refund via the Dashboard" or
+  "admin exception". The certificate list and the PDF stop serving it (E2).
+- **FR-P11.** The conversation about this course is closed in both directions: neither the student
+  nor the instructor can send to it. Its history stays visible to both, read-only (D1).
+- **FR-P12.** The course no longer feeds the student's recommendations (D4).
+- **FR-P13.** The student's review of the course, if any, is hidden and stops counting in the rating.
+  This happens only after a Dashboard refund or an admin exception, because a review needs a
+  completed enrollment. If the student buys again, completes the course and reviews it, the hidden
+  review is restored with the new text and rating instead of a second one being created (E2-R).
+- **FR-P14.** For a Learnix-initiated refund the effects apply when `refunds.create` succeeds, not
+  when the webhook arrives. The later webhook changes nothing (S7, ADR-037 §4).
+- **FR-P15.** The daily job replays `charge.refunded` and refund-failure events since the last
+  processed one through the same handler as the webhook (S7).
+
+**Special cases**
+- **FR-P16.** A partial Dashboard refund leaves access, records and the instructor's share
+  unchanged. The refunded amount is recorded (OQ-7a).
+- **FR-P17.** When a second payment for a course the student already paid for succeeds, it is
+  refunded at once (non-counting), and the student is told (DC).
+- **FR-P18.** A refund is not attempted on a disputed charge. Stripe's `charge_disputed` is shown as
+  the FR-S11 state, not as a failure (OQ-7b).
+- **FR-P19.** Opening a lesson records which lesson the student opened and when (M3b). Marking it
+  "Complete" is unchanged.
+
+**Launch**
+- **FR-P20.** The hold (FR-P1–P5) ships without a flag. The student refund button ships 14 days
+  later behind a feature flag (S2).
+- **FR-P21.** `/pricing` states the new terms:
+  - 14 days;
+  - the opened-lesson limit;
+  - no refund after a certificate;
+  - one refund per course (Q20).
+
+  The guarantee text points to the button on the course page, not to "contact us" (D-2).
 
 ## Unsupported use cases
 
@@ -273,6 +452,9 @@ _Pending._
 - **Showing refund requests or appeals to the instructor** (A6).
 - **A public certificate verification page.** A separate feature; refund only records the revocation
   it will rely on (E2).
+- **A `/contact` page.** Three dead links point to it (footer, `/programs` "Talk to an Advisor",
+  the Enterprise plan on `/pricing`). It is a sales and general-contact page, a separate task; the
+  refund channel is the course page (Q21, D-2).
 
 ## Alternatives
 

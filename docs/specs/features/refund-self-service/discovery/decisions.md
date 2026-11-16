@@ -30,6 +30,9 @@ decisions already made.
 | OQ-6 — warn on repurchase that there is no refund | **Decided 2026-11-16:** V1, a warning above the buy button |
 | OQ-7a — partial refund in the Dashboard (E3) | **Decided 2026-11-16:** (c), keep access, record and flag; the platform bears it |
 | OQ-7b — dispute and refund on the same payment (E8) | **Decided 2026-11-16:** V1, check for a dispute before the button and the refund |
+| D1 — messaging after a refund: direction and history | **Decided 2026-11-16:** closed both ways, history read-only |
+| E2-R — the review after a refund | **Decided 2026-11-16:** V3, hidden; a new review after repurchase restores the row |
+| D-2 — the dead `/contact` link | **Decided 2026-11-16:** V1, out of scope; refund text does not point to it |
 | ADR-014 (n8n) → mark superseded | Later, a separate small edit (not Refund) |
 
 ## A1 — who decides on a refund
@@ -1131,4 +1134,71 @@ evidence (F3).
 
 **V1.** Accepted risk: a dispute after a partial Dashboard refund (OQ-7a), answered by the admin in
 Stripe with the refund as evidence. Disputes as a whole stay out of scope (E4).
+
+## D1 — messaging with the instructor after a refund: direction and history
+
+*2026-11-16. The code fact, the options, the recommendation and the A6 trade-off — AI; the choice of
+V2 + (a) — mine. The base decision ("no messaging about this course") is mine from Analysis D1.*
+
+**Fact:** `send()` checks only conversation membership, not enrollment, so today a refunded student
+keeps writing in an existing conversation and the instructor gets an email
+(`server/services/messaging/messaging.service.ts:119-151`; Analysis I6).
+
+| # | Who cannot send | Status | Reason |
+|---|---|---|---|
+| V1 | The student only; the instructor may reply | Rejected | The instructor could press the student after a refund that A6 / OQ-4 hide from them |
+| **V2** | **Both** | **Chosen** | Consistent with A6 / OQ-4; simple to check |
+
+| # | History | Status |
+|---|---|---|
+| **(a)** | **Visible to both, read-only** | **Chosen**: a record of what was said; no reason to hide it |
+| (b) | Hidden | Rejected |
+
+### Decision
+
+**V2 + (a).**
+
+- **What I give up:** the instructor sees "conversation closed" and can infer the student left the
+  course. A refund cannot be hidden completely, because the enrollment itself disappears. A6
+  protects the **process** (request, appeal, reason), not the fact of a refund.
+
+## E2-R — the student's review after a refund
+
+*2026-11-16. The code facts, the options and the recommendation — AI; the choice of V3 — mine.*
+
+### Facts
+
+| # | Fact | Where |
+|---|---|---|
+| F1 | Only a student with a `completed` enrollment can review a course. A self-service refund needs no certificate, so a self-refunded student never has a review. The question exists only after a Dashboard refund or an admin exception | `server/services/review/review.service.ts:23,66` |
+| F2 | The rating ignores soft-deleted reviews | `server/repositories/courseReview.repository.ts:43` |
+| F3 | `CourseReview` is unique on (`courseId`, `studentId`). A soft-deleted row still occupies the key, so after repurchase a new review cannot be inserted (AI, from the schema; not exercised) | `prisma/schema/review.prisma:29` |
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| V1 | Keep the review | Rejected | A refunded student's review stays in the rating; "1★ + refund" is possible on the exception path |
+| V2 | Soft-delete | Rejected | F3: blocks a new review after repurchase |
+| **V3** | **Soft-delete; a new review after repurchase restores the row with the new text and rating** | **Chosen** | Clean rating; repurchase works |
+
+### Decision
+
+**V3.** Same logic as the certificate (E2): a refund takes back what the student got from the course.
+
+## D-2 — the dead `/contact` link
+
+*2026-11-16. The fact that three links point to it, the options and the recommendation — AI; the
+choice of V1 — mine.*
+
+**Fact:** `/contact` does not exist and is linked from three places:
+- `app/_components/Footer/index.tsx:77`;
+- `app/(marketing)/programs/page.tsx:275` ("Talk to an Advisor");
+- `app/(marketing)/pricing/page.tsx:152` (the Enterprise plan).
+
+It is a sales and general-contact page, not a refund channel; the refund channel is the course page
+(Q21).
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| **V1** | **Out of scope; the refund text on `/pricing` points to the course page** | **Chosen** | A different problem; "cut scope, not the deadline" |
+| V2 | Build a simple `/contact` page here | Rejected | Not part of the refund problem |
 
