@@ -514,6 +514,9 @@ analogue), "continue" — on a pause without a money refund. "Not restored" at U
 | V3 | Delete nothing, tie progress to the purchase | Rejected: keeps what is not needed; schema change |
 | V4 | Continue from where they left off | Rejected: changed content (below) |
 
+*Superseded in part 2026-11-16: the cleanup runs when the refund is applied, synchronously after
+`refunds.create` for Learnix-initiated refunds, not on the webhook (spec FR-P14, ADR-037 §4, S7).*
+
 ### Decision
 
 **A repeat purchase starts from scratch. The course's learning records are cleaned up at the moment

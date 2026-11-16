@@ -360,7 +360,7 @@ Terms used below:
 - **FR-A2.** The admin approves or denies an appeal. A denial requires a written reason and accepts
   optional files (C5.2).
 - **FR-A3.** An appeal decision cannot be edited or deleted. The system records who decided, when,
-  and the reason (R7).
+  and the reason (R7). The database itself rejects changes to the audit records (C18).
 - **FR-A4.** The admin gets a reminder email for an undecided appeal on day 10 and day 13, then daily
   (OQ-5).
 - **FR-A5.** An appeal that followed an automatic denial (FR-S14) and is undecided by day 14 is
@@ -406,8 +406,8 @@ Terms used below:
   - the checkout success path (ADR-037 §1, T4 addendum).
 - **FR-P3.** A daily job releases eligible payments and retries ones stuck in `transferring`, in a
   bounded batch. **[open]** Batch size (ADR-037 §3.4).
-- **FR-P4.** A payment is transferred at most once, even under concurrent runs or retries
-  (ADR-037 §2).
+- **FR-P4.** A payment is transferred at most once, even under concurrent runs, retries, or a retry
+  after the Stripe idempotency key has expired (ADR-037 §2 as amended, C7).
 - **FR-P5.** Every job run is recorded with:
   - time;
   - count processed;
@@ -435,7 +435,9 @@ Dashboard webhook or daily event replay)
   completed enrollment. If the student buys again, completes the course and reviews it, the hidden
   review is restored with the new text and rating instead of a second one being created (E2-R).
 - **FR-P14.** For a Learnix-initiated refund the effects apply when `refunds.create` succeeds, not
-  when the webhook arrives. The later webhook changes nothing (S7, ADR-037 §4).
+  when the webhook arrives. The later webhook changes nothing. The effects apply exactly once, even
+  when the webhook and the daily replay process the same event at the same time (S7, ADR-037 §4 as
+  amended, C8).
 - **FR-P15.** The daily job replays `charge.refunded` and refund-failure events since the last
   processed one through the same handler as the webhook (S7).
 
@@ -444,10 +446,14 @@ Dashboard webhook or daily event replay)
   unchanged. The refunded amount is recorded (OQ-7a).
 - **FR-P17.** When a second payment for a course the student already paid for succeeds, it is
   refunded at once (non-counting), and the student is told (DC).
+- **FR-P18a.** The system knows whether a payment's charge is under dispute without calling Stripe
+  on a page view: dispute opened and closed events, delivered by webhook and by the daily replay,
+  update the payment (C12).
 - **FR-P18.** A refund is not attempted on a disputed charge. Stripe's `charge_disputed` is shown as
   the FR-S11 state, not as a failure (OQ-7b).
 - **FR-P19.** Opening a lesson records which lesson the student opened and when (M3b). Marking it
-  "Complete" is unchanged.
+  "Complete" is unchanged. Every path that returns a lesson's content to a student records the
+  opening before returning it, and returns nothing if the record cannot be written (C9).
 
 **Evidence retention**
 - **FR-P22.** Appeal and denial files are deleted 30 days after the final decision on the appeal by
@@ -457,7 +463,17 @@ Dashboard webhook or daily event replay)
 
 **Launch**
 - **FR-P20.** The hold (FR-P1–P5) ships without a flag. The student refund button ships 14 days
-  later behind a feature flag (S2).
+  later behind a feature flag (S2). The flag is enforced on the server: with it off, the request and
+  appeal endpoints do not exist for a student (C24).
+- **FR-P23.** Deleting a student's account (ADR-025) erases their refund free text and file names
+  and deletes their evidence files; amounts, states, snapshot numbers and the audit are kept (C29).
+- **FR-P24.** Only the daily job, "Run job now", the `account.updated` sweep and the checkout path
+  can start a transfer, all through the one release function; the old Sweep action and the transfer
+  at sale are removed (C14).
+- **FR-P25.** The release job's endpoint accepts only the scheduler's secret; any other caller gets
+  an empty 401 and nothing changes (C15).
+- **FR-P26.** Checking the status of a checkout session works only for the student who owns it
+  (C28).
 - **FR-P21.** `/pricing` states the new terms:
   - 14 days;
   - the opened-lesson limit;
@@ -484,6 +500,15 @@ Dashboard webhook or daily event replay)
   the Enterprise plan on `/pricing`). It is a sales and general-contact page, a separate task; the
   refund channel is the course page (Q21, D-2).
 
+## Non-functional requirements
+
+### Security
+
+Complex tier (money): threats, controls and accepted risks are in the sibling
+[`security.md`](security.md), from the `security-auditor` design pass on 2026-11-16 (raw output:
+[`discovery/ai-raw/security-design-pass.md`](discovery/ai-raw/security-design-pass.md)). Every
+control C1–C29 there has an acceptance criterion below.
+
 ## Alternatives
 
 _Pending: summary of A1, Q13, A3, A8, S2, D2, E2 plus link to ADR-037._
@@ -498,7 +523,68 @@ _Pending._
 
 ## Acceptance criteria
 
-_Pending: includes the security-auditor controls._
+_Functional criteria pending._
+
+### Security controls (from [`security.md`](security.md))
+
+- **AC-C1.** Student B calling the request, appeal or status endpoint with student A's course gets
+  "not found"; no request row and no Stripe call are created.
+- **AC-C2.** `refunds.create` is called with exactly `{ payment_intent }` from the stored payment and
+  no `amount`; an input with extra keys (`amount`, `paymentId`) is rejected.
+- **AC-C3.** Two concurrent requests for one payment create one request row and one `refunds.create`
+  call; Stripe's `charge_already_refunded` leaves the payment `refunded`, not failed.
+- **AC-C4.** A student with 2 counting automatic refunds sends 3 concurrent requests for 3 courses:
+  exactly 1 is refunded automatically, 2 are routed to appeal.
+- **AC-C5.** The release claim is one conditional update with the full predicate; a payment at 14 days
+  − 1 s, or inside the 1 h margin, is not claimed; a request committed between claim and transfer ends
+  with exactly one reversal.
+- **AC-C6.** A payment with a denied request still inside its appeal deadline, or with a refund
+  processing or failed, is not released by any of the four paths.
+- **AC-C7.** Recovering a `transferring` payment whose transfer already exists in Stripe marks it
+  `transferred` and creates no new transfer; the same for refunds and reversals.
+- **AC-C8.** The same `charge.refunded` event fed concurrently through the webhook and the replay
+  applies each effect once (counted).
+- **AC-C9.** Getting lesson X through the lesson page or the tutor creates an opened record for X; if
+  the write fails, the lesson content is not returned.
+- **AC-C11.** A direct appeal undecided after day 14 stays undecided and the admin gets a daily
+  reminder; an appeal after an automatic denial is approved on day 14 and audited as "overdue".
+- **AC-C12.** With the charge disputed, no `refunds.create` call happens on any path and the student
+  sees the dispute state; dispute events set and clear the stored state; rendering the course page
+  makes no Stripe call.
+- **AC-C13.** Two concurrent finalizes of two paid sessions for one student and course end with one
+  payment kept and one refunded, and the refunded one was never `pending`.
+- **AC-C14.** The old Sweep procedure no longer exists; checkout makes no transfer; a contract test
+  finds `transfers.create` in exactly one function.
+- **AC-C15.** The job endpoint without a header, with a wrong secret, or with a secret of another
+  length returns an empty 401 and writes nothing; a `CRON_SECRET` shorter than 32 characters fails
+  env validation; a 200 response carries no payment ids.
+- **AC-C16.** With the run lock held, "Run job now" reports "already running" and claims nothing; a
+  run never releases another run's lock.
+- **AC-C17.** Every admin refund and payouts procedure rejects students and instructors; a denial or
+  an exception without a reason is rejected.
+- **AC-C18.** Updating or deleting an audit record fails in Postgres; each approve, deny, overdue
+  approval and exception writes exactly one audit record.
+- **AC-C19.** No instructor-facing response contains refund request, appeal or file data; revenue
+  responses are identical with and without an open appeal, apart from the held amount; no email
+  goes to the instructor on a request, appeal or refund.
+- **AC-C20.** An evidence file is served only to the payment's student and an admin; anyone else,
+  the instructor included, gets 404; the file is never reachable by a public URL.
+- **AC-C21.** A file whose content is not PNG, JPEG or PDF is rejected regardless of its extension or
+  declared type; more than 3 files or more than 4 MB is rejected; files are served as downloads with
+  `nosniff` and a sandbox CSP.
+- **AC-C22.** A reason of `<img src=x onerror=alert(1)>` is stored as typed and renders as text in
+  the admin queue and the student status; over-length text is rejected; reminder emails carry no
+  student text.
+- **AC-C23.** When Stripe fails, the student sees the fixed "processing" message; Stripe's own
+  message appears only to the admin.
+- **AC-C24.** With the flag off, calling the request or appeal endpoint directly returns "not found".
+- **AC-C25.** A revoked certificate returns 404 even with a valid 30-day token and is missing from the
+  student's list.
+- **AC-C26.** Sending to a closed conversation fails for the student and for the instructor; its
+  history stays readable to both.
+- **AC-C28.** Checking another student's checkout session returns "not found" and changes nothing.
+- **AC-C29.** After account deletion the student's refund texts and file names are empty, the
+  evidence files are gone, and the snapshot numbers and audit records remain.
 
 ## Source of truth
 

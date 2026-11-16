@@ -6,7 +6,9 @@
 - **Feature**: `refund-self-service`
 - **Amended**: 2026-11-16, after the `/spec` security design pass: the release predicate also
   waits out the appeal grace period and refunds in progress (§1); the window starts at a new
-  `Payment.paidAt`
+  `Payment.paidAt`; recovery after a crash checks Stripe before retrying, because idempotency keys
+  expire (§2); the refund effects are gated by a compare-and-set on the payment status, not by event
+  dedup (§4)
 
 ## Context
 
@@ -78,8 +80,14 @@ balance, and the transfer is **cancelled** instead. Reversal stays only for refu
 - **`transfers.create` carries an idempotency key derived from the payment id.** This is the
   second layer: Stripe will not transfer twice even if our guard fails or a call is retried after a
   crash. It also fixes the latent double-transfer bug (Context 2).
-- A payment stuck in `transferring` after a crash is retried with the **same key**, which is
-  safe.
+- ~~A payment stuck in `transferring` after a crash is retried with the **same key**, which is
+  safe.~~ *Amended 2026-11-16:* not safe on its own. Stripe prunes idempotency keys once they are
+  at least 24 hours old and then treats a reused key as a new request
+  ([Stripe: idempotent requests](https://docs.stripe.com/api/idempotent_requests)), and the daily
+  job retries ~24 h ± 59 min later. So `transfers.create` also sets `transfer_group = payment.id`,
+  and recovering a `transferring` payment **first lists transfers for that group**: if one exists,
+  the payment is marked `transferred` and nothing is created. Refunds (`refunds.list` by payment
+  intent) and reversals (`listReversals`) follow the same list-before-retry rule.
 
 Postgres provides the atomicity. No transaction stays open across the network call to Stripe.
 
@@ -114,8 +122,11 @@ Postgres provides the atomicity. No transaction stays open across the network ca
   - learning records cleared;
   - certificate revoked where applicable.
 
-  The webhook that arrives later is a no-op: compare-and-set and `ProcessedStripeEvent` dedup make
-  every effect idempotent.
+  The webhook that arrives later is a no-op. *Amended 2026-11-16:* the gate is one compare-and-set,
+  `UPDATE payments SET status = 'refunded' WHERE id = ? AND status = 'succeeded'`; only the caller
+  that changes the row applies the effects, and the database effects run in the same transaction.
+  `ProcessedStripeEvent` dedup is check-then-record (`app/api/stripe/webhook/route.ts:44`, `:85`),
+  so with the replay as a second concurrent caller it is an optimisation, not the guarantee.
 - **Reconciliation:** the daily run reads `charge.refunded` and refund-failure events from
   `GET /v1/events` since a stored cursor and feeds them through **the same handler** the webhook
   uses. This covers dashboard refunds and refunds that fail later. Event handling therefore moves

@@ -665,3 +665,16 @@ The IDP review needs 2–3 vivid examples:
   private store)
 - **Why:** *TODO (me)*
 
+### 2026-11-16 — Security controls moved into the spec; ADR-037 §2 and §4 amended
+- **Stage:** specification (security, §3d)
+- **Context the AI had:** the security pass, `stripe docs /api/idempotent_requests`, the webhook route
+- **AI proposed:** verified T7 in the Stripe docs (keys pruned once ≥ 24 h old; a reused key is then a
+  new request), so ADR-037 §2 "retry with the same key is safe" was wrong (an AI-drafted claim);
+  amended §2 (list before retry) and §4 (the payment-status CAS is the gate, dedup is not);
+  `security.md` with 27 controls and accepted risks; AC-C1…C29 in the spec; new FR-P18a, P23–P26;
+  extended FR-A3, P4, P14, P19, P20; marked D2 superseded by FR-P14
+- **My decisions:** asked to commit first, then fix T7 and move the controls in one batch
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted` · the AI's ADR-037 §2 claim `corrected`
+- **Why:** *TODO (me)*
+
