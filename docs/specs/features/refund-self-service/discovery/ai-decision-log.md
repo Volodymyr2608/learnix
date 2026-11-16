@@ -740,3 +740,42 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
 
+### 2026-11-16 — EC-3: deleted lessons do not count as opened
+- **Stage:** specification (Edge cases, EC-3)
+- **Context the AI had:** Q13, the Edge cases draft
+- **AI proposed:** in the draft, V1 (count deleted lessons); when asked to decide, worked through a
+  scenario and **changed its own recommendation** to V2
+- **My decisions:** V2
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted` · the AI's draft suggestion `corrected` by the AI itself
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — EC-12: account deletion closes an open appeal, with a warning
+- **Stage:** specification (Edge cases, EC-12)
+- **Context the AI had:** ADR-025, FR-P23, the Edge cases draft
+- **AI proposed:** the conflict between keeping the appeal and erasing its texts (FR-P23); two
+  options; a recommendation of V1 + a warning on the account-deletion page
+- **My decisions:** V1 + the warning
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — FS-8: skip the job run when Redis is down
+- **Stage:** specification (Failure scenarios, FS-8)
+- **Context the AI had:** ADR-037 §3, `security.md` (C5, C7, C8, C16), `upstash.store.ts`
+- **AI proposed:** that the lock is availability only; the fail-closed precedent; two options; a
+  recommendation of V1
+- **My decisions:** V1
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-16 — FS-3 follow-up: the instructor's share returns to held
+- **Stage:** specification (Failure scenarios, FS-3)
+- **Context the AI had:** FS-3, FR-P2a, FR-P24, C18
+- **AI proposed:** the two outcomes; two options; a recommendation of V2, built on FR-P2a
+- **My decisions:** V2
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+

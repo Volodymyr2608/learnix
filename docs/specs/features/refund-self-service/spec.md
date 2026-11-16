@@ -274,7 +274,7 @@ Terms used below:
   in `finalizeCheckout` from the Stripe charge's `created`; `createdAt` is checkout creation, not
   payment (security pass §5.5);
 - **threshold**: `min(3, ⌊L/2⌋)` opened lessons, where L is the course's non-deleted lessons at
-  submission (Q13);
+  submission, and opened lessons are counted among those same lessons (Q13, EC-3);
 - **counting refund**: an automatic, appeal-approved or overdue-approved refund. Admin exceptions,
   Dashboard refunds and duplicate refunds do not count (OQ-3, DC);
 - **eligible for release**: the ADR-037 §1 predicate.
@@ -448,7 +448,10 @@ Dashboard webhook or daily event replay)
 **Special cases**
 - **FR-P27.** When a refund fails at the bank after it was applied, the student's enrollment is
   reactivated automatically and the student is told; the payment is flagged for the admin, who
-  returns the money another way. Cleared learning records are not restored (FS-3).
+  returns the money another way. Cleared learning records are not restored (FS-3). The instructor's
+  cancelled share returns to held and is not released while the problem is open (FR-P2a). The admin
+  closes the problem with one of two audited outcomes: "refunded another way" (the share is
+  cancelled) or "the sale stands" (the share follows the normal release rule).
 - **FR-P16.** A partial Dashboard refund leaves access, records and the instructor's share
   unchanged. The refunded amount is recorded (OQ-7a).
 - **FR-P17.** When a second payment for a course the student already paid for succeeds, it is
@@ -484,6 +487,8 @@ Dashboard webhook or daily event replay)
   button appears has complete opened counts (AI-C8).
 - **FR-P23.** Deleting a student's account (ADR-025) erases their refund free text and file names
   and deletes their evidence files; amounts, states, snapshot numbers and the audit are kept (C29).
+  An open appeal is closed without a decision; a refund already processing is completed. The
+  account-deletion page warns about an open appeal before the student confirms (EC-12).
 - **FR-P24.** Only the daily job, "Run job now", the `account.updated` sweep and the checkout path
   can start a transfer, all through the one release function; the old Sweep action and the transfer
   at sale are removed (C14).
@@ -537,7 +542,7 @@ decision recorded; **[AI]** = a rule the AI derived that no decision states.*
 |---|---|---|---|
 | EC-1 | Request at 13 d 23 h 59 m after payment, decided later | Accepted: the window is checked at submission, in UTC | C1.1, FR-S5 |
 | EC-2 | The instructor adds or deletes lessons after the request | No effect: L is fixed in the snapshot at submission | Q13 |
-| EC-3 | The student opened a lesson the instructor later deleted | **[open]** Does it still count as opened? AI suggestion: yes, the student consumed it; the opened count may then exceed the current L | Q13 |
+| EC-3 | The student opened a lesson the instructor later deleted | Does not count: opened lessons are counted among the non-deleted lessons at submission, the same set as L. A deletion is always the instructor's act, so its effect falls on the instructor | Q13, decision EC-3 |
 | EC-4 | The same lesson opened many times | Counts once | M3b **[AI]** |
 | EC-5 | A 1-lesson course | Threshold 0: opening the only lesson leads to a direct appeal | Q13 |
 | EC-6 | The student un-marks "Complete" to look less advanced | No effect: the threshold counts opened lessons, not completed | Q13 (supersedes Analysis S6 (d)) |
@@ -551,7 +556,7 @@ decision recorded; **[AI]** = a rule the AI derived that no decision states.*
 |---|---|---|---|
 | EC-10 | The student keeps studying during an appeal and earns the certificate | Access stays open during an appeal. A certificate at decision time means a denial; an overdue auto-approval re-checks the certificate and dispute state first and does not refund if either is present | Q19, Analysis S6 (b), C11/C12 |
 | EC-11 | Two admin decisions on one appeal at the same moment | The first wins; the second is refused (compare-and-set on the appeal state) | Analysis S6 (a) **[AI]** |
-| EC-12 | The student deletes their account with a request or appeal open | **[open]** Is the refund still processed? AI suggestion: an open appeal is closed without a decision, a refund already approved is completed, and texts and files are erased (FR-P23) | ADR-025, T29 |
+| EC-12 | The student deletes their account with a request or appeal open | The account-deletion page warns first: "You have an open refund appeal for course X; deleting your account closes it." An open appeal is then closed without a decision ("account deleted") and counts neither for D3 nor for the account limit; the hold lifts and the instructor's share follows the normal rule. A refund already approved and processing at Stripe is completed. Texts and files are erased (FR-P23) | ADR-025, T29, decision EC-12 |
 
 **Money**
 
@@ -576,7 +581,7 @@ decision recorded; **[AI]** = a rule the AI derived that no decision states.*
 | FS-5 | The daily job does not run or fails | Instructors are paid a day late | Run record with the error | Admin email on failure and after 48 h without success | Closed: nothing is released without a run |
 | FS-6 | The job hits its batch limit | Some instructors are paid the next day | Run record | Problem if it repeats (T4 revisit) | Closed |
 | FS-7 | `transfers.create` fails (instructor account restricted) | Instructor: amount still held | Payment stays `transferring` with the error | Problem payment; recovered by list-before-retry (C7) | Closed |
-| FS-8 | Redis unavailable for the run lock | — | — | Run record with the error | **[open]** AI suggestion: skip the run (closed) rather than run unlocked; correctness would survive an unlocked run (C5, C7, C8) but two runs double the Stripe calls |
+| FS-8 | Redis unavailable for the run lock | Instructors are paid a day late | Run record marked failed ("lock unavailable") | Admin email after 48 h without success | Closed: the run is skipped, never run unlocked. Money correctness does not depend on the lock (C5, C7, C8); the lock only prevents duplicate work (decision FS-8) |
 | FS-9 | The opened-lesson record cannot be written | Student: an error instead of the lesson | Nothing | Error log | Closed (C9) |
 | FS-10 | The evidence upload to Blob fails | Student: appeal not sent, can retry | No appeal row; an uploaded file without a row is deleted by the daily job | Error log | Closed |
 | FS-11 | The email service fails | Nothing; the status is visible in the app | The decision or refund stands | Error log | Open: email is a notice, not part of the decision |

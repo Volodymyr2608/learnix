@@ -40,6 +40,10 @@ decisions already made.
 | FS-3 — a refund that fails at the bank after it was applied | **Decided 2026-11-16:** V1 + V2, access restored automatically, the admin returns the money another way |
 | AI-C6 — learning path enriches unopened lessons (LLM pass) | **Decided 2026-11-16:** V2, accepted as a bounded risk |
 | REC — recommend a refunded course back to its refunder (LLM pass) | **Decided 2026-11-16:** V3, never recommend a course with a cancelled enrollment |
+| EC-3 — an opened lesson later deleted by the instructor | **Decided 2026-11-16:** V2, count opened lessons among non-deleted ones only |
+| EC-12 — account deleted with a request or appeal open | **Decided 2026-11-16:** V1 + a warning on the account-deletion page |
+| FS-8 — Redis unavailable for the job lock | **Decided 2026-11-16:** V1, skip the run (fail closed) |
+| FS-3 follow-up — the instructor's share after a failed refund | **Decided 2026-11-16:** V2, back to held until the admin resolves |
 | ADR-014 (n8n) → mark superseded | Later, a separate small edit (not Refund) |
 
 ## A1 — who decides on a refund
@@ -1366,7 +1370,7 @@ but real, the more so 2–4 weeks after payment.
 ### Decision
 
 **V1 + V2** (FR-P27, FS-3). The held net stays cancelled: the instructor's share of a sale whose
-refund failed is **[open]** — AI suggestion: the admin decides it together with returning the money.
+refund failed: **decided 2026-11-16, see "FS-3 follow-up" below**.
 
 - **What I give up:** the student's cleared progress is not restored.
 - **I will revisit if:** failed refunds happen more than rarely — then V3.
@@ -1410,4 +1414,69 @@ not from the candidate list.
 
 - **What I give up:** after an admin exception (OQ-3) the course also disappears from the student's
   recommendations; search and the catalogue still show it.
+
+## EC-3 — an opened lesson later deleted by the instructor
+
+*2026-11-16. The scenario, the options and both recommendations (first V1 in the draft, then V2) —
+AI; the choice of V2 — mine.*
+
+**Scenario:** 6 lessons, threshold 3; the student opened lessons 1–3; the instructor deletes lessons
+2 and 3. Now L = 4, threshold `min(3, 2)` = 2.
+
+| # | Opened count | Scenario | Status | Reason |
+|---|---|---|---|---|
+| V1 | All opened, deleted included | 3 > 2 → direct appeal | Rejected | Numerator and denominator from different sets; the student pays for the instructor's change |
+| **V2** | **Opened among non-deleted lessons at submission** | 1 ≤ 2 → automatic refund | **Chosen** | Same set as L; a deletion is always the instructor's act; the student cannot lower their own count |
+
+- **What I give up:** a student who saw deleted content gets a slightly softer rule.
+
+## EC-12 — the student deletes their account with a request or appeal open
+
+*2026-11-16. The conflict with FR-P23, the options and the recommendation of V1 + a warning — AI; the
+choice — mine.*
+
+**Conflict.** ADR-025 anonymises in place and keeps payments and enrollments
+(`docs/adr/025-account-deletion-and-anonymisation.md:16-17`, `:147-161`). FR-P23 erases the refund
+texts and files, so an appeal left in the queue would reach the admin with nothing to judge, and
+there is nobody to tell the outcome.
+
+| # | Open appeal | Refund processing | Status |
+|---|---|---|---|
+| **V1** | **Closed without a decision; not counted for D3 or the limit; hold lifts** | **Completed (the card needs no account)** | **Chosen**, with a warning on the account-deletion page |
+| V2 | Stays in the queue; the admin decides from the snapshot | Completed | Rejected: decided blind, outcome undeliverable |
+
+- **What I give up:** the student loses the appeal; it is their informed choice after the warning.
+
+## FS-8 — Redis unavailable for the job lock
+
+*2026-11-16. Facts, options and the recommendation — AI; the choice of V1 — mine.*
+
+**Facts:** the lock (ADR-037 §3, C16) prevents a second job instance or "Run job now" running in
+parallel. Money correctness does not depend on it: C5, C7 and C8 stop double transfers and refunds.
+Precedent: the AI rate-limit store on the same Upstash Redis fails closed
+(`server/services/_shared/aiLimits/store/upstash.store.ts:106-120`), though there the stake is real
+AI spend.
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| **V1** | **Skip the run; record it as failed** | **Chosen** | One run a day anyway; a day's delay after a 14-day hold is minor; the 48 h alert exists; matches the precedent |
+| V2 | Run without the lock | Rejected | Possible parallel runs double Stripe calls and risk the 300 s limit; nothing gained when payouts are not hour-sensitive |
+
+- **I will revisit if:** Redis outages delay payouts more than once a month.
+
+## FS-3 follow-up — the instructor's share after a failed refund
+
+*2026-11-16. The two outcomes, the options and the recommendation — AI; the choice of V2 — mine.*
+
+**Situation.** The refund "succeeded", so the instructor's held share was cancelled; then the bank
+rejected it. Outcome (a): the admin refunds another way — the cancellation was right. Outcome (b):
+the money cannot be returned, or the student keeps the course — the sale stands and the instructor
+gets nothing.
+
+| # | Share | Status | Reason |
+|---|---|---|---|
+| V1 | Stays cancelled; the admin pays manually if needed | Rejected | Outcome (b) loses the instructor's money if forgotten; a manual payout bypasses the single payout path (FR-P24) |
+| **V2** | **Back to held, flagged; FR-P2a blocks release; the admin closes it as "refunded another way" (cancelled) or "the sale stands" (normal release)** | **Chosen** | Both outcomes correct; no new payout path; one audited admin action |
+
+- **What I give up:** a reverse status transition (`cancelled` → `pending`) and a new admin action.
 
