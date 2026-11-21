@@ -779,3 +779,39 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
 
+### 2026-11-16 — Alternatives, Trade-offs, Decision, functional AC, tests, Source of truth, Agent notes drafted by the AI
+- **Stage:** specification (closing sections)
+- **Context the AI had:** `decisions.md`, ADR-037, `security.md`, the spec so far
+- **AI proposed:** summary tables of the main decisions and their matrices (copied from
+  `decisions.md`, not re-scored); a "why in this context" list; AC-F1…F21 traced to FRs; a
+  notification matrix closing FR-S21 with one **[AI]** cell (an admin email when an appeal is filed);
+  test levels; source of truth; agent notes with the invariants a change could break
+- **My decisions:** *TODO (me): under review*
+- **How I verified:** *Not verified by me*
+- **Verdict:** TODO
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — OQ-1 reconsidered and kept; T11 amended for the tab race
+- **Stage:** specification (User flow A1, T11)
+- **Context the AI had:** OQ-1, OQ-5, T11, FR-S13/S14/S16, FR-A5, FR-P2a, AC-F3, EC-3
+- **AI proposed:** a side-by-side of V3 (direct appeal) and V1 (appeal only after a denial) on five
+  scenarios, recommending V1 with T11 keyed on the failed condition; found the tab race in the
+  current V3 (a student opens more lessons in another tab, gets an A1′ threshold denial, and is
+  auto-approved on day 14 with the admin absent); then the lesson-deletion nuance and two rules,
+  recommending V1 (threshold or account-limit denial never auto-approved)
+- **My decisions:** I proposed showing the appeal only after a denial, read the comparison and kept
+  V3; chose to close the tab race under T11 with V1
+- **How I verified:** *Not verified by me*
+- **Verdict:** OQ-1 recommendation `rejected`; T11 amendment `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — EC-8 wording
+- **Stage:** specification (Edge cases, EC-8)
+- **Context the AI had:** EC-8, Q16, AC-C2
+- **AI proposed:** that EC-8 already said "the amount paid is refunded" and AC-C2 enforces it; a
+  wording that also covers a lowered price or a course made free
+- **My decisions:** the principle: a bought course is the student's, a later price change affects
+  nothing; accepted the wording
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

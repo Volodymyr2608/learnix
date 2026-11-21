@@ -41,7 +41,7 @@ L×I = likelihood × impact.
 | C7 | Transfer twice after a crash, once the idempotency key has expired (~24 h) | M×H | `transfer_group = payment.id`; list before retry, for transfers, refunds and reversals (ADR-037 §2) | FR-P4 |
 | C8 | Effects applied twice by the webhook and the replay concurrently | H×M | One compare-and-set on payment status gates all effects; database effects in the same transaction (ADR-037 §4) | FR-P14, P15 |
 | C9 | Reading lessons without an "opened" record (fail-open write; the tutor route) | M×M | Record written before content is returned, fail-closed, on every content path | FR-P19 |
-| C11 | Overdue auto-approval as an unlimited bypass | M×M | Only appeals after an automatic denial are auto-approved (decision T11) | FR-A5 |
+| C11 | Overdue auto-approval as an unlimited bypass | M×M | Only appeals after an automatic denial for a condition other than the threshold or the account limit are auto-approved; the failed condition comes from the server snapshot (decision T11, amended 2026-11-21: tab race) | FR-A5 |
 | C12 | Refund of a disputed charge | L×H | Live charge check before every `refunds.create`; stored dispute state from dispute events drives the button | FR-P18, P18a |
 | C13 | Double-charge race: both or neither refunded; a duplicate released | L×M | Lock on the student + course enrollment; keeper = earliest paid; duplicate marked cancelled before its refund | FR-P17 |
 | C14 | Old early-payout paths survive | H×H | One release function is the only caller of `transfers.create`; Sweep and the transfer at sale removed | FR-P24 |

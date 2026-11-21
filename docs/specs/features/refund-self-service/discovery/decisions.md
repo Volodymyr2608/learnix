@@ -33,7 +33,7 @@ decisions already made.
 | D1 — messaging after a refund: direction and history | **Decided 2026-11-16:** closed both ways, history read-only |
 | E2-R — the review after a refund | **Decided 2026-11-16:** V3, hidden; a new review after repurchase restores the row |
 | D-2 — the dead `/contact` link | **Decided 2026-11-16:** V1, out of scope; refund text does not point to it |
-| T11 — overdue auto-approval as a bypass (security pass) | **Decided 2026-11-16:** V2, only appeals after an automatic denial are auto-approved; narrows OQ-5 |
+| T11 — overdue auto-approval as a bypass (security pass) | **Decided 2026-11-16:** V2, only appeals after an automatic denial are auto-approved; narrows OQ-5. **Amended 2026-11-21:** V1, never for a threshold or account-limit denial (tab race) |
 | T10 — one student, several accounts (security pass) | **Decided 2026-11-16:** V1, limit per `userId` only; accepted risk |
 | T27 — the instructor deletes a course inside the window (security pass) | **Decided 2026-11-16:** V3 as a separate feature: courses with purchases cannot be deleted, only unpublished |
 | FR-S15 — appeal files: limits, storage, retention | **Decided 2026-11-16:** PNG/JPEG/PDF, ≤ 3 files, ≤ 4 MB; private Blob store; deleted 30 days after the final decision |
@@ -1244,6 +1244,30 @@ stays fair there.
 - **What I give up:** for a direct appeal the instructor's "≤ 31 days" depends on the admin being
   there (Analysis F6 returns for this case). Accepted: an absent admin is an operational failure
   already covered by OQ-5's revisit condition, not the normal mode.
+
+### Amendment 2026-11-21: the tab race
+
+*The gap, the options and the recommendation — AI (main session, while I reconsidered OQ-1 and kept
+V3); the choice of V1 — mine.*
+
+**Gap.** V2 keys auto-approval on the appeal's *type*, and A1′ is not only "the window closed". A
+student loads the course page with 2 of 3 allowed lessons opened, so the button is shown; opens two
+more lessons in another tab; submits. The request is denied automatically for the threshold (A1′),
+the appeal follows an automatic denial, and on day 14 with the admin absent it is approved. The
+threshold is bypassed by waiting, which is exactly what T11 meant to close.
+
+| # | Rule for day-14 auto-approval | Status | Reason |
+|---|---|---|---|
+| **V1** | **Keyed on the failed condition in the FR-S5 snapshot: a denial for the opened-lesson threshold or the account limit is never auto-approved; only a denial for any other condition (e.g. the window closed) is** | **Chosen** | Closes the race; the server reads the reason from its own snapshot, nothing from the client |
+| V2 | As V1, but a threshold denial caused by the instructor deleting lessons (L dropped) stays auto-approvable | Rejected | Needs L before the last deletion in the snapshot, extra logic and tests for a rare case |
+
+**Decision: V1.** A direct appeal is never auto-approved either, as before: its condition is always
+the threshold or the account limit.
+
+- **What I give up:** a student pushed over the threshold by an instructor deleting lessons during
+  submission keeps the appeal, but waits for the admin instead of the day-14 approval. Accepted: the
+  case is rare, and an absent admin is an operational failure (OQ-5), not the normal mode.
+- **I will revisit if:** threshold denials caused by lesson deletion show up in the admin queue.
 
 ### Fixed without a separate decision (same pass)
 
