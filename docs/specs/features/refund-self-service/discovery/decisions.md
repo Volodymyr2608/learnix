@@ -1138,8 +1138,9 @@ under D3 (a platform action, OQ-3).
 instead of $20, that is the instructor's choice and the student's choice to buy it, not a platform
 error, so it is not a reason for a compensation. This weakens the example the AI used in OQ-3 and E2
 ("admin exception because of a wrong price"). OQ-3 still stands on its principle: platform actions do
-not use up the student's right. *TODO (me): pick a better example of an admin exception for the
-rehearsal (e.g. a course that turned out broken or removed after purchase).*
+not use up the student's right. A better example of an admin exception: an instructor deletes a
+course with in-window buyers (T27); until courses with purchases cannot be deleted (AS-8), those
+buyers get their money back only through an exception.
 
 - **I will revisit if:** partial refunds become frequent, which would mean a real need for partial
   refunds in Learnix (Q16).
@@ -1652,7 +1653,8 @@ request a refund. `refunds.create` without `amount` (AC-C2) refunds the remainin
 
 ## A11 — study statistics after a refund
 
-*2026-11-21. Facts from the code, options and the recommendation — AI; the choice — mine.*
+*2026-11-21. Facts from the code, options and the recommendation — AI; the choice — mine; the «why»
+picked by me from two AI drafts.*
 
 **Gap.** D2 left "what happens to the weekly charts if the refund happened in the current week —
 decide in the specification", and no section decided it. The code shows the question is wider than
@@ -1679,12 +1681,15 @@ cumulative counter preserves only the lifetime minutes.
 - **Supersedes in D2:** the single cumulative counter becomes the per-day archive (the lifetime
   minutes are its sum).
 - **I will revisit if:** never needed as a measured trigger; it is a correctness rule.
-- **Why (in my words):** *TODO (me)*
+- **Why (in my words):** D2 already keeps what the student learned (concept mastery) and removes
+  only the course's state. Study activity is the same kind of thing as knowledge, so it stays; V1
+  would make the lifetime total and the chart disagree.
 
 ## UI-1 — where the student-facing refund UI lives
 
 *2026-11-21. Raised by me during the Drawbacks review (the "decision by <date>" question); options,
-mock-ups and the recommendation — AI; the choice — mine.*
+mock-ups and the recommendation — AI; the choice — mine; the «why» is an AI condensation of my own
+words, picked by me.*
 
 **Gap.** The spec put everything on the course page: the button with its deadline, a message per
 state, and an "Appeal to an admin" button. Refunds are not the core of a learning product, and a
@@ -1707,7 +1712,8 @@ invoices (`app/dashboard/billing/page.tsx`, billing spec), and it is in the side
 - **What I give up:** a student who looks for a refund on the course page will not find it there;
   the policy on `/pricing` and the Purchases page are the only paths.
 - **I will revisit if:** students ask support how to get a refund (they cannot find it).
-- **Why (in my words):** *TODO (me)*
+- **Why (in my words):** The course page is for learning. A refund is a rare purchase action, so it
+  lives with purchases and invoices, not as a permanent button that distracts.
 
 ## Index of decisions made while writing the spec
 
