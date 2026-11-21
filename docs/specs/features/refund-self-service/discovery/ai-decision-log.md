@@ -906,3 +906,14 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** read the section with the AI's findings
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-21 — Alternatives, Trade-offs and Decision review
+- **Stage:** specification (Alternatives, Trade-offs, Decision)
+- **Context the AI had:** the three sections, `decisions.md` A1/A3/A8
+- **AI proposed:** recomputed the A1, A3 and A8 matrices and sensitivity claims (all correct); found
+  "~2% of revenue" lost the word "platform" (≈0.35% of total sales); the decisions list missing
+  today's decisions; a DL bullet in Decision
+- **My decisions:** all as recommended; I mark Alternatives as reviewed
+- **How I verified:** read the sections with the AI's recomputation
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

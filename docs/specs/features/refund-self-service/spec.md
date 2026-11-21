@@ -638,8 +638,8 @@ applied. Fail-open = the decision or effect stands; only a notice may be missing
 
 ## Alternatives
 
-*Draft 2026-11-16, assembled by AI from `discovery/decisions.md` at my request; under my review. The
-full options, weights, matrices and sensitivity checks are in
+*Assembled 2026-11-16 by AI from `discovery/decisions.md` at my request; reviewed by me 2026-11-21
+(the matrices recomputed). The full options, weights, matrices and sensitivity checks are in
 [`discovery/decisions.md`](discovery/decisions.md); the money and consistency decisions are in
 [ADR-037](../../../adr/037-refund-payout-hold-and-money-consistency.md).*
 
@@ -663,10 +663,13 @@ full options, weights, matrices and sensitivity checks are in
 amounts · DC double charge (guard access + auto-refund the duplicate) · OQ-1 direct appeal over the
 threshold · OQ-2 3 automatic refunds per 12 months · OQ-3 platform refunds do not use up the
 student's right · OQ-4 no instructor notification · OQ-5 + T11 overdue auto-approval only after an
-automatic denial for a condition other than the threshold or the account limit · OQ-6 repurchase warning · OQ-7a/b partial Dashboard refund, disputes · DL a lost dispute is a counting refund path · D1
+automatic denial for a condition other than the threshold or the account limit (T11 amended for the
+tab race) · OQ-6 repurchase warning · OQ-7a/b partial Dashboard refund, disputes · DL a lost dispute is a counting refund path · D1
 messaging · E2-R review · D-2 `/contact` out of scope · T10 multiple accounts accepted · T27 course
 deletion as a separate feature · FR-S15 files · FS-3 failed refund · AI-C6 accepted · REC · EC-3 ·
-EC-12 · FS-8.
+EC-12 · FS-8 · BATCH 50 payments per run · C-TEXT the failed-refund text and day-3 emails · UF-3
+"Approve" unavailable with a certificate or dispute · UF-6 optional appeal files · FR-1 closed-list
+reason on appeals · EC-19 a refund after a partial Dashboard refund returns the remainder.
 
 ## Trade-offs
 
@@ -729,8 +732,12 @@ across a network call; no new service; one handler for webhook and replay), reco
   Stripe cannot hold it for our charge model (D-15).
 - **One release path, compare-and-set, list-before-retry, daily job (ADR-037).** Money consistency
   must not depend on a lock service or on idempotency keys that expire after 24 h.
-- **The platform bears the Stripe fee (A8).** It costs the platform ~2% of revenue at a 10% refund
-  rate (an assumption), while any split worsens terms for every instructor and needs new mechanics.
+- **The platform bears the Stripe fee (A8).** It costs ~2% of the platform's share (its 20%) at a
+  10% refund rate (an assumption), i.e. ~0.35% of total sales, while any split worsens terms for
+  every instructor and needs new mechanics.
+- **A lost bank dispute is a refund path (DL).** While the share is held, it is cancelled and the
+  effects apply; otherwise the hold would pay out a sale whose money the bank has returned. After
+  release the platform bears it.
 - **Phased launch (S2).** Hold first, the button 14 days later: every purchase in its window when the
   button appears is already held, so no transition rules are needed.
 - **Content only from opened lessons (FR-P19a).** The AI tutor and study guides could otherwise
