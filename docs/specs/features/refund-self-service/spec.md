@@ -314,7 +314,8 @@ Terms used below:
   - no open dispute on the charge (Q12, Q13, D3, OQ-2, OQ-7b).
 - **FR-S3.** The request form takes a reason from a closed list (too easy, too hard, thin content,
   other) and optional text. It accepts no files (C4, S3, AS-1).
-- **FR-S4.** Before submit, the form states the consequences:
+- **FR-S4.** Before submit, the form states the amount to be refunded (the remainder after any
+  partial Dashboard refund, EC-19) and the consequences:
   - access closes;
   - progress is erased;
   - the course can be refunded only once (A4, D2, D3).
@@ -357,8 +358,8 @@ Terms used below:
 - **FR-S18.** The student sees the admin's denial reason and any files the admin attached (C5.2).
 
 **Outcome**
-- **FR-S19.** After a refund the student sees "Refunded" and a note that the money reaches the card
-  in about 5–10 business days.
+- **FR-S19.** After a refund the student sees "Refunded" with the refunded amount and a note that
+  the money reaches the card in about 5–10 business days.
 - **FR-S20.** While a Learnix-initiated refund is processing or has failed at Stripe, the student
   sees the fixed text of Branch C ("Refund processing… If it takes longer than 3 days, we will email
   you."); access and progress do not change until it succeeds (S4, C-TEXT).
@@ -485,7 +486,8 @@ Dashboard webhook, lost bank dispute or daily event replay)
   closes the problem with one of two audited outcomes: "refunded another way" (the share is
   cancelled) or "the sale stands" (the share follows the normal release rule).
 - **FR-P16.** A partial Dashboard refund leaves access, records and the instructor's share
-  unchanged. The refunded amount is recorded (OQ-7a).
+  unchanged. The refunded amount is recorded (OQ-7a). The student's refund right is unchanged; a
+  later refund returns the remainder (EC-19).
 - **FR-P17.** When a second payment for a course the student already paid for succeeds, it is
   refunded at once (non-counting), and the student is told (DC).
 - **FR-P18a.** The system knows whether a payment's charge is under dispute without calling Stripe
@@ -574,8 +576,8 @@ control C1–C29 there has an acceptance criterion below.
 
 ## Edge cases
 
-*Draft 2026-11-16, written by AI from `discovery/` at my request; under my review. **[open]** = no
-decision recorded; **[AI]** = a rule the AI derived that no decision states.*
+*Drafted 2026-11-16 by AI from `discovery/` at my request; reviewed by me 2026-11-21. No **[open]**
+or unconfirmed **[AI]** items remain.*
 
 **Window and threshold**
 
@@ -595,7 +597,7 @@ decision recorded; **[AI]** = a rule the AI derived that no decision states.*
 
 | # | Case | Behaviour | Source |
 |---|---|---|---|
-| EC-10 | The student keeps studying during an appeal and earns the certificate | Access stays open during an appeal. A certificate at decision time means a denial; an overdue auto-approval re-checks the certificate and dispute state first and does not refund if either is present | Q19, Analysis S6 (b), C11/C12 |
+| EC-10 | The student keeps studying during an appeal and earns the certificate | Access stays open during an appeal. "Approve" is unavailable while a certificate or a dispute exists (UF-3); an overdue auto-approval re-checks both first and does not refund if either is present | Q19, Analysis S6 (b), C11/C12 |
 | EC-11 | Two admin decisions on one appeal at the same moment | The first wins; the second is refused (compare-and-set on the appeal state) | Analysis S6 (a) (confirmed 2026-11-21) |
 | EC-12 | The student deletes their account with a request or appeal open | The account-deletion page warns first: "You have an open refund appeal for course X; deleting your account closes it." An open appeal is then closed without a decision ("account deleted") and counts neither for D3 nor for the account limit; the hold lifts and the instructor's share follows the normal rule. A refund already approved and processing at Stripe is completed. Texts and files are erased (FR-P23) | ADR-025, T29, decision EC-12 |
 
@@ -606,9 +608,11 @@ decision recorded; **[AI]** = a rule the AI derived that no decision states.*
 | EC-13 | A refund arrives while the release is `transferring` | The release finishes, then sees the refund and reverses at once | ADR-037 §2 |
 | EC-14 | The window closes before the instructor connects Stripe | The net stays held and shows as "Waiting for Stripe connection" until onboarding | A6, FR-I1 |
 | EC-15 | Purchases made before the hold shipped | None is refundable through Learnix: the button ships 14 days after the hold, so every purchase still in its window was held | S2 |
-| EC-16 | A refund via the Dashboard on a payment with an open request | The webhook applies the effects; the request is closed as "refunded by the platform" and does not count for D3 | E1, OQ-3 (request state confirmed 2026-11-21) |
+| EC-16 | A refund via the Dashboard or an admin exception on a payment with an open request or appeal | The effects apply (via the webhook or the exception); the request or appeal is closed as "refunded by the platform" and does not count for D3 | E1, FR-A6, OQ-3 (request state confirmed 2026-11-21) |
 | EC-17 | Repurchase when an earlier payment for the course was disputed | While the dispute is open, the enrollment is active, so a repurchase is blocked (D-12, DC). After a dispute closed lost, access is closed and a repurchase is allowed, with the D3 warning that it cannot be refunded (FR-S23). After a dispute closed won, access never closed, so nothing changes | OQ-7b, D3, DL (rewritten 2026-11-21) |
 | EC-18 | The bank dispute closes lost | Inside the hold: the refund effects apply, the share is cancelled, access closes, a certificate is revoked; counts for D3 and the account limit. After release: the same effects, but the transfer is not reversed; the platform bears it | DL |
+| EC-19 | A partial Dashboard refund, then the student requests a refund | Allowed under the normal rules: the remainder (amount − already refunded) is refunded, so in total the student gets exactly what they paid. It counts as usual; the instructor's share is cancelled. The form and the "Refunded" note show the remainder | OQ-7a, AC-C2, decision EC-19 |
+| EC-20 | The instructor deletes their account during the hold | The share is released as usual to the retained Stripe account: payout fields of `InstructorProfile` are kept on deletion | ADR-025 |
 
 ## Failure scenarios
 
@@ -784,7 +788,9 @@ criteria drafted 2026-11-16 by AI from the FRs; under my review.*
   remains; learning records cleared as listed with concept mastery kept and study minutes moved;
   certificate revoked where applicable; the conversation closed both ways with history readable; the
   review hidden; the course out of the interest profile and recommendations.
-- **AC-F15** (FR-P16). A partial Dashboard refund leaves access and records; the amount is recorded
+- **AC-F15** (FR-P16, EC-19). After a partial Dashboard refund, a student request inside the rules
+  refunds exactly the remainder, the form and "Refunded" show it, and the share is cancelled. A
+  partial Dashboard refund leaves access and records; the amount is recorded
   and flagged; the instructor's share is unchanged.
 - **AC-F16** (FR-P17). A second paid checkout for a course already paid for is refunded at once and
   does not count for D3 or the account limit; the student is told.

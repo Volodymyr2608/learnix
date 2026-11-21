@@ -46,6 +46,7 @@ decisions already made.
 | FS-3 follow-up — the instructor's share after a failed refund | **Decided 2026-11-16:** V2, back to held until the admin resolves |
 | C-TEXT — the student text when a refund fails at Stripe (Branch C) | **Decided 2026-11-21:** a fixed text promising an email after 3 days; on day 3 the student is emailed and the admin reminded |
 | UF-3 — the admin approves an appeal with a certificate or a dispute present | **Decided 2026-11-21:** (a) "Approve" unavailable, with the reason shown |
+| EC-19 — a student request after a partial Dashboard refund | **Decided 2026-11-21:** (a) allowed; the remainder is refunded |
 | FR-1 — a closed-list reason on an appeal | **Decided 2026-11-21:** (a) mandatory, the same list as the request, free text beside it |
 | UF-6 — are appeal files mandatory | **Decided 2026-11-21:** reason mandatory, 0–3 files optional |
 | BATCH — release job batch size (FR-P3) | **Decided 2026-11-21:** 50 payments per run |
@@ -1614,4 +1615,20 @@ limit never give a closed-list reason.
 |---|---|---|
 | **(a)** | **The appeal form also takes a mandatory closed-list reason, with free text beside it** | **Chosen**: one field, complete statistics |
 | (b) | Leave as is | Rejected: the reasons of exactly the borderline students are lost |
+
+## EC-19 — a student request after a partial Dashboard refund
+
+*2026-11-21. Found while I reviewed the Edge cases with the AI; options and the recommendation — AI;
+the choice — mine.*
+
+**Gap.** After a partial goodwill refund in the Dashboard (OQ-7a) access stays; the student may
+still be inside the window and under the threshold. The spec did not say whether they can still
+request a refund. `refunds.create` without `amount` (AC-C2) refunds the remaining balance by default.
+
+| # | Rule | Status |
+|---|---|---|
+| **(a)** | **Allowed under the normal rules; the remainder is refunded, so the total equals the amount paid; counts as usual; the share is cancelled** | **Chosen**: a goodwill compensation should not take away the student's refund right; Stripe already behaves this way |
+| (b) | No button after a partial refund; only an admin exception | Rejected |
+
+- **What I give up:** the platform pays the partial refund and then the remainder, plus the fee.
 

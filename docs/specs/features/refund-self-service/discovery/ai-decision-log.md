@@ -884,3 +884,14 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** read the section with the AI's findings
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-21 — Edge cases review
+- **Stage:** specification (Edge cases, reviewed section by section)
+- **Context the AI had:** EC-1…EC-18, UF-3, FR-A6, OQ-7a, AC-C2, ADR-025
+- **AI proposed:** EC-10 aligned with UF-3; EC-16 extended to an admin exception; a request after a
+  partial Dashboard refund (EC-19, options a/b, recommended a); the instructor deleting their account
+  during the hold (EC-20, already decided by ADR-025)
+- **My decisions:** all as recommended, (a) for EC-19; I mark the Edge cases as reviewed
+- **How I verified:** read the section with the AI's findings
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
