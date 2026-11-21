@@ -917,3 +917,13 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** read the sections with the AI's recomputation
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-21 — Acceptance criteria review
+- **Stage:** specification (Acceptance criteria, last of the six draft sections)
+- **Context the AI had:** every FR, EC-17, EC-20, `security.md` numbering
+- **AI proposed:** traced every FR to an AC; six gaps closed by AC-F24…F27, an extended AC-F7 and two
+  rows in the test table; the AC-C10/C27/L5/L6 gaps left as explained in `security.md`
+- **My decisions:** all as proposed; I mark the Acceptance criteria as reviewed
+- **How I verified:** read the section with the AI's trace
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

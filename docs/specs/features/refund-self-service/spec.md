@@ -749,7 +749,7 @@ for 4 weeks; the share of automatic refunds twice the first-4-weeks baseline).
 ## Acceptance criteria
 
 Applies: [`docs/constitution.md`](../../../constitution.md), plus the criteria below. *Functional
-criteria drafted 2026-11-16 by AI from the FRs; under my review.*
+criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every FR traced to an AC).*
 
 ### Functional
 
@@ -770,8 +770,9 @@ criteria drafted 2026-11-16 by AI from the FRs; under my review.*
   produces an automatic denial naming it.
 - **AC-F6** (FR-S7, S16). One request and one appeal per purchase; the appeal deadline is the window
   end for a direct appeal, and the later of window end or denial + 3 days after an automatic denial.
-- **AC-F7** (FR-S22, S23, OQ-6). After a counting refund the course page warns that a repurchase
-  cannot be refunded; after an admin exception or a Dashboard refund it does not.
+- **AC-F7** (FR-S22, S23, OQ-6, EC-17). After a counting refund (a lost dispute included) the course
+  page warns that a repurchase cannot be refunded; after an admin exception or a Dashboard refund it
+  does not. While a dispute on the earlier payment is open, a repurchase is refused.
 
 **Admin**
 - **AC-F8** (FR-A1, A2, FR-S15). An appeal without files is accepted; one without a closed-list
@@ -819,6 +820,16 @@ criteria drafted 2026-11-16 by AI from the FRs; under my review.*
   nothing but the dispute state.
 - **AC-F20** (EC-12, FR-P23). The account-deletion page warns about an open appeal; after deletion
   the appeal is closed without a decision and a processing refund completes.
+- **AC-F24** (FR-S3, S4, S17, S19). The request form accepts only a closed-list reason plus optional
+  text, and before submit shows the amount and the three consequences; an open appeal shows
+  "decision by" = filing date + 14 days; after a refund the student sees "Refunded" with the amount
+  and the 5–10 business days note.
+- **AC-F25** (FR-P3). With 51 payments eligible, one run releases 50; the next run releases the
+  remaining one.
+- **AC-F26** (FR-P15, FR-P18a). A `charge.refunded` or dispute-closed event that never arrived by
+  webhook is applied by the next run's replay through the same handler, once.
+- **AC-F27** (EC-20). The held share of an instructor who deleted their account is released to the
+  retained Stripe account.
 
 ### Notifications (closes FR-S21 / V7)
 
@@ -934,8 +945,8 @@ criteria drafted 2026-11-16 by AI from the FRs; under my review.*
 
 | Level | What it proves | Includes adversarial / degradation |
 |---|---|---|
-| Unit (`*.test.ts`) | Threshold formula, window in UTC, the release predicate, appeal deadlines, account-limit count | Window boundary ± 1 s; L = 1; deleted opened lessons |
-| Integration (`*.integration.test.ts`) | Refund effects on all six paths (incl. a lost dispute); compare-and-set under concurrency; double charge; job runs; failed refund; account deletion | Two tabs; webhook + replay together; release vs refund at the edge; crash in `transferring` after key expiry; Redis down |
+| Unit (`*.test.ts`) | Threshold formula, window in UTC, the release predicate, appeal deadlines, account-limit count, batch size | Window boundary ± 1 s; L = 1; deleted opened lessons |
+| Integration (`*.integration.test.ts`) | Refund effects on all six paths (incl. a lost dispute); compare-and-set under concurrency; double charge; job runs; failed refund; account deletion; remainder after a partial refund (EC-19); replay of a missed event | Two tabs; webhook + replay together; release vs refund at the edge; crash in `transferring` after key expiry; Redis down |
 | Contract (`*.contract.test.ts`) | `transfers.create` in one function; instructor outputs carry no refund data; audit append-only; AI content readers listed; no AI entry point reads refund data; no tutor tool reaches opened/refund state | New reader or tool added without listing |
 | Route tests | Job endpoint auth; file serving and upload checks | Wrong / short secret; IDOR on files; SVG renamed `.png`; > 4 MB |
 | Eval (`evals/lessonAI`) | AC-L2, AC-L11 | "Summarise lessons 4–10" with lesson 1 opened; refund-term questions |
