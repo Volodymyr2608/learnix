@@ -895,3 +895,14 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** read the section with the AI's findings
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-21 — Failure scenarios review
+- **Stage:** specification (Failure scenarios, reviewed section by section)
+- **Context the AI had:** FS-1…FS-13, C-TEXT, FR-P18a/b, FR-A10, the 30-day event retention constraint
+- **AI proposed:** FS-1 aligned with C-TEXT; FS-4 covering dispute events; FS-14 for a replay gap over
+  30 days (closed by the 48 h alert); FS-11 "Open" reworded as fail-open; a note that the day-3 email
+  is not retried, with a recommendation not to add email retries
+- **My decisions:** all as recommended; I mark the Failure scenarios as reviewed
+- **How I verified:** read the section with the AI's findings
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

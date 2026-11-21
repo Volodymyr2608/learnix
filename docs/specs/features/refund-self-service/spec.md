@@ -616,23 +616,25 @@ or unconfirmed **[AI]** items remain.*
 
 ## Failure scenarios
 
-*Draft 2026-11-16, AI; under my review.* Fail-closed = no money moves and no effect is applied.
+*Drafted 2026-11-16 by AI; reviewed by me 2026-11-21.* Fail-closed = no money moves and no effect is
+applied. Fail-open = the decision or effect stands; only a notice may be missing.
 
 | # | Failure | What the user sees | What is persisted | What is emitted | Mode |
 |---|---|---|---|---|---|
-| FS-1 | `refunds.create` errors (network, Stripe 5xx) | Student: "Refund processing" | Request `approved, processing`; problem payment with the Stripe message | Admin panel row; retried by the daily job and by "Retry" | Closed: no effects until it succeeds (FR-S20) |
+| FS-1 | `refunds.create` errors (network, Stripe 5xx) | Student: the fixed Branch C text ("Refund processing… we will email you") | Request `approved, processing`; problem payment with the Stripe message | Admin panel row; retried by the daily job and by "Retry"; on day 3 without success a student email and an admin reminder (FR-A11, C-TEXT) | Closed: no effects until it succeeds (FR-S20) |
 | FS-2 | Stripe answers `charge_disputed` | Student: the dispute message (FR-S11) | Dispute state on the payment | — | Closed |
 | FS-3 | The refund is created, then fails at the bank later (closed card, `insufficient_funds` after 45 days) | Student: email "your refund could not be delivered, your access is restored, we will contact you"; the course is back in their list | The enrollment is reactivated; the cleared learning records stay cleared (D2 cannot be undone); the money is back on the platform balance; the payment is flagged as a problem | Refund-failure event via webhook or replay → problem payment and admin email; the admin returns the money another way | Closed for money; access restored automatically (FS-3 decision: V1 + V2) |
-| FS-4 | The webhook never arrives | Nothing different: for a Learnix refund the effects were applied synchronously | — | The daily replay applies a missed Dashboard refund within a day | Closed for payout: the live charge check before release blocks paying out a refunded sale (ADR-037 §1) |
+| FS-4 | The webhook never arrives | Nothing different: for a Learnix refund the effects were applied synchronously | — | The daily replay applies a missed Dashboard refund or dispute event (opened, closed, lost) within a day (FR-P15, FR-P18a, FR-P18b) | Closed for payout: the live charge check before release blocks paying out a refunded sale (ADR-037 §1) |
 | FS-5 | The daily job does not run or fails | Instructors are paid a day late | Run record with the error | Admin email on failure and after 48 h without success | Closed: nothing is released without a run |
 | FS-6 | The job hits its batch limit | Some instructors are paid the next day | Run record | Problem if the limit is hit 3 days in a row: move to Pro or Vercel Workflows (BATCH, ADR-037 revisit) | Closed |
 | FS-7 | `transfers.create` fails (instructor account restricted) | Instructor: amount still held | Payment stays `transferring` with the error | Problem payment; recovered by list-before-retry (C7) | Closed |
 | FS-8 | Redis unavailable for the run lock | Instructors are paid a day late | Run record marked failed ("lock unavailable") | Admin email after 48 h without success | Closed: the run is skipped, never run unlocked. Money correctness does not depend on the lock (C5, C7, C8); the lock only prevents duplicate work (decision FS-8) |
 | FS-9 | The opened-lesson record cannot be written | Student: an error instead of the lesson | Nothing | Error log | Closed (C9) |
 | FS-10 | The evidence upload to Blob fails | Student: appeal not sent, can retry | No appeal row; an uploaded file without a row is deleted by the daily job | Error log | Closed |
-| FS-11 | The email service fails | Nothing; the status is visible in the app | The decision or refund stands | Error log | Open: email is a notice, not part of the decision |
+| FS-11 | The email service fails | Nothing; the status is visible in the app | The decision or refund stands | Error log | Fail-open: email is a notice; the decision stands and the status is visible in the app. Not retried, including the day-3 email of C-TEXT |
 | FS-12 | The live charge check before a refund or release fails | Student: "processing"; instructor: amount still held | Problem payment | Retried by the job | Closed |
 | FS-13 | The admin is absent | Appeals on the threshold or the account limit (direct or after such a denial) wait; other appeals after an automatic denial are approved on day 14 | — | Reminders on days 10, 13, then daily | T11, OQ-5 |
+| FS-14 | The daily job does not run for more than 30 days | Missed Stripe events are no longer retrievable (Stripe keeps them 30 days) | — | The 48 h no-success email (FR-A10) fires long before | Closed by FR-A10; a gap beyond 30 days is an accepted risk |
 
 ## Alternatives
 
