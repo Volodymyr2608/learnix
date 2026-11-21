@@ -32,7 +32,7 @@ L×I = likelihood × impact.
 
 | C | Threat | L×I | Control | FR |
 |---|---|---|---|---|
-| C1 | IDOR: request, appeal or status for another student's payment | M×H | Student-only endpoints take a course id only; the payment is resolved by the session's student id in the same query that authorizes; every later step uses that row | FR-S1, S5, S12 |
+| C1 | IDOR: request, appeal or status for another student's payment | M×H | The refund page and student-only endpoints take a payment id; the payment is loaded by that id and the session's student id in the one query that authorizes; every later step uses that row (amended 2026-11-21, UI-1: the refund moved from the course page to the Purchases page) | FR-S1, S5, S12 |
 | C2 | The client chooses the refund amount or target | L×H | `refunds.create` with the stored payment intent and no `amount`; strict input with no money fields | FR-S6 |
 | C3 | Double submit creates two requests or two refunds | H×M | Unique request and appeal per payment in the database; idempotency key per payment; `charge_already_refunded` reconciles instead of failing | FR-S7 |
 | C4 | Race on the account limit: parallel requests all pass | M×M | Count and insert in one transaction under a per-student lock; no network call inside; in-progress refunds count | FR-S2 |

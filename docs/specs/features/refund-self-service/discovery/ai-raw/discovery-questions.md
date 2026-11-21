@@ -7,7 +7,7 @@ Problem section and the Q1–Q12 table from `../discovery.md`. The AI did not se
 **Changes:** the prompt was adapted: instead of "ask questions one at a time" → "give the 5 most important at the end"
 (non-interactive mode); "do not repeat Confirmed".
 
-The text below is the AI response, translated from Ukrainian on 2026-11-16. Otherwise it is unedited, so the translation is the only change.
+The text below is the AI response, translated into English; otherwise unedited.
 
 ---
 

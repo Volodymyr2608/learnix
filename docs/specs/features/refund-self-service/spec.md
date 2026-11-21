@@ -2,20 +2,36 @@
 feature: refund-self-service
 status: planned
 models: [Payment, Enrollment, RefundRequest, PayoutRun]
-depends-on: [payments, billing, certificates]
+depends-on: [payments, billing, certificates, ai-tutor-guardrails, study-guide, quiz-answer-key, learning-path, semantic-search-recommendations, messages, achievements, account-deletion-data-retention]
 ---
 
 ## Description
 
-A student who bought a paid course can ask for their money back from inside Learnix, within a fixed
-window after paying. Fixed rules decide the request at once. The student may appeal a denial once,
-and an admin decides the appeal. The instructor's share of every sale is held until the window
-closes, so a refund never has to claw money back from the instructor.
+A student who bought a paid course can ask for their money back from inside Learnix, within 14 days
+of paying. Fixed rules decide the request at once. When the rules do not allow a refund, the student
+may appeal once, and an admin decides the appeal. The instructor's share of every sale is held until
+the window closes and no request or appeal is open, so a refund the student asks for never claws
+money back from the instructor.
+
+**In short:**
+- **Problem:** the site promises a refund it has no way to give, and the manual path has three
+  confirmed leaks: two of money (a pending payout paid for a refunded sale, a clawback the platform
+  covers) and one of a certificate kept after a refund (Problem statement).
+- **Decisions that carry the design:** rules decide, an admin sees appeals only (A1); the rule counts
+  opened lessons, at most `min(3, ⌊L/2⌋)` (Q13); a 14-day window from payment (A3); the instructor's
+  share is held until the window closes (ADR-037); AI features serve content only from opened lessons,
+  or the threshold means nothing (FR-P19a); a phased launch, hold first (S2). Self-service was chosen
+  over a human deciding every request (M4 in A1).
+- **Deliberately not done:** partial refunds, refund data for instructors, a `/contact` page
+  (Unsupported use cases). Protection against course deletion is a separate feature that must ship
+  before the button (AS-8).
+- **Weakest point:** the threshold of 3 rests on seed data (AS-3); the revisit triggers in Success
+  metrics are how it gets corrected.
 
 ## Problem statement
 
-A student who paid for a course that turned out wrong for them (too easy, too hard, or thin on
-content) cannot get the refund the site promises. `/pricing` promises a 30-day "contact us for a full
+A student who paid for a course that turned out wrong for them cannot get the refund the site
+promises. (Why courses turn out wrong is an assumption, AS-1.) `/pricing` promises a 30-day "contact us for a full
 refund", but there is nowhere to ask. The footer's `/contact` link points at a page that does not
 exist. The only way money goes back today is an admin refunding the charge by hand in the Stripe
 Dashboard. Nothing checks whether the refund is fair, and nobody records why it happened.
@@ -33,9 +49,9 @@ unchecked, and the leaks above keep costing the platform, more so as sales grow.
 
 | Party | Need | Gains | Gives up / risk |
 |---|---|---|---|
-| Student | Get money back for a course that did not suit them | A visible way to ask from the course itself, an immediate answer, one appeal, a status they can follow | Conditions are stricter than the old unconditional promise: a 14-day window, a lesson limit, no refund after a certificate |
+| Student | Get money back for a course that did not suit them | A quiet way to ask from their Purchases page, an immediate answer, one appeal, a status they can follow | Conditions are stricter than the old unconditional promise: a 14-day window, a lesson limit, no refund after a certificate |
 | Platform (admin) | Honour the promise without investigating every case by hand | Most requests decided without an admin; only appeals reach the queue; the three leaks closed | Admin time on appeals; the Stripe fee on every refunded payment (not returned by Stripe) |
-| Instructor | A fair share of sales, with no surprise clawbacks | A refund inside the window never touches money already paid to them | Payout arrives after the window (14 days, worst case ≈ 31 days with an appeal) instead of at sale |
+| Instructor | A fair share of sales, with no surprise clawbacks | A refund inside the window never touches money already paid to them | Payout arrives after the window instead of at sale: 14 days; ≈ 31 days with an appeal the admin decides on time; for a direct, threshold or account-limit appeal, until the admin decides (T11) |
 
 **Where they pull against each other:**
 - The window length is the student's time to judge the course and, at the same time, the
@@ -46,6 +62,22 @@ unchecked, and the leaks above keep costing the platform, more so as sales grow.
 The platform-side value is verifiable now: all three leaks are confirmed in code. The student-side
 value and any effect on sales are **assumptions**, because there are no real users (see
 Assumptions).
+
+**Success metrics**, from the revisit triggers in `decisions.md`. The first row is
+checked before launch by tests; the others need real traffic, so the feature only instruments them.
+"Baseline" = the first 4 weeks after launch; a trigger fires when it holds 4 weeks in a row.
+
+| Goal | Metric | Revisit when | Instrumented by |
+|---|---|---|---|
+| Leaks closed | Payouts for refunded sales; certificates served for refunded enrollments; clawbacks inside the window | Any above 0 | AC-F13, AC-F14, AC-C25 |
+| Admin load bounded (A1) | Appeals per week; share of refund attempts that end in an appeal | Above 10 a week; 2× baseline | FR-A1 queue, FR-S5 and FR-S13 snapshots |
+| Threshold not too strict (Q13, OQ-1) | Share of direct threshold appeals the admin approves; share of the queue that is direct threshold appeals | Above 50%; above half | FR-S13 snapshot, FR-A3 audit |
+| Threshold not gamed (Q13) | Share of automatic refunds with opened lessons = threshold | 2× baseline | FR-S5 snapshot |
+| Account limit right (OQ-2) | Share of direct account-limit appeals the admin approves; share of purchases refunded | Above 50%; 2× baseline | FR-S13 snapshot, FR-A3 audit |
+| Window long enough (A3) | Share of purchases whose window closed with 0 opened lessons | 2× baseline | `Payment.paidAt`, FR-P19 records |
+| Fee loss acceptable (A8) | Stripe fees on refunded payments / platform revenue | Above 5% | FR-P28 |
+
+Reported for context, with no trigger: the share of requests decided automatically.
 
 ## Discovery
 
@@ -104,6 +136,7 @@ dispute plus refund on the same payment.
 | A8 | Who bears the Stripe fee | **Decided:** the platform, unchanged (Decision §A8) |
 | A9 | Role of evidence against objective rules | **Decided:** rules filter automatically; evidence is used only on appeal |
 | A10 | What a refund of one of two payments for the same course does | **Decided:** access is cancelled only when no other paid payment for the course remains; a duplicate payment is refunded automatically and does not count as the student's refund (Decision §DC) |
+| A11 | What the student's study statistics (weekly chart, week-over-week delta, streak, study days, achievements) show after a refund, since all are computed from the deleted `LessonProgress` | **Decided 2026-11-21:** V2, unchanged: before deletion the course's minutes and completed lessons move into a per-day archive without the course, and every statistic reads live rows + archive (Decision §A11; supersedes D2's single counter) |
 
 ## Assumptions
 
@@ -137,154 +170,109 @@ dispute plus refund on the same payment.
 
 ## User flow
 
-*Drafted 2026-11-16 by AI from `discovery/decisions.md` at my request; reviewed by me 2026-11-21.
-The questions OQ-1–OQ-7 at the end of this section were all decided on 2026-11-16.*
+*Each step names the requirement that holds the detail and the exact texts, so the behaviour is
+stated once, in Functional requirements. The questions decided
+while drafting the flow (OQ-1–OQ-7) are indexed at the end of
+[`decisions.md`](discovery/decisions.md#index-of-decisions-made-while-writing-the-spec).*
+
+```mermaid
+flowchart TD
+  P["Paid course, succeeded payment, button flag on"] --> S{"Purchases row and refund page"}
+  S -->|all conditions hold| R["Request a refund: reason, amount, consequences"]
+  S -->|threshold or account limit exceeded| AP["Ask an admin to review"]
+  S -->|window closed, certificate, refunded once, dispute, request exists| B["Branch B: no request"]
+  R --> C{"Re-check at submit, store snapshot"}
+  C -->|all hold| RF["refunds.create"]
+  C -->|a condition changed| D["Automatic denial, email"]
+  D --> AP
+  AP --> Q["Admin queue: money held"]
+  Q -->|approve| RF
+  Q -->|deny with reason| F["Final, email"]
+  Q -->|day 14, denial was not threshold or limit| RF
+  RF -->|succeeds| E["Effects once: refunded, share cancelled, access closed, records cleared, email"]
+  RF -->|fails at Stripe| BC["Branch C: processing, access unchanged, retried"]
+```
 
 ### Student
 
-**Precondition:** a paid course with a `succeeded` payment; the refund button is on (S2: the payout
-hold ships first, the button 14 days later behind a flag).
+**Precondition:** a paid course with a `succeeded` payment; the button flag is on, 14 days after the
+payout hold shipped (FR-P20).
 
 **Main flow: refund approved automatically**
 
-1. On the course page the student sees "Request a refund" and the deadline: payment date + 14 days,
-   UTC (A3).
-2. The form asks for a reason from a closed list (too easy, too hard, thin content, other) plus
-   optional text. There are no files at this step (C4, S3). The form states the consequences: access
-   closes, progress is erased, a course is refunded only once.
-3. The system checks the conditions and stores a snapshot of them on the request (V6):
-   - the request is inside the window, checked at submission (C1.1);
-   - opened lessons ≤ `min(3, ⌊L/2⌋)`, where L is non-deleted lessons at submission (Q13);
-   - no certificate (Q12);
-   - no earlier refund of this course (D3);
-   - fewer than 3 account-limit refunds (automatic refunds and lost disputes) in the last 12 months
-     (OQ-2, DL);
-   - no open dispute on the charge (OQ-7b).
-4. All conditions hold, so the system refunds at once: `refunds.create` with an idempotency key,
-   applied synchronously from the response (S7). Then:
-   - payment becomes `refunded`, and the held transfer becomes `cancelled` (ADR-037);
-   - enrollment becomes `cancelled`, but only if no other paid payment for the course remains (DC);
-   - learning records are cleared (D2), messaging closes, recommendations are recomputed (A4).
-5. The student sees "Refunded" with a note that the money reaches the card in about 5–10 business
-   days, depending on the bank ([Stripe: refunds](https://docs.stripe.com/refunds)), and gets an email.
+1. In the purchase's row on the Purchases page (`/dashboard/billing`) the student sees a quiet
+   "Request a refund" action; its tooltip shows the deadline (payment date + 14 days, UTC) and links
+   to the refund policy. The course page shows nothing about refunds (FR-S1, UI-1).
+2. The purchase's refund page takes a closed-list reason and optional text, and states the amount and the consequences
+   (FR-S3, FR-S4).
+3. On submit the system re-checks the six conditions and stores a snapshot of them (FR-S2, FR-S5).
+4. All hold, so the refund is made at once and its effects apply once: payment `refunded`, held share
+   `cancelled`, enrollment `cancelled` unless another paid payment remains, learning records cleared,
+   messaging closed, recommendations recomputed (FR-S6, FR-P6–P14).
+5. The student sees "Refunded" with the amount and the 5–10 business days note, and gets an email
+   (FR-S19, FR-S21).
 
-**Branch A: appeal (OQ-1, decided V3)**
-
-- A1. The opened-lesson threshold or the account limit is already exceeded when the student opens
-  the course page. Instead of "Request a refund" they see "Appeal to an admin", naming the condition
-  (for example, "you opened 4 lessons; the limit for this course is 3"). There is no automatic denial
-  step in this case.
-- A1′. Automatic denial remains only for a condition that changed between page load and submit (for
-  example, the window closed, or the instructor deleted lessons so L dropped). The request is saved
-  as denied, naming the failed condition; the student gets an email and may appeal.
-- A2. The student may appeal **once**. The appeal carries a mandatory reason and 0–3 optional evidence files (UF-6). Deadline:
-  the end of the window for a direct appeal (A1); the later of window end or denial + 3 days after
-  an automatic denial (A1′, C4).
-- A3. The appeal goes to the admin queue. The money stays held. The student sees "Appeal under
-  review, decision by <date>" (review ≤ 14 days). If the admin has not decided by then, an appeal
-  that followed an automatic denial for a condition other than the opened-lesson threshold or the
-  account limit is approved automatically and marked "overdue" in the audit (OQ-5). Any other appeal
-  (a direct one, or one after a threshold or account-limit denial) is not: the admin keeps getting
-  reminders (T11, amended 2026-11-21).
-- A4. If the admin approves, step 4 follows. "Approve" is unavailable while the student has a
-  certificate or the charge is disputed, and the admin sees why (EC-10, UF-3). If the admin denies, a
-  written reason is mandatory and files are optional (C5.2). The decision is final, and the student
-  gets an email.
+**Branch A: appeal**
+- A1. Threshold or account limit already exceeded: the refund page names the condition and its
+  numbers and offers "Ask an admin to review" instead of "Request refund"; there is no automatic
+  denial step (FR-S13).
+- A1′. A condition changed between page load and submit: the request is saved as automatically
+  denied, naming it, and the student may appeal (FR-S14).
+- A2. One appeal: mandatory closed-list reason and text, 0–3 optional files; deadline per FR-S16
+  (FR-S15, FR-S16).
+- A3. The appeal waits in the admin queue with the money held; the row shows "Under review", with no
+  promised decision date (FR-S17, FR-A1). Undecided on day 14: auto-approved only after a denial for a condition other than
+  the threshold or the account limit (FR-A5).
+- A4. Approve → step 4; unavailable while a certificate or dispute exists. Deny → written reason,
+  final, shown to the student (FR-A2, FR-S18).
 
 **Branch B: no request possible**
 
-| State | What the student sees |
-|---|---|
-| Window closed | No button; "The refund period ended on <date>" |
-| Certificate received | Button disabled, with the reason |
-| Course already refunded once | No button |
-| Request or appeal already exists | Its status instead of the button |
-| A dispute is open on the payment (`charge.disputed`) | No button; "A dispute about this payment is open with your bank; the refund is decided there" (OQ-7b) |
-| Opened-lesson threshold exceeded, or 3 account-limit refunds in 12 months | "Appeal to an admin" instead of the button (Branch A) |
+| State | Purchases row | Refund page |
+|---|---|---|
+| Window closed | No refund action | "The refund period ended on <date>" (FR-S8) |
+| Certificate received | No refund action | The reason (FR-S9) |
+| Course already refunded once (counting refund) | No refund action | — (FR-S10) |
+| Request or appeal already exists | Its status (FR-S12) | Its status and details |
+| A dispute is open on the payment | No refund action | The dispute text of FR-S11 |
+| Opened-lesson threshold exceeded, or 3 account-limit refunds in 12 months | "Request a refund" | The condition and "Ask an admin to review" (Branch A) |
 
-**Branch C: Stripe refund fails.** The request stays "approved, refund processing". Nothing else
-changes: access, records and transfer are untouched. The payment shows up in the admin's problem
-payments with "Retry" (S4, T4). The student sees a fixed text, never Stripe's message (FR-S20,
-AC-C23): "Refund processing. Your refund has been approved and is being processed. Your access stays
-open until it completes. If it takes longer than 3 days, we will email you." If the refund has not
-succeeded 3 days after approval, the student gets that email and the admin gets a reminder
-(decision C-TEXT).
+**Branch C: Stripe refund fails.** The request stays "approved, refund processing"; access, records
+and the share are untouched; the admin gets a problem payment with "Retry"; the student sees the fixed
+text of FR-S20; on day 3 without success the student is emailed and the admin reminded (FR-S20,
+FR-A11, FS-1).
 
-**Branch D: double charge.** On the second successful payment `finalizeCheckout` refunds it at once
-and the student sees "You were charged twice; the second charge was refunded". This does not count
-as the student's refund (DC).
+**Branch D: double charge.** The second successful payment is refunded at once, does not count, and
+the student is told (FR-P17).
 
-**Branch E: repurchase after a refund.** Allowed; the student starts from scratch (D2). If the
-earlier refund counts under D3 (automatic, appeal-approved, overdue, or a lost bank dispute), the course page says above
-the buy button: "You have already refunded this course, so this purchase cannot be refunded" (OQ-6).
-After an admin exception or a Dashboard refund there is no warning: the refund right remains (OQ-3).
+**Branch E: repurchase after a refund.** Allowed, from scratch; after a counting refund the checkout
+warns that this purchase cannot be refunded (FR-S22, FR-S23).
 
 ### Admin
 
-1. **Appeal queue.** Each appeal shows:
-   - the student's reason and evidence;
-   - the snapshot of conditions from submission: window, opened lessons out of L, certificate,
-     account refund history;
-   - days left until the 14-day review limit.
-   Reminder emails go out on days 10 and 13, then daily. An appeal that followed an automatic denial
-   for a condition other than the threshold or the account limit, and is not decided by day 14, is
-   approved automatically; a direct appeal or one after a threshold or account-limit denial never is
-   (OQ-5, T11).
-2. **Decision.** Approve, or deny with a mandatory reason and optional files. The decision cannot be
-   edited and is logged (R7).
-3. **Exception (C3.1).** From the admin panel the admin refunds any payment with a mandatory reason,
-   such as a wrong price or a platform error. The consequences are the same as step 4; if a
-   certificate exists, it is revoked with reason "admin exception" (E2). It does not use up the
-   student's one refund of the course (OQ-3).
-4. **Dashboard refund (E1, C3.2).** The `charge.refunded` webhook applies the same consequences and
-   revokes a certificate with reason "refund via the Dashboard" (E2). It does not use up the student's
-   one refund of the course (OQ-3). The refund is recorded with
-   "needs review", and the admin gets an email.
-   A **partial** Dashboard refund (`amount_refunded < amount`) is a goodwill compensation: access and
-   learning records stay, the refunded amount is recorded, the payment is flagged "needs review", and
-   the admin gets an email. The platform bears it; the instructor's share is unchanged; it does not
-   count under D3 (OQ-7a).
-5. **Payouts panel (T4).** Shows job status, run history, problem payments with "Retry", and held
-   funds. "Run job now" replaces Sweep. An email goes out on job errors or after 48 h without a
-   successful run. Problem payments also include:
-   - a refund not succeeded 3 days after approval: the admin gets a reminder (C-TEXT, FR-A11);
-   - a refund failed at the bank: the admin closes it as "refunded another way" or "the sale stands"
-     (FS-3, FR-P27).
-6. **Lost bank dispute (DL).** The admin gets an email; the effects are applied automatically
-   (FR-P18b).
+1. **Appeal queue** with the snapshot and days left; reminders on days 10 and 13, then daily (FR-A1,
+   FR-A4).
+2. **Decision**: approve or deny with a reason; final and audited (FR-A2, FR-A3).
+3. **Exception**: refund any payment with a mandatory reason; same effects; does not use up the
+   student's refund (FR-A6, FR-P10).
+4. **Dashboard refund**, full or partial: same effects for a full one, goodwill compensation for a
+   partial one; flagged "needs review" and emailed (FR-A7, FR-P16).
+5. **Payouts panel**: job status, history, problem payments with "Retry", held funds, "Run job now"
+   (FR-A8–A11, FR-P27).
+6. **Lost bank dispute**: emailed; the effects apply automatically (FR-P18b).
 
 ### Instructor
 
-1. **Sale.** The sale appears on Revenue, and its net goes into "On hold until the refund window
-   closes" (A6).
-2. **No refund requests shown.** A request or appeal on their sale is not shown to them (A6). The
-   amount stays "on hold" until a decision.
-3. **Release.** Once the window closes, no request is open, and payouts are enabled, the daily job
-   transfers the net, and it moves to "Paid Out". If Stripe is not connected, it shows under
-   "Waiting for Stripe connection" and is paid on onboarding through the same check (ADR-037).
-4. **Refund before release.** The sale shows the existing `refunded` status and leaves "On hold".
-   Nothing is clawed back. No notification is sent (OQ-4).
-5. **Refund after release** (Dashboard or exception only). The transfer is reversed. If the
-   instructor already withdrew the money, the platform covers the negative balance (D-6). A dispute
-   lost after release is not reversed: the platform bears it and the instructor keeps the money (DL).
-
-### Questions decided while drafting the flow
-
-| # | Question | Draft assumption | Source |
-|---|---|---|---|
-| OQ-1 | Opened-lesson threshold exceeded: allow the request and deny it automatically (so an appeal exists), or disable the button (C5.3)? | **Decided 2026-11-16: V3**, a direct appeal instead of the button (Decision §OQ-1) | C5.3, C4 |
-| OQ-2 | What is the account-level limit (M3b)? No number is recorded | **Decided 2026-11-16:** at most 3 automatic refunds per rolling 12 months; beyond that, a direct appeal (Decision §OQ-2). **Amended 2026-11-21 by DL:** a lost bank dispute counts too | A1 decision |
-| OQ-3 | Does an admin exception count as the student's one refund? | **Decided 2026-11-16: V1, no.** Neither does a Dashboard refund (E2 revised). Only student-initiated refunds count: automatic and appeal-approved (Decision §OQ-3), and since DL a lost bank dispute | C3.1, E2 |
-| OQ-4 | Is the instructor notified of a refund on their sale? | **Decided 2026-11-16: V1, no.** They see the `refunded` status on Revenue (Decision §OQ-4) | Q23 |
-| OQ-5 | What happens if the admin misses the 14-day review limit? | **Decided 2026-11-16: V2.** Reminders on days 10 and 13, then daily; on day 14 the appeal is approved automatically, marked "overdue" (Decision §OQ-5). **Narrowed by T11:** an appeal whose condition is the threshold or the account limit (direct, or after such a denial) is never auto-approved | F6, V2 |
-| OQ-6 | Warn at checkout that a repurchased course has no refund? | **Decided 2026-11-16: V1, yes**, only when the earlier refund counts under D3 (Decision §OQ-6) | D3 |
-| OQ-7a | Partial refund in the Dashboard (E3) | **Decided 2026-11-16: (c)**, keep access, record and flag; the platform bears it (Decision §OQ-7a) | analysis E3 |
-| OQ-7b | A dispute and a refund on the same payment (E8) | **Decided 2026-11-16: V1**, check `charge.disputed` before the button and before `refunds.create`; treat `charge_disputed` as this state, not as a failure (Decision §OQ-7b) | analysis E8 |
+1. **Sale**: on Revenue, its net in "On hold until the refund window closes" (FR-P1, FR-I1).
+2. **No refund requests shown** (FR-I2).
+3. **Release**: after the window, with no open request and payouts enabled, the daily job pays the
+   net; without Stripe connected it waits under "Waiting for Stripe connection" and is paid on
+   onboarding through the same check (FR-P2, FR-P3, FR-I1).
+4. **Refund before release**: `refunded` status, nothing clawed back, no notification (FR-I3).
+5. **Refund after release** (Dashboard or exception only): the transfer is reversed; a dispute lost
+   after release is not (FR-P7).
 
 ## Functional requirements
-
-*Drafted 2026-11-16 by AI from the User flow and `discovery/decisions.md` at my request; reviewed by
-me 2026-11-21. No **[open]** or unconfirmed **[AI]** items remain.*
 
 Terms used below:
 - **window**: 14 days from `Payment.paidAt`, in UTC (A3). A release is possible no earlier than the
@@ -300,11 +288,44 @@ Terms used below:
   overdue-approved refunds do not count toward the account limit (OQ-2 as amended by DL);
 - **eligible for release**: the ADR-037 §1 predicate.
 
+**Priority and launch.** P1 = without it the problem is not solved or money still leaks; P2 =
+fairness and operations around P1; P3 = rare paths. The priority ranks importance; it is not a set of
+separately shippable releases (for example FR-P10 revokes a certificate on the P2 exception path).
+The launch order is the Ships column (FR-P20): Day 0 ships without a flag, Day 14 behind the
+student flag.
+
+| Group | Requirements | Priority | Ships | Why |
+|---|---|---|---|---|
+| Hold and release | FR-P1–P5, P24–P26 | P1 | Day 0 | Closes the pending-payout and clawback leaks |
+| Refund effects | FR-P6–P15 | P1 | Day 0 | Dashboard refunds are possible from day 0; closes the certificate leak |
+| Disputes | FR-P18, P18a, P18b | P1 | Day 0 | The release predicate checks the dispute state; a lost dispute inside the hold would otherwise pay out returned money |
+| Payout monitoring | FR-A8–A10 | P1 | Day 0 | Without the alert the job can stop silently and missed Stripe events expire after 30 days (FS-5, FS-14) |
+| Opened-lesson record and content gate | FR-P19, P19a | P1 | Day 0 | Every purchase in its window on day 14 needs complete opened counts; the threshold means nothing without the gate |
+| Request and automatic decision | FR-S1–S12, S19–S21 | P1 | Day 14 | Keeps the promise |
+| Launch and pricing | FR-P20, FR-P21 | P1 | FR-P21 on Day 14 | The promise on `/pricing` changes when the button appears |
+| Appeals | FR-S13–S18, FR-A1–A5, FR-A11 | P2 | Day 14 | The release valve for a wrong denial |
+| Admin exception | FR-A6 | P2 | Day 14 | Ships with the refund tools |
+| Dashboard refund notice | FR-A7 | P2 | Day 0 | Dashboard refunds are possible from day 0 |
+| Instructor view | FR-I1–I3 | P2 | Day 0 | The hold starts on day 0; instructors must see where their money is |
+| Fee record | FR-P28 | P2 | Day 0 | The A8 baseline needs fees from every payment |
+| Partial Dashboard refund | FR-P16 | P3 | Day 0 | Rare; Dashboard path |
+| Double charge | FR-P17 | P3 | Day 0 | Rare; independent of the button |
+| Refund failed at the bank | FR-P27 | P3 | Day 0 | Rare; Dashboard refunds can fail too |
+| Repurchase | FR-S22–S23 | P3 | Day 0 | A lost dispute is a counting refund from day 0 |
+| Evidence retention | FR-P22 | P3 | Day 14 | Appeals only |
+| Account deletion | FR-P23 | P3 | Day 14 | Requests and appeals only |
+
 ### FR-S: Student
 
+The refund lives on the student's Purchases page (`/dashboard/billing`, today titled "Billing") and on
+a refund page per purchase (`/dashboard/billing/[paymentId]/refund`). The course page shows nothing
+about refunds (UI-1).
+
 **Request**
-- **FR-S1.** A student with a `succeeded` payment for a course sees, on the course page, a "Request a
-  refund" button and the window's end date while all request conditions hold (A3, S2).
+- **FR-S1.** A student with a `succeeded` payment sees, in that purchase's row, a quiet "Request a
+  refund" action while every request condition holds except possibly the threshold and the account
+  limit (those lead to FR-S13). Its tooltip shows the window's end date and links to the refund
+  policy on `/pricing` (A3, S2, UI-1).
 - **FR-S2.** Request conditions are:
   - inside the window;
   - opened lessons ≤ threshold;
@@ -312,7 +333,7 @@ Terms used below:
   - no earlier counting refund of this course;
   - fewer than 3 account-limit refunds on the account in the last 12 months;
   - no open dispute on the charge (Q12, Q13, D3, OQ-2, OQ-7b).
-- **FR-S3.** The request form takes a reason from a closed list (too easy, too hard, thin content,
+- **FR-S3.** The request form, on the purchase's refund page, takes a reason from a closed list (too easy, too hard, thin content,
   other) and optional text. It accepts no files (C4, S3, AS-1).
 - **FR-S4.** Before submit, the form states the amount to be refunded (the remainder after any
   partial Dashboard refund, EC-19) and the consequences:
@@ -327,18 +348,24 @@ Terms used below:
 - **FR-S6.** If all conditions hold, the refund is made at once, with no admin step (A1, M3b).
 - **FR-S7.** A student has at most one request and at most one appeal per course purchase (C4).
 
-**No button**
-- **FR-S8.** Outside the window there is no button; the page shows the date the window ended.
-- **FR-S9.** With a certificate the button is disabled and the page says why.
-- **FR-S10.** After a counting refund of this course there is no button (D3).
-- **FR-S11.** With an open dispute there is no button; the page says the refund is decided by the
-  bank (OQ-7b).
-- **FR-S12.** With an existing request or appeal, its status replaces the button.
+**No refund action**
+- **FR-S8.** Outside the window the row shows no refund action; the refund page says "The refund
+  period ended on <date>".
+- **FR-S9.** With a certificate the row shows no refund action; the refund page says why.
+- **FR-S10.** After a counting refund of this course the row shows no refund action (D3).
+- **FR-S11.** With an open dispute the row shows no refund action; the refund page says "A dispute about this payment is
+  open with your bank; the refund is decided there" (OQ-7b).
+- **FR-S12.** With an existing request or appeal, the row shows its status ("Refund processing",
+  "Under review", "Refunded" or "Denied") instead of the action.
 
 **Appeal**
 - **FR-S13.** When the threshold or the account limit is exceeded and every other condition holds,
-  the student sees "Appeal to an admin" instead of the button, naming the exceeded condition and its
-  numbers (OQ-1).
+  the refund page names the exceeded condition and its numbers and offers "Ask an admin to review"
+  instead of "Request refund" (for example, "you opened 4 lessons; the limit for this course is 3"). There is no
+  automatic denial step in this case (OQ-1). When the direct appeal is filed, the system re-checks
+  the conditions and stores the same snapshot as FR-S5, plus the appeal's kind (direct, or after an
+  automatic denial) and the exceeded condition (added 2026-11-21: the admin queue, FR-A5 and the
+  Success metrics rely on it).
 - **FR-S14.** If a condition fails between page load and submit, the request is saved as
   automatically denied, naming the failed condition, and the student may appeal (OQ-1 A1′).
 - **FR-S15.** An appeal takes a mandatory reason from the FR-S3 closed list, mandatory free text,
@@ -353,28 +380,31 @@ Terms used below:
 - **FR-S16.** Appeal deadline:
   - direct appeal: end of the window;
   - after an automatic denial: the later of window end or denial + 3 days (C4, OQ-1).
-- **FR-S17.** While an appeal is open, the student sees "Appeal under review, decision by <date>",
-  where the date is the appeal date + 14 days (OQ-5).
+- **FR-S17.** While an appeal is open, the row shows "Under review" and the refund page shows
+  "Submitted on <date>. We will email you when it is decided." No decision date is promised: a
+  direct, threshold or account-limit appeal waits for the admin (T11, UI-1).
 - **FR-S18.** The student sees the admin's denial reason and any files the admin attached (C5.2).
 
 **Outcome**
-- **FR-S19.** After a refund the student sees "Refunded" with the refunded amount and a note that
+- **FR-S19.** After a refund the row shows "Refunded" and the refund page the refunded amount and a note that
   the money reaches the card in about 5–10 business days.
-- **FR-S20.** While a Learnix-initiated refund is processing or has failed at Stripe, the student
-  sees the fixed text of Branch C ("Refund processing… If it takes longer than 3 days, we will email
-  you."); access and progress do not change until it succeeds (S4, C-TEXT).
+- **FR-S20.** While a Learnix-initiated refund is processing or has failed at Stripe, the row shows
+  "Refund processing" and the refund page this fixed text, never Stripe's message: "Refund processing. Your refund has been approved and
+  is being processed. Your access stays open until it completes. If it takes longer than 3 days, we
+  will email you." Access and progress do not change until it succeeds (S4, C-TEXT, AC-C23).
 - **FR-S21.** The student gets an email on every student event in the notification matrix
   (Acceptance criteria → Notifications): refund, automatic denial, appeal decision, duplicate charge,
   a refund not succeeded after 3 days, a refund failed at the bank, a lost dispute (V7).
 
 **Repurchase**
 - **FR-S22.** After any refund the student can buy the course again and starts from scratch (D2).
-- **FR-S23.** After a counting refund, the course page warns above the buy button that this purchase
-  cannot be refunded. There is no warning after a non-counting refund (OQ-6, OQ-3).
+- **FR-S23.** After a counting refund, the checkout for that course says before payment: "You have
+  already refunded this course, so this purchase cannot be refunded". There is no warning after a
+  non-counting refund (OQ-6, OQ-3, UI-1).
 
 ### FR-A: Admin
 
-- **FR-A1.** The admin has an appeal queue, oldest first (confirmed 2026-11-21). Each appeal shows:
+- **FR-A1.** The admin has an appeal queue, oldest first. Each appeal shows:
   - reason and evidence;
   - the FR-S5 snapshot;
   - days left until day 14.
@@ -398,7 +428,8 @@ Terms used below:
 - **FR-A8.** The admin has a Payouts panel showing:
   - the job's last run and outcome, with a warning after 48 h without success;
   - run history;
-  - problem payments with "Retry";
+  - problem payments with "Retry", including a refund not succeeded 3 days after approval (FR-A11)
+    and a refund failed at the bank (FR-P27);
   - held funds, total and due in the coming days (T4).
 - **FR-A9.** "Run job now" runs the same release job as the cron and replaces the Sweep button
   (ADR-037 §3).
@@ -448,8 +479,10 @@ Terms used below:
 **Refund effects** (applied once, whichever path triggers them: self-service, appeal, exception,
 Dashboard webhook, lost bank dispute or daily event replay)
 - **FR-P6.** Payment becomes `refunded`.
-- **FR-P7.** A held transfer becomes `cancelled`. A released one is reversed (ADR-037 §1), except
-  after a lost dispute: the platform bears a chargeback after release (`security.md`, DL).
+- **FR-P7.** A held transfer becomes `cancelled`. A released one is reversed (ADR-037 §1); if the
+  instructor already withdrew the money, the platform covers the negative balance (D-6). Exception:
+  after a lost dispute a released transfer is not reversed; the platform bears the chargeback
+  (`security.md`, DL).
 - **FR-P8.** Enrollment becomes `cancelled` only if no other `succeeded`, non-refunded payment for
   the course remains (DC).
 - **FR-P9.** The course's learning records are cleared:
@@ -457,7 +490,11 @@ Dashboard webhook, lost bank dispute or daily event replay)
     and the cached learning path are deleted (AI-L13);
   - `Enrollment.progress` is reset to 0;
   - concept mastery is kept;
-  - study minutes are moved into the student's cumulative counter first (D2).
+  - first, per day of `completedAt`, the minutes and the number of completed lessons are added to the
+    student's study archive (student, day, minutes, lessons; no course). Lifetime minutes, the
+    weekly chart, the week-over-week delta, the streak, study days and achievements read live
+    records + archive, so none of them changes because of a refund (D2, A11). The archive is deleted
+    with the student's account (ADR-025).
 - **FR-P10.** A certificate, if any, is marked revoked, with reason "refund via the Dashboard" or
   "admin exception" or "lost bank dispute". The certificate list and the PDF stop serving it (E2,
   DL).
@@ -488,8 +525,9 @@ Dashboard webhook, lost bank dispute or daily event replay)
 - **FR-P16.** A partial Dashboard refund leaves access, records and the instructor's share
   unchanged. The refunded amount is recorded (OQ-7a). The student's refund right is unchanged; a
   later refund returns the remainder (EC-19).
-- **FR-P17.** When a second payment for a course the student already paid for succeeds, it is
-  refunded at once (non-counting), and the student is told (DC).
+- **FR-P17.** When a second payment for a course the student already paid for succeeds,
+  `finalizeCheckout` refunds it at once (non-counting), and the student sees "You were charged twice;
+  the second charge was refunded" (DC).
 - **FR-P18a.** The system knows whether a payment's charge is under dispute without calling Stripe
   on a page view: dispute opened and closed events, delivered by webhook and by the daily replay,
   update the payment (C12).
@@ -512,6 +550,14 @@ Dashboard webhook, lost bank dispute or daily event replay)
   The UI already shows these only on an opened lesson, so normal use does not change. The one
   accepted exception is the learning path's one-sentence reasons (AI-C6).
 
+**Measurement**
+- **FR-P28.** Every payment from day 0 stores the actual Stripe processing fee, read from its balance
+  transaction, so the A8 revisit trigger ("fees on refunded payments above 5% of platform revenue")
+  can be measured (A8). Payments made before day 0 are not backfilled: the metric counts only
+  refunds of purchases from day 0. The fee is a measurement, so failing to read it never fails the
+  checkout: the payment is saved without a fee, and the daily job fills in missing fees within its
+  batch (FS-15). All amounts are in USD, the only currency (`payment.service.ts:77`).
+
 **Evidence retention**
 - **FR-P22.** Appeal and denial files are deleted 30 days after the final decision on the appeal by
   the daily job. They are never deleted while the appeal is undecided. The snapshot of conditions,
@@ -519,18 +565,23 @@ Dashboard webhook, lost bank dispute or daily event replay)
   (FR-S15 decision).
 
 **Launch**
-- **FR-P20.** The hold (FR-P1–P5) ships without a flag. The student refund button ships 14 days
-  later behind a feature flag (S2). The flag is enforced on the server: with it off, the request and
-  appeal endpoints do not exist for a student (C24). The opened-lesson record (FR-P19) and the
-  restrictions of FR-P19a ship **with the hold**, so every purchase still in its window when the
-  button appears has complete opened counts (AI-C8).
+- **FR-P20.** The launch has two steps (S2):
+  - **Day 0, without a flag:** every requirement marked Day 0 in the Priority table: the hold, the
+    refund effects (so a Dashboard refund between the steps applies them in full), disputes, payout
+    monitoring, the opened-lesson record (FR-P19) and FR-P19a, the instructor view, the fee record
+    and the Dashboard-path special cases. The opened-lesson record ships here so every purchase still
+    in its window on day 14 has complete opened counts (AI-C8);
+  - **Day 14, behind a feature flag:** the student request and appeal, the admin appeal queue and
+    exception, and the `/pricing` text. The flag is enforced on the server: with it off, the request
+    and appeal endpoints do not exist for a student (C24).
 - **FR-P21.** `/pricing` states the new terms:
   - 14 days;
   - the opened-lesson limit;
   - no refund after a certificate;
   - one refund per course (Q20).
 
-  The guarantee text points to the button on the course page, not to "contact us" (D-2).
+  This text is the refund policy the Purchases tooltip links to; it points to the Purchases page,
+  not to "contact us" (D-2, UI-1).
 
 **Account deletion**
 - **FR-P23.** Deleting a student's account (ADR-025) erases their refund free text and file names
@@ -550,6 +601,8 @@ Dashboard webhook, lost bank dispute or daily event replay)
 ## Unsupported use cases
 
 - **Partial refunds.** Only full refunds (Q16).
+- **Refund UI on the course page.** Refunds are not the core of a learning product; the course page
+  stays about learning, and the refund lives on the Purchases page (UI-1).
 - **Refund reasons for the instructor**, individually or aggregated per course. Aggregated reasons
   ("thin content" ×5) would be useful course feedback; that is a separate analytics feature (OQ-4).
 - **Per-sale payout dates for the instructor.** Only the two amounts (A6).
@@ -563,7 +616,7 @@ Dashboard webhook, lost bank dispute or daily event replay)
   permanently, new purchases stop (T27).
 - **A `/contact` page.** Three dead links point to it (footer, `/programs` "Talk to an Advisor",
   the Enterprise plan on `/pricing`). It is a sales and general-contact page, a separate task; the
-  refund channel is the course page (Q21, D-2).
+  refund channel is the Purchases page (Q21, D-2).
 
 ## Non-functional requirements
 
@@ -576,9 +629,6 @@ control C1–C29 there has an acceptance criterion below.
 
 ## Edge cases
 
-*Drafted 2026-11-16 by AI from `discovery/` at my request; reviewed by me 2026-11-21. No **[open]**
-or unconfirmed **[AI]** items remain.*
-
 **Window and threshold**
 
 | # | Case | Behaviour | Source |
@@ -586,10 +636,10 @@ or unconfirmed **[AI]** items remain.*
 | EC-1 | Request at 13 d 23 h 59 m after payment, decided later | Accepted: the window is checked at submission, in UTC | C1.1, FR-S5 |
 | EC-2 | The instructor adds or deletes lessons after the request | No effect: L is fixed in the snapshot at submission | Q13 |
 | EC-3 | The student opened a lesson the instructor later deleted | Does not count: opened lessons are counted among the non-deleted lessons at submission, the same set as L. A deletion is always the instructor's act, so its effect falls on the instructor | Q13, decision EC-3 |
-| EC-4 | The same lesson opened many times | Counts once | M3b (confirmed 2026-11-21) |
+| EC-4 | The same lesson opened many times | Counts once | M3b |
 | EC-5 | A 1-lesson course | Threshold 0: opening the only lesson leads to a direct appeal | Q13 |
 | EC-6 | The student un-marks "Complete" to look less advanced | No effect: the threshold counts opened lessons, not completed | Q13 (supersedes Analysis S6 (d)) |
-| EC-7 | A free course | No payment, so no button | FR-S1 |
+| EC-7 | A free course | No payment, so no Purchases row and no refund action | FR-S1 |
 | EC-8 | The course price changed after purchase (raised, lowered, or the course made free) | The full amount actually paid is refunded. The bought course is the student's; the new price affects nothing: not the amount, the conditions or access (`refunds.create` takes no `amount`, AC-C2) | Q16, C2 |
 | EC-9 | The course is unpublished after purchase | The buyer still sees the course page; the rules are unchanged | T27 |
 
@@ -598,7 +648,7 @@ or unconfirmed **[AI]** items remain.*
 | # | Case | Behaviour | Source |
 |---|---|---|---|
 | EC-10 | The student keeps studying during an appeal and earns the certificate | Access stays open during an appeal. "Approve" is unavailable while a certificate or a dispute exists (UF-3); an overdue auto-approval re-checks both first and does not refund if either is present | Q19, Analysis S6 (b), C11/C12 |
-| EC-11 | Two admin decisions on one appeal at the same moment | The first wins; the second is refused (compare-and-set on the appeal state) | Analysis S6 (a) (confirmed 2026-11-21) |
+| EC-11 | Two admin decisions on one appeal at the same moment | The first wins; the second is refused (compare-and-set on the appeal state) | Analysis S6 (a) |
 | EC-12 | The student deletes their account with a request or appeal open | The account-deletion page warns first: "You have an open refund appeal for course X; deleting your account closes it." An open appeal is then closed without a decision ("account deleted") and counts neither for D3 nor for the account limit; the hold lifts and the instructor's share follows the normal rule. A refund already approved and processing at Stripe is completed. Texts and files are erased (FR-P23) | ADR-025, T29, decision EC-12 |
 
 **Money**
@@ -608,7 +658,7 @@ or unconfirmed **[AI]** items remain.*
 | EC-13 | A refund arrives while the release is `transferring` | The release finishes, then sees the refund and reverses at once | ADR-037 §2 |
 | EC-14 | The window closes before the instructor connects Stripe | The net stays held and shows as "Waiting for Stripe connection" until onboarding | A6, FR-I1 |
 | EC-15 | Purchases made before the hold shipped | None is refundable through Learnix: the button ships 14 days after the hold, so every purchase still in its window was held | S2 |
-| EC-16 | A refund via the Dashboard or an admin exception on a payment with an open request or appeal | The effects apply (via the webhook or the exception); the request or appeal is closed as "refunded by the platform" and does not count for D3 | E1, FR-A6, OQ-3 (request state confirmed 2026-11-21) |
+| EC-16 | A refund via the Dashboard or an admin exception on a payment with an open request or appeal | The effects apply (via the webhook or the exception); the request or appeal is closed as "refunded by the platform" and does not count for D3 | E1, FR-A6, OQ-3 |
 | EC-17 | Repurchase when an earlier payment for the course was disputed | While the dispute is open, the enrollment is active, so a repurchase is blocked (D-12, DC). After a dispute closed lost, access is closed and a repurchase is allowed, with the D3 warning that it cannot be refunded (FR-S23). After a dispute closed won, access never closed, so nothing changes | OQ-7b, D3, DL (rewritten 2026-11-21) |
 | EC-18 | The bank dispute closes lost | Inside the hold: the refund effects apply, the share is cancelled, access closes, a certificate is revoked; counts for D3 and the account limit. After release: the same effects, but the transfer is not reversed; the platform bears it | DL |
 | EC-19 | A partial Dashboard refund, then the student requests a refund | Allowed under the normal rules: the remainder (amount − already refunded) is refunded, so in total the student gets exactly what they paid. It counts as usual; the instructor's share is cancelled. The form and the "Refunded" note show the remainder | OQ-7a, AC-C2, decision EC-19 |
@@ -616,12 +666,12 @@ or unconfirmed **[AI]** items remain.*
 
 ## Failure scenarios
 
-*Drafted 2026-11-16 by AI; reviewed by me 2026-11-21.* Fail-closed = no money moves and no effect is
+Fail-closed = no money moves and no effect is
 applied. Fail-open = the decision or effect stands; only a notice may be missing.
 
 | # | Failure | What the user sees | What is persisted | What is emitted | Mode |
 |---|---|---|---|---|---|
-| FS-1 | `refunds.create` errors (network, Stripe 5xx) | Student: the fixed Branch C text ("Refund processing… we will email you") | Request `approved, processing`; problem payment with the Stripe message | Admin panel row; retried by the daily job and by "Retry"; on day 3 without success a student email and an admin reminder (FR-A11, C-TEXT) | Closed: no effects until it succeeds (FR-S20) |
+| FS-1 | `refunds.create` errors (network, Stripe 5xx) | Student: the fixed FR-S20 text ("Refund processing… we will email you") | Request `approved, processing`; problem payment with the Stripe message | Admin panel row; retried by the daily job and by "Retry"; on day 3 without success a student email and an admin reminder (FR-A11, C-TEXT) | Closed: no effects until it succeeds (FR-S20) |
 | FS-2 | Stripe answers `charge_disputed` | Student: the dispute message (FR-S11) | Dispute state on the payment | — | Closed |
 | FS-3 | The refund is created, then fails at the bank later (closed card, `insufficient_funds` after 45 days) | Student: email "your refund could not be delivered, your access is restored, we will contact you"; the course is back in their list | The enrollment is reactivated; the cleared learning records stay cleared (D2 cannot be undone); the money is back on the platform balance; the payment is flagged as a problem | Refund-failure event via webhook or replay → problem payment and admin email; the admin returns the money another way | Closed for money; access restored automatically (FS-3 decision: V1 + V2) |
 | FS-4 | The webhook never arrives | Nothing different: for a Learnix refund the effects were applied synchronously | — | The daily replay applies a missed Dashboard refund or dispute event (opened, closed, lost) within a day (FR-P15, FR-P18a, FR-P18b) | Closed for payout: the live charge check before release blocks paying out a refunded sale (ADR-037 §1) |
@@ -635,11 +685,11 @@ applied. Fail-open = the decision or effect stands; only a notice may be missing
 | FS-12 | The live charge check before a refund or release fails | Student: "processing"; instructor: amount still held | Problem payment | Retried by the job | Closed |
 | FS-13 | The admin is absent | Appeals on the threshold or the account limit (direct or after such a denial) wait; other appeals after an automatic denial are approved on day 14 | — | Reminders on days 10, 13, then daily | T11, OQ-5 |
 | FS-14 | The daily job does not run for more than 30 days | Missed Stripe events are no longer retrievable (Stripe keeps them 30 days) | — | The 48 h no-success email (FR-A10) fires long before | Closed by FR-A10; a gap beyond 30 days is an accepted risk |
+| FS-15 | Reading the Stripe fee at checkout fails | Nothing; the purchase succeeds | The payment without a fee | Error log; the daily job fills in the fee | Open: the fee is a measurement (FR-P28) |
 
 ## Alternatives
 
-*Assembled 2026-11-16 by AI from `discovery/decisions.md` at my request; reviewed by me 2026-11-21
-(the matrices recomputed). The full options, weights, matrices and sensitivity checks are in
+*The full options, weights, matrices and sensitivity checks are in
 [`discovery/decisions.md`](discovery/decisions.md); the money and consistency decisions are in
 [ADR-037](../../../adr/037-refund-payout-hold-and-money-consistency.md).*
 
@@ -647,7 +697,7 @@ applied. Fail-open = the decision or effect stands; only a notice may be missing
 
 | Decision | Options considered | Chosen |
 |---|---|---|
-| A1: who decides a refund | M1 no questions in the window · M2 window + certificate (Coursera) · M3a + progress, quizzes, account history (Udemy) · **M3b** = M3a + opened lessons · M4 manual review of every request · M5 waiver at purchase · the instructor decides · AI moderation | **M3b**: automatic rules, the admin sees appeals only |
+| A1: who decides a refund | M1 no questions in the window · M2 window + certificate (Coursera) · M3a + progress, quizzes, account history (Udemy) · **M3b** = M3a + opened lessons · M4 manual review of every request (a contact form, the admin decides and refunds by hand; the leaks are closed either way) · M5 waiver at purchase · the instructor decides · AI moderation | **M3b**: automatic rules, the admin sees appeals only |
 | Q13: progress threshold | N = 2 · N = 2 + 20% · "≤ 3 lessons → 1" · `min(3, L − 1)` · by duration · **`min(3, ⌊L/2⌋)` opened lessons** | `min(3, ⌊L/2⌋)` |
 | A3: window length | 7 days · **14 days** · 30 days · 14 days from the first opened lesson (≤ 30 from payment) | 14 days from payment |
 | A8: who bears the Stripe fee | **the platform** · split 20/80 on every sale · the instructor on refunds only · the student (eliminated: full refunds only) | The platform |
@@ -659,17 +709,9 @@ applied. Fail-open = the decision or effect stands; only a notice may be missing
 | D2: progress after a refund | **delete on refund** · reset on repeat purchase · delete nothing, tie progress to the purchase · continue where they left off | From scratch, cleaned when the refund is applied |
 | E2: certificate | clear `completedAt` · filter by status · **explicit revocation field + reason** | Revocation field |
 
-**Decisions made while writing this spec** (each with options in `decisions.md`): A6 two held
-amounts · DC double charge (guard access + auto-refund the duplicate) · OQ-1 direct appeal over the
-threshold · OQ-2 3 automatic refunds per 12 months · OQ-3 platform refunds do not use up the
-student's right · OQ-4 no instructor notification · OQ-5 + T11 overdue auto-approval only after an
-automatic denial for a condition other than the threshold or the account limit (T11 amended for the
-tab race) · OQ-6 repurchase warning · OQ-7a/b partial Dashboard refund, disputes · DL a lost dispute is a counting refund path · D1
-messaging · E2-R review · D-2 `/contact` out of scope · T10 multiple accounts accepted · T27 course
-deletion as a separate feature · FR-S15 files · FS-3 failed refund · AI-C6 accepted · REC · EC-3 ·
-EC-12 · FS-8 · BATCH 50 payments per run · C-TEXT the failed-refund text and day-3 emails · UF-3
-"Approve" unavailable with a certificate or dispute · UF-6 optional appeal files · FR-1 closed-list
-reason on appeals · EC-19 a refund after a partial Dashboard refund returns the remainder.
+**Decisions made while writing this spec** (A6, DC, OQ-1–OQ-7, DL, D1, E2-R, T10, T27, FR-S15, FS-3,
+REC, BATCH, C-TEXT, UF-3, UF-6, EC-3, EC-12, EC-19, UI-1 and others) are indexed, each with its options, at
+the end of [`decisions.md`](discovery/decisions.md#index-of-decisions-made-while-writing-the-spec).
 
 ## Trade-offs
 
@@ -678,23 +720,27 @@ weights and scores are mine, the facts behind them are in `decisions.md`.
 
 **A1: who decides** (K4 is a veto: an option scoring −− is dropped before totalling)
 
-| Criterion (weight) | M2 | M3a | M3b |
-|---|---|---|---|
-| K1 time to decision (1) | ++ | ++ | ++ |
-| K2 admin workload (2) | ++ | + | + |
-| K3 consistency (3) | ++ | + | + |
-| K4 abuse protection (3, veto) | **−− veto** | − | ++ |
-| K5 complexity (2) | ++ | − | −− |
-| **Total** | dropped (10 without the veto) | 2 | **9** |
+| Criterion (weight) | M2 | M3a | M3b | M4 |
+|---|---|---|---|---|
+| K1 time to decision (1) | ++ | ++ | ++ | −− |
+| K2 admin workload (2) | ++ | + | + | −− |
+| K3 consistency (3) | ++ | + | + | − |
+| K4 abuse protection (3, veto) | **−− veto** | − | ++ | + |
+| K5 complexity (2) | ++ | − | −− | ++ |
+| **Total** | dropped (10 without the veto) | 2 | **9** | −2 |
 
-M3b wins at any K5 weight; without the veto M2 would win, so the choice rests on abuse being
-unacceptable, not on a weight.
+Among the rule-based options M3b wins at any K5 weight; without the veto M2 would win, so that
+choice rests on abuse being unacceptable, not on a weight. M4 (a human decides every request)
+overtakes M3b only when complexity weighs more than 4.75, above the heaviest criterion (3); with
+admin workload ignored entirely (K2 = 0, the case of no real traffic) only above 3.25. So the choice
+of rules over a human rests on an instant, consistent decision for the student, not on a guess about
+request volume.
 
 **A3: window length**
 
 | Criterion (weight) | 7 days | **14 days** | 30 days | 14 from first open |
 |---|---|---|---|---|
-| Worst-case instructor wait | 24 d | 31 d | 47 d | 47 d |
+| Worst-case instructor wait (appeal decided on time) | 24 d | 31 d | 47 d | 47 d |
 | K1 time to evaluate (2) | − | + | ++ | ++ |
 | K2 instructor's wait (2) | ++ | + | −− | − |
 | K3 appeal of the guarantee (1) | − | + | ++ | + |
@@ -714,19 +760,43 @@ unacceptable, not on a weight.
 **Without a matrix:** C2.4, T4 and S7 were decided on one dominant criterion each (no transaction
 across a network call; no new service; one handler for webhook and replay), recorded in ADR-037.
 
+**What these decisions make worse** (from the "What I give up" notes in `decisions.md`):
+- **Student:** stricter than today's promise: 14 days instead of 30, a lesson limit, no refund after
+  a certificate, one refund per course. An honest student who opened more than the threshold must
+  appeal and wait for an admin (A1, Q13, A3). A refund erases the course's progress, so a repurchase
+  starts from scratch, and records erased before a refund fails at the bank are not restored (D2,
+  FS-3).
+- **Instructor:** paid after the window instead of at sale: 14 days; ≈ 31 with an appeal the admin
+  decides on time; for a direct, threshold or account-limit appeal the money stays held until the
+  admin decides, with no upper bound (A3, ADR-037, T11). No refund reasons, so no course feedback
+  from refunds (OQ-4). A course with purchases cannot be deleted, only unpublished (AS-8, T27).
+- **Platform:** keeps the Stripe fee on every refund (A8); admin time on appeals (AS-4); a daily job
+  and its monitoring to operate (T4); a chargeback after release is its loss (DL).
+- **Accuracy:** "opened" is not "read" (AS-5); the threshold of 3 rests on seed data (AS-3); multiple
+  accounts can bypass the account limit (T10, accepted); the learning path's one-sentence reasons can
+  draw on unopened lessons (AI-C6, accepted).
+- **Size:** six refund paths, each applying the same effects once, is more to build and test than the
+  manual review of every request (M4).
+
 ## Decision
 
 **What and why, in this context:**
 
-- **Automatic rules decide; an admin sees appeals only (A1, M3b).** Abuse that passes automatically
-  is unacceptable (K4 veto), and a manual review of every request does not scale for one admin with
-  ~2.5 h a week (AS-4). An honest student wrongly refused has one appeal.
+- **Automatic rules decide; an admin sees appeals only (A1, M3b).** The leaks are closed by the hold
+  and the refund effects whoever decides, so A1 is only about who decides. Rules without a progress
+  signal (M2, M3a) let abuse through automatically, which is unacceptable (K4 veto). A human deciding
+  every request (M4) scores −2 against M3b's 9 and wins only if complexity outweighs every other
+  criterion (K5 weight above 4.75, or above 3.25 with admin workload ignored): the student gets an
+  instant answer by the same rules as everyone else instead of waiting days for one person's
+  judgment. An honest student wrongly refused has one appeal; M4 stays the fallback if the rules prove
+  wrong (Success metrics).
 - **The rule counts opened lessons, at most `min(3, ⌊L/2⌋)` (Q13).** Before buying, a student sees
   only a trailer; in all 7 dev-DB courses the first two lessons are intro and setup (seed data,
   AS-3), so the third is the first substantive one. "Complete" is a student-set mark and can be
   skipped, so it cannot be the signal. Opening is necessary for consuming, not proof of it (AS-5).
 - **14 days from payment (A3).** Long enough to start and judge a course; it bounds the instructor's
-  wait at 31 days worst case. A longer guarantee selling better is an unverified assumption (AS-2).
+  wait at ≈ 31 days when the admin decides appeals on time; a direct, threshold or account-limit
+  appeal holds the money until the admin decides (T11). A longer guarantee selling better is an unverified assumption (AS-2).
 - **The instructor's share is held until the window closes (ADR-037).** It closes the three money
   leaks found in Discovery (D-4, D-5, D-6) and means a refund in the window never claws money back.
   Stripe cannot hold it for our charge model (D-15).
@@ -738,6 +808,10 @@ across a network call; no new service; one handler for webhook and replay), reco
 - **A lost bank dispute is a refund path (DL).** While the share is held, it is cancelled and the
   effects apply; otherwise the hold would pay out a sale whose money the bank has returned. After
   release the platform bears it.
+- **The refund lives on the Purchases page, not the course page (UI-1).** Refunds are not the core of
+  a learning product: the course page stays about learning, and a student who wants their money back
+  looks where their purchases and invoices already are. The rules are stated once, in the refund
+  policy on `/pricing`, and in the action's tooltip, not as banners.
 - **Phased launch (S2).** Hold first, the button 14 days later: every purchase in its window when the
   button appears is already held, so no transition rules are needed.
 - **Content only from opened lessons (FR-P19a).** The AI tutor and study guides could otherwise
@@ -748,16 +822,14 @@ for 4 weeks; the share of automatic refunds twice the first-4-weeks baseline).
 
 ## Acceptance criteria
 
-Applies: [`docs/constitution.md`](../../../constitution.md), plus the criteria below. *Functional
-criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every FR traced to an AC).*
+Applies: [`docs/constitution.md`](../../../constitution.md), plus the criteria below. Every FR traces to an AC.
 
 ### Functional
 
 **Student**
-- **AC-F1** (FR-S1, S8–S12). For each state in Branch B, the course page shows exactly the stated
-  button or message: request button with the deadline; no button after the window with the end
-  date; disabled with a certificate; none after a counting refund; dispute message; the existing
-  request's status.
+- **AC-F1** (FR-S1, S8–S12). For each state in Branch B, the Purchases row and the refund page show
+  exactly the stated action, status or message; the tooltip shows the deadline and links to the
+  policy; the course page renders no refund element in any state.
 - **AC-F2** (FR-S2, S5). A request inside the window with opened ≤ threshold, no certificate, no
   earlier counting refund, fewer than 3 account-limit refunds in 12 months and no dispute is refunded at
   once; the stored snapshot holds each condition, opened count, L and the account history.
@@ -765,18 +837,19 @@ criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every
   opened lessons later deleted are not counted; a lesson opened twice counts once.
 - **AC-F4** (FR-S5, EC-1). The window is 14 × 24 h from `paidAt` in UTC; a request at 14 d − 1 s is
   inside, at 14 d is outside; it is judged at submission.
-- **AC-F5** (FR-S13, S14). Over the threshold or the account limit, the student sees "Appeal to an
-  admin" naming the condition and numbers; a condition that changes between page load and submit
+- **AC-F5** (FR-S13, S14). Over the threshold or the account limit, the refund page names the
+  condition and numbers and offers "Ask an admin to review"; a condition that changes between page load and submit
   produces an automatic denial naming it.
 - **AC-F6** (FR-S7, S16). One request and one appeal per purchase; the appeal deadline is the window
   end for a direct appeal, and the later of window end or denial + 3 days after an automatic denial.
-- **AC-F7** (FR-S22, S23, OQ-6, EC-17). After a counting refund (a lost dispute included) the course
-  page warns that a repurchase cannot be refunded; after an admin exception or a Dashboard refund it
+- **AC-F7** (FR-S22, S23, OQ-6, EC-17). After a counting refund (a lost dispute included) the checkout
+  warns that a repurchase cannot be refunded; after an admin exception or a Dashboard refund it
   does not. While a dispute on the earlier payment is open, a repurchase is refused.
 
 **Admin**
-- **AC-F8** (FR-A1, A2, FR-S15). An appeal without files is accepted; one without a closed-list
-  reason or without free text is rejected;
+- **AC-F8** (FR-A1, A2, FR-S13, FR-S15). An appeal without files is accepted; one without a
+  closed-list reason or without free text is rejected; a direct appeal stores the snapshot, its kind
+  and the exceeded condition at filing;
   "Approve" is unavailable, with the reason shown, while a certificate or a dispute exists. The queue
   shows reason, evidence, the snapshot and days left; a denial
   needs a reason; the decision is final and shown to the student with the reason and files.
@@ -795,7 +868,7 @@ criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every
   request, appeal right or failed refund, and payouts enabled, the daily job transfers the net once.
 - **AC-F14** (FR-P6–P13). After a refund on each of the six paths: payment `refunded`; held
   transfer `cancelled` or released one reversed; enrollment `cancelled` unless another paid payment
-  remains; learning records cleared as listed with concept mastery kept and study minutes moved;
+  remains; learning records cleared as listed with concept mastery kept and study minutes archived;
   certificate revoked where applicable; the conversation closed both ways with history readable; the
   review hidden; the course out of the interest profile and recommendations.
 - **AC-F15** (FR-P16, EC-19). After a partial Dashboard refund, a student request inside the rules
@@ -810,19 +883,19 @@ criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every
 - **AC-F18** (FR-P22). Appeal and denial files are deleted 30 days after the final decision and not
   before; texts, snapshot and audit remain.
 - **AC-F19** (FR-P21). `/pricing` states 14 days, the opened-lesson limit, no refund after a
-  certificate and one refund per course, and points to the course page, not "contact us".
-- **AC-F23** (FR-S20, FR-A11). With `refunds.create` failing, the student sees exactly the Branch C
-  text and no Stripe message; 3 days after approval with no success, one email goes to the student and
-  one reminder to the admin; a refund that succeeds earlier sends neither.
+  certificate and one refund per course, and points to the Purchases page, not "contact us".
+- **AC-F20** (EC-12, FR-P23). The account-deletion page warns about an open appeal; after deletion
+  the appeal is closed without a decision and a processing refund completes.
 - **AC-F22** (FR-P18b, EC-18). A dispute closed lost on a held payment applies the effects once,
   cancels the share, closes an open request or appeal, and the next request on the account sees one
   more account-limit refund; on a released payment no reversal is made; a dispute closed won changes
   nothing but the dispute state.
-- **AC-F20** (EC-12, FR-P23). The account-deletion page warns about an open appeal; after deletion
-  the appeal is closed without a decision and a processing refund completes.
+- **AC-F23** (FR-S20, FR-A11). With `refunds.create` failing, the student sees exactly the FR-S20
+  text and no Stripe message; 3 days after approval with no success, one email goes to the student and
+  one reminder to the admin; a refund that succeeds earlier sends neither.
 - **AC-F24** (FR-S3, S4, S17, S19). The request form accepts only a closed-list reason plus optional
   text, and before submit shows the amount and the three consequences; an open appeal shows
-  "decision by" = filing date + 14 days; after a refund the student sees "Refunded" with the amount
+  "Under review" and its filing date, with no promised decision date; after a refund the student sees "Refunded" with the amount
   and the 5–10 business days note.
 - **AC-F25** (FR-P3). With 51 payments eligible, one run releases 50; the next run releases the
   remaining one.
@@ -830,6 +903,15 @@ criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every
   webhook is applied by the next run's replay through the same handler, once.
 - **AC-F27** (EC-20). The held share of an instructor who deleted their account is released to the
   retained Stripe account.
+- **AC-F28** (FR-P28). After a successful checkout the payment holds the Stripe fee equal to the fee
+  on its balance transaction. With the fee read failing, the checkout still succeeds and the payment
+  has no fee; the next job run fills it in.
+- **AC-F29** (FR-P9, A11). A student who completed lessons of the refunded course today and on the
+  previous days of a streak sees, after the refund, the same lifetime minutes, weekly chart,
+  week-over-week delta, streak, study days and achievements as before it.
+- **AC-F30** (FR-P20). With the student flag off: a Dashboard refund applies FR-P6–P13, a disputed
+  payment is not released, a failed job run sends the admin email, and the request and appeal
+  endpoints return "not found" (AC-C24).
 
 ### Notifications (closes FR-S21 / V7)
 
@@ -853,8 +935,8 @@ criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every
 
 ### Security controls (from [`security.md`](security.md))
 
-- **AC-C1.** Student B calling the request, appeal or status endpoint with student A's course gets
-  "not found"; no request row and no Stripe call are created.
+- **AC-C1.** Student B opening student A's refund page, or calling the request, appeal or status
+  endpoint with student A's payment id, gets "not found"; no request row and no Stripe call are created.
 - **AC-C2.** `refunds.create` is called with exactly `{ payment_intent }` from the stored payment and
   no `amount`; an input with extra keys (`amount`, `paymentId`) is rejected.
 - **AC-C3.** Two concurrent requests for one payment create one request row and one `refunds.create`
@@ -878,7 +960,7 @@ criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every
   appeal after an automatic denial for any other condition (e.g. the window closed) is approved on
   day 14 and audited as "overdue".
 - **AC-C12.** With the charge disputed, no `refunds.create` call happens on any path and the student
-  sees the dispute state; dispute events set and clear the stored state; rendering the course page
+  sees the dispute state; dispute events set and clear the stored state; rendering the Purchases page
   makes no Stripe call.
 - **AC-C13.** Two concurrent finalizes of two paid sessions for one student and course end with one
   payment kept and one refunded, and the refunded one was never `pending`.
@@ -943,46 +1025,91 @@ criteria drafted 2026-11-16 by AI from the FRs; reviewed by me 2026-11-21 (every
 
 ## Test & eval scenarios
 
-| Level | What it proves | Includes adversarial / degradation |
-|---|---|---|
-| Unit (`*.test.ts`) | Threshold formula, window in UTC, the release predicate, appeal deadlines, account-limit count, batch size | Window boundary ± 1 s; L = 1; deleted opened lessons |
-| Integration (`*.integration.test.ts`) | Refund effects on all six paths (incl. a lost dispute); compare-and-set under concurrency; double charge; job runs; failed refund; account deletion; remainder after a partial refund (EC-19); replay of a missed event | Two tabs; webhook + replay together; release vs refund at the edge; crash in `transferring` after key expiry; Redis down |
-| Contract (`*.contract.test.ts`) | `transfers.create` in one function; instructor outputs carry no refund data; audit append-only; AI content readers listed; no AI entry point reads refund data; no tutor tool reaches opened/refund state | New reader or tool added without listing |
-| Route tests | Job endpoint auth; file serving and upload checks | Wrong / short secret; IDOR on files; SVG renamed `.png`; > 4 MB |
-| Eval (`evals/lessonAI`) | AC-L2, AC-L11 | "Summarise lessons 4–10" with lesson 1 opened; refund-term questions |
+Every acceptance criterion appears in at least one row. UI states are computed by pure functions
+(the Purchases row state, the refund-page state, the checkout warning) so they are unit-tested; the
+rendering itself is checked by hand at `/qa` in the running app, because the project has no
+component or end-to-end tests.
+
+| Level | What it proves | Acceptance criteria | Includes adversarial / degradation |
+|---|---|---|---|
+| Unit (`*.test.ts`) | Threshold formula; window in UTC; appeal deadlines; the release predicate; the Purchases row and refund-page state for every Branch B state; the checkout warning; `CRON_SECRET` length in env validation | AC-F1, F3, F4, F5, F6, F7, F24, AC-C5, C6, C15 | Window boundary ± 1 s; L = 1; deleted opened lessons; a lesson opened twice; every row state |
+| Integration (`*.integration.test.ts`, `learnix_test`, Stripe mocked) | Request, automatic refund and snapshot; direct appeal and its snapshot; overdue rules; exception; payouts panel data; instructor amounts; refund effects on all six paths; partial refund and remainder; double charge; failed refund at Stripe and at the bank; evidence retention; account deletion; lost and won disputes; replay; batch limit; retained Stripe account; fee record and fill-in; study statistics after a refund; day 0 with the flag off; one email per notification row; authorization by payment id; role checks; audit append-only in Postgres; AI gates on unopened lessons; recommendations and learning records after a refund | AC-F2, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F20, F21, F22, F23, F25, F26, F27, F28, F29, F30, AC-C1, C2, C3, C4, C5, C7, C8, C9, C11, C12, C13, C16, C17, C18, C19, C22, C23, C24, C26, C28, C29, AC-L1, L3, L4, L12, L13 | Two tabs; three concurrent requests against the account limit; webhook + replay together; release vs refund at the edge; crash in `transferring` after key expiry; Redis down; fee read failing; refund on the day of a streak; student B with student A's payment id |
+| Contract (`*.contract.test.ts`) | `transfers.create` in one function and no Sweep; instructor outputs carry no refund data; AI content readers listed; no AI entry point reads refund data; no tutor tool reaches opened or refund state | AC-C14, C19, AC-L7, L9, L10 | A new reader or tool added without listing |
+| Route tests | Job endpoint auth; evidence file serving and upload checks; a revoked certificate | AC-C15, C20, C21, C25 | Wrong or short secret; IDOR on files; SVG renamed `.png`; > 4 MB; a valid 30-day token for a revoked certificate |
+| Eval (`evals/lessonAI`) | The tutor leaks no unopened content and no refund terms | AC-L2, L11 | "Summarise lessons 4–10" with lesson 1 opened; refund-term questions |
+| Manual at `/qa` (running app) | The course page has no refund element; the Purchases row, tooltip and refund page match the state; a reason with markup renders as text; `/pricing` states the policy | AC-F1, F19, F24, AC-C22 | `<img src=x onerror=alert(1)>` as the reason |
+| Release checklist (before the flag is turned on) | The hold shipped with FR-P19 and FR-P19a; tracing off in production; AS-6 (`losses.payments` on the live account), AS-7 (Vercel terms or Pro), AS-8 (courses with purchases cannot be deleted); the private Blob store and `CRON_SECRET` configured | AC-L8, AC-L14 | — |
 
 ## Source of truth
 
 - Behaviour now: this file.
 - Security requirements and accepted risks: [`security.md`](security.md).
 - Money and consistency decisions: [ADR-037](../../../adr/037-refund-payout-hold-and-money-consistency.md)
-  (amended 2026-11-16); payments base: [ADR-019](../../../adr/019-payments.md); student evidence
-  uploads: [ADR-017](../../../adr/017-owasp-security-rules.md) Rule 4 (amended).
-- Why each rule is what it is: [`discovery/decisions.md`](discovery/decisions.md) (frozen once this
-  spec is approved).
+  (amended 2026-11-16 and 2026-11-21, before release); payments base:
+  [ADR-019](../../../adr/019-payments.md); student evidence uploads:
+  [ADR-017](../../../adr/017-owasp-security-rules.md) Rule 4 (amended).
+- Why each rule is what it is: [`discovery/decisions.md`](discovery/decisions.md). Frozen once this
+  spec is approved, except the author's own «why» notes (`documentation-process.md` §2).
+- Who proposed what and how it was checked: [`discovery/ai-decision-log.md`](discovery/ai-decision-log.md);
+  it keeps growing through implementation and validation.
+- Evidence behind Discovery: [`discovery/discovery.md`](discovery/discovery.md),
+  [`discovery/analysis.md`](discovery/analysis.md), [`discovery/ai-raw/`](discovery/ai-raw/).
 - Correctness: the tests named above.
 - Build history (frozen): `build/plan.md`.
+
+**Other specs this feature changes.** Until this feature ships, this file governs the behaviours
+below wherever another spec disagrees; at `/qa` (Gate Docs) each listed spec is updated to the
+shipped behaviour.
+
+| Spec | What changes |
+|---|---|
+| [`payments`](../payments/spec.md) | No transfer at sale; the hold and the single release function (FR-P1–P5, P24) |
+| [`billing`](../billing/spec.md) | The Purchases page carries the refund action, statuses and a refund page per purchase (UI-1) |
+| [`certificates`](../certificates/spec.md) | Revocation with a reason; a revoked certificate is not served (FR-P10, AC-C25) |
+| [`ai-tutor-guardrails`](../ai-tutor-guardrails/spec.md) | The tutor answers and searches only opened lessons (FR-P19a, AC-L1, L2) |
+| [`study-guide`](../study-guide/spec.md) | No study guide for an unopened lesson (FR-P19a, AC-L3) |
+| [`quiz-answer-key`](../quiz-answer-key/spec.md) | No quiz for an unopened lesson (FR-P19a, AC-L4) |
+| [`learning-path`](../learning-path/spec.md) | The cached path is deleted on a refund (FR-P9, AC-L13) |
+| [`semantic-search-recommendations`](../semantic-search-recommendations/spec.md) | The interest profile is recomputed and a refunded course is never recommended back (FR-P12, AC-L12) |
+| [`messages`](../messages/spec.md) | The course conversation closes both ways on a refund (FR-P11, AC-C26) |
+| [`achievements`](../achievements/spec.md) | Study statistics read live records + the study archive (FR-P9, A11) |
+| [`account-deletion-data-retention`](../account-deletion-data-retention/spec.md) | Refund texts, file names, evidence files and the study archive are erased with the account (FR-P23) |
 
 ## Agent notes
 
 - **One release function.** Only it calls `transfers.create`, and every path (job, "Run job now",
   `account.updated`, checkout) goes through it with the full predicate (FR-P2, P2a, P24). Do not add
-  a "quick" transfer anywhere; a contract test guards it.
+  a "quick" transfer anywhere; a contract test guards it. Today `finalizeCheckout` transfers in two
+  places, at sale (`payment.service.ts:162`) and in its idempotent-retry branch (`:124`); both go.
 - **Effects are gated by one compare-and-set** on `payment.status` (`succeeded` → `refunded`), not by
   `ProcessedStripeEvent`; the webhook and the daily replay may run the same event at once.
 - **After a crash, list before retry.** Idempotency keys expire after 24 h; recovery of
-  `transferring` and of refunds first asks Stripe whether the object exists (`transfer_group`).
+  `transferring` and of refunds first asks Stripe whether the object exists: transfers by
+  `transfer_group`, refunds by `payment_intent`.
 - **The window starts at `Payment.paidAt`** (new column, set in `finalizeCheckout`), not `createdAt`.
 - **Opened lessons and L come from the same set**: non-deleted lessons at submission; the snapshot
-  freezes both. The opened record is written before content is returned and fails closed.
-- **Rollout order matters:** day 0 ships the hold, the opened-lesson record and FR-P19a; the student
-  button ships 14 days later behind a server-side flag. Shipping the gates later undercounts opens.
+  freezes both. The opened record is written before content is returned and fails closed. Do not
+  copy `touchLastAccessed`, which logs and ignores its failure (`lesson.service.ts:155-157`); it also
+  stores one date per course, not which lessons were opened. `CourseProgress` is dead (D-8).
+- **Rollout order matters:** day 0 ships everything marked Day 0 in the Priority table (the hold,
+  refund effects, disputes, monitoring, the opened-lesson record and FR-P19a); the student button
+  ships 14 days later behind a server-side flag. Shipping the gates later undercounts opens; shipping
+  the effects later reopens the certificate and payout leaks for Dashboard refunds.
+- **Refund UI lives under `/dashboard/billing`.** The refund page loads the payment by id **and** the
+  session's student id in one query (C1); the course page has no refund element (AC-F1).
+- **The fee comes from the charge `finalizeCheckout` already reads** for `paidAt`: expand its
+  `balance_transaction`; no extra Stripe call. A failure here must not fail the checkout (FS-15).
 - **Evidence files go to the private Blob store** via the dedicated handler; do not reuse
   `VercelService.uploadFileToVercelStorage` (public access, user-supplied extension).
 - **Instructor-facing queries never select refund tables** (A6, OQ-4); the held amounts come from
   `Payment` columns only.
-- **D2 in `decisions.md` says cleanup runs on the webhook; FR-P14 supersedes it** (synchronous).
-- **External preconditions before enabling the button:** AS-6 (`losses.payments` on the live Stripe
-  account), AS-7 (Vercel Hobby terms permit this commercial use, or the Pro plan), AS-8 (courses with
-  purchases cannot be deleted), tracing off in production (AC-L14), a
-  private Blob store and `CRON_SECRET` configured.
+- **Where `decisions.md` is older, this file wins:** D2's cleanup on the webhook → synchronous
+  (FR-P14); D2's cumulative counter → the study archive (A11); the Q13 and A3 revisit triggers →
+  Success metrics; OQ-5's day-14 auto-approval → narrowed by T11 (FR-A5).
+- **Archive before delete (A11).** Every study statistic in `lessonProgress.repository.ts` reads
+  live `LessonProgress` + the study archive; the refund writes the archive in the same transaction
+  that deletes the rows. Bucket days exactly as `getDailyCompletedMinutes` does
+  (`date_trunc('day', "completedAt")`), or archived minutes land on a neighbouring day and break a
+  streak.
+- **External preconditions before enabling the button** are the Release checklist row in Test & eval
+  scenarios; keep them there, not here.

@@ -8,7 +8,7 @@
 **Prompt:** verbatim from the SDD guide (stage 3). The only additions: numbering findings by category, "do not
 repeat Confirmed", and at the end "the 5 most important questions for the PO".
 
-The text below is the AI response, translated from Ukrainian on 2026-11-16. Otherwise it is unedited, so the translation is the only change.
+The text below is the AI response, translated into English; otherwise unedited.
 
 ---
 

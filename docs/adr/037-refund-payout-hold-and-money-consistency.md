@@ -148,6 +148,9 @@ Postgres provides the atomicity. No transaction stays open across the network ca
 - **Instructors wait for their money:** 14 days in the normal case. In the worst case (appeal +
   admin review) it is window + 3 days + up to 14 days ≈ 31 days. This is the direct price of the
   hold.
+  *Amended 2026-11-21:* the ≈ 31-day bound holds only when the admin decides on time. After T11
+  (`refund-self-service/discovery/decisions.md`) a direct, threshold or account-limit appeal is never
+  auto-approved, so its money stays held until the admin decides, with no upper bound.
 - New infrastructure inside the app: a cron route, a secret, a run-history table, an admin payouts
   page, and an admin email.
 - Daily granularity: a missed run delays payouts by a day. Hobby allows one run per day, with

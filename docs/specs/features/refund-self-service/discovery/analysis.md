@@ -1,7 +1,5 @@
 # Refund — Analysis
 
-*Translated from the Ukrainian working original on 2026-11-16; content unchanged.*
-
 ← [Spec](../spec.md) · Previous stage: [Discovery](discovery.md)
 
 The goal of this stage is to check whether the decisions gathered in Discovery hold together: contradictions, missing

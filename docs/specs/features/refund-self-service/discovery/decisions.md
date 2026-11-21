@@ -1,7 +1,5 @@
 # Refund — Alternatives and Decision
 
-*Translated from the Ukrainian working original on 2026-11-16; content unchanged.*
-
 ← [Spec](../spec.md) · Previous stage: [Analysis](analysis.md)
 
 **Stage order changed (2026-11-15).** Alternatives comes before Specification: without the A1 and
@@ -48,6 +46,8 @@ decisions already made.
 | UF-3 — the admin approves an appeal with a certificate or a dispute present | **Decided 2026-11-21:** (a) "Approve" unavailable, with the reason shown |
 | EC-19 — a student request after a partial Dashboard refund | **Decided 2026-11-21:** (a) allowed; the remainder is refunded |
 | FR-1 — a closed-list reason on an appeal | **Decided 2026-11-21:** (a) mandatory, the same list as the request, free text beside it |
+| A11 — study statistics after a refund (weekly chart, streak, achievements) | **Decided 2026-11-21:** V2, a per-day archive without the course replaces D2's single counter |
+| UI-1 — where the student-facing refund UI lives | **Decided 2026-11-21:** V1, the Purchases page (`/dashboard/billing`) and a refund page per purchase; nothing on the course page |
 | UF-6 — are appeal files mandatory | **Decided 2026-11-21:** reason mandatory, 0–3 files optional |
 | BATCH — release job batch size (FR-P3) | **Decided 2026-11-21:** 50 payments per run |
 | DL — a bank dispute lost by the platform | **Decided 2026-11-21:** V2, another refund path through the same effects; counts for D3 and the account limit (amends OQ-2) |
@@ -105,7 +105,7 @@ only for appeals.
 | M2 | Window + certificate, automatic (Coursera) | Considered, eliminated by the K4 veto | See matrix |
 | M3a | M2 + progress + quizzes / tutor + refund history on the account; auto-refusal by heuristic, appeal to the admin (Udemy) | Considered | See matrix |
 | M3b | M3a + tracking of opened lessons | **Chosen** | See matrix |
-| M4 | Manual review of every refund request | Rejected | Admin overload |
+| M4 | Manual review of every refund request (a contact form; the admin decides and refunds by hand; the leaks are closed either way) | Considered | See matrix (added 2026-11-21) |
 | M5 | Waiver of the refund right at purchase | Rejected | Legal question (Q24) |
 | — | The instructor decides | Rejected | Conflict of interest (Q10), subjectivity |
 | — | AI moderation | Rejected | A model decides about money based on text and files from the student |
@@ -127,30 +127,40 @@ based on the facts below; I checked them and changed K4 for M3b from + to ++.
 | M2 | ++ (2) | ++ (4) | ++ (6) | **−− (−6), veto** | ++ (4) | 10 → eliminated |
 | M3a | ++ (2) | + (2) | + (3) | − (−3) | − (−2) | **2** |
 | M3b | ++ (2) | + (2) | + (3) | ++ (6) | −− (−4) | **9** |
+| M4 | −− (−2) | −− (−4) | − (−3) | + (3) | ++ (4) | −2 |
 
 **Facts behind the scores:**
-- **K1:** all three options give an instant decision; only appeals reach the admin. The criterion
-  does not distinguish the options.
-- **K2:** M2 — no admin (only exceptions via the admin panel, C3.1); M3a / M3b — appeals only.
+- **K1:** M2 / M3a / M3b give an instant decision; only appeals reach the admin. M4 — a human
+  decides within days (up to the 14-day review limit).
+- **K2:** M2 — no admin (only exceptions via the admin panel, C3.1); M3a / M3b — appeals only;
+  M4 — every request.
 - **K3:** M2 — two rules determine the decision; M3a / M3b — rules with numeric thresholds + a human on
-  appeals.
+  appeals; M4 — one person's judgment per case.
 - **K4, test — the student read the course and did not press "Complete" (F4):**
   - M2 — gets the money: progress is not checked at all, it lets through everyone without a certificate;
   - M3a — gets the money if they did not use quizzes / the tutor and this is the first refund; account
     history only catches repeat abuse;
+  - M4 — a human judges, but sees the same signals as the rules;
   - M3b — caught: to read a lesson you have to open it. Limits: "opened" ≠ "read";
     purchases before launch have no view history (like S2).
 - **K5:** M2 — `refunds.create` + window and certificate check; M3a — + heuristic, refund
   history, appeal flow with an admin screen; M3b — + schema change, write on lesson open,
-  migration.
+  migration; M4 — the hold and refund effects, a contact form and an admin screen, no rules or
+  appeal flow.
+
+*The M4 row was added on 2026-11-21 (spec review): scores proposed by AI, accepted by me.*
 
 **Sensitivity check:**
 
-| Change | M3a | M3b | Winner |
-|---|---|---|---|
-| As is | 2 | 9 | M3b |
-| K5 weight = 3 | 1 | 7 | M3b |
-| K5 weight = 1 | 3 | 11 | M3b |
+| Change | M3a | M3b | M4 | Winner |
+|---|---|---|---|---|
+| As is | 2 | 9 | −2 | M3b |
+| K5 weight = 3 | 1 | 7 | 0 | M3b |
+| K5 weight = 1 | 3 | 11 | −4 | M3b |
+| K2 weight = 0 (no real traffic) | 0 | 7 | 2 | M3b |
+
+M4 overtakes M3b only when the K5 weight exceeds 4.75 (3.25 with K2 = 0), above the heaviest
+criterion (3).
 
 Without the veto M2 would win (10 vs 9) — the decision depends on K4 being a veto, not a weight. With
 the veto M3b wins at any K5 weight.
@@ -239,6 +249,9 @@ submitted**.
 complaints from honest students are visible and quiet abusers are not, and with only one side measured
 the threshold would only ever get softer. I will revisit Q13 if, for 4 weeks in a row:
 - **the admin overturns more than 50% of threshold-based auto-refusals** → the threshold is too strict.
+  *Amended 2026-11-21:* after OQ-1 a threshold breach is a direct appeal, not a refusal, so this is
+  measured as the share of direct threshold appeals the admin approves (snapshot stored at filing,
+  FR-S13).
   50% is derived by logic, not convention: above it the rule is wrong more often than right;
 - **or among approved refunds, the share of "opened exactly as many as the threshold allows" is twice
   the baseline** (first 4 weeks) → students are gaming the limit, the threshold is too soft or too
@@ -332,6 +345,9 @@ period; 30 — at Udemy (see A1, "How platforms do it").
   manage to start studying → consider V4. The opposite side (window too long) I do not measure: its
   cost — the hold of the instructor's money — is known up front, not from data. The measurement relies
   on the requirement from Q13 (an auto-refusal records the reason and the number of opened lessons).
+  *Amended 2026-11-21:* after OQ-1 and FR-S8 there is no refusal after the window (no button), so
+  this is measured instead as the share of purchases whose window closed with **0 opened lessons**
+  (from `Payment.paidAt` and the opened-lesson records), 2× the baseline → consider V4.
 
 ### Transition question: old purchases (Q15)
 
@@ -1632,3 +1648,95 @@ request a refund. `refunds.create` without `amount` (AC-C2) refunds the remainin
 
 - **What I give up:** the platform pays the partial refund and then the remainder, plus the fee.
 
+
+
+## A11 — study statistics after a refund
+
+*2026-11-21. Facts from the code, options and the recommendation — AI; the choice — mine.*
+
+**Gap.** D2 left "what happens to the weekly charts if the refund happened in the current week —
+decide in the specification", and no section decided it. The code shows the question is wider than
+the chart: every study statistic is computed live from `LessonProgress`, which D2 deletes, and D2's
+cumulative counter preserves only the lifetime minutes.
+
+| Statistic | Computed by | After a refund under D2 as written |
+|---|---|---|
+| Lifetime minutes | `getCompletedMinutesTotals`, `getStudentLessonStats` (`lessonProgress.repository.ts:57,84`) | Preserved by the counter |
+| Weekly chart, average per day | `getDailyCompletedMinutes` (`:115`) → `student.service.ts:35` | The course's minutes vanish from the week |
+| Week-over-week delta | `getCompletedMinutesTotals` this/prior week | Drops |
+| Streak, study days | `getCompletionDays` (`:132`) | Can break |
+| Achievements | `evaluateAchievements`, computed live, no table (`student.service.ts:165-190`) | A badge can disappear |
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| V1 | Live data only; keep D2's single lifetime counter | Rejected | A streak breaks and badges disappear for studying that really happened; lifetime and the chart disagree |
+| **V2** | **Before deletion, move the minutes and the completed-lesson count into per-day archive rows (student, day, minutes, lessons), without the course; every statistic = live rows + archive** | **Chosen** | Nothing the student already saw changes; the archive holds no course, so it keeps no purchase data |
+| V3 | Keep `LessonProgress` rows, marked as from a refunded purchase | Rejected | Reopens D2 (delete) and its rejected "tie progress to the purchase" option |
+
+- **What I give up:** compared to V1 — one more table and a union in five queries. I accept it,
+  because the student did study on those days; D2 already keeps what the student learned (concept
+  mastery) and removes only the course's learning state.
+- **Supersedes in D2:** the single cumulative counter becomes the per-day archive (the lifetime
+  minutes are its sum).
+- **I will revisit if:** never needed as a measured trigger; it is a correctness rule.
+- **Why (in my words):** *TODO (me)*
+
+## UI-1 — where the student-facing refund UI lives
+
+*2026-11-21. Raised by me during the Drawbacks review (the "decision by <date>" question); options,
+mock-ups and the recommendation — AI; the choice — mine.*
+
+**Gap.** The spec put everything on the course page: the button with its deadline, a message per
+state, and an "Appeal to an admin" button. Refunds are not the core of a learning product, and a
+permanent refund element on every course page distracts from learning. It also promised the student
+"decision by <date>", which no longer holds for appeals that wait for the admin (T11).
+
+**Fact.** `/dashboard/billing` already lists the student's `succeeded` and `refunded` payments with
+invoices (`app/dashboard/billing/page.tsx`, billing spec), and it is in the sidebar.
+
+| # | Option | Status | Reason |
+|---|---|---|---|
+| **V1** | **Purchases page: a quiet "Request a refund" action per purchase row, tooltip with the deadline and a policy link, a refund page per purchase; appealing is the next step on that page; nothing on the course page** | **Chosen** | The course page stays about learning; refunds sit with purchases and invoices |
+| V2 | V1 plus a "Refund" item in the course page's menu | Rejected | Still a refund element on the course page |
+| V3 | Keep it on the course page, simplified to one quiet button | Rejected | The course page keeps a refund element; no single place for statuses |
+
+- **What changes:** FR-S1, S3, S8–S13, S17, S19, S20, S23 (the repurchase warning moves to the
+  checkout), FR-P21 (the policy the tooltip links to), AC-F1, F5, F7, F19, F24, AC-C1, AC-C12, and
+  `security.md` C1 (the endpoints take a payment id, authorized with the session's student id). The
+  student no longer sees a promised decision date (FR-S17).
+- **What I give up:** a student who looks for a refund on the course page will not find it there;
+  the policy on `/pricing` and the Purchases page are the only paths.
+- **I will revisit if:** students ask support how to get a refund (they cannot find it).
+- **Why (in my words):** *TODO (me)*
+
+## Index of decisions made while writing the spec
+
+*Moved here from `spec.md` on 2026-11-21 when the spec was condensed. The decisions themselves are
+in the sections above; this is the index the spec used to carry.*
+
+### Questions decided while drafting the user flow
+
+| # | Question | Draft assumption | Source |
+|---|---|---|---|
+| OQ-1 | Opened-lesson threshold exceeded: allow the request and deny it automatically (so an appeal exists), or disable the button (C5.3)? | **Decided 2026-11-16: V3**, a direct appeal instead of the button (Decision §OQ-1) | C5.3, C4 |
+| OQ-2 | What is the account-level limit (M3b)? No number is recorded | **Decided 2026-11-16:** at most 3 automatic refunds per rolling 12 months; beyond that, a direct appeal (Decision §OQ-2). **Amended 2026-11-21 by DL:** a lost bank dispute counts too | A1 decision |
+| OQ-3 | Does an admin exception count as the student's one refund? | **Decided 2026-11-16: V1, no.** Neither does a Dashboard refund (E2 revised). Only student-initiated refunds count: automatic and appeal-approved (Decision §OQ-3), and since DL a lost bank dispute | C3.1, E2 |
+| OQ-4 | Is the instructor notified of a refund on their sale? | **Decided 2026-11-16: V1, no.** They see the `refunded` status on Revenue (Decision §OQ-4) | Q23 |
+| OQ-5 | What happens if the admin misses the 14-day review limit? | **Decided 2026-11-16: V2.** Reminders on days 10 and 13, then daily; on day 14 the appeal is approved automatically, marked "overdue" (Decision §OQ-5). **Narrowed by T11:** an appeal whose condition is the threshold or the account limit (direct, or after such a denial) is never auto-approved | F6, V2 |
+| OQ-6 | Warn at checkout that a repurchased course has no refund? | **Decided 2026-11-16: V1, yes**, only when the earlier refund counts under D3 (Decision §OQ-6) | D3 |
+| OQ-7a | Partial refund in the Dashboard (E3) | **Decided 2026-11-16: (c)**, keep access, record and flag; the platform bears it (Decision §OQ-7a) | analysis E3 |
+| OQ-7b | A dispute and a refund on the same payment (E8) | **Decided 2026-11-16: V1**, check `charge.disputed` before the button and before `refunds.create`; treat `charge_disputed` as this state, not as a failure (Decision §OQ-7b) | analysis E8 |
+
+### Other decisions made while writing the spec
+
+**Decisions made while writing this spec** (each with options in `decisions.md`): A6 two held
+amounts · DC double charge (guard access + auto-refund the duplicate) · OQ-1 direct appeal over the
+threshold · OQ-2 3 automatic refunds per 12 months · OQ-3 platform refunds do not use up the
+student's right · OQ-4 no instructor notification · OQ-5 + T11 overdue auto-approval only after an
+automatic denial for a condition other than the threshold or the account limit (T11 amended for the
+tab race) · OQ-6 repurchase warning · OQ-7a/b partial Dashboard refund, disputes · DL a lost dispute is a counting refund path · D1
+messaging · E2-R review · D-2 `/contact` out of scope · T10 multiple accounts accepted · T27 course
+deletion as a separate feature · FR-S15 files · FS-3 failed refund · AI-C6 accepted · REC · EC-3 ·
+EC-12 · FS-8 · BATCH 50 payments per run · C-TEXT the failed-refund text and day-3 emails · UF-3
+"Approve" unavailable with a certificate or dispute · UF-6 optional appeal files · FR-1 closed-list
+reason on appeals · EC-19 a refund after a partial Dashboard refund returns the remainder.

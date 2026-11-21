@@ -1,7 +1,5 @@
 # AI decision log
 
-*Translated from the Ukrainian working original on 2026-11-16; content unchanged.*
-
 ← [Spec](../spec.md)
 
 I write entries **at the moment of the decision**, not after the fact. One entry is one AI proposal that I
@@ -925,5 +923,170 @@ The IDP review needs 2–3 vivid examples:
   rows in the test table; the AC-C10/C27/L5/L6 gaps left as explained in `security.md`
 - **My decisions:** all as proposed; I mark the Acceptance criteria as reviewed
 - **How I verified:** read the section with the AI's trace
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — Spec condensed and best-practice gaps filled
+- **Stage:** specification (whole spec, after the section-by-section review)
+- **Context the AI had:** the full `spec.md`, `decisions.md`, the `/plan` command, and a web review of
+  spec practices (Google design docs, Rust RFC, Amazon PR/FAQ, GitHub Spec Kit, Kiro/EARS,
+  ISO/IEC/IEEE 29148)
+- **AI proposed:** first, moving FR and AC into sibling files; I rejected that because `/plan` reads
+  only `spec.md` and `security.md`, so the spec must keep everything the plan needs. Instead: condense
+  the User flow into a diagram plus steps that cite the FRs (exact UI texts moved into FR-S8, S11,
+  S13, S20, S23, FR-P7, P17, FR-A8); move the OQ table and the list of spec-time decisions to
+  `decisions.md`; add a short summary, Success metrics, FR priorities, the Scope/M0 alternative and a
+  "What these decisions make worse" list. It also found two consequences `decisions.md` handed to the
+  spec that no section covered: the stored Stripe fee (A8 → FR-P28, AC-F28) and the weekly chart
+  after a refund (D2 → A11, left **[open]**)
+- **My decisions:** keep everything the plan needs in `spec.md`; apply the recommended additions
+- **How I verified:** *Not verified by me*
+- **Verdict:** `partially accepted` (the sibling files were rejected)
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — A11: study statistics after a refund
+- **Stage:** specification (Ambiguities A11, FR-P9)
+- **Context the AI had:** D2 in `decisions.md`, `lessonProgress.repository.ts`, `student.service.ts`
+- **AI proposed:** that the open "weekly chart" question is wider: the chart, the weekly delta, the
+  streak, study days and the live-computed achievements all read the deleted `LessonProgress`, and
+  D2's counter keeps only lifetime minutes. Options V1 live only, V2 per-day archive without the
+  course, V3 keep rows marked; recommended V2
+- **My decisions:** V2
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — In short and Success metrics review
+- **Stage:** specification (Description "In short", Business / user value "Success metrics")
+- **Context the AI had:** both blocks, the revisit triggers in `decisions.md` (A1, Q13, A3, A8,
+  OQ-1, OQ-2), FR-S5, FR-S8, FR-S13, FR-A1, AC-F8, AS-8
+- **AI proposed:** the Q13 and A3 triggers, written before OQ-1, measure refusals that no longer
+  exist (a threshold breach is a direct appeal; after the window there is no button), so restate
+  them; add the missing A1 and OQ-2 triggers; mark the automatic-share row as context only; a gap:
+  a direct appeal stores no snapshot although the queue and the metrics need one; in "In short",
+  course-deletion protection is a precondition (AS-8), not "not done", one of the three leaks is a
+  certificate, not money, and FR-P19a and Scope/M0 were missing
+- **My decisions:** all accepted; the A3 trigger is computed from data (0 opened lessons at window
+  close), not from a new logged event; the snapshot is stored when a direct appeal is filed
+- **How I verified:** read both blocks with the findings
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — Description review
+- **Stage:** specification (Description paragraph)
+- **Context the AI had:** the Description, FR-S13 (OQ-1), FR-P2a, FR-P7, the Decision section
+- **AI proposed:** two statements had drifted from later decisions: "appeal a denial" (after OQ-1
+  most appeals are direct, with no denial) and "a refund never claws back" (a Dashboard or exception
+  refund after release does, FR-P7); name the 14 days
+- **My decisions:** the rewrite
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — Priority review
+- **Stage:** specification (Functional requirements "Priority", FR-P20)
+- **Context the AI had:** the Priority table, FR-P2a, FR-P10, FR-P20, FS-5, FS-14, S2 in `decisions.md`
+- **AI proposed:** disputes were P2 although the table's own P1 definition (money still leaks) fits
+  them; payout monitoring FR-A8–A10 belongs in P1 because FS-5/FS-14 rely on its alert; P1–P3 are an
+  importance ranking, not separately shippable releases; FR-P20 named only the hold and FR-P19/P19a
+  for day 0, while Dashboard refunds between day 0 and day 14 need the refund effects, disputes and
+  monitoring
+- **My decisions:** move disputes and FR-A8–A10 to P1; add a Ships column (Day 0 / Day 14), expand
+  FR-P20 and add AC-F30
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — Scope/M0 review: M4 scored in the A1 matrix
+- **Stage:** specification (Alternatives, Trade-offs, Decision for A1)
+- **Context the AI had:** the Scope/M0 row and Decision bullet, A1 in `decisions.md` (options,
+  matrix, sensitivity)
+- **AI proposed:** M0 duplicated M4 (manual review of every request), which A1 had rejected in one
+  word without scoring; the admin-load argument depends on a request volume that does not exist; the
+  claim "the hold is most of the money work" was unsupported. Drop M0, score M4 in the A1 matrix
+  (−2 vs 9) with a sensitivity check: M4 wins only at a K5 weight above 4.75, or 3.25 with K2 = 0
+- **My decisions:** merge M0 into M4; accept the M4 scores as proposed
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — Drawbacks review: the 31-day bound
+- **Stage:** specification (Trade-offs "What these decisions make worse", Business / user value,
+  Decision A3, ADR-037)
+- **Context the AI had:** the drawbacks list, T11 and its "What I give up", OQ-5, D2, FS-3, OQ-4,
+  AS-8, AI-C6
+- **AI proposed:** the "≈ 31 days worst case" promised in four places no longer holds after T11 (a
+  direct, threshold or limit appeal is never auto-approved, so the money is held until the admin
+  decides), which T11's own "What I give up" already says; add the missing drawbacks (progress
+  erased, no refund feedback for instructors, courses with purchases cannot be deleted, AI-C6)
+- **My decisions:** rewrite the bound honestly everywhere, amend ADR-037; mechanics unchanged.
+  Raised by me in the same step: the refund UI should not sit on the course page (see the next entry)
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — UI-1: the refund UI moves to the Purchases page
+- **Stage:** specification (User flow, FR-S, AC, `security.md` C1)
+- **Context the AI had:** the student FRs and ACs, `app/dashboard/billing/page.tsx`, the billing spec
+- **Raised by me:** no permanent refund text or appeal button on the course page; refunds are not the
+  core of the product; put the rules in a tooltip or the purchase policy and the refund logic in a
+  separate place
+- **AI proposed:** three placements with mock-ups; recommended the existing Billing page (renamed
+  Purchases) with a quiet row action, a tooltip, a refund page per purchase and "Ask an admin to
+  review" as the next step on that page; no promised decision date; the repurchase warning at checkout
+- **My decisions:** the recommended placement
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — FR-P28 review: the Stripe fee record
+- **Stage:** specification (FR-P28, AC-F28, Failure scenarios, Agent notes)
+- **Context the AI had:** FR-P28, `payment.service.ts` `finalizeCheckout`, the `Payment` model
+- **AI proposed:** FR-P28 did not say what happens when the fee cannot be read (it is a measurement,
+  so it must not fail the checkout); read it from the charge already fetched for `paidAt`; payments
+  before day 0 are not backfilled; currency is USD only. Options for a failed read: fill in by the
+  daily job, or leave it empty
+- **My decisions:** fail open, the daily job fills in missing fees
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — Test & eval scenarios review
+- **Stage:** specification (Test & eval scenarios, Acceptance criteria order)
+- **Context the AI had:** the table, all 68 acceptance criteria, the project's test levels (no
+  `*.test.tsx`, no end-to-end tests)
+- **AI proposed:** add an AC column so coverage can be checked; cover the new criteria (AC-F8, F28,
+  F29, F30, UI-1) and the uncovered old ones (AC-F21, C17, C25, L1, L3, L4, C1 by payment id); a
+  manual row and a release-checklist row; sort the ACs by number. For UI criteria: pure state
+  functions with unit tests plus a manual check at `/qa`, component tests, or end-to-end tests
+- **My decisions:** pure functions + manual check; the rest as proposed
+- **How I verified:** *Not verified by me* (the AI's script confirmed every AC appears in the table)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — Source of truth review
+- **Stage:** specification (Source of truth, frontmatter `depends-on`)
+- **Context the AI had:** the section, `documentation-process.md` §1a and §2, the list of feature specs
+- **AI proposed:** name both ADR-037 amendments (and note §1a: ADRs are not edited after a change;
+  both amendments are pre-release corrections, not reversals); "frozen" must except the author's
+  «why» notes; add the AI decision log and the discovery evidence; a rule for the 11 other specs whose
+  behaviour this feature changes
+- **My decisions:** a table of the 11 specs with the rule "this file governs until release; each is
+  updated at `/qa`", and `depends-on` extended to them
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — Agent notes review
+- **Stage:** specification (Agent notes)
+- **Context the AI had:** the section, `payment.service.ts`, `lesson.service.ts`,
+  `lessonProgress.repository.ts`, `vercel.service.ts`
+- **AI proposed:** replace the preconditions list with a pointer to the Release checklist (one list,
+  not two); one note for where `decisions.md` is older than the spec; refunds are recovered by
+  `payment_intent`, not `transfer_group`; add gotchas seen in code: two transfer calls in
+  `finalizeCheckout`, `touchLastAccessed` fails open, `CourseProgress` is dead, archive day bucketing
+  must match the chart query
+- **My decisions:** accepted as text edits
+- **How I verified:** *Not verified by me*
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*

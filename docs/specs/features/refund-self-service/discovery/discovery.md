@@ -1,5 +1,4 @@
 # Refund — Discovery
-*Translated from the Ukrainian working original on 2026-11-16; content unchanged.*
 
 ← [Spec](../spec.md)
 
