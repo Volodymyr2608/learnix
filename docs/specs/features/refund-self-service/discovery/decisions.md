@@ -45,6 +45,8 @@ decisions already made.
 | FS-8 — Redis unavailable for the job lock | **Decided 2026-11-16:** V1, skip the run (fail closed) |
 | FS-3 follow-up — the instructor's share after a failed refund | **Decided 2026-11-16:** V2, back to held until the admin resolves |
 | C-TEXT — the student text when a refund fails at Stripe (Branch C) | **Decided 2026-11-21:** a fixed text promising an email after 3 days; on day 3 the student is emailed and the admin reminded |
+| UF-3 — the admin approves an appeal with a certificate or a dispute present | **Decided 2026-11-21:** (a) "Approve" unavailable, with the reason shown |
+| UF-6 — are appeal files mandatory | **Decided 2026-11-21:** reason mandatory, 0–3 files optional |
 | BATCH — release job batch size (FR-P3) | **Decided 2026-11-21:** 50 payments per run |
 | DL — a bank dispute lost by the platform | **Decided 2026-11-21:** V2, another refund path through the same effects; counts for D3 and the account limit (amends OQ-2) |
 | ADR-014 (n8n) → mark superseded | Later, a separate small edit (not Refund) |
@@ -1577,4 +1579,24 @@ still being processed and the admin gets a reminder (FR-A11).
 
 - **What I give up:** one more scheduled check in the daily job.
 - **I will revisit if:** students ask about stuck refunds before day 3.
+
+## UF-3 and UF-6 — User flow review
+
+*2026-11-21. Found while I reviewed the User flow with the AI; options and recommendations — AI; the
+choices — mine.*
+
+**UF-3. The admin approves an appeal while a certificate or a dispute exists.** EC-10 says a
+certificate at decision time means a denial, and the day-14 auto-approval re-checks it, but the
+admin's own "Approve" (A4) did not.
+
+| # | Rule | Status |
+|---|---|---|
+| **(a)** | **"Approve" is unavailable while a certificate or a dispute exists; the admin sees why** | **Chosen**: the admin never presses a button that cannot work |
+| (b) | The admin may press "Approve"; the system refuses | Rejected |
+
+**UF-6. Are evidence files mandatory on an appeal?** A2 and FR-S15 said "a reason and evidence
+files". For a direct appeal over the threshold there is often nothing to attach ("I opened them but
+did not watch").
+
+**Decision:** the reason is mandatory; 0–3 files are optional.
 

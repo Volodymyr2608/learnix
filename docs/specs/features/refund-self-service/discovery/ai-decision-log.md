@@ -858,3 +858,17 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me*
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-21 — User flow review
+- **Stage:** specification (User flow, reviewed section by section)
+- **Context the AI had:** the User flow, FR-S2, FR-S15, FR-A2, FR-P27, EC-10 and today's decisions
+  (DL, C-TEXT)
+- **AI proposed:** seven findings: step 3 missing the dispute condition; Branch E missing a lost
+  dispute; A4 approve not re-checking certificate/dispute (UF-3, options a/b, recommended a); the
+  admin flow missing the lost-dispute email, the day-3 reminder and the FR-P27 outcomes; the
+  instructor flow missing a dispute lost after release; appeal files mandatory or not (UF-6,
+  recommended optional); a stale "Open questions" heading
+- **My decisions:** all seven as recommended; I mark the User flow as reviewed
+- **How I verified:** read the section with the AI's findings
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

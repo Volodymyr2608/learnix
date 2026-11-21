@@ -137,8 +137,8 @@ dispute plus refund on the same payment.
 
 ## User flow
 
-*Draft 2026-11-16, written by AI from `discovery/decisions.md` at my request; under my review.
-The open questions OQ-1–OQ-7 at the end of this section were all decided on 2026-11-16.*
+*Drafted 2026-11-16 by AI from `discovery/decisions.md` at my request; reviewed by me 2026-11-21.
+The questions OQ-1–OQ-7 at the end of this section were all decided on 2026-11-16.*
 
 ### Student
 
@@ -158,7 +158,8 @@ hold ships first, the button 14 days later behind a flag).
    - no certificate (Q12);
    - no earlier refund of this course (D3);
    - fewer than 3 account-limit refunds (automatic refunds and lost disputes) in the last 12 months
-     (OQ-2, DL).
+     (OQ-2, DL);
+   - no open dispute on the charge (OQ-7b).
 4. All conditions hold, so the system refunds at once: `refunds.create` with an idempotency key,
    applied synchronously from the response (S7). Then:
    - payment becomes `refunded`, and the held transfer becomes `cancelled` (ADR-037);
@@ -176,7 +177,7 @@ hold ships first, the button 14 days later behind a flag).
 - A1′. Automatic denial remains only for a condition that changed between page load and submit (for
   example, the window closed, or the instructor deleted lessons so L dropped). The request is saved
   as denied, naming the failed condition; the student gets an email and may appeal.
-- A2. The student may appeal **once**. The appeal carries a reason and evidence files. Deadline:
+- A2. The student may appeal **once**. The appeal carries a mandatory reason and 0–3 optional evidence files (UF-6). Deadline:
   the end of the window for a direct appeal (A1); the later of window end or denial + 3 days after
   an automatic denial (A1′, C4).
 - A3. The appeal goes to the admin queue. The money stays held. The student sees "Appeal under
@@ -185,8 +186,10 @@ hold ships first, the button 14 days later behind a flag).
   account limit is approved automatically and marked "overdue" in the audit (OQ-5). Any other appeal
   (a direct one, or one after a threshold or account-limit denial) is not: the admin keeps getting
   reminders (T11, amended 2026-11-21).
-- A4. If the admin approves, step 4 follows. If the admin denies, a written reason is mandatory and
-  files are optional (C5.2). The decision is final, and the student gets an email.
+- A4. If the admin approves, step 4 follows. "Approve" is unavailable while the student has a
+  certificate or the charge is disputed, and the admin sees why (EC-10, UF-3). If the admin denies, a
+  written reason is mandatory and files are optional (C5.2). The decision is final, and the student
+  gets an email.
 
 **Branch B: no request possible**
 
@@ -212,7 +215,7 @@ and the student sees "You were charged twice; the second charge was refunded". T
 as the student's refund (DC).
 
 **Branch E: repurchase after a refund.** Allowed; the student starts from scratch (D2). If the
-earlier refund counts under D3 (automatic, appeal-approved or overdue), the course page says above
+earlier refund counts under D3 (automatic, appeal-approved, overdue, or a lost bank dispute), the course page says above
 the buy button: "You have already refunded this course, so this purchase cannot be refunded" (OQ-6).
 After an admin exception or a Dashboard refund there is no warning: the refund right remains (OQ-3).
 
@@ -243,7 +246,12 @@ After an admin exception or a Dashboard refund there is no warning: the refund r
    count under D3 (OQ-7a).
 5. **Payouts panel (T4).** Shows job status, run history, problem payments with "Retry", and held
    funds. "Run job now" replaces Sweep. An email goes out on job errors or after 48 h without a
-   successful run.
+   successful run. Problem payments also include:
+   - a refund not succeeded 3 days after approval: the admin gets a reminder (C-TEXT, FR-A11);
+   - a refund failed at the bank: the admin closes it as "refunded another way" or "the sale stands"
+     (FS-3, FR-P27).
+6. **Lost bank dispute (DL).** The admin gets an email; the effects are applied automatically
+   (FR-P18b).
 
 ### Instructor
 
@@ -257,9 +265,10 @@ After an admin exception or a Dashboard refund there is no warning: the refund r
 4. **Refund before release.** The sale shows the existing `refunded` status and leaves "On hold".
    Nothing is clawed back. No notification is sent (OQ-4).
 5. **Refund after release** (Dashboard or exception only). The transfer is reversed. If the
-   instructor already withdrew the money, the platform covers the negative balance (D-6).
+   instructor already withdrew the money, the platform covers the negative balance (D-6). A dispute
+   lost after release is not reversed: the platform bears it and the instructor keeps the money (DL).
 
-### Open questions (AI-raised; to resolve before Functional requirements)
+### Questions decided while drafting the flow
 
 | # | Question | Draft assumption | Source |
 |---|---|---|---|
@@ -332,7 +341,8 @@ Terms used below:
   numbers (OQ-1).
 - **FR-S14.** If a condition fails between page load and submit, the request is saved as
   automatically denied, naming the failed condition, and the student may appeal (OQ-1 A1′).
-- **FR-S15.** An appeal takes a reason and evidence files (S3, C5.3, FR-S15 decision):
+- **FR-S15.** An appeal takes a mandatory reason and 0–3 optional evidence files (S3, C5.3, FR-S15
+  decision, UF-6):
   - PNG, JPEG or PDF only, checked by content (magic bytes), not by extension;
   - at most 3 files and 4 MB in total per appeal, sent in one request with the text;
   - stored in a **private** Vercel Blob store, separate from the public one;
@@ -372,7 +382,8 @@ Terms used below:
   - the FR-S5 snapshot;
   - days left until day 14.
 - **FR-A2.** The admin approves or denies an appeal. A denial requires a written reason and accepts
-  optional files (C5.2).
+  optional files (C5.2). "Approve" is unavailable while the student has a certificate or the charge
+  is disputed; the admin sees why (EC-10, UF-3).
 - **FR-A3.** An appeal decision cannot be edited or deleted. The system records who decided, when,
   and the reason (R7). The database itself rejects changes to the audit records (C18).
 - **FR-A4.** The admin gets a reminder email for an undecided appeal on day 10 and day 13, then daily
@@ -749,7 +760,9 @@ criteria drafted 2026-11-16 by AI from the FRs; under my review.*
   cannot be refunded; after an admin exception or a Dashboard refund it does not.
 
 **Admin**
-- **AC-F8** (FR-A1, A2). The queue shows reason, evidence, the snapshot and days left; a denial
+- **AC-F8** (FR-A1, A2). An appeal without files is accepted, one without a reason is rejected;
+  "Approve" is unavailable, with the reason shown, while a certificate or a dispute exists. The queue
+  shows reason, evidence, the snapshot and days left; a denial
   needs a reason; the decision is final and shown to the student with the reason and files.
 - **AC-F9** (FR-A5, T11). See AC-C11.
 - **AC-F10** (FR-A6). An exception refund applies the same effects, revokes a certificate with
