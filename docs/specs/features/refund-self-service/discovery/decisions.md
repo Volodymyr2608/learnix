@@ -46,6 +46,7 @@ decisions already made.
 | FS-3 follow-up — the instructor's share after a failed refund | **Decided 2026-11-16:** V2, back to held until the admin resolves |
 | C-TEXT — the student text when a refund fails at Stripe (Branch C) | **Decided 2026-11-21:** a fixed text promising an email after 3 days; on day 3 the student is emailed and the admin reminded |
 | UF-3 — the admin approves an appeal with a certificate or a dispute present | **Decided 2026-11-21:** (a) "Approve" unavailable, with the reason shown |
+| FR-1 — a closed-list reason on an appeal | **Decided 2026-11-21:** (a) mandatory, the same list as the request, free text beside it |
 | UF-6 — are appeal files mandatory | **Decided 2026-11-21:** reason mandatory, 0–3 files optional |
 | BATCH — release job batch size (FR-P3) | **Decided 2026-11-21:** 50 payments per run |
 | DL — a bank dispute lost by the platform | **Decided 2026-11-21:** V2, another refund path through the same effects; counts for D3 and the account limit (amends OQ-2) |
@@ -1599,4 +1600,18 @@ files". For a direct appeal over the threshold there is often nothing to attach 
 did not watch").
 
 **Decision:** the reason is mandatory; 0–3 files are optional.
+
+## FR-1 — a closed-list reason on an appeal
+
+*2026-11-21. Found while I reviewed the Functional requirements with the AI; options and the
+recommendation — AI; the choice — mine.*
+
+**Gap.** The request form takes a reason from a closed list (FR-S3), which AS-1 and later analytics
+rely on. A direct appeal (OQ-1 V3) creates no request, so students over the threshold or the account
+limit never give a closed-list reason.
+
+| # | Rule | Status |
+|---|---|---|
+| **(a)** | **The appeal form also takes a mandatory closed-list reason, with free text beside it** | **Chosen**: one field, complete statistics |
+| (b) | Leave as is | Rejected: the reasons of exactly the borderline students are lost |
 

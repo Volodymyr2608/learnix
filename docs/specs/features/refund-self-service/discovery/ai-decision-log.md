@@ -872,3 +872,15 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** read the section with the AI's findings
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-21 — Functional requirements review
+- **Stage:** specification (Functional requirements, reviewed section by section)
+- **Context the AI had:** the FR section, ADR-037 §1, the notification matrix, today's decisions
+- **AI proposed:** FR-P13 missing a lost dispute; FR-P2a missing the dispute condition of the ADR
+  predicate; a stale snapshot term in FR-S5; FR-S21 shorter than the notification matrix; a
+  closed-list reason on appeals (FR-1, options a/b, recommended a); regrouping Launch into Launch,
+  Account deletion and Guards without renumbering
+- **My decisions:** all as recommended, (a) for FR-1; I mark the FR section as reviewed
+- **How I verified:** read the section with the AI's findings
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

@@ -109,7 +109,7 @@ dispute plus refund on the same payment.
 
 | # | Assumption | How to verify | If false |
 |---|---|---|---|
-| AS-1 | Students want refunds because a course is too easy, too hard, or thin | Reasons recorded on requests after launch | The reason list changes; the rules hold |
+| AS-1 | Students want refunds because a course is too easy, too hard, or thin | Reasons recorded on requests and appeals (same closed list) after launch | The reason list changes; the rules hold |
 | AS-2 | A refund guarantee increases purchases | Conversion before and after launch | The feature still closes the leaks; marketing value drops |
 | AS-3 | The first two lessons of a course are introduction and setup; the third is the first substantive one | Holds for all 7 dev-DB courses (**seed data**, not real courses) | The threshold of 3 is wrong; revisit Q13 |
 | AS-4 | The admin has ~2.5 h/week and an appeal takes ~15 min | Measure appeal handling time | The "> 10 appeals/week" revisit trigger moves |
@@ -274,7 +274,7 @@ After an admin exception or a Dashboard refund there is no warning: the refund r
 |---|---|---|---|
 | OQ-1 | Opened-lesson threshold exceeded: allow the request and deny it automatically (so an appeal exists), or disable the button (C5.3)? | **Decided 2026-11-16: V3**, a direct appeal instead of the button (Decision §OQ-1) | C5.3, C4 |
 | OQ-2 | What is the account-level limit (M3b)? No number is recorded | **Decided 2026-11-16:** at most 3 automatic refunds per rolling 12 months; beyond that, a direct appeal (Decision §OQ-2). **Amended 2026-11-21 by DL:** a lost bank dispute counts too | A1 decision |
-| OQ-3 | Does an admin exception count as the student's one refund? | **Decided 2026-11-16: V1, no.** Neither does a Dashboard refund (E2 revised). Only student-initiated refunds count: automatic and appeal-approved (Decision §OQ-3) | C3.1, E2 |
+| OQ-3 | Does an admin exception count as the student's one refund? | **Decided 2026-11-16: V1, no.** Neither does a Dashboard refund (E2 revised). Only student-initiated refunds count: automatic and appeal-approved (Decision §OQ-3), and since DL a lost bank dispute | C3.1, E2 |
 | OQ-4 | Is the instructor notified of a refund on their sale? | **Decided 2026-11-16: V1, no.** They see the `refunded` status on Revenue (Decision §OQ-4) | Q23 |
 | OQ-5 | What happens if the admin misses the 14-day review limit? | **Decided 2026-11-16: V2.** Reminders on days 10 and 13, then daily; on day 14 the appeal is approved automatically, marked "overdue" (Decision §OQ-5). **Narrowed by T11:** an appeal whose condition is the threshold or the account limit (direct, or after such a denial) is never auto-approved | F6, V2 |
 | OQ-6 | Warn at checkout that a repurchased course has no refund? | **Decided 2026-11-16: V1, yes**, only when the earlier refund counts under D3 (Decision §OQ-6) | D3 |
@@ -283,9 +283,8 @@ After an admin exception or a Dashboard refund there is no warning: the refund r
 
 ## Functional requirements
 
-*Draft 2026-11-16, written by AI from the User flow and `discovery/decisions.md` at my request; under
-my review. **[open]** marks a requirement whose decision is not recorded yet; **[AI]** marks a
-detail the AI added that no decision states.*
+*Drafted 2026-11-16 by AI from the User flow and `discovery/decisions.md` at my request; reviewed by
+me 2026-11-21. No **[open]** or unconfirmed **[AI]** items remain.*
 
 Terms used below:
 - **window**: 14 days from `Payment.paidAt`, in UTC (A3). A release is possible no earlier than the
@@ -323,7 +322,7 @@ Terms used below:
   snapshot on the request:
   - each condition's value;
   - opened lessons and L;
-  - the account's counting-refund history (C1.1, V6).
+  - the account's counting and account-limit refund history (C1.1, V6, DL).
 - **FR-S6.** If all conditions hold, the refund is made at once, with no admin step (A1, M3b).
 - **FR-S7.** A student has at most one request and at most one appeal per course purchase (C4).
 
@@ -341,8 +340,8 @@ Terms used below:
   numbers (OQ-1).
 - **FR-S14.** If a condition fails between page load and submit, the request is saved as
   automatically denied, naming the failed condition, and the student may appeal (OQ-1 A1′).
-- **FR-S15.** An appeal takes a mandatory reason and 0–3 optional evidence files (S3, C5.3, FR-S15
-  decision, UF-6):
+- **FR-S15.** An appeal takes a mandatory reason from the FR-S3 closed list, mandatory free text,
+  and 0–3 optional evidence files (S3, C5.3, FR-S15 decision, UF-6, FR-1):
   - PNG, JPEG or PDF only, checked by content (magic bytes), not by extension;
   - at most 3 files and 4 MB in total per appeal, sent in one request with the text;
   - stored in a **private** Vercel Blob store, separate from the public one;
@@ -363,12 +362,9 @@ Terms used below:
 - **FR-S20.** While a Learnix-initiated refund is processing or has failed at Stripe, the student
   sees the fixed text of Branch C ("Refund processing… If it takes longer than 3 days, we will email
   you."); access and progress do not change until it succeeds (S4, C-TEXT).
-- **FR-S21.** The student gets an email:
-  - on refund;
-  - on automatic denial;
-  - on the admin's decision on an appeal (V7).
-
-  The full notification matrix is under Acceptance criteria → Notifications.
+- **FR-S21.** The student gets an email on every student event in the notification matrix
+  (Acceptance criteria → Notifications): refund, automatic denial, appeal decision, duplicate charge,
+  a refund not succeeded after 3 days, a refund failed at the bank, a lost dispute (V7).
 
 **Repurchase**
 - **FR-S22.** After any refund the student can buy the course again and starts from scratch (D2).
@@ -430,7 +426,8 @@ Terms used below:
   - while a refund request or an appeal on it is open (ADR-037 §1);
   - while an automatically denied request on it still has an appeal right (FR-S16 deadline not
     passed, no appeal filed);
-  - while a refund on it is processing or failed at Stripe (ADR-037 §1 as amended, security T6).
+  - while a refund on it is processing or failed at Stripe (ADR-037 §1 as amended, security T6);
+  - while the charge is disputed (ADR-037 §1, live charge check).
 - **FR-P2.** Every path that creates a transfer applies the same eligibility predicate:
   - the daily job;
   - "Run job now";
@@ -470,8 +467,8 @@ Dashboard webhook, lost bank dispute or daily event replay)
   recommended back to the student: any course with a cancelled enrollment is excluded from their
   recommendations (decision REC).
 - **FR-P13.** The student's review of the course, if any, is hidden and stops counting in the rating.
-  This happens only after a Dashboard refund or an admin exception, because a review needs a
-  completed enrollment. If the student buys again, completes the course and reviews it, the hidden
+  This happens only after a Dashboard refund, an admin exception or a lost dispute, because a review
+  needs a completed enrollment (DL). If the student buys again, completes the course and reviews it, the hidden
   review is restored with the new text and rating instead of a second one being created (E2-R).
 - **FR-P14.** For a Learnix-initiated refund the effects apply when `refunds.create` succeeds, not
   when the webhook arrives. The later webhook changes nothing. The effects apply exactly once, even
@@ -525,17 +522,6 @@ Dashboard webhook, lost bank dispute or daily event replay)
   appeal endpoints do not exist for a student (C24). The opened-lesson record (FR-P19) and the
   restrictions of FR-P19a ship **with the hold**, so every purchase still in its window when the
   button appears has complete opened counts (AI-C8).
-- **FR-P23.** Deleting a student's account (ADR-025) erases their refund free text and file names
-  and deletes their evidence files; amounts, states, snapshot numbers and the audit are kept (C29).
-  An open appeal is closed without a decision; a refund already processing is completed. The
-  account-deletion page warns about an open appeal before the student confirms (EC-12).
-- **FR-P24.** Only the daily job, "Run job now", the `account.updated` sweep and the checkout path
-  can start a transfer, all through the one release function; the old Sweep action and the transfer
-  at sale are removed (C14).
-- **FR-P25.** The release job's endpoint accepts only the scheduler's secret; any other caller gets
-  an empty 401 and nothing changes (C15).
-- **FR-P26.** Checking the status of a checkout session works only for the student who owns it
-  (C28).
 - **FR-P21.** `/pricing` states the new terms:
   - 14 days;
   - the opened-lesson limit;
@@ -543,6 +529,21 @@ Dashboard webhook, lost bank dispute or daily event replay)
   - one refund per course (Q20).
 
   The guarantee text points to the button on the course page, not to "contact us" (D-2).
+
+**Account deletion**
+- **FR-P23.** Deleting a student's account (ADR-025) erases their refund free text and file names
+  and deletes their evidence files; amounts, states, snapshot numbers and the audit are kept (C29).
+  An open appeal is closed without a decision; a refund already processing is completed. The
+  account-deletion page warns about an open appeal before the student confirms (EC-12).
+
+**Guards** (security controls; numbers kept, they are referenced from `security.md` and AC)
+- **FR-P24.** Only the daily job, "Run job now", the `account.updated` sweep and the checkout path
+  can start a transfer, all through the one release function; the old Sweep action and the transfer
+  at sale are removed (C14).
+- **FR-P25.** The release job's endpoint accepts only the scheduler's secret; any other caller gets
+  an empty 401 and nothing changes (C15).
+- **FR-P26.** Checking the status of a checkout session works only for the student who owns it
+  (C28).
 
 ## Unsupported use cases
 
@@ -760,7 +761,8 @@ criteria drafted 2026-11-16 by AI from the FRs; under my review.*
   cannot be refunded; after an admin exception or a Dashboard refund it does not.
 
 **Admin**
-- **AC-F8** (FR-A1, A2). An appeal without files is accepted, one without a reason is rejected;
+- **AC-F8** (FR-A1, A2, FR-S15). An appeal without files is accepted; one without a closed-list
+  reason or without free text is rejected;
   "Approve" is unavailable, with the reason shown, while a certificate or a dispute exists. The queue
   shows reason, evidence, the snapshot and days left; a denial
   needs a reason; the decision is final and shown to the student with the reason and files.
