@@ -1090,3 +1090,23 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me*
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-21 — The spec holds the requirements; the design record moves beside it
+- **Stage:** specification (structure)
+- **Context the AI had:** the IDP "Requirements Analysis" list (problem statement, value, user flow,
+  functional and non-functional requirements, assumptions, constraints, edge cases, failure
+  scenarios, acceptance criteria; requirements an AI would not know), `spec.md`,
+  `specSections.contract.test.ts`, `documentation-process.md`
+- **Raised by me:** the spec should look like the IDP list; move discovery and the rest into
+  separate files
+- **AI proposed:** keep the IDP sections (plus Description, Unsupported use cases, Test & eval, Agent
+  notes, Source of truth) in `spec.md`; Discovery + Ambiguities → `discovery/findings.md`;
+  Alternatives + Trade-offs + Decision → `discovery/decision-summary.md`; one-line stubs in the spec,
+  or a contract-test change. Also: expand Non-functional requirements with numbers, and frame Agent
+  notes as the context an AI would not know
+- **My decisions:** change the test (sibling files count when they carry the heading) instead of
+  stubs; the rest as proposed
+- **How I verified:** *Not verified by me* (the test failed with the sections removed and passed
+  once the files existed)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

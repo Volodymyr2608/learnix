@@ -126,6 +126,21 @@ const LEGACY_SPECS = [
 ];
 
 /**
+ * Sections a spec may keep in a sibling design-record file instead of in
+ * `spec.md` (documentation-process.md §2, since 2026-11-21): `spec.md` then holds
+ * the requirements alone, and the record of how they were reached sits beside
+ * it. The sibling must carry the heading itself, so moving a section never
+ * quietly deletes it.
+ */
+const SIBLING_SECTIONS: Record<string, string> = {
+	Discovery: "discovery/findings.md",
+	Ambiguities: "discovery/findings.md",
+	Alternatives: "discovery/decision-summary.md",
+	"Trade-offs": "discovery/decision-summary.md",
+	Decision: "discovery/decision-summary.md",
+};
+
+/**
  * Satisfied by a sibling `security.md` instead of a section, which is what
  * complex tier does (§4) — `ai-tutor-guardrails` carries one.
  */
@@ -199,13 +214,23 @@ const hasSection = (present: string[], section: string): boolean => {
 	return present.includes(section) || (!!legacy && present.includes(legacy));
 };
 
+const inSibling = (slug: string, section: string): boolean => {
+	const sibling = SIBLING_SECTIONS[section];
+	if (!sibling) return false;
+	const path = `${FEATURES_DIR}/${slug}/${sibling}`;
+	return (
+		existsSync(path) && headings(readFileSync(path, "utf-8")).includes(section)
+	);
+};
+
 const missingFrom = (slug: string, required: string[]): string[] => {
 	const present = headings(readFileSync(specPath(slug), "utf-8"));
 	const hasSecurityDoc = existsSync(`${FEATURES_DIR}/${slug}/security.md`);
 
 	return required.filter((section) => {
 		if (section === SECURITY && hasSecurityDoc) return false;
-		return !hasSection(present, section);
+		if (hasSection(present, section)) return false;
+		return !inSibling(slug, section);
 	});
 };
 
@@ -284,6 +309,7 @@ describe("specs written under the 2026-11-02 standard carry its sections", () =>
 		const stale = [
 			...REQUIRED_ON_NEW_STANDARD,
 			...NEW_STANDARD_SECTIONS,
+			...Object.keys(SIBLING_SECTIONS),
 		].filter((section) => !sections.includes(section));
 
 		expect(stale).toEqual([]);

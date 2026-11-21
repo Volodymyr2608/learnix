@@ -79,6 +79,17 @@ growing:
 - the AI decision log, through implementation and validation;
 - the author's own «why» notes.
 
+**Optional design record beside the spec (since 2026-11-21).** When `spec.md` grows too long, the
+sections that record *how* the requirements were reached may move into the `discovery/` folder, so
+`spec.md` holds the requirements alone (problem, value, flow, functional and non-functional
+requirements, assumptions, constraints, edge cases, failures, acceptance criteria):
+- Discovery and Ambiguities → `discovery/findings.md`;
+- Alternatives, Trade-offs and Decision → `discovery/decision-summary.md`.
+
+Each file carries the moved headings verbatim; `specSections.contract.test.ts` accepts a section
+there instead of in `spec.md`, and only if the heading is present. `refund-self-service` is the
+first example.
+
 Everything an agent needs to navigate starts at `features/_index.md`. Features shipped before
 2026-06-23 predate this model and have no living spec; their code and tests are the record, and the
 retired dated spec folders were removed from the tree on 2026-07-30 (recoverable from git history).
