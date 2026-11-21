@@ -815,3 +815,46 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me*
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-21 — Full spec review; DL: a lost bank dispute
+- **Stage:** specification (whole-spec review before approval)
+- **Context the AI had:** the full `spec.md`, `security.md`, ADR-037 §1/§3, `decisions.md` (OQ-2,
+  T11), Analysis E4
+- **AI proposed:** a review list: open decisions (lost dispute, FR-P3 batch size, Branch C text, six
+  **[AI]** rules), five mechanical inconsistencies, process items; for the lost dispute, three
+  options and a recommendation of V2 (another refund path, counting for D3 and the account limit)
+- **My decisions:** V2
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — BATCH: release job batch size
+- **Stage:** specification (FR-P3)
+- **Context the AI had:** ADR-037 §3, Vercel Hobby limits (Constraints), FR-P15, FR-P22, FS-6
+- **AI proposed:** a per-payment estimate (~1.5 s, 2–3 Stripe calls; not measured); options 25/50/100;
+  a recommendation of 50 with a revisit trigger of 3 days in a row at the limit
+- **My decisions:** 50
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — C-TEXT: the student text when a refund fails at Stripe
+- **Stage:** specification (User flow Branch C, FR-S20)
+- **Context the AI had:** Branch C, FR-S20, AC-C23
+- **AI proposed:** that FR-S20/AC-C23 already settle the short text; a fuller fixed text with a
+  3-day promise, and an admin reminder on day 3 so the promise has a trigger
+- **My decisions:** the text and the day-3 reminder
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-21 — The [AI] rules confirmed; EC-17 rewritten
+- **Stage:** specification (FR-A1, FR-P18b, EC-4, EC-11, EC-16, EC-17, notifications)
+- **Context the AI had:** the nine **[AI]** markers in `spec.md`, D-12, DC, D3, DL
+- **AI proposed:** a recommendation per rule; for EC-17, that "allowed while disputed" cannot happen
+  (an open dispute leaves the enrollment active, so DC blocks a repurchase) and a rewrite by dispute
+  outcome
+- **My decisions:** confirmed all nine; accepted the EC-17 rewrite
+- **How I verified:** *Not verified by me*
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

@@ -73,6 +73,8 @@ C10 and C27 are decisions, not controls (below).
 - **Location and other metadata in student photos.** The student's own data, seen only by the admin.
 - **Stolen card, buy then refund.** A refund returns to the original card; no cash-out.
 - **Chargeback after release (up to 120 days).** The platform bears it (D-6); the hold reduces it.
+  A dispute lost while the share is still held cancels the share and applies the refund effects
+  (decision DL, FR-P18b); after release the transfer is not reversed.
 - **An instructor buying their own course from another account.** Gains nothing over a normal sale.
 - **"On hold past day 14 means an appeal"** for an instructor with one sale (decision A6).
 - **A compromised admin refunding in bulk.** The admin is trusted by design; the audit detects it.

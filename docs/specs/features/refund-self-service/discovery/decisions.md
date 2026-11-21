@@ -44,6 +44,9 @@ decisions already made.
 | EC-12 — account deleted with a request or appeal open | **Decided 2026-11-16:** V1 + a warning on the account-deletion page |
 | FS-8 — Redis unavailable for the job lock | **Decided 2026-11-16:** V1, skip the run (fail closed) |
 | FS-3 follow-up — the instructor's share after a failed refund | **Decided 2026-11-16:** V2, back to held until the admin resolves |
+| C-TEXT — the student text when a refund fails at Stripe (Branch C) | **Decided 2026-11-21:** a fixed text promising an email after 3 days; on day 3 the student is emailed and the admin reminded |
+| BATCH — release job batch size (FR-P3) | **Decided 2026-11-21:** 50 payments per run |
+| DL — a bank dispute lost by the platform | **Decided 2026-11-21:** V2, another refund path through the same effects; counts for D3 and the account limit (amends OQ-2) |
 | ADR-014 (n8n) → mark superseded | Later, a separate small edit (not Refund) |
 
 ## A1 — who decides on a refund
@@ -968,7 +971,7 @@ but publishes no number.
 
 ### Decision
 
-**V2, N = 3. Only automatic refunds count.** Not counted: duplicate refunds (DC), admin exceptions
+**V2, N = 3. Only automatic refunds count** (*amended 2026-11-21 by DL: a lost bank dispute counts too*). Not counted: duplicate refunds (DC), admin exceptions
 (C3.1), Dashboard refunds, refunds approved on appeal.
 
 - **Why 3:** caps free "sampling" at three courses a year without an admin. A **convention, not a
@@ -1503,4 +1506,75 @@ gets nothing.
 | **V2** | **Back to held, flagged; FR-P2a blocks release; the admin closes it as "refunded another way" (cancelled) or "the sale stands" (normal release)** | **Chosen** | Both outcomes correct; no new payout path; one audited admin action |
 
 - **What I give up:** a reverse status transition (`cancelled` → `pending`) and a new admin action.
+
+## DL — a bank dispute lost by the platform
+
+*2026-11-21. The gap, the options and the recommendation — AI (full spec review); the choice of V2 —
+mine.*
+
+**Gap.** The spec handles only an *open* dispute: no button, no `refunds.create` (OQ-7b, FR-P18a).
+Nothing says what happens when the dispute closes **lost**, i.e. the bank has returned the money to
+the student. Analysis E4 put chargebacks out of scope and asked to record them as a non-goal with an
+accepted risk; that row never reached the spec, and the payout hold made the question concrete: the
+release predicate would pay out a held share for a sale whose money is gone, and the student would
+keep the course and any certificate. That is the D-4/D-5 leak again, through another door.
+
+| # | When a dispute closes lost | Status | Reason |
+|---|---|---|---|
+| V1 | Out of scope: a non-goal with an accepted risk; the held share stays blocked until the admin acts | Rejected | An undefined state inside the payout logic; the student keeps course and money |
+| **V2** | **Another refund path through the same effects function: held share `cancelled`, access closed, certificate revoked; counts for D3 and the account limit** | **Chosen** | Closes the same leak class the feature exists to close; reuses compare-and-set, the effects function and event replay |
+| V3 | Money only: cancel the held share and flag the payment; the admin closes access by hand | Rejected | The student keeps the course whenever the admin does not react |
+
+### Decision
+
+**V2.** A lost dispute is the student taking the money back themselves, so it counts like a
+student-initiated refund: under D3 (a repurchase warns there is no refund) and toward the account
+limit of 3 per 12 months (amends OQ-2). A share already **released** is not reversed: the platform
+bears a chargeback after release, as accepted in `security.md`.
+
+- **What I give up:** a sixth path in every effects test.
+- **I will revisit if:** lost disputes appear at all in the first months; then the window or the
+  rules are failing someone, not only the chargeback handling.
+
+## BATCH — release job batch size (FR-P3)
+
+*2026-11-21. The estimate, the options and the recommendation — AI; the choice of 50 — mine.*
+
+**Gap.** ADR-037 §3.4 leaves the batch size to the spec; FR-P3 was **[open]**. Hobby allows 300 s
+per run with no retries. Per payment the job makes 2–3 Stripe calls (live charge check,
+`transfers.create`, plus `transfers.list` before retrying a stuck `transferring`): ~1.5 s, an
+estimate, not a measurement. The same run also replays events (FR-P15) and deletes files (FR-P22).
+
+| # | Batch | Time per run | Throughput | Status |
+|---|---|---|---|---|
+| V1 | 25 | ~40 s | ~750 sales/month | Rejected: more margin than needed |
+| **V2** | **50** | **~75 s** | **~1500 sales/month** | **Chosen** |
+| V3 | 100 | ~150 s | ~3000 sales/month | Rejected: half the limit, thin margin if Stripe is slow |
+
+### Decision
+
+**50 per run.** A quarter of the limit leaves room even if Stripe answers twice as slowly; the
+throughput is far above a pet project's volume. The rest is released the next day (FS-6).
+
+- **What I give up:** a release delayed by a day when more than 50 payments are due at once.
+- **I will revisit if:** the batch limit is hit 3 days in a row, or a run's measured duration exceeds
+  150 s. Then the Pro plan or Vercel Workflows (ADR-037 "Revisit when").
+
+## C-TEXT — the student text when a refund fails at Stripe (Branch C)
+
+*2026-11-21. The text, the gap behind it and the recommendation — AI; the choice — mine.*
+
+**Gap.** Branch C carried "[unverified: the student-facing text]". FR-S20 and AC-C23 already fixed
+"Refund processing" and kept Stripe's message for the admin only, but a student could sit on
+"processing" for days with no word on what happens next.
+
+### Decision
+
+The fixed text: "Refund processing. Your refund has been approved and is being processed. Your
+access stays open until it completes. If it takes longer than 3 days, we will email you." The
+promise has a trigger: 3 days after approval without success, the student is emailed that it is
+still being processed and the admin gets a reminder (FR-A11).
+
+- **What I give up:** one more scheduled check in the daily job.
+- **I will revisit if:** students ask about stuck refunds before day 3.
 
