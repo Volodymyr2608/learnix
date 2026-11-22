@@ -1268,3 +1268,33 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me): in my own words — why "partial" is acceptable for slice 1, and why a green
   slice still does not mean the problem is solved*
+
+### 2026-11-22 — Validation: the assumptions after slice 1
+- **Stage:** validation
+- **Context the AI had:** `spec.md` Assumptions (AS-1–AS-8) and Release checklist, the slice-1 code
+  and tests, the local dev database `learnix` (7 courses)
+- **AI did:** gave each assumption a state and rechecked AS-3 against the data:
+
+  | # | State on 2026-11-22 | Basis |
+  |---|---|---|
+  | AS-1 reasons | Not verified | No users; reasons are now stored in `refund_requests.reason` (closed list), so they can be counted after launch |
+  | AS-2 guarantee sells | Not verified | Conversion before/after launch only; if false, the leaks are still closed |
+  | AS-3 lesson 3 is substantive | **Partly false, in the student's favour** | See below |
+  | AS-4 admin time | Not verified | No appeals yet (later slices) |
+  | AS-5 opened ≈ consumed | Not verifiable by design | Slice 1 fixed the definition only: "opened" = the server returned the content (`openedLessonRecord.integration.test.ts:32`) |
+  | AS-6 `losses.payments` live | Not verified — release gate | Sandbox checked 2026-11-08 (Q25); Release checklist (`spec.md:904`) |
+  | AS-7 Vercel Hobby terms | Not verified — release gate | Release checklist |
+  | AS-8 no deletion of bought courses | Not built — release gate | Separate feature; without it L = 0 (T27) |
+
+  **AS-3 by lesson titles:** lessons 1–2 are intro/setup in all 7 courses. Lesson 3 is substantive in
+  3 of 7 (React "Creating Your First React App", Angular "Understanding Angular CLI", Drizzle
+  "Understanding the Architecture") and still intro/setup in 4 (Basic "Introduction to Prisma",
+  Digital Marketing "Overview of … Channels", UI/UX "Overview of Design Thinking", tRPC "Setting Up
+  Your Development Environment"). So the threshold of 3 errs towards letting a student who saw only
+  the intro get a refund, not towards blocking one.
+- **Options:** (a) record the finding, keep the threshold, rely on the revisit triggers; (b) reopen Q13
+- **How I verified:** the AI read the titles; I agreed with its reading of lesson 3 per course
+- **My decision:** (a) — `spec.md` AS-3 updated
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why a lenient error is acceptable and why seed data does not
+  justify reopening Q13*

@@ -599,7 +599,7 @@ control C1–C29 there has an acceptance criterion below.
 |---|---|---|---|
 | AS-1 | Students want refunds because a course is too easy, too hard, or thin | Reasons recorded on requests and appeals (same closed list) after launch | The reason list changes; the rules hold |
 | AS-2 | A refund guarantee increases purchases | Conversion before and after launch | The feature still closes the leaks; marketing value drops |
-| AS-3 | The first two lessons of a course are introduction and setup; the third is the first substantive one | Holds for all 7 dev-DB courses (**seed data**, not real courses) | The threshold of 3 is wrong; revisit Q13 |
+| AS-3 | The first two lessons of a course are introduction and setup; the third is the first substantive one | **Seed data**, not real courses. Rechecked 2026-11-22 by lesson titles: lessons 1–2 are intro/setup in all 7 dev-DB courses; lesson 3 is substantive in 3 of 7 (React, Angular, Drizzle) and still intro/setup in 4. The error is in the student's favour (the threshold of 3 is more lenient, not stricter); the threshold stays, the revisit triggers in Success metrics apply | The threshold of 3 is wrong; revisit Q13 |
 | AS-4 | The admin has ~2.5 h/week and an appeal takes ~15 min | Measure appeal handling time | The "> 10 appeals/week" revisit trigger moves |
 | AS-5 | Opening a lesson approximates consuming it | Not verifiable without viewing telemetry | Known limit: opened ≠ read, so the threshold is a deterrent, not proof |
 | AS-6 | `losses.payments = "application"` on the production account as on sandbox | Check the live account before launch | The negative-balance reasoning changes; the hold is still needed |
