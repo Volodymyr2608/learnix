@@ -4,6 +4,7 @@ import { InvoiceDocument } from "@/app/_components/Invoice";
 import type { StudentPurchase } from "@/server/entities/billing/purchase";
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
+import { isDisputeBlocking } from "@/server/services/refund/refundFacts";
 import { isStudentRefundEnabled } from "@/server/services/refund/refundFlag";
 import { purchaseRefundRowState } from "@/server/services/refund/refundView";
 import { InvoiceNotFoundError } from "./billing.errors";
@@ -32,8 +33,7 @@ class BillingService {
 							paymentRefunded: row.status === "refunded",
 							hasCertificate: refundFacts.certified.has(row.courseId),
 							hasEarlierCountingRefund: refundFacts.counting.has(row.courseId),
-							hasOpenDispute:
-								row.disputeState !== null && row.disputeState !== "won",
+							hasOpenDispute: isDisputeBlocking(row.disputeState),
 							request: row.refundRequest,
 						},
 						now,

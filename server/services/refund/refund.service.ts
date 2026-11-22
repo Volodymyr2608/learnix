@@ -6,7 +6,6 @@ import type {
 	RefundRequestInput,
 } from "@/server/entities/refund/refund.dto";
 import type { RefundPageState } from "@/server/entities/refund/refundView.dto";
-import { openedLessonRepository } from "@/server/repositories/openedLesson.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { checkRefundRequestRateLimit } from "@/server/services/_shared/aiLimits/checkRefundRequestRateLimit";
@@ -19,9 +18,10 @@ import {
 	RefundNotFoundError,
 } from "./refund.errors";
 import { refundEffectsService } from "./refundEffects.service";
+import { gatherRefundFacts } from "./refundFacts";
 import { isStudentRefundEnabled } from "./refundFlag";
 import { refundNotificationsService } from "./refundNotifications.service";
-import { accountLimitSince, decideRefund } from "./refundRules";
+import { decideRefund } from "./refundRules";
 import { refundPageState } from "./refundView";
 
 /** FR-S20: what the student is told about an approved refund — never Stripe's text. */
@@ -34,10 +34,6 @@ export type RefundRequestResult = {
 	/** Set for an approved request. */
 	refundStatus?: RefundStatus;
 };
-
-/** FR-S2 / FR-P18a: a stored dispute blocks unless it was won (qa #2: lost-but-not-applied too). */
-const isDisputeBlocking = (disputeState: string | null): boolean =>
-	disputeState !== null && disputeState !== "won";
 
 /** U9: Postgres `lock_not_available` (55P03) — the student lock stayed busy past `lock_timeout`. */
 const isLockTimeout = (error: unknown): boolean =>
@@ -76,39 +72,12 @@ class RefundService {
 			);
 			if (!payment) throw new RefundNotFoundError();
 
-			const [
-				counts,
-				hasCertificate,
-				hasEarlierCountingRefund,
-				accountLimitRefunds12m,
-			] = await Promise.all([
-				openedLessonRepository.countCourseLessons(
-					tx,
-					studentId,
-					payment.courseId,
-				),
-				refundRequestRepository.hasCertificate(tx, studentId, payment.courseId),
-				refundRequestRepository.hasCountingRefund(
-					tx,
-					studentId,
-					payment.courseId,
-				),
-				refundRequestRepository.countAccountLimitRefunds(
-					tx,
-					studentId,
-					accountLimitSince(now),
-				),
-			]);
+			const facts = await gatherRefundFacts(tx, studentId, payment, now);
 			const request = payment.refundRequest;
 			return {
 				courseTitle: payment.course.title,
-				paidAt: payment.paidAt,
+				...facts,
 				paymentRefunded: payment.status === "refunded",
-				hasCertificate,
-				hasEarlierCountingRefund,
-				hasOpenDispute: isDisputeBlocking(payment.disputeState),
-				...counts,
-				accountLimitRefunds12m,
 				amountCents: payment.amountCents,
 				currency: payment.currency,
 				request: request
@@ -162,45 +131,8 @@ class RefundService {
 				}
 
 				const now = new Date();
-				const [
-					counts,
-					hasCertificate,
-					hasEarlierCountingRefund,
-					accountLimitRefunds12m,
-				] = await Promise.all([
-					openedLessonRepository.countCourseLessons(
-						tx,
-						studentId,
-						payment.courseId,
-					),
-					refundRequestRepository.hasCertificate(
-						tx,
-						studentId,
-						payment.courseId,
-					),
-					refundRequestRepository.hasCountingRefund(
-						tx,
-						studentId,
-						payment.courseId,
-					),
-					refundRequestRepository.countAccountLimitRefunds(
-						tx,
-						studentId,
-						accountLimitSince(now),
-					),
-				]);
-
 				const result = decideRefund(
-					{
-						paidAt: payment.paidAt,
-						...counts,
-						hasCertificate,
-						hasEarlierCountingRefund,
-						accountLimitRefunds12m,
-						// FR-S2 / FR-P18a: the stored dispute state, never a Stripe call.
-						// qa #2: a stored lost dispute whose effects have not run yet blocks too.
-						hasOpenDispute: isDisputeBlocking(payment.disputeState),
-					},
+					await gatherRefundFacts(tx, studentId, payment, now),
 					now,
 				);
 
