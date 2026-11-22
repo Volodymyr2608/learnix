@@ -1196,3 +1196,41 @@ The IDP review needs 2–3 vivid examples:
   that is cheap and testable; accept only what cannot be reached while the flag is off, and write it
   down as a release condition, not as "later". The branch is not pushed because the feature merges
   as one module, and slice 1 alone does not keep the refund promise.
+
+### 2026-11-22 — Validation: the AI draft of 2026-11-02 against what I decided
+- **Stage:** validation
+- **Context the AI had:** the sealed archive `~/Downloads/refund-archive-2026-11-02/` (opened today
+  for the first time: `epics/refund-self-service.md`, `ai-decision-log.md`), `spec.md`,
+  `decision-summary.md`, `decisions.md`, `findings.md`, `discovery.md`
+- **AI proposed (on 2026-11-02, before my discovery):** an epic of six specs with eight cross-cutting
+  decisions X1–X8. The comparison:
+
+  | # | AI draft (2026-11-02) | My decision | Verdict |
+  |---|---|---|---|
+  | X1 | An admin decides every request; automatic approval explicitly out of scope | Rules decide, the admin sees appeals only (A1, M3b: 9 vs M4 −2) | `rejected` |
+  | X2 | Hold the instructor's share until the window closes | Same (ADR-037); plus Stripe cannot hold it for our charge model (D-15), compare-and-set, daily job | `accepted`, deepened |
+  | X3 | 14 days, configurable | 14 days from payment; worst-case instructor wait ≈ 31 days, open-ended while an appeal waits (T11) | `accepted`, deepened |
+  | X4 | No refund after a certificate or above X% of **completed** lessons, X from an experiment | **Opened** lessons, `min(3, ⌊L/2⌋)` (Q13); "complete" is a student-set mark and can be skipped | `modified` |
+  | X5 | An admin may refund outside the policy with a written explanation | Same (FR-A6, C3.1); refined: does not use up the student's refund or the account limit (OQ-3), revokes a certificate with reason "admin exception" (E2); plus one appeal per purchase | `accepted`, refined |
+  | X6 | A refund after the window: the instructor's share becomes debt from future payouts, no reversal attempt, because "a reversal fails without balance" | The transfer is reversed; if the instructor withdrew, the platform covers the negative balance (FR-P7, D-6). A debt mechanism was rejected for complexity (A8, V3) | `rejected` — premise false |
+  | X7 | An approved refund always revokes the certificate | Same, as an explicit revocation field with a reason, not by clearing `completedAt` (E2) | `accepted`, refined |
+  | X8 | The instructor sees every refund and its reason | No refund reasons for instructors (OQ-4, FR-I2, Unsupported) | `rejected` |
+  | — | An epic of six specs | One spec, built in slices | `modified` |
+
+- **Missed by the AI draft** (`missed-by-ai`): AI features must serve content only from opened
+  lessons, or the threshold means nothing (FR-P19a); who bears the Stripe fee — the fact was there
+  (D5), the decision was not (A8); a lost bank dispute as a refund path — the draft put disputes out
+  of scope (DL); the transition for purchases made before launch (S2, phased launch); progress after
+  a refund (D2); course deletion (AS-8); the account limit stayed an open question (D3).
+- **The strongest case — X6, the AI was wrong twice:** first from memory ("the balance goes negative
+  and Stripe collects"), then after research ("a reversal fails without available balance", logged
+  in the archive as the correction). The researched answer was incomplete too: the quoted sentence is
+  the general case and ignores the account's configuration. My sandbox check found
+  `controller.losses.payments: "application"` (Q25), under which the reversal goes through and the
+  platform covers the negative balance (Q9). X6's design rested on the false premise.
+- **How I verified:** *Not verified by me* — the table and the missed list were drafted by the AI;
+  X5 and X6 were re-checked by the AI against `spec.md:173,341,400`, `decisions.md:412,1017`,
+  `discovery.md:140,156` after I questioned them
+- **Verdict:** see the table
+- **Why:** *TODO (me): in my own words — why X1 and X8 flipped, why opened and not completed lessons
+  (X4), and what X6 taught me about trusting "AI + a docs link"*
