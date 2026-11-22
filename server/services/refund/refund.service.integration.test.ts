@@ -13,6 +13,22 @@ import {
 } from "@/test/factories";
 import { refundService } from "./refund.service";
 
+const stripeMock = vi.hoisted(() => ({
+	piRetrieve: vi.fn(),
+	refundsList: vi.fn(),
+	refundsCreate: vi.fn(),
+}));
+vi.mock("@/server/services/payments/stripe.client", () => ({
+	stripe: {
+		paymentIntents: { retrieve: stripeMock.piRetrieve },
+		refunds: { list: stripeMock.refundsList, create: stripeMock.refundsCreate },
+		transfers: { listReversals: vi.fn(), createReversal: vi.fn() },
+	},
+}));
+vi.mock("@/server/services/embeddings/embeddings.service", () => ({
+	embeddingsService: { recomputeUserInterest: async () => undefined },
+}));
+
 const flag = vi.hoisted(() => ({ on: true }));
 vi.mock("./refundFlag", () => ({ isStudentRefundEnabled: () => flag.on }));
 
@@ -58,6 +74,8 @@ const seedPurchase = async (opts: {
 		instructorId: instructor.id,
 		courseId: course.id,
 		paidAt: opts.paidAt === undefined ? daysAgo(3) : opts.paidAt,
+		transferStatus: "pending",
+		stripePaymentIntentId: `pi_${Math.random().toString(36).slice(2)}`,
 	});
 	return {
 		studentId,
@@ -95,6 +113,70 @@ const seedAccountLimitRefunds = async (
 describe("refundService.requestRefund", () => {
 	beforeEach(() => {
 		flag.on = true;
+		vi.clearAllMocks();
+		stripeMock.piRetrieve.mockResolvedValue({
+			latest_charge: { id: "ch_1", disputed: false, refunded: false },
+		});
+		stripeMock.refundsList.mockResolvedValue({ data: [] });
+		stripeMock.refundsCreate.mockImplementation(async () => ({
+			id: `re_${Math.random().toString(36).slice(2)}`,
+			status: "succeeded",
+		}));
+	});
+
+	it("refunds an approved request at once and applies its effects (AC-F2, FR-S6)", async () => {
+		const { studentId, paymentId } = await seedPurchase({ opened: 1 });
+
+		const result = await request(studentId, paymentId);
+
+		expect(result).toMatchObject({
+			decision: "auto_approved",
+			refundStatus: "refunded",
+		});
+		expect(stripeMock.refundsCreate).toHaveBeenCalledTimes(1);
+		expect(
+			await testDb.payment.findUniqueOrThrow({ where: { id: paymentId } }),
+		).toMatchObject({ status: "refunded", transferStatus: "cancelled" });
+		expect(
+			await testDb.refundRequest.findUniqueOrThrow({ where: { paymentId } }),
+		).toMatchObject({
+			refundState: "refunded",
+			stripeRefundId: expect.stringMatching(/^re_/),
+		});
+		expect(
+			(await testDb.enrollment.findFirstOrThrow({ where: { studentId } }))
+				.status,
+		).toBe("cancelled");
+	});
+
+	it("tells the student 'processing' — never Stripe's text — when Stripe fails (FR-S20)", async () => {
+		stripeMock.refundsCreate.mockRejectedValue(
+			new Error("Your card was declined"),
+		);
+		const { studentId, paymentId } = await seedPurchase({});
+
+		const result = await request(studentId, paymentId);
+
+		expect(result).toMatchObject({
+			decision: "auto_approved",
+			refundStatus: "processing",
+		});
+		expect(JSON.stringify(result)).not.toContain("declined");
+		expect(
+			(await testDb.payment.findUniqueOrThrow({ where: { id: paymentId } }))
+				.status,
+		).toBe("succeeded");
+	});
+
+	it("makes one Stripe refund for two concurrent requests on one payment (AC-C3)", async () => {
+		const { studentId, paymentId } = await seedPurchase({});
+
+		await Promise.allSettled([
+			request(studentId, paymentId),
+			request(studentId, paymentId),
+		]);
+
+		expect(stripeMock.refundsCreate).toHaveBeenCalledTimes(1);
 	});
 
 	it("approves automatically and stores the snapshot (AC-F2)", async () => {

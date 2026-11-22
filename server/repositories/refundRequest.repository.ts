@@ -36,9 +36,15 @@ class RefundRequestRepository extends BaseRepository<
 		paymentId: string,
 		studentId: string,
 	) {
+		// A refunded payment is found too, so a repeat request on it is CONFLICT (FR-S7), not
+		// NOT_FOUND; the service refuses a refunded payment with no request as NOT_FOUND.
 		return tx.payment.findFirst({
-			where: { id: paymentId, studentId, status: "succeeded" },
-			select: { id: true, courseId: true, paidAt: true },
+			where: {
+				id: paymentId,
+				studentId,
+				status: { in: ["succeeded", "refunded"] },
+			},
+			select: { id: true, courseId: true, paidAt: true, status: true },
 		});
 	}
 
@@ -93,6 +99,51 @@ class RefundRequestRepository extends BaseRepository<
 		data: Prisma.RefundRequestUncheckedCreateInput,
 	) {
 		return tx.refundRequest.create({ data, select: { id: true } });
+	}
+
+	/** FR-S20: the request and the payment fields the Stripe refund needs. */
+	findForRefund(requestId: string) {
+		return this.db.refundRequest.findUnique({
+			where: { id: requestId },
+			select: {
+				id: true,
+				refundState: true,
+				payment: { select: { id: true, stripePaymentIntentId: true } },
+			},
+		});
+	}
+
+	/** FR-S20 retry: approved requests whose Stripe refund has not succeeded yet, oldest first. */
+	async findProcessingIds(limit: number): Promise<string[]> {
+		const rows = await this.db.refundRequest.findMany({
+			where: { refundState: "processing" },
+			orderBy: { createdAt: "asc" },
+			take: limit,
+			select: { id: true },
+		});
+		return rows.map((r) => r.id);
+	}
+
+	async recordStripeRefund(requestId: string, stripeRefundId: string | null) {
+		await this.db.refundRequest.update({
+			where: { id: requestId },
+			data: { stripeRefundId, refundError: null },
+		});
+	}
+
+	/** Stripe's message, for the admin only (C23) — never returned to the student. */
+	async recordRefundError(requestId: string, refundError: string) {
+		await this.db.refundRequest.update({
+			where: { id: requestId },
+			data: { refundError },
+		});
+	}
+
+	async markRefunded(requestId: string, now: Date) {
+		await this.db.refundRequest.updateMany({
+			where: { id: requestId, refundState: "processing" },
+			data: { refundState: "refunded", refundedAt: now },
+		});
 	}
 }
 
