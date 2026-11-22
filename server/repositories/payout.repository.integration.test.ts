@@ -97,6 +97,18 @@ describe("payoutRepository", () => {
 			);
 		});
 
+		it.each([
+			["open", false],
+			["lost", false],
+			["won", true],
+		] as const)("with dispute state %s, claims: %s (D6, AC-F30)", async (disputeState, claimed) => {
+			const payment = await seedPayment({ disputeState });
+
+			expect(await payoutRepository.claimForRelease(payment.id, ELIGIBLE)).toBe(
+				claimed,
+			);
+		});
+
 		it("does not claim a payment that is not pending", async () => {
 			const payment = await seedPayment({ transferStatus: "transferred" });
 			expect(await payoutRepository.claimForRelease(payment.id, ELIGIBLE)).toBe(

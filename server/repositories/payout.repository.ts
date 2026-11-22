@@ -22,6 +22,7 @@ const windowStart = Prisma.sql`COALESCE(p.paid_at, p.created_at + ${ms(CHECKOUT_
 const eligible = (now: Date) => Prisma.sql`
 	p.status = 'succeeded'
 	AND p.refunded_at IS NULL
+	AND (p.dispute_state IS NULL OR p.dispute_state = 'won')
 	AND ${now}::timestamp >= ${windowStart} + ${ms(REFUND_WINDOW_MS + RELEASE_GRACE_MS)}
 	AND NOT EXISTS (
 		SELECT 1 FROM refund_requests r

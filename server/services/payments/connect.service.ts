@@ -165,7 +165,11 @@ class ConnectService {
 
 			// H4: a refund whose webhook was lost, or an open dispute, must not be paid out.
 			const charge = await this.liveCharge(payment);
-			if (!charge || charge.refunded || charge.disputed) {
+			// D6: the stored dispute state decides; Stripe's disputed flag stays true after a won
+			// dispute, so it only blocks while the stored state has not seen the win.
+			const disputed =
+				charge?.disputed === true && payment.disputeState !== "won";
+			if (!charge || charge.refunded || disputed) {
 				await payoutRepository.releaseClaim(paymentId);
 				return { kind: "charge_not_payable", paymentId };
 			}

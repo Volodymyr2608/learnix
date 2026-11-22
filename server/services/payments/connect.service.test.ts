@@ -301,6 +301,18 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 		expect(mockTransfersCreate).not.toHaveBeenCalled();
 	});
 
+	it("pays a won dispute although Stripe's disputed flag stays true (D6)", async () => {
+		charge({ disputed: true });
+		mockTransfersCreate.mockResolvedValue({ id: "tr_new" });
+
+		const outcome = await connectService.releasePayment(
+			makePayment({ disputeState: "won" }),
+			NOW,
+		);
+
+		expect(outcome.kind).toBe("released");
+	});
+
 	it("marks a payment transferred without a new transfer when one exists for its group (AC-C7)", async () => {
 		mockTransfersList.mockResolvedValue({ data: [{ id: "tr_existing" }] });
 
