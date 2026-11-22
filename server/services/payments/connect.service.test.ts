@@ -61,7 +61,7 @@ vi.mock("@/server/repositories/payout.repository", () => ({
 		releaseClaim: vi.fn(),
 		touch: vi.fn(),
 		markReversed: vi.fn(),
-		isRefunded: vi.fn(),
+		needsReversal: vi.fn(),
 	},
 }));
 
@@ -218,7 +218,7 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 		mockPayoutRepo.claimForRelease.mockResolvedValue(true);
 		mockPayoutRepo.markTransferred.mockResolvedValue(true);
 		mockPayoutRepo.releaseClaim.mockResolvedValue(true);
-		mockPayoutRepo.isRefunded.mockResolvedValue(false);
+		mockPayoutRepo.needsReversal.mockResolvedValue(false);
 		mockPayoutRepo.markReversed.mockResolvedValue(true);
 		mockTransfersListReversals.mockResolvedValue({ data: [] });
 		mockTransfersCreateReversal.mockResolvedValue({ id: "trr_1" });
@@ -406,7 +406,7 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 
 	it("reverses a transfer found for a payment refunded meanwhile (C5 remainder)", async () => {
 		mockTransfersList.mockResolvedValue({ data: [{ id: "tr_made" }] });
-		mockPayoutRepo.isRefunded.mockResolvedValue(true);
+		mockPayoutRepo.needsReversal.mockResolvedValue(true);
 
 		const outcome = await connectService.releasePayment(
 			makePayment({ transferStatus: "transferring" }),
@@ -427,7 +427,7 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 
 	it("resolves to failed, never rejects, when the reversal after a refund fails (audit M-1)", async () => {
 		mockTransfersCreate.mockResolvedValue({ id: "tr_new" });
-		mockPayoutRepo.isRefunded.mockResolvedValue(true);
+		mockPayoutRepo.needsReversal.mockResolvedValue(true);
 		mockTransfersCreateReversal.mockRejectedValue(
 			new Error("insufficient balance"),
 		);
@@ -443,7 +443,7 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 
 	it("reverses a transfer it just created when the payment was refunded during the call (AC-C5)", async () => {
 		mockTransfersCreate.mockResolvedValue({ id: "tr_new" });
-		mockPayoutRepo.isRefunded.mockResolvedValue(true);
+		mockPayoutRepo.needsReversal.mockResolvedValue(true);
 
 		const outcome = await connectService.releasePayment(makePayment(), NOW);
 

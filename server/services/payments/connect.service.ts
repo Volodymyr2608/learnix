@@ -229,7 +229,7 @@ class ConnectService {
 		kind: "released" | "already_transferred",
 	): Promise<ReleaseOutcome> {
 		await payoutRepository.markTransferred(payment.id, transferId, now);
-		if (await payoutRepository.isRefunded(payment.id)) {
+		if (await payoutRepository.needsReversal(payment.id)) {
 			await this.reverseTransfer({
 				...payment,
 				stripeTransferId: transferId,

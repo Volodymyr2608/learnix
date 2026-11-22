@@ -223,6 +223,44 @@ describe("the daily job retries refunds and replays missed refund events (FR-P15
 		expect((await statusOf(payment.id)).transferStatus).toBe("reversed");
 	});
 
+	it("never reverses a share after a lost dispute — the platform bears it (DL)", async () => {
+		const payment = await seedPayment({
+			status: "refunded",
+			refundedAt: NOW,
+			refundSource: "lost_dispute",
+			transferStatus: "transferred",
+			stripeTransferId: "tr_1",
+		});
+
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		expect(stripeMock.createReversal).not.toHaveBeenCalled();
+		expect((await statusOf(payment.id)).transferStatus).toBe("transferred");
+	});
+
+	it("records a transfer made during a lost dispute without reversing it (DL)", async () => {
+		const payment = await seedPayment({
+			paidAt: new Date(NOW.getTime() - 20 * DAY),
+			stripePaymentIntentId: "pi_race",
+		});
+		stripeMock.transfersCreate.mockImplementation(async () => {
+			await testDb.payment.update({
+				where: { id: payment.id },
+				data: {
+					status: "refunded",
+					refundedAt: NOW,
+					refundSource: "lost_dispute",
+				},
+			});
+			return { id: "tr_race" };
+		});
+
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		expect(stripeMock.createReversal).not.toHaveBeenCalled();
+		expect((await statusOf(payment.id)).transferStatus).toBe("transferred");
+	});
+
 	it("records the refund counts on the run", async () => {
 		await payoutJobService.run({ trigger: "cron", now: NOW });
 

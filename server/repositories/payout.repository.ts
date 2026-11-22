@@ -120,18 +120,27 @@ class PayoutRepository extends BaseRepository<
 	}
 
 	/** C5 remainder: has a refund's compare-and-set already flipped this payment? */
-	async isRefunded(paymentId: string): Promise<boolean> {
+	/**
+	 * C5 remainder: has a refund's compare-and-set flipped this payment — by a path whose share is
+	 * reversed? After a lost dispute the platform bears the chargeback (DL), so no reversal.
+	 */
+	async needsReversal(paymentId: string): Promise<boolean> {
 		const row = await this.db.payment.findUnique({
 			where: { id: paymentId },
-			select: { status: true },
+			select: { status: true, refundSource: true },
 		});
-		return row?.status === "refunded";
+		return row?.status === "refunded" && row.refundSource !== "lost_dispute";
 	}
 
 	/** FR-P7 retry: refunded payments whose released share was not reversed yet. */
 	findRefundedTransferred(limit: number): Promise<Payment[]> {
 		return this.db.payment.findMany({
-			where: { status: "refunded", transferStatus: "transferred" },
+			where: {
+				status: "refunded",
+				transferStatus: "transferred",
+				// DL: a share released before a lost dispute is never reversed.
+				OR: [{ refundSource: null }, { refundSource: { not: "lost_dispute" } }],
+			},
 			orderBy: { refundedAt: "asc" },
 			take: limit,
 		});
