@@ -103,6 +103,25 @@ class PaymentRepository extends BaseRepository<
 		});
 	}
 
+	/** W2 / FR-P28: recent succeeded payments saved without their Stripe fee. */
+	async findMissingFees(paidSince: Date, limit: number) {
+		const rows = await this.db.payment.findMany({
+			where: {
+				status: "succeeded",
+				stripeFeeCents: null,
+				stripePaymentIntentId: { not: null },
+				paidAt: { gte: paidSince },
+			},
+			orderBy: { paidAt: "asc" },
+			take: limit,
+			select: { id: true, stripePaymentIntentId: true },
+		});
+		return rows.map((r) => ({
+			id: r.id,
+			stripePaymentIntentId: r.stripePaymentIntentId as string,
+		}));
+	}
+
 	/** V15 / FR-A7: flag a payment refunded in the Stripe Dashboard for an admin to look at. */
 	markNeedsReview(paymentId: string, now: Date) {
 		return this.db.payment.updateMany({

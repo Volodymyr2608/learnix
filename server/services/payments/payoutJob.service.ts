@@ -16,6 +16,7 @@ import { logger } from "@/server/utils/logger";
 import { adminAlertService } from "./adminAlert.service";
 import { connectService } from "./connect.service";
 import { PayoutRetryError } from "./payment.errors";
+import { paymentService } from "./payment.service";
 import { PAYOUT_BATCH_SIZE, PAYOUT_LOCK_TTL_MS } from "./payoutJob.constants";
 import { PAYOUT_LOCK_NAME, withPayoutRunLock } from "./payoutRunLock";
 import { getRunLock } from "./runLock";
@@ -187,6 +188,10 @@ class PayoutJobService {
 					.approveOverdueAppeals(input.now)
 					.catch((error) => logger.error("Overdue appeals failed", { error }));
 				await retryReversals();
+				// W2 / FR-P28: a measurement — its failure never stops the release.
+				await paymentService
+					.fillMissingFees(input.now)
+					.catch((error) => logger.error("Fee fill-in failed", { error }));
 				const candidates = await payoutRepository.findReleaseCandidates(
 					input.now,
 					PAYOUT_BATCH_SIZE,

@@ -22,6 +22,7 @@ import {
 	CourseIsFreeError,
 	CourseNotPurchasableError,
 } from "@/server/services/payments/payment.errors";
+import { logger } from "@/server/utils/logger";
 import { stripe } from "./stripe.client";
 
 /**
@@ -37,7 +38,60 @@ const chargeCreatedAt = (
 	return new Date(charge.created * 1000);
 };
 
+/**
+ * FR-P28 (W2): the Stripe processing fee from the charge's balance transaction, or null when it is
+ * not available yet. A measurement: it never fails the checkout (FS-15).
+ */
+const chargeFeeCents = (charge: unknown): number | null => {
+	if (!charge || typeof charge !== "object") return null;
+	const txn = (charge as { balance_transaction?: unknown }).balance_transaction;
+	if (!txn || typeof txn !== "object") return null;
+	const fee = (txn as { fee?: unknown }).fee;
+	return typeof fee === "number" ? fee : null;
+};
+
+const sessionCharge = (
+	paymentIntent: Stripe.Checkout.Session["payment_intent"],
+): unknown =>
+	paymentIntent && typeof paymentIntent === "object"
+		? paymentIntent.latest_charge
+		: null;
+
+/** W2: missing fees are filled for payments of the last 30 days, 50 per daily run. */
+const FEE_FILL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const FEE_FILL_BATCH = 50;
+
 class PaymentService {
+	/**
+	 * FR-P28 / FS-15 (W2): fills the Stripe fee of recent payments that were saved without one. Each
+	 * read stands alone — a failing one is left for the next run. Returns how many it filled.
+	 */
+	async fillMissingFees(now: Date): Promise<number> {
+		const missing = await paymentRepository.findMissingFees(
+			new Date(now.getTime() - FEE_FILL_WINDOW_MS),
+			FEE_FILL_BATCH,
+		);
+		let filled = 0;
+		for (const payment of missing) {
+			try {
+				const pi = await stripe.paymentIntents.retrieve(
+					payment.stripePaymentIntentId,
+					{ expand: ["latest_charge.balance_transaction"] },
+				);
+				const fee = chargeFeeCents(pi.latest_charge);
+				if (fee === null) continue;
+				await paymentRepository.update(payment.id, { stripeFeeCents: fee });
+				filled++;
+			} catch (error) {
+				logger.warn("Stripe fee read failed; retried next run", {
+					paymentId: payment.id,
+					error,
+				});
+			}
+		}
+		return filled;
+	}
+
 	async createCheckoutSession(
 		studentId: string,
 		courseId: string,
@@ -156,7 +210,7 @@ class PaymentService {
 		// The charge is expanded so paidAt (the refund window start, FR "window")
 		// comes from the same call.
 		const session = await stripe.checkout.sessions.retrieve(sessionId, {
-			expand: ["payment_intent.latest_charge"],
+			expand: ["payment_intent.latest_charge.balance_transaction"],
 		});
 
 		// 4. Not paid yet
@@ -172,6 +226,7 @@ class PaymentService {
 					? session.payment_intent
 					: (session.payment_intent?.id ?? null),
 			paidAt: chargeCreatedAt(session.payment_intent),
+			stripeFeeCents: chargeFeeCents(sessionCharge(session.payment_intent)),
 		});
 
 		// 6. Enroll the student

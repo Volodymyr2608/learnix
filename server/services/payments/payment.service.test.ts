@@ -347,6 +347,7 @@ describe("PaymentService.finalizeCheckout — paidAt (refund window start)", () 
 			status: "succeeded",
 			stripePaymentIntentId: PAYMENT_INTENT_ID,
 			paidAt: new Date(CHARGE_CREATED * 1000),
+			stripeFeeCents: null,
 		});
 	});
 
@@ -360,7 +361,7 @@ describe("PaymentService.finalizeCheckout — paidAt (refund window start)", () 
 
 		expect(mockCheckoutSessionsRetrieve).toHaveBeenCalledTimes(1);
 		expect(mockCheckoutSessionsRetrieve).toHaveBeenCalledWith(SESSION_ID, {
-			expand: ["payment_intent.latest_charge"],
+			expand: ["payment_intent.latest_charge.balance_transaction"],
 		});
 	});
 
@@ -377,6 +378,7 @@ describe("PaymentService.finalizeCheckout — paidAt (refund window start)", () 
 			status: "succeeded",
 			stripePaymentIntentId: PAYMENT_INTENT_ID,
 			paidAt: null,
+			stripeFeeCents: null,
 		});
 	});
 });
