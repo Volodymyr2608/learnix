@@ -140,6 +140,24 @@ class RefundNotificationsService {
 			},
 		});
 	}
+
+	/** FR-P17 (W4): the second charge was refunded at once — once per payment. */
+	async duplicateCharge(paymentId: string): Promise<void> {
+		const payment = await paymentRepository.findForNotice(paymentId);
+		if (!payment || !reachable(payment.student.email)) return;
+		await sendOnce({
+			dedupKey: `${payment.student.id}:duplicate_charge:${payment.id}`,
+			userId: payment.student.id,
+			automation: "duplicate_charge",
+			templateKey: "refund.duplicate-charge",
+			toEmail: payment.student.email,
+			payload: {
+				name: payment.student.name,
+				title: `You were charged twice for ${payment.course.title}`,
+				body: `You were charged twice for ${payment.course.title}; the second charge of ${formatRefundAmount(payment.amountCents, payment.currency)} was refunded. It usually reaches your card in about 5–10 business days. Your access to the course is unchanged.`,
+			},
+		});
+	}
 }
 
 export const refundNotificationsService = new RefundNotificationsService();

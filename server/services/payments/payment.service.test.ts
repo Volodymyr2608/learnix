@@ -19,6 +19,7 @@ vi.mock("./stripe.client", () => ({
 // Mock payment repository
 const mockPaymentRepo = {
 	findBySessionId: vi.fn(),
+	claimCheckout: vi.fn(),
 	findByPaymentIntentId: vi.fn(),
 	create: vi.fn(),
 	update: vi.fn(),
@@ -299,9 +300,7 @@ describe("PaymentService.finalizeCheckout — idempotency", () => {
 			payment_status: "paid",
 			payment_intent: PAYMENT_INTENT_ID,
 		});
-		mockPaymentRepo.update.mockResolvedValue(
-			makePayment({ status: "succeeded" }),
-		);
+		mockPaymentRepo.claimCheckout.mockResolvedValue("paid");
 		mockEnrollmentService.enrollInCourse.mockResolvedValue(undefined);
 
 		const result = await paymentService.finalizeCheckout(SESSION_ID);
@@ -311,11 +310,15 @@ describe("PaymentService.finalizeCheckout — idempotency", () => {
 			STUDENT_ID,
 			COURSE_ID,
 		);
-		expect(mockPaymentRepo.update).toHaveBeenLastCalledWith(PAYMENT_ID, {
-			platformFeeCents: expect.any(Number),
-			instructorNetCents: expect.any(Number),
-			transferStatus: "pending",
-		});
+		expect(mockPaymentRepo.claimCheckout).toHaveBeenCalledWith(
+			expect.objectContaining({
+				paymentId: PAYMENT_ID,
+				data: expect.objectContaining({
+					platformFeeCents: expect.any(Number),
+					instructorNetCents: expect.any(Number),
+				}),
+			}),
+		);
 	});
 });
 
@@ -326,9 +329,7 @@ describe("PaymentService.finalizeCheckout — paidAt (refund window start)", () 
 		mockPaymentRepo.findBySessionId.mockResolvedValue(
 			makePayment({ status: "pending" }),
 		);
-		mockPaymentRepo.update.mockResolvedValue(
-			makePayment({ status: "succeeded" }),
-		);
+		mockPaymentRepo.claimCheckout.mockResolvedValue("paid");
 		mockEnrollmentService.enrollInCourse.mockResolvedValue(undefined);
 	});
 
@@ -343,12 +344,15 @@ describe("PaymentService.finalizeCheckout — paidAt (refund window start)", () 
 
 		await paymentService.finalizeCheckout(SESSION_ID);
 
-		expect(mockPaymentRepo.update).toHaveBeenCalledWith(PAYMENT_ID, {
-			status: "succeeded",
-			stripePaymentIntentId: PAYMENT_INTENT_ID,
-			paidAt: new Date(CHARGE_CREATED * 1000),
-			stripeFeeCents: null,
-		});
+		expect(mockPaymentRepo.claimCheckout).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					stripePaymentIntentId: PAYMENT_INTENT_ID,
+					paidAt: new Date(CHARGE_CREATED * 1000),
+					stripeFeeCents: null,
+				}),
+			}),
+		);
 	});
 
 	it("reads the charge in the same single Stripe call, by expanding it", async () => {
@@ -374,12 +378,15 @@ describe("PaymentService.finalizeCheckout — paidAt (refund window start)", () 
 		const result = await paymentService.finalizeCheckout(SESSION_ID);
 
 		expect(result).toEqual({ status: "succeeded" });
-		expect(mockPaymentRepo.update).toHaveBeenCalledWith(PAYMENT_ID, {
-			status: "succeeded",
-			stripePaymentIntentId: PAYMENT_INTENT_ID,
-			paidAt: null,
-			stripeFeeCents: null,
-		});
+		expect(mockPaymentRepo.claimCheckout).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					stripePaymentIntentId: PAYMENT_INTENT_ID,
+					paidAt: null,
+					stripeFeeCents: null,
+				}),
+			}),
+		);
 	});
 });
 

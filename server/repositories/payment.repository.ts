@@ -115,6 +115,53 @@ class PaymentRepository extends BaseRepository<
 		});
 	}
 
+	/**
+	 * FR-P17 / AC-C13 (W4): marks a paid checkout succeeded in one transaction under a per-(student,
+	 * course) advisory lock, so two finalizes of two sessions for one course run one after the other.
+	 * The later one finds the course already paid for: it is the duplicate and is never held for
+	 * transfer. "already" when another finalize got there first.
+	 */
+	claimCheckout(input: {
+		paymentId: string;
+		studentId: string;
+		courseId: string;
+		data: {
+			stripePaymentIntentId: string | null;
+			paidAt: Date | null;
+			stripeFeeCents: number | null;
+			platformFeeCents: number;
+			instructorNetCents: number;
+		};
+	}): Promise<"already" | "paid" | "duplicate"> {
+		return this.db.$transaction(async (tx) => {
+			await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`checkout:${input.studentId}:${input.courseId}`}))`;
+			const current = await tx.payment.findUniqueOrThrow({
+				where: { id: input.paymentId },
+				select: { status: true },
+			});
+			if (current.status !== "pending") return "already";
+			const alreadyPaid = await tx.payment.count({
+				where: {
+					studentId: input.studentId,
+					courseId: input.courseId,
+					status: "succeeded",
+					id: { not: input.paymentId },
+				},
+			});
+			const duplicate = alreadyPaid > 0;
+			await tx.payment.update({
+				where: { id: input.paymentId },
+				data: {
+					...input.data,
+					status: "succeeded",
+					// FR-P1, ADR-037 §1: held until the window closes; a duplicate is never held.
+					transferStatus: duplicate ? "none" : "pending",
+				},
+			});
+			return duplicate ? "duplicate" : "paid";
+		});
+	}
+
 	/** W2 / FR-P28: recent succeeded payments saved without their Stripe fee. */
 	async findMissingFees(paidSince: Date, limit: number) {
 		const rows = await this.db.payment.findMany({

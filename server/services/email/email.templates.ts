@@ -240,6 +240,7 @@ export const emailTemplates = {
 	"admin.dispute-lost": adminNotice(() => "Learnix: a bank dispute was lost"),
 	"refund.appeal-decided": studentNotice((p) => p.title),
 	"refund.dispute-lost": studentNotice((p) => p.title),
+	"refund.duplicate-charge": studentNotice((p) => p.title),
 	// biome-ignore lint/suspicious/noExplicitAny: registry requires any for generic constraint
 } as const satisfies Record<string, TemplateEntry<any>>;
 
