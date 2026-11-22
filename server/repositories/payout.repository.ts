@@ -153,13 +153,20 @@ class PayoutRepository extends BaseRepository<
 		});
 	}
 
-	/** `transferring → pending` when a live check says "not now" (H4, waiting for Stripe). */
+	/**
+	 * `transferring → pending` when a live check says "not now" (H4, waiting for Stripe) — or
+	 * `→ cancelled` when a refund's effects committed while the share was in flight (qa #1), so a
+	 * refunded sale never sits in the instructor's owed balance.
+	 */
 	async releaseClaim(paymentId: string): Promise<boolean> {
-		const { count } = await this.db.payment.updateMany({
-			where: { id: paymentId, transferStatus: "transferring" },
-			data: { transferStatus: "pending" },
-		});
-		return count === 1;
+		const changed = await this.db.$executeRaw`
+			UPDATE payments
+			   SET transfer_status = CASE WHEN status = 'refunded'
+			                              THEN 'cancelled'::"TransferStatus"
+			                              ELSE 'pending'::"TransferStatus" END,
+			       updated_at = now()
+			 WHERE id = ${paymentId} AND transfer_status = 'transferring'`;
+		return changed === 1;
 	}
 }
 

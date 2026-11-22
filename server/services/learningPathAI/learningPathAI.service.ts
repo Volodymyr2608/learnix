@@ -1,3 +1,4 @@
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { checkAiRateLimit } from "@/server/services/_shared/aiLimits";
 import {
@@ -89,6 +90,13 @@ class LearningPathAIService {
 	private readonly graph = buildLearningPathGraph();
 
 	async getForCourse(studentId: string, courseId: string) {
+		// A generation in flight can write after a refund deleted the cache; a refunded student
+		// reads nothing back (LLM audit, slice 3).
+		const enrollment = await enrollmentRepository.findByStudentCourse(
+			studentId,
+			courseId,
+		);
+		if (!enrollment) return null;
 		return learningPathRepository.findByStudentCourse(studentId, courseId);
 	}
 

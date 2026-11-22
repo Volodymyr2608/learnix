@@ -151,6 +151,7 @@ class RefundService {
 	async executeRefund(requestId: string, now: Date): Promise<RefundStatus> {
 		const request = await refundRequestRepository.findForRefund(requestId);
 		if (!request || request.refundState !== "processing") return "refunded";
+		await refundRequestRepository.markAttempt(requestId, now);
 		const { id: paymentId, stripePaymentIntentId } = request.payment;
 		if (!stripePaymentIntentId) {
 			await refundRequestRepository.recordRefundError(
@@ -176,13 +177,17 @@ class RefundService {
 
 			const existing = await stripe.refunds.list({
 				payment_intent: stripePaymentIntentId,
-				limit: 10,
+				limit: 100,
 			});
-			const done = existing.data.find(
+			const made = existing.data.filter(
 				(r) => r.status === "succeeded" || r.status === "pending",
 			);
-			const refundId = done
-				? done.id
+			// qa #2: only refunds covering the whole charge count as done; after a partial
+			// Dashboard refund, refunds.create({ payment_intent }) refunds the remainder.
+			const refundedAmount = made.reduce((sum, r) => sum + r.amount, 0);
+			const coversCharge = charge !== null && refundedAmount >= charge.amount;
+			const refundId = coversCharge
+				? (made[0]?.id ?? null)
 				: await this.createStripeRefund(paymentId, stripePaymentIntentId);
 			await refundRequestRepository.recordStripeRefund(requestId, refundId);
 		} catch (error) {
@@ -193,11 +198,22 @@ class RefundService {
 			return "processing";
 		}
 
-		const applied = await refundEffectsService.apply({
-			paymentId,
-			path: "refund_request",
-			now,
-		});
+		let applied: boolean;
+		try {
+			applied = await refundEffectsService.apply({
+				paymentId,
+				path: "refund_request",
+				now,
+			});
+		} catch (error) {
+			// qa #3: Stripe has refunded; the request stays processing and the daily retry lists
+			// that refund and applies the effects again behind their compare-and-set.
+			await refundRequestRepository.recordRefundError(
+				requestId,
+				`effects failed: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return "processing";
+		}
 		// Another path (the webhook, the replay) already applied them; the request is done.
 		if (!applied) await refundRequestRepository.markRefunded(requestId, now);
 		return "refunded";

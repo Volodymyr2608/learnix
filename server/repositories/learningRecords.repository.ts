@@ -40,7 +40,7 @@ export const learningRecordsRepository = {
 		// The achievement counting correct answers has no date; file them under today.
 		await tx.$executeRaw`
 			INSERT INTO study_archive (student_id, day, minutes, lessons, correct_answers)
-			SELECT qa."studentId", date_trunc('day', now()), 0, 0, COUNT(*)::int
+			SELECT qa."studentId", date_trunc('day', now() AT TIME ZONE 'UTC'), 0, 0, COUNT(*)::int
 			  FROM quiz_attempts qa
 			  JOIN quizzes q ON q.id = qa."quizId"
 			  JOIN lessons l ON l.id = q."lessonId"

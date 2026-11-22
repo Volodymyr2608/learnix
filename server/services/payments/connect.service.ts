@@ -143,7 +143,7 @@ class ConnectService {
 			});
 			const groupedTransfer = grouped.data[0];
 			if (groupedTransfer) {
-				return this.recordTransfer(
+				return await this.recordTransfer(
 					payment,
 					groupedTransfer.id,
 					now,
@@ -177,7 +177,7 @@ class ConnectService {
 				charge,
 			);
 			if (legacyTransfer) {
-				return this.recordTransfer(
+				return await this.recordTransfer(
 					payment,
 					legacyTransfer.id,
 					now,
@@ -195,7 +195,7 @@ class ConnectService {
 				},
 				{ idempotencyKey: `transfer:${paymentId}` },
 			);
-			return this.recordTransfer(payment, transfer.id, now, "released");
+			return await this.recordTransfer(payment, transfer.id, now, "released");
 		} catch (error) {
 			// H5: never guess whether Stripe created the transfer; stay `transferring` and let the
 			// next run recover it list-before-retry. Audit Low-2: touch the row so it goes behind

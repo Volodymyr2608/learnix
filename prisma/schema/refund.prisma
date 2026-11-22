@@ -38,6 +38,8 @@ model RefundRequest {
   /// Stripe's message, for the admin only — never shown to the student (FR-S20, C23).
   refundError      String?        @map("refund_error")
   refundedAt       DateTime?      @map("refunded_at")
+  /// Audit M-2a: the last Stripe attempt; the retry takes the least recently tried first.
+  refundAttemptedAt DateTime?     @map("refund_attempted_at")
   createdAt        DateTime       @default(now()) @map("created_at")
 
   @@index([studentId, decision, createdAt])

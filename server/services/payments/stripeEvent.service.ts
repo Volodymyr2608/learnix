@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { instructorRepository } from "@/server/repositories/instructor.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
+import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { refundEffectsService } from "@/server/services/refund/refundEffects.service";
 import { connectService } from "./connect.service";
 import { paymentService } from "./payment.service";
@@ -59,9 +60,14 @@ class StripeEventService {
 		const payment =
 			await paymentRepository.findByPaymentIntentId(paymentIntentId);
 		if (!payment) return;
+		// qa #4: the webhook for Learnix's own refund can beat executeRefund's apply; the
+		// certificate is then revoked for the student's request, not "via the Dashboard" (R4).
+		const ownRequest = await refundRequestRepository.hasProcessingForPayment(
+			payment.id,
+		);
 		await refundEffectsService.apply({
 			paymentId: payment.id,
-			path: "dashboard_refund",
+			path: ownRequest ? "refund_request" : "dashboard_refund",
 			now,
 		});
 	}

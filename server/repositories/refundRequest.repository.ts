@@ -115,9 +115,14 @@ class RefundRequestRepository extends BaseRepository<
 
 	/** FR-S20 retry: approved requests whose Stripe refund has not succeeded yet, oldest first. */
 	async findProcessingIds(limit: number): Promise<string[]> {
+		// Audit M-2a: least recently tried first, so requests that cannot finish (a disputed
+		// charge) go behind fresh ones instead of filling every batch.
 		const rows = await this.db.refundRequest.findMany({
 			where: { refundState: "processing" },
-			orderBy: { createdAt: "asc" },
+			orderBy: [
+				{ refundAttemptedAt: { sort: "asc", nulls: "first" } },
+				{ createdAt: "asc" },
+			],
 			take: limit,
 			select: { id: true },
 		});
@@ -136,6 +141,21 @@ class RefundRequestRepository extends BaseRepository<
 		await this.db.refundRequest.update({
 			where: { id: requestId },
 			data: { refundError },
+		});
+	}
+
+	async hasProcessingForPayment(paymentId: string): Promise<boolean> {
+		const row = await this.db.refundRequest.findFirst({
+			where: { paymentId, refundState: "processing" },
+			select: { id: true },
+		});
+		return row !== null;
+	}
+
+	async markAttempt(requestId: string, now: Date) {
+		await this.db.refundRequest.update({
+			where: { id: requestId },
+			data: { refundAttemptedAt: now },
 		});
 	}
 

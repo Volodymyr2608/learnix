@@ -46,6 +46,9 @@ vi.mock("@/server/services/embeddings/embeddings.service", () => ({
 }));
 
 const { payoutJobService } = await import("./payoutJob.service");
+const { refundEffectsService } = await import(
+	"@/server/services/refund/refundEffects.service"
+);
 const { stripeEventService } = await import("./stripeEvent.service");
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -227,5 +230,85 @@ describe("the daily job retries refunds and replays missed refund events (FR-P15
 			refundsRetried: 0,
 			eventsReplayed: 0,
 		});
+	});
+
+	it("retries a fresh processing refund even when 20 older ones never finish (audit M-2a)", async () => {
+		for (let i = 0; i < 20; i++) {
+			const stuck = await seedPayment({
+				stripePaymentIntentId: `pi_disputed_${i}`,
+			});
+			await makeRefundRequest({
+				paymentId: stuck.id,
+				studentId: ids.studentId,
+				courseId: ids.courseId,
+				refundState: "processing",
+				createdAt: new Date(NOW.getTime() - 5 * DAY),
+			});
+		}
+		const fresh = await seedPayment({ stripePaymentIntentId: "pi_fresh" });
+		const freshRequest = await makeRefundRequest({
+			paymentId: fresh.id,
+			studentId: ids.studentId,
+			courseId: ids.courseId,
+			refundState: "processing",
+		});
+		stripeMock.piRetrieve.mockImplementation(async (id: string) => ({
+			latest_charge: {
+				id: `ch_${id}`,
+				amount: 4999,
+				refunded: false,
+				disputed: id.startsWith("pi_disputed_"),
+			},
+		}));
+
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		expect(
+			(
+				await testDb.refundRequest.findUniqueOrThrow({
+					where: { id: freshRequest.id },
+				})
+			).refundState,
+		).toBe("refunded");
+	});
+
+	it("still releases payouts and records the run when a refund's effects keep failing (qa #3, audit M-2b)", async () => {
+		const refunding = await seedPayment();
+		await makeRefundRequest({
+			paymentId: refunding.id,
+			studentId: ids.studentId,
+			courseId: ids.courseId,
+			refundState: "processing",
+		});
+		const releasable = await seedPayment({
+			paidAt: new Date(NOW.getTime() - 20 * DAY),
+		});
+		const spy = vi
+			.spyOn(refundEffectsService, "apply")
+			.mockRejectedValue(new Error("deadlock"));
+
+		const summary = await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		spy.mockRestore();
+		expect(summary).toMatchObject({ status: "completed", released: 1 });
+		expect((await statusOf(releasable.id)).transferStatus).toBe("transferred");
+		expect(await testDb.payoutRun.count()).toBe(1);
+	});
+
+	it("still releases payouts when listing Stripe events fails", async () => {
+		const releasable = await seedPayment({
+			paidAt: new Date(NOW.getTime() - 20 * DAY),
+		});
+		stripeMock.eventsList.mockRejectedValue(new Error("Stripe 500"));
+
+		const summary = await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		expect(summary).toMatchObject({
+			status: "completed",
+			released: 1,
+			eventsReplayed: 0,
+		});
+		expect((await statusOf(releasable.id)).transferStatus).toBe("transferred");
 	});
 });

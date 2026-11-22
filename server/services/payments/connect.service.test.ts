@@ -410,6 +410,22 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 		expect(mockPayoutRepo.markReversed).toHaveBeenCalledWith("pay_1");
 	});
 
+	it("resolves to failed, never rejects, when the reversal after a refund fails (audit M-1)", async () => {
+		mockTransfersCreate.mockResolvedValue({ id: "tr_new" });
+		mockPayoutRepo.isRefunded.mockResolvedValue(true);
+		mockTransfersCreateReversal.mockRejectedValue(
+			new Error("insufficient balance"),
+		);
+
+		await expect(
+			connectService.releasePayment(makePayment(), NOW),
+		).resolves.toEqual({
+			kind: "failed",
+			paymentId: "pay_1",
+			error: "insufficient balance",
+		});
+	});
+
 	it("reverses a transfer it just created when the payment was refunded during the call (AC-C5)", async () => {
 		mockTransfersCreate.mockResolvedValue({ id: "tr_new" });
 		mockPayoutRepo.isRefunded.mockResolvedValue(true);

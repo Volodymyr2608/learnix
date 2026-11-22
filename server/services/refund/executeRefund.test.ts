@@ -17,6 +17,7 @@ const repo = vi.hoisted(() => ({
 	recordStripeRefund: vi.fn(),
 	recordRefundError: vi.fn(),
 	markRefunded: vi.fn(),
+	markAttempt: vi.fn(),
 }));
 vi.mock("@/server/repositories/refundRequest.repository", () => ({
 	refundRequestRepository: repo,
@@ -29,7 +30,7 @@ const { refundService } = await import("./refund.service");
 const NOW = new Date("2026-11-20T10:00:00.000Z");
 const charge = (disputed = false) =>
 	stripeMock.piRetrieve.mockResolvedValue({
-		latest_charge: { id: "ch_1", disputed, refunded: false },
+		latest_charge: { id: "ch_1", amount: 4999, disputed, refunded: false },
 	});
 
 describe("refundService.executeRefund (FR-S6, FR-S20, C2, C3, C12)", () => {
@@ -66,12 +67,25 @@ describe("refundService.executeRefund (FR-S6, FR-S20, C2, C3, C12)", () => {
 
 	it("uses a refund Stripe already made instead of creating another (C7)", async () => {
 		stripeMock.refundsList.mockResolvedValue({
-			data: [{ id: "re_old", status: "succeeded" }],
+			data: [{ id: "re_old", status: "succeeded", amount: 4999 }],
 		});
 
 		expect(await refundService.executeRefund("req_1", NOW)).toBe("refunded");
 		expect(stripeMock.refundsCreate).not.toHaveBeenCalled();
 		expect(repo.recordStripeRefund).toHaveBeenCalledWith("req_1", "re_old");
+	});
+
+	it("refunds the remainder when only a partial refund exists (qa #2)", async () => {
+		stripeMock.refundsList.mockResolvedValue({
+			data: [{ id: "re_partial", status: "succeeded", amount: 1000 }],
+		});
+
+		expect(await refundService.executeRefund("req_1", NOW)).toBe("refunded");
+		expect(stripeMock.refundsCreate).toHaveBeenCalledWith(
+			{ payment_intent: "pi_1" },
+			{ idempotencyKey: "refund:pay_1" },
+		);
+		expect(repo.recordStripeRefund).toHaveBeenCalledWith("req_1", "re_1");
 	});
 
 	it("treats charge_already_refunded as success (AC-C3)", async () => {
@@ -117,6 +131,22 @@ describe("refundService.executeRefund (FR-S6, FR-S20, C2, C3, C12)", () => {
 
 		expect(await refundService.executeRefund("req_1", NOW)).toBe("refunded");
 		expect(repo.markRefunded).toHaveBeenCalledWith("req_1", NOW);
+	});
+
+	it("returns processing, not an error, when the effects fail after Stripe refunded (qa #3)", async () => {
+		effects.apply.mockRejectedValue(new Error("transaction timeout"));
+
+		expect(await refundService.executeRefund("req_1", NOW)).toBe("processing");
+		expect(repo.recordRefundError).toHaveBeenCalledWith(
+			"req_1",
+			"effects failed: transaction timeout",
+		);
+	});
+
+	it("records each attempt so stuck requests move behind fresh ones (audit M-2a)", async () => {
+		await refundService.executeRefund("req_1", NOW);
+
+		expect(repo.markAttempt).toHaveBeenCalledWith("req_1", NOW);
 	});
 
 	it("does nothing for a request that is not processing", async () => {

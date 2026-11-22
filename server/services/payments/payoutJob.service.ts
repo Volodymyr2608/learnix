@@ -55,7 +55,13 @@ const retryRefunds = async (now: Date): Promise<number> => {
 		await refundRequestRepository.findProcessingIds(REFUND_RETRY_BATCH);
 	let refunded = 0;
 	for (const id of ids) {
-		if ((await refundService.executeRefund(id, now)) === "refunded") refunded++;
+		// qa #3: one request that keeps failing must not stop the run.
+		try {
+			if ((await refundService.executeRefund(id, now)) === "refunded")
+				refunded++;
+		} catch (error) {
+			logger.error("Refund retry failed", { requestId: id, error });
+		}
 	}
 	return refunded;
 };
@@ -162,7 +168,11 @@ class PayoutJobService {
 			// R7: refunds first, so the release below never pays out a sale refunded meanwhile.
 			const refundCounts: RefundRunCounts = {
 				refundsRetried: await retryRefunds(input.now),
-				eventsReplayed: await replayRefundEvents(input.now),
+				eventsReplayed: await replayRefundEvents(input.now).catch((error) => {
+					// A Stripe outage must not stop the releases below.
+					logger.error("Event replay failed", { error });
+					return 0;
+				}),
 			};
 			await retryReversals();
 			const candidates = await payoutRepository.findReleaseCandidates(

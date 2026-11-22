@@ -223,6 +223,17 @@ describe("payoutRepository", () => {
 			});
 		});
 
+		it("cancels instead of returning to pending when the payment was refunded meanwhile (qa #1)", async () => {
+			const payment = await seedPayment({
+				transferStatus: "transferring",
+				status: "refunded",
+				refundedAt: ELIGIBLE,
+			});
+
+			expect(await payoutRepository.releaseClaim(payment.id)).toBe(true);
+			expect(await status(payment.id)).toBe("cancelled");
+		});
+
 		it("returns a claimed payment to pending", async () => {
 			const payment = await seedPayment({ transferStatus: "transferring" });
 

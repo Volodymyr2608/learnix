@@ -46,6 +46,24 @@ class EnrollmentRepository extends BaseRepository<
 > {
 	protected readonly modelName = "enrollment" as const;
 
+	/**
+	 * LLM audit (slice 3): does the student hold a live enrollment for the lesson's course?
+	 * Soft-deleted lessons count — the history of a lesson that was removed is still theirs.
+	 */
+	async hasAccessToLesson(
+		studentId: string,
+		lessonId: string,
+	): Promise<boolean> {
+		const count = await this.db.enrollment.count({
+			where: {
+				studentId,
+				status: { not: EnrollmentStatus.cancelled },
+				course: { sections: { some: { lessons: { some: { id: lessonId } } } } },
+			},
+		});
+		return count > 0;
+	}
+
 	/** REC: every course the student ever enrolled in — a refunded (cancelled) one included. */
 	async findAnyEnrollmentCourseIds(userId: string): Promise<string[]> {
 		const rows = await this.findMany({

@@ -5,6 +5,12 @@ const mocks = vi.hoisted(() => ({
 	apply: vi.fn(),
 	findByPaymentIntentId: vi.fn(),
 	finalizeCheckout: vi.fn(),
+	hasProcessingForPayment: vi.fn(),
+}));
+vi.mock("@/server/repositories/refundRequest.repository", () => ({
+	refundRequestRepository: {
+		hasProcessingForPayment: mocks.hasProcessingForPayment,
+	},
 }));
 vi.mock("@/server/services/refund/refundEffects.service", () => ({
 	refundEffectsService: { apply: mocks.apply },
@@ -39,6 +45,17 @@ describe("stripeEventService.handle", () => {
 		vi.clearAllMocks();
 		mocks.findByPaymentIntentId.mockResolvedValue({ id: "pay_1" });
 		mocks.apply.mockResolvedValue(true);
+		mocks.hasProcessingForPayment.mockResolvedValue(false);
+	});
+
+	it("labels the refund as the student's own when a request is processing (qa #4, R4)", async () => {
+		mocks.hasProcessingForPayment.mockResolvedValue(true);
+
+		await stripeEventService.handle(refunded(4999, 4999), NOW);
+
+		expect(mocks.apply).toHaveBeenCalledWith(
+			expect.objectContaining({ path: "refund_request" }),
+		);
 	});
 
 	it("applies the refund effects for a full charge.refunded (Dashboard refund)", async () => {
