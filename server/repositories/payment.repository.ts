@@ -217,6 +217,8 @@ class PaymentRepository extends BaseRepository<
 			include: {
 				course: { select: { id: true, title: true } },
 				instructor: { select: { name: true } },
+				// U7: the refund row state needs the request's status, never its text or Stripe ids.
+				refundRequest: { select: { decision: true, refundState: true } },
 			},
 			orderBy: { createdAt: "desc" },
 		});

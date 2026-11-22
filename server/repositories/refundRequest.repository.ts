@@ -163,6 +163,48 @@ class RefundRequestRepository extends BaseRepository<
 		return tx.refundRequest.create({ data, select: { id: true } });
 	}
 
+	/** U7: the student's courses with a certificate, among `courseIds` — one query for a list. */
+	async findCertifiedCourseIds(
+		studentId: string,
+		courseIds: string[],
+	): Promise<Set<string>> {
+		const rows = await this.db.enrollment.findMany({
+			where: {
+				studentId,
+				courseId: { in: courseIds },
+				completedAt: { not: null },
+			},
+			select: { courseId: true },
+		});
+		return new Set(rows.map((r) => r.courseId));
+	}
+
+	/** U7: the student's courses with a counting refund (see `hasCountingRefund`), among `courseIds`. */
+	async findCountingRefundCourseIds(
+		studentId: string,
+		courseIds: string[],
+	): Promise<Set<string>> {
+		const [requests, lostDisputes] = await Promise.all([
+			this.db.refundRequest.findMany({
+				where: {
+					studentId,
+					courseId: { in: courseIds },
+					decision: "auto_approved",
+				},
+				select: { courseId: true },
+			}),
+			this.db.payment.findMany({
+				where: {
+					studentId,
+					courseId: { in: courseIds },
+					refundSource: "lost_dispute",
+				},
+				select: { courseId: true },
+			}),
+		]);
+		return new Set([...requests, ...lostDisputes].map((r) => r.courseId));
+	}
+
 	/** FR-S20: the request and the payment fields the Stripe refund needs. */
 	findForRefund(requestId: string) {
 		return this.db.refundRequest.findUnique({
