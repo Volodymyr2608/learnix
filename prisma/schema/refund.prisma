@@ -10,6 +10,12 @@ enum RefundDecision {
   auto_denied
 }
 
+/// R1: where an approved request's Stripe refund stands. Null for a denial.
+enum RefundState {
+  processing
+  refunded
+}
+
 // A student's refund request (FR-S5). One per payment (FR-S7); the snapshot
 // freezes every condition at submission. Shape: RefundSnapshot in
 // server/entities/refund.ts.
@@ -26,6 +32,12 @@ model RefundRequest {
   decision         RefundDecision
   failedConditions String[]       @map("failed_conditions")
   snapshot         Json
+  /// FR-S20: `processing` until Stripe confirms; failures stay `processing` with refundError.
+  refundState      RefundState?   @map("refund_state")
+  stripeRefundId   String?        @unique @map("stripe_refund_id")
+  /// Stripe's message, for the admin only — never shown to the student (FR-S20, C23).
+  refundError      String?        @map("refund_error")
+  refundedAt       DateTime?      @map("refunded_at")
   createdAt        DateTime       @default(now()) @map("created_at")
 
   @@index([studentId, decision, createdAt])

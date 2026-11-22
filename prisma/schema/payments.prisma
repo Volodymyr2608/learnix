@@ -73,6 +73,9 @@ model PayoutRun {
   finishedAt DateTime?        @map("finished_at")
   processed  Int              @default(0)
   released   Int              @default(0)
+  /// Slice 3: processing refunds retried and Stripe events replayed in this run.
+  refundsRetried Int          @default(0) @map("refunds_retried")
+  eventsReplayed Int          @default(0) @map("events_replayed")
   /// [{ paymentId, error }]
   failures   Json             @default("[]")
   paymentIds String[]         @map("payment_ids")

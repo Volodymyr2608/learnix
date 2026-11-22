@@ -14,6 +14,8 @@ model Conversation {
 
   createdAt     DateTime @default(now())
   lastMessageAt DateTime @default(now())
+  /// FR-P11 / D1: closed after a refund — nobody can send, history stays readable.
+  closedAt      DateTime? @map("closed_at")
 
   @@unique([studentId, instructorId, courseId])
   @@index([studentId, lastMessageAt])

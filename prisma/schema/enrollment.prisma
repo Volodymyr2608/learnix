@@ -4,6 +4,14 @@ enum EnrollmentStatus {
   cancelled
 }
 
+/// FR-P10 / E2 (+ R4 for the request path).
+enum CertificateRevocationReason {
+  refund_request
+  dashboard_refund
+  admin_exception
+  lost_dispute
+}
+
 model Enrollment {
   id String @id @default(cuid())
 
@@ -21,6 +29,10 @@ model Enrollment {
   completedAt DateTime?
 
   lastAccessedAt DateTime?
+
+  /// E2: the certificate (a completed enrollment) is revoked after a refund; cleared on repurchase (R5).
+  certificateRevokedAt     DateTime?                    @map("certificate_revoked_at")
+  certificateRevokedReason CertificateRevocationReason? @map("certificate_revoked_reason")
 
   @@unique([studentId, courseId])
   @@index([courseId])

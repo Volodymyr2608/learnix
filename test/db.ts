@@ -10,6 +10,8 @@ const TABLES = [
 	"conversations",
 	"lesson_progress",
 	"course_progress",
+	"study_archive",
+	"stripe_replay_cursors",
 	"payout_runs",
 	"payments",
 	"processed_stripe_events",
