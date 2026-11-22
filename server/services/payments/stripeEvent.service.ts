@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import type { DisputeState } from "@/generated/prisma";
 import { instructorRepository } from "@/server/repositories/instructor.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
@@ -10,6 +11,19 @@ const paymentIntentOf = (charge: Stripe.Charge): string | undefined =>
 	typeof charge.payment_intent === "string"
 		? charge.payment_intent
 		: charge.payment_intent?.id;
+
+/** D9: only `lost` returns the money to the customer; every other closing status keeps it. */
+const disputeStateOf = (status: Stripe.Dispute.Status): DisputeState => {
+	if (status === "lost") return "lost";
+	if (
+		status === "won" ||
+		status === "warning_closed" ||
+		status === "prevented"
+	) {
+		return "won";
+	}
+	return "open";
+};
 
 class StripeEventService {
 	/**
@@ -28,6 +42,16 @@ class StripeEventService {
 				await this.chargeRefunded(event.data.object as Stripe.Charge, now);
 				return;
 			}
+			case "charge.dispute.created":
+			case "charge.dispute.updated":
+			case "charge.dispute.closed": {
+				await this.disputeChanged(
+					event.data.object as Stripe.Dispute,
+					event.created,
+					now,
+				);
+				return;
+			}
 			case "account.updated": {
 				const account = event.data.object as Stripe.Account;
 				await connectService.syncAccountStatus(account);
@@ -42,6 +66,36 @@ class StripeEventService {
 				await payoutJobService.releaseForInstructor(profile.userId, now);
 				return;
 			}
+		}
+	}
+
+	/**
+	 * FR-P18a / FR-P18b: the stored dispute state follows Stripe's events in event order (D2); a
+	 * dispute closed lost is the student taking the money back — another refund path through the
+	 * same effects function (DL).
+	 */
+	private async disputeChanged(
+		dispute: Stripe.Dispute,
+		eventCreated: number,
+		now: Date,
+	): Promise<void> {
+		const paymentIntentId =
+			typeof dispute.payment_intent === "string"
+				? dispute.payment_intent
+				: dispute.payment_intent?.id;
+		if (!paymentIntentId) return;
+		const state = disputeStateOf(dispute.status);
+		const paymentId = await paymentRepository.recordDisputeState(
+			paymentIntentId,
+			state,
+			eventCreated,
+		);
+		if (paymentId && state === "lost") {
+			await refundEffectsService.apply({
+				paymentId,
+				path: "lost_dispute",
+				now,
+			});
 		}
 	}
 

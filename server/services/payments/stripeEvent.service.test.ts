@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	apply: vi.fn(),
 	findByPaymentIntentId: vi.fn(),
+	recordDisputeState: vi.fn(),
 	finalizeCheckout: vi.fn(),
 	hasProcessingForPayment: vi.fn(),
 }));
@@ -16,7 +17,10 @@ vi.mock("@/server/services/refund/refundEffects.service", () => ({
 	refundEffectsService: { apply: mocks.apply },
 }));
 vi.mock("@/server/repositories/payment.repository", () => ({
-	paymentRepository: { findByPaymentIntentId: mocks.findByPaymentIntentId },
+	paymentRepository: {
+		findByPaymentIntentId: mocks.findByPaymentIntentId,
+		recordDisputeState: mocks.recordDisputeState,
+	},
 }));
 vi.mock("./payment.service", () => ({
 	paymentService: { finalizeCheckout: mocks.finalizeCheckout },
@@ -94,5 +98,75 @@ describe("stripeEventService.handle", () => {
 		);
 
 		expect(mocks.finalizeCheckout).toHaveBeenCalledWith("cs_1");
+	});
+
+	describe("dispute events (FR-P18a, FR-P18b, D9)", () => {
+		const dispute = (type: string, status: string, created = 1_763_000_000) =>
+			({
+				id: "evt_d",
+				type,
+				created,
+				data: {
+					object: {
+						id: "dp_1",
+						status,
+						payment_intent: "pi_1",
+						charge: "ch_1",
+					},
+				},
+			}) as unknown as Stripe.Event;
+
+		beforeEach(() => {
+			mocks.recordDisputeState.mockResolvedValue("pay_1");
+		});
+
+		it.each([
+			["charge.dispute.created", "needs_response", "open"],
+			["charge.dispute.updated", "under_review", "open"],
+			["charge.dispute.closed", "won", "won"],
+			["charge.dispute.closed", "warning_closed", "won"],
+			["charge.dispute.closed", "lost", "lost"],
+		])("%s with status %s stores %s", async (type, status, state) => {
+			await stripeEventService.handle(dispute(type, status), NOW);
+
+			expect(mocks.recordDisputeState).toHaveBeenCalledWith(
+				"pi_1",
+				state,
+				1_763_000_000,
+			);
+		});
+
+		it("applies the refund effects on a lost dispute", async () => {
+			await stripeEventService.handle(
+				dispute("charge.dispute.closed", "lost"),
+				NOW,
+			);
+
+			expect(mocks.apply).toHaveBeenCalledWith({
+				paymentId: "pay_1",
+				path: "lost_dispute",
+				now: NOW,
+			});
+		});
+
+		it("applies nothing when the event is older than the stored state (D2)", async () => {
+			mocks.recordDisputeState.mockResolvedValue(null);
+
+			await stripeEventService.handle(
+				dispute("charge.dispute.closed", "lost"),
+				NOW,
+			);
+
+			expect(mocks.apply).not.toHaveBeenCalled();
+		});
+
+		it("applies nothing on a won dispute", async () => {
+			await stripeEventService.handle(
+				dispute("charge.dispute.closed", "won"),
+				NOW,
+			);
+
+			expect(mocks.apply).not.toHaveBeenCalled();
+		});
 	});
 });

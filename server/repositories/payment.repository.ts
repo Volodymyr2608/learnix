@@ -1,4 +1,9 @@
-import type { Payment, Prisma, ProcessedStripeEvent } from "@/generated/prisma";
+import type {
+	DisputeState,
+	Payment,
+	Prisma,
+	ProcessedStripeEvent,
+} from "@/generated/prisma";
 import { getMonthWindows } from "@/lib/stats/monthWindows";
 import { BaseRepository } from "./base/base.repository";
 
@@ -48,6 +53,24 @@ class PaymentRepository extends BaseRepository<
 		studentId: string,
 	) {
 		return this.findFirst({ where: { stripeCheckoutSessionId, studentId } });
+	}
+
+	/**
+	 * FR-P18a (D2): stores a dispute state from a Stripe event unless a newer event already set
+	 * one — webhook and replay deliver out of order. Returns the payment id when it applied.
+	 */
+	async recordDisputeState(
+		stripePaymentIntentId: string,
+		state: DisputeState,
+		eventCreated: number,
+	): Promise<string | null> {
+		const rows = await this.db.$queryRaw<{ id: string }[]>`
+			UPDATE payments
+			   SET dispute_state = ${state}::"DisputeState", dispute_updated_at = ${eventCreated}
+			 WHERE stripe_payment_intent_id = ${stripePaymentIntentId}
+			   AND (dispute_updated_at IS NULL OR dispute_updated_at <= ${eventCreated})
+			RETURNING id`;
+		return rows[0]?.id ?? null;
 	}
 
 	findByPaymentIntentId(stripePaymentIntentId: string) {
