@@ -89,6 +89,28 @@ export default class CourseReviewRepository extends BaseRepository<
 		}));
 	}
 
+	/**
+	 * E2-R: a review a refund hid comes back with the new text and rating when the student buys,
+	 * completes and reviews the course again — one row per student and course. Returns the id, or
+	 * null when there is no hidden review.
+	 */
+	async restoreHidden(
+		studentId: string,
+		courseId: string,
+		data: { rating: number; comment: string; tags: CourseReview["tags"] },
+	): Promise<string | null> {
+		const hidden = await this.db.courseReview.findFirst({
+			where: { studentId, courseId, deletedAt: { not: null } },
+			select: { id: true },
+		});
+		if (!hidden) return null;
+		await this.db.courseReview.update({
+			where: { id: hidden.id },
+			data: { ...data, deletedAt: null },
+		});
+		return hidden.id;
+	}
+
 	findByStudentAndCourse(
 		studentId: string,
 		courseId: string,
