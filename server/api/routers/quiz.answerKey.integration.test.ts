@@ -11,6 +11,7 @@ import {
 	makeCourse,
 	makeEnrollment,
 	makeLesson,
+	makeOpenedLesson,
 	makeQuiz,
 	makeQuizAttempt,
 	makeSection,
@@ -50,6 +51,7 @@ describe("quiz.getByLesson never carries the answer key", () => {
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		lessonId = lesson.id;
 		studentId = student.id;
 		caller = createCaller(ctxFor(student.id));
@@ -101,6 +103,7 @@ describe("quiz.submit never carries the answer key", () => {
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		const quiz = await makeQuiz({
 			lessonId: lesson.id,
 			options: ["A", "B", "C", "D"],

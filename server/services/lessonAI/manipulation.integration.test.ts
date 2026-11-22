@@ -10,6 +10,7 @@ import {
 	makeEnrollment,
 	makeLesson,
 	makeLessonInsights,
+	makeOpenedLesson,
 	makeQuiz,
 	makeSection,
 	makeUser,
@@ -52,6 +53,7 @@ describe("multi-turn manipulation cannot falsify an educational record", () => {
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		studentId = student.id;
 		courseId = course.id;
 		lessonId = lesson.id;
