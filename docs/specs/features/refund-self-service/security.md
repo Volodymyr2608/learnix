@@ -135,6 +135,18 @@ is off, because the flag check runs before any database work (C24); each is a Re
   the student keeps reading the course. The Stripe slice must revoke access in the same transaction
   as the refund effects, or the content read must refuse once a request is approved or processing.
 
+### Slice 2 (hold and release, 2026-11-22) — control status
+
+| C | Status | Where |
+|---|---|---|
+| C5 | Implemented: one conditional update with the full predicate, 1 h margin. Remainder → slice 3: a refund committed between claim and transfer ends in one reversal | `payout.repository.ts` `claimForRelease` |
+| C6 | Implemented: an `auto_approved` request (no refund yet, H2) and an `auto_denied` one inside its appeal deadline (H3) block every path | same predicate fragment |
+| C7 | Implemented for transfers: `transfer_group = payment.id`, idempotency key, list before create. Refunds and reversals → slice 3 | `connect.service.ts` `releasePayment` |
+| C14 | Implemented: `transfers.create` only in `releasePayment` (contract test); Sweep and the transfer at sale removed | `transfers.contract.test.ts` |
+| C15 | Implemented: constant-time Bearer compare, empty 401, counts only; `CRON_SECRET` ≥ 32 chars, re-checked in the route; missing secret refuses every caller | `app/api/cron/release-payouts/route.ts` |
+| C16 | Implemented: Redis `SET NX PX` with a token, compare-and-delete release, 15 min TTL; per-process fallback only in development and test | `runLock.ts` |
+| C28 | Implemented: the status procedure finalizes only the caller's own session | `finalizeCheckoutForStudent` |
+
 ## Open
 
 - **Unverified by the passes:** whether a `ConceptMastery` row references a `ConceptCheck` (matters

@@ -14,6 +14,12 @@
   the rejected "advisory lock around the Stripe call" below: the request transaction makes no
   network call — the facts are counted and the row inserted under the lock, and the Stripe refund
   runs after it commits
+- **Amended**: 2026-11-22, slice 2 (hold and release): a payment with no `Payment.paidAt` (sales
+  before slice 1, or a charge the checkout did not expand) becomes eligible at `createdAt` + 24 h +
+  the window + 1 h; a Checkout Session expires within 24 h, so this bound is never earlier than the
+  real one (§1). The run lock (§3.2) has a 15 min TTL, longer than a 300 s Hobby run, and a random
+  token released by compare-and-delete; without KV it falls back to a per-process lock in
+  development and test only, and refuses to run in production
 
 ## Context
 

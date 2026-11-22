@@ -1298,3 +1298,48 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me): in my own words — why a lenient error is acceptable and why seed data does not
   justify reopening Q13*
+
+### 2026-11-22 — Slice 2 plan: nine decisions the spec did not make (H1–H9)
+- **Stage:** plan
+- **Context the AI had:** `spec.md` FR-P1–P5, P2a, P24–P26; `security.md` C5–C7, C14–C16, C28;
+  ADR-037; codebase anchors from one `feature-dev:code-explorer` pass
+- **AI proposed:**
+  - H1 — `paidAt` null → eligible at `createdAt` + 24 h + 14 d + 1 h (a Checkout Session expires
+    within 24 h, so the bound is never early; legacy sales are still paid);
+  - H2 — an `auto_approved` request blocks release until slice 3 makes the refund;
+  - H3 — appeal right = `auto_denied` and now < max(window end, denial + 3 d); no appeals table yet;
+  - H4 — a live charge refunded or disputed → back to `pending`, recorded as a run failure, no effects;
+  - H5 — a Stripe error after the claim leaves `transferring`; the next run lists before retrying;
+  - H6 — the migration moves legacy `succeeded` + `none` (net > 0) to `pending`;
+  - H7 — Redis run lock with a token, 15 min TTL, in-memory fallback only in dev/test;
+  - H8 — one constant-time Bearer comparison shared by the cron and n8n routes;
+  - H9 — the checkout path makes no transfer at all (AC-C14 over FR-P2's wording)
+- **AI found while planning:** `getSessionStatus` finalized any student's checkout session (no
+  ownership check) — the C28 gap was real in the code, not only a threat on paper
+- **How I verified:** *Not verified by me* — I read the table and approved H1–H9 as proposed
+- **My decision:** approved all nine; H1 and H7 recorded as an ADR-037 amendment
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why H1 uses createdAt + 24 h instead of holding forever,
+  and why H6 backfills old rows instead of leaving them*
+
+### 2026-11-22 — Slice 2 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan-slice-2.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - the candidate query had to use the same predicate as the claim, or payments blocked by an
+    approved request (H2) would fill every batch of 50 and starve the rest;
+  - removing the old Sweep broke the admin button at typecheck, so Tasks 8 and 9 shipped as one
+    commit to keep every commit green;
+  - the signed checkout webhook also calls `finalizeCheckout` and has no student, so the ownership
+    check became a separate `finalizeCheckoutForStudent` instead of a new parameter;
+  - `CRON_SECRET` is optional in env (≥ 32 chars when set) so dev and `next build` work; without it
+    the route refuses everyone — a deploy without the secret never pays out, which slice 5's 48 h
+    alert must catch;
+  - the contract test's first regex mis-read `if (` and `retrieve(` as function names; it now reads
+    declarations line by line;
+  - break-it runs: dropping `NOT EXISTS` turns the appeal/approval tests red; a second
+    `transfers.create` turns the contract test red; a transfer at sale turns AC-F13 red
+- **How I verified:** *Not verified by me* (the tests named in the plan ran red, then green; unit
+  2500/2500)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
