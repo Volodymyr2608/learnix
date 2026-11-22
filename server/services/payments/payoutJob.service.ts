@@ -12,6 +12,7 @@ import { refundRequestRepository } from "@/server/repositories/refundRequest.rep
 import { stripeReplayCursorRepository } from "@/server/repositories/stripeReplayCursor.repository";
 import { refundService } from "@/server/services/refund/refund.service";
 import { logger } from "@/server/utils/logger";
+import { adminAlertService } from "./adminAlert.service";
 import { connectService } from "./connect.service";
 import { getRunLock } from "./runLock";
 import { stripe } from "./stripe.client";
@@ -202,11 +203,22 @@ class PayoutJobService {
 					...refundCounts,
 				};
 			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
 				await payoutRunRepository
-					.fail(row.id, error instanceof Error ? error.message : String(error))
+					.fail(row.id, message)
 					.catch((failError) =>
 						logger.error("Could not record the failed run", { failError }),
 					);
+				// FR-A10: the admins hear about it; an alert failure never masks the run's error.
+				try {
+					await adminAlertService.runFailed({
+						id: row.id,
+						error: message,
+						startedAt: row.startedAt,
+					});
+				} catch (alertError) {
+					logger.error("Could not send the failed-run alert", { alertError });
+				}
 				throw error;
 			}
 		} finally {

@@ -27,6 +27,11 @@ const lock = {
 	acquire: vi.fn<(name: string, ttl: number) => Promise<string | null>>(),
 	release: vi.fn<(name: string, token: string) => Promise<void>>(),
 };
+const alerts = vi.hoisted(() => ({ runFailed: vi.fn() }));
+vi.mock("@/server/services/payments/adminAlert.service", () => ({
+	adminAlertService: alerts,
+}));
+
 vi.mock("@/server/services/payments/runLock", () => ({
 	getRunLock: () => lock,
 }));
@@ -314,5 +319,44 @@ describe("payout run lifecycle (M1, M2)", () => {
 		expect(last?.startedAt).toEqual(at(50));
 		expect((await payoutRunRepository.findLatest())?.startedAt).toEqual(at(5));
 		expect(await payoutRunRepository.findHistory(2)).toHaveLength(2);
+	});
+
+	it("emails the admins when a run fails, before rethrowing (FR-A10, AC-F30)", async () => {
+		const { payoutRepository } = await import(
+			"@/server/repositories/payout.repository"
+		);
+		const spy = vi
+			.spyOn(payoutRepository, "findReleaseCandidates")
+			.mockRejectedValueOnce(new Error("connection lost"));
+
+		await expect(
+			payoutJobService.run({ trigger: "cron", now: NOW }),
+		).rejects.toThrow();
+
+		spy.mockRestore();
+		expect(alerts.runFailed).toHaveBeenCalledWith(
+			expect.objectContaining({ error: "connection lost" }),
+		);
+	});
+
+	it("does not email for per-payment failures (M2)", async () => {
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		expect(alerts.runFailed).not.toHaveBeenCalled();
+	});
+
+	it("keeps the run's own error when the alert itself fails", async () => {
+		const { payoutRepository } = await import(
+			"@/server/repositories/payout.repository"
+		);
+		const spy = vi
+			.spyOn(payoutRepository, "findReleaseCandidates")
+			.mockRejectedValueOnce(new Error("connection lost"));
+		alerts.runFailed.mockRejectedValueOnce(new Error("resend down"));
+
+		await expect(
+			payoutJobService.run({ trigger: "cron", now: NOW }),
+		).rejects.toThrow("connection lost");
+		spy.mockRestore();
 	});
 });
