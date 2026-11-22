@@ -209,6 +209,16 @@ describe("refundService.requestRefund", () => {
 		expect(await testDb.refundRequest.count()).toBe(0);
 	});
 
+	it("returns NOT_FOUND, not CONFLICT, when another student's payment already has a request (AC-C1, no existence oracle)", async () => {
+		const victim = await seedPurchase({});
+		await request(victim.studentId, victim.paymentId);
+		const attacker = await makeUser();
+
+		await expect(request(attacker.id, victim.paymentId)).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		});
+	});
+
 	it.each([
 		"pending",
 		"refunded",

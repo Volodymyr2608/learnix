@@ -35,4 +35,16 @@ describe("refundRequestInput", () => {
 			refundRequestInput.parse({ ...valid, text: "x".repeat(2001) }),
 		).toThrow();
 	});
+
+	it("caps paymentId at 64 characters (ADR-017 Rule 3)", () => {
+		expect(() =>
+			refundRequestInput.parse({ ...valid, paymentId: "p".repeat(65) }),
+		).toThrow();
+	});
+
+	it("rejects a NUL byte in text, which Postgres varchar cannot store", () => {
+		expect(() =>
+			refundRequestInput.parse({ ...valid, text: "a\u0000b" }),
+		).toThrow();
+	});
 });

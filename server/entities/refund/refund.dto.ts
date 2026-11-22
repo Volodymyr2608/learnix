@@ -44,9 +44,15 @@ export type RefundDecisionResult = {
 /** FR-S3: closed reason list + optional text; strict — no amount, no student id, no files (C1, C2). */
 export const refundRequestInput = z
 	.object({
-		paymentId: z.string().min(1),
+		paymentId: z.string().min(1).max(64),
 		reason: z.nativeEnum(RefundReason),
-		text: z.string().trim().max(2000).optional(),
+		text: z
+			.string()
+			.trim()
+			.max(2000)
+			// Postgres varchar cannot store NUL; reject it as input, not as a 500.
+			.refine((v) => !v.includes("\u0000"), "Invalid character")
+			.optional(),
 	})
 	.strict();
 
