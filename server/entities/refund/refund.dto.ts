@@ -57,3 +57,10 @@ export const refundRequestInput = z
 	.strict();
 
 export type RefundRequestInput = z.infer<typeof refundRequestInput>;
+
+/** Which path triggered a refund's effects (FR-P6–P13); decides the certificate revocation reason. */
+export type RefundEffectPath =
+	| "refund_request"
+	| "dashboard_refund"
+	| "admin_exception"
+	| "lost_dispute";
