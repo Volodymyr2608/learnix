@@ -11,6 +11,13 @@ export const REFUND_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 /** OQ-2: fewer than this many account-limit refunds in 12 months. */
 export const ACCOUNT_LIMIT = 3;
 
+/** OQ-2: the account limit looks back 12 calendar months (UTC), not 365 days. */
+export const accountLimitSince = (now: Date): Date => {
+	const since = new Date(now);
+	since.setUTCFullYear(since.getUTCFullYear() - 1);
+	return since;
+};
+
 /** Q13: min(3, ⌊L/2⌋) opened lessons. */
 export const refundThreshold = (lessonCount: number): number =>
 	Math.min(3, Math.floor(lessonCount / 2));

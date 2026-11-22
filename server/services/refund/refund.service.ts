@@ -11,9 +11,7 @@ import {
 	RefundNotFoundError,
 } from "./refund.errors";
 import { isStudentRefundEnabled } from "./refundFlag";
-import { decideRefund } from "./refundRules";
-
-const ACCOUNT_LIMIT_PERIOD_MS = 365 * 24 * 60 * 60 * 1000;
+import { accountLimitSince, decideRefund } from "./refundRules";
 
 export type RefundRequestResult = {
 	requestId: string;
@@ -78,7 +76,7 @@ class RefundService {
 					refundRequestRepository.countAccountLimitRefunds(
 						tx,
 						studentId,
-						new Date(now.getTime() - ACCOUNT_LIMIT_PERIOD_MS),
+						accountLimitSince(now),
 					),
 				]);
 

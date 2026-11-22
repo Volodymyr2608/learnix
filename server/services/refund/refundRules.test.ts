@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RefundFacts } from "@/server/entities/refund/refund.dto";
 import {
+	accountLimitSince,
 	decideRefund,
 	isInsideRefundWindow,
 	REFUND_WINDOW_MS,
@@ -138,5 +139,19 @@ describe("decideRefund", () => {
 		const { snapshot } = decideRefund(facts({ paidAt: null }), NOW);
 		expect(snapshot.paidAt).toBeNull();
 		expect(snapshot.windowEndsAt).toBeNull();
+	});
+});
+
+describe("accountLimitSince (OQ-2: last 12 months)", () => {
+	it("goes back 12 calendar months, not 365 days, across a leap day", () => {
+		expect(
+			accountLimitSince(new Date("2028-03-01T12:00:00.000Z")).toISOString(),
+		).toBe("2027-03-01T12:00:00.000Z");
+	});
+
+	it("goes back 12 calendar months in an ordinary year", () => {
+		expect(
+			accountLimitSince(new Date("2026-11-22T08:30:00.000Z")).toISOString(),
+		).toBe("2025-11-22T08:30:00.000Z");
 	});
 });
