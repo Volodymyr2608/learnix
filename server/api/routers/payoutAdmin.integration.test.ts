@@ -33,6 +33,13 @@ vi.mock("@/server/services/payments/stripe.client", () => ({
 		},
 	},
 }));
+const lock = vi.hoisted(() => ({
+	acquire: vi.fn(async () => "token" as string | null),
+	release: vi.fn(async () => undefined),
+}));
+vi.mock("@/server/services/payments/runLock", () => ({
+	getRunLock: () => lock,
+}));
 vi.mock("@/server/services/embeddings/embeddings.service", () => ({
 	embeddingsService: { recomputeUserInterest: async () => undefined },
 }));
@@ -51,6 +58,7 @@ describe("admin payout procedures (AC-F11, C17)", () => {
 	beforeEach(async () => {
 		await truncateAll();
 		vi.clearAllMocks();
+		lock.acquire.mockResolvedValue("token");
 		adminId = (await makeUser({ role: Role.ADMIN })).id;
 		const instructor = await makeUser({ role: Role.INSTRUCTOR });
 		await makeInstructorProfile({
@@ -205,5 +213,35 @@ describe("admin payout procedures (AC-F11, C17)", () => {
 			}),
 		).rejects.toMatchObject({ code: "BAD_REQUEST" });
 		expect(stripeMock.createReversal).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		"retryRelease",
+		"retryReversal",
+	] as const)("%s waits for the payout run: CONFLICT while it holds the lock, no Stripe call (audit L1)", async (procedure) => {
+		const payment = await makePayment({
+			...ids,
+			status: "refunded",
+			refundedAt: new Date(),
+			transferStatus: "transferred",
+			stripeTransferId: "tr_7",
+		});
+		lock.acquire.mockResolvedValue(null);
+
+		await expect(
+			callerFor(adminId, Role.ADMIN).payment[procedure]({
+				paymentId: payment.id,
+			}),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		expect(stripeMock.createReversal).not.toHaveBeenCalled();
+		expect(stripeMock.transfersCreate).not.toHaveBeenCalled();
+	});
+
+	it("answers NOT_FOUND for a refund request that does not exist (review I2)", async () => {
+		await expect(
+			callerFor(adminId, Role.ADMIN).payment.retryRefund({
+				requestId: "req_missing",
+			}),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
 	});
 });

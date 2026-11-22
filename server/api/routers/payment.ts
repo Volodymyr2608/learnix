@@ -169,6 +169,12 @@ export const paymentRouter = createTRPCRouter({
 		.input(z.object({ requestId: z.string().min(1).max(64) }))
 		.mutation(async ({ input }) => {
 			try {
+				if (!(await refundService.requestExists(input.requestId))) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Refund request not found",
+					});
+				}
 				const status = await refundService.executeRefund(
 					input.requestId,
 					new Date(),

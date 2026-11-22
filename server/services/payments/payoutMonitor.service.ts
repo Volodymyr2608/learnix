@@ -5,10 +5,13 @@ import type {
 import { payoutRepository } from "@/server/repositories/payout.repository";
 import { payoutRunRepository } from "@/server/repositories/payoutRun.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
-import { STALE_AFTER_MS } from "./adminAlert.service";
 import { PAYOUT_LOCK_TTL_MS } from "./payoutJob.constants";
-import { isDueSoon, runOutcome } from "./payoutMonitorRules";
-import { REFUND_OVERDUE_MS } from "./payoutWatchdog.service";
+import {
+	isDueSoon,
+	isStale,
+	REFUND_OVERDUE_MS,
+	runOutcome,
+} from "./payoutMonitorRules";
 
 const HISTORY_SIZE = 20;
 
@@ -61,10 +64,8 @@ class PayoutMonitorService {
 			payoutRepository.findRefundedTransferred(50),
 		]);
 
-		// M2 / M3: the same rule as the 48 h alert.
-		const stale = lastSuccess
-			? now.getTime() - lastSuccess.startedAt.getTime() > STALE_AFTER_MS
-			: held.length > 0;
+		// M2 / M3: the same rule as the 48 h alert (review M1: one function).
+		const stale = isStale(lastSuccess?.startedAt ?? null, held.length, now);
 		const lastFailures = Array.isArray(latest?.failures)
 			? (latest.failures as { paymentId: string; error: string }[])
 			: [];

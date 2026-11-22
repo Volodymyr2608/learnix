@@ -54,7 +54,8 @@ export default class UserRepository extends BaseRepository<
 	/** FR-A10 / M4: the people who receive payout alerts. */
 	findAdmins(): Promise<{ id: string; email: string; name: string }[]> {
 		return this.db.user.findMany({
-			where: { role: "ADMIN" },
+			// Audit L2: an anonymised admin keeps the role but has no mailbox.
+			where: { role: "ADMIN", ...NOT_ANONYMISED },
 			select: { id: true, email: true, name: true },
 		});
 	}

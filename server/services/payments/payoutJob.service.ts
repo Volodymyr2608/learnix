@@ -259,14 +259,38 @@ class PayoutJobService {
 		paymentId: string,
 		now: Date,
 	): Promise<ReleaseOutcome["kind"]> {
-		const payment = await payoutRepository.findPayment(paymentId);
-		if (!payment) throw new PayoutRetryError("Payment not found", "NOT_FOUND");
-		const outcome = await connectService.releasePayment(payment, now);
-		return outcome.kind;
+		return this.underRunLock(async () => {
+			const payment = await payoutRepository.findPayment(paymentId);
+			if (!payment)
+				throw new PayoutRetryError("Payment not found", "NOT_FOUND");
+			const outcome = await connectService.releasePayment(payment, now);
+			return outcome.kind;
+		});
+	}
+
+	/** Audit L1: a Retry never races the payout run on the same row; it waits for the run. */
+	private async underRunLock<T>(work: () => Promise<T>): Promise<T> {
+		const lock = getRunLock();
+		const token = await lock.acquire(LOCK_NAME, PAYOUT_LOCK_TTL_MS);
+		if (!token) {
+			throw new PayoutRetryError(
+				"The payout job is running; retry when it has finished",
+				"CONFLICT",
+			);
+		}
+		try {
+			return await work();
+		} finally {
+			await lock.release(LOCK_NAME, token);
+		}
 	}
 
 	/** AC-F11 / M8: the admin's "Retry" for a refunded payment whose share was not reversed. */
 	async retryReversal(paymentId: string): Promise<"reversed"> {
+		return this.underRunLock(() => this.reverseOne(paymentId));
+	}
+
+	private async reverseOne(paymentId: string): Promise<"reversed"> {
 		const payment = await payoutRepository.findPayment(paymentId);
 		if (!payment) throw new PayoutRetryError("Payment not found", "NOT_FOUND");
 		const reversible =

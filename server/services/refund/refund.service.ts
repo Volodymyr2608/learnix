@@ -150,6 +150,10 @@ class RefundService {
 		}
 	}
 
+	async requestExists(requestId: string): Promise<boolean> {
+		return (await refundRequestRepository.findForRefund(requestId)) !== null;
+	}
+
 	/**
 	 * FR-S6 / FR-S20 — makes the Stripe refund for an approved request, then applies its
 	 * effects. Retried by the daily job while the request stays `processing`.

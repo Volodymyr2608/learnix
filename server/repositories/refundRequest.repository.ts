@@ -208,11 +208,12 @@ class RefundRequestRepository extends BaseRepository<
 	}
 
 	/** FR-A11 (M7): requests still processing since before `since`. */
-	async findOverdueIds(since: Date): Promise<string[]> {
+	async findOverdueIds(since: Date, limit: number): Promise<string[]> {
 		const rows = await this.db.refundRequest.findMany({
 			where: { refundState: "processing", createdAt: { lte: since } },
 			select: { id: true },
 			orderBy: { createdAt: "asc" },
+			take: limit,
 		});
 		return rows.map((r) => r.id);
 	}

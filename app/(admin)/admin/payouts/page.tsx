@@ -1,5 +1,6 @@
 import { api } from "@/trpc/server";
 import { HeldFundsCard } from "./_components/HeldFundsCard";
+import { LastRunFailuresList } from "./_components/LastRunFailuresList";
 import { PayoutStatusCard } from "./_components/PayoutStatusCard";
 import { ProblemPaymentsTable } from "./_components/ProblemPaymentsTable";
 import { RunHistoryTable } from "./_components/RunHistoryTable";
@@ -24,6 +25,10 @@ const PayoutsPage = async () => {
 				/>
 				<HeldFundsCard heldFunds={status.heldFunds} />
 			</div>
+			<section className="space-y-3">
+				<h2 className="font-semibold text-lg">Failed in the last run</h2>
+				<LastRunFailuresList failures={status.lastRunFailures} />
+			</section>
 			<section className="space-y-3">
 				<h2 className="font-semibold text-lg">Problem payments</h2>
 				<ProblemPaymentsTable now={now} problems={status.problems} />

@@ -4,13 +4,14 @@ import { notificationLogRepository } from "@/server/repositories/notificationLog
 import { payoutRepository } from "@/server/repositories/payout.repository";
 import { payoutRunRepository } from "@/server/repositories/payoutRun.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
-import { userRepository } from "@/server/repositories/user.repository";
+import {
+	ANONYMISED_EMAIL_DOMAIN,
+	userRepository,
+} from "@/server/repositories/user.repository";
 import { emailService } from "@/server/services/email/email.service";
 import type { TemplateKey } from "@/server/services/email/email.templates";
 import { logger } from "@/server/utils/logger";
-
-/** FR-A10: alert when no run has succeeded for this long. */
-export const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+import { isStale } from "./payoutMonitorRules";
 
 const panelUrl = () => `${env.BASE_URL}/admin/payouts`;
 const utcDay = (now: Date) => now.toISOString().slice(0, 10);
@@ -51,12 +52,21 @@ const sendOnce = async (input: {
 	}
 };
 
+/** Review M4: with no ADMIN user an alert has nobody to reach — say so in the logs. */
+const adminsOrWarn = async (automation: string) => {
+	const admins = await userRepository.findAdmins();
+	if (admins.length === 0) {
+		logger.warn("No admin user to receive a payout alert", { automation });
+	}
+	return admins;
+};
+
 class AdminAlertService {
 	/** FR-A10 (M6): every admin, once per failed run. */
 	async runFailed(
 		run: Pick<PayoutRun, "id" | "error" | "startedAt">,
 	): Promise<void> {
-		const admins = await userRepository.findAdmins();
+		const admins = await adminsOrWarn("payout_run_failed");
 		for (const admin of admins) {
 			await sendOnce({
 				dedupKey: `admin:${admin.id}:payout_run_failed:${run.id}`,
@@ -80,11 +90,9 @@ class AdminAlertService {
 	 */
 	async checkStale(now: Date): Promise<boolean> {
 		const last = await payoutRunRepository.findLastSuccessful();
-		const stale = last
-			? now.getTime() - last.startedAt.getTime() > STALE_AFTER_MS
-			: (await payoutRepository.countHeld()) > 0;
-		if (!stale) return false;
-		const admins = await userRepository.findAdmins();
+		const held = last ? 0 : await payoutRepository.countHeld();
+		if (!isStale(last?.startedAt ?? null, held, now)) return false;
+		const admins = await adminsOrWarn("payout_stale");
 		for (const admin of admins) {
 			await sendOnce({
 				dedupKey: `admin:${admin.id}:payout_stale:${utcDay(now)}`,
@@ -108,7 +116,7 @@ class AdminAlertService {
 	async refundOverdue(requestId: string): Promise<void> {
 		const request = await refundRequestRepository.findForReminder(requestId);
 		if (!request || request.refundState !== "processing") return;
-		const admins = await userRepository.findAdmins();
+		const admins = await adminsOrWarn("refund_overdue");
 		for (const admin of admins) {
 			await sendOnce({
 				dedupKey: `admin:${admin.id}:refund_overdue:${request.id}`,
@@ -123,6 +131,8 @@ class AdminAlertService {
 				},
 			});
 		}
+		// Audit L3: an anonymised student has no mailbox to tell.
+		if (request.student.email.endsWith(ANONYMISED_EMAIL_DOMAIN)) return;
 		await sendOnce({
 			dedupKey: `${request.student.id}:refund_still_processing:${request.id}`,
 			userId: request.student.id,

@@ -153,4 +153,48 @@ describe("adminAlertService (FR-A10, FR-A11, M4–M6)", () => {
 		});
 		expect(JSON.stringify(studentCall)).not.toContain("declined");
 	});
+
+	it("never alerts an anonymised admin (audit L2)", async () => {
+		await makeUser({ role: "ADMIN", email: "deleted-x@system.invalid" });
+		const run = await testDb.payoutRun.create({
+			data: {
+				trigger: "cron",
+				startedAt: hoursAgo(1),
+				finishedAt: NOW,
+				error: "x",
+			},
+		});
+
+		await adminAlertService.runFailed(run);
+
+		expect(send.mock.calls.map((c) => c[0].toEmail)).not.toContain(
+			"deleted-x@system.invalid",
+		);
+		expect(send).toHaveBeenCalledTimes(2);
+	});
+
+	it("emails only the admins when the student is anonymised (audit L3)", async () => {
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		const student = await makeUser({ email: "deleted-y@system.invalid" });
+		const course = await makeCourse({ instructorId: instructor.id });
+		const payment = await makePayment({
+			studentId: student.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+		});
+		const request = await makeRefundRequest({
+			paymentId: payment.id,
+			studentId: student.id,
+			courseId: course.id,
+			refundState: "processing",
+			createdAt: hoursAgo(80),
+		});
+
+		await adminAlertService.refundOverdue(request.id);
+
+		expect(send.mock.calls.map((c) => c[0].templateKey)).toEqual([
+			"admin.refund-overdue",
+			"admin.refund-overdue",
+		]);
+	});
 });

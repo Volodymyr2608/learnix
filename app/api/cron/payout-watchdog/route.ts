@@ -2,6 +2,8 @@ import { isCronRequest } from "@/server/services/payments/cronAuth";
 import { payoutWatchdogService } from "@/server/services/payments/payoutWatchdog.service";
 
 export const runtime = "nodejs";
+/** Audit L4: Vercel Hobby's limit; the batch is bounded too. */
+export const maxDuration = 300;
 
 /**
  * M3 — a second daily cron that notices what the release run cannot report about itself: no

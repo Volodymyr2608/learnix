@@ -5,13 +5,16 @@ import { toast } from "sonner";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { api } from "@/trpc/client";
 import type { RetryButtonProps } from "./types";
+import { retryResultMessage } from "./utils";
 
 /** AC-F11: one Retry; owns its mutation and refreshes the panel when it settles. */
 export const RetryButton = ({ kind, targetId }: RetryButtonProps) => {
 	const router = useRouter();
 	const handlers = {
-		onSuccess: () => {
-			toast.success("Retried.");
+		onSuccess: (result: { status: string } | { outcome: string }) => {
+			const message = retryResultMessage(result);
+			if (message.tone === "success") toast.success(message.text);
+			else toast.warning(message.text);
 			router.refresh();
 		},
 		onError: (err: { message: string }) => {

@@ -1,8 +1,9 @@
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { adminAlertService } from "./adminAlert.service";
+import { REFUND_OVERDUE_MS } from "./payoutMonitorRules";
 
-/** FR-A11 (M7): the day-3 reminder clock starts at the automatic approval. */
-export const REFUND_OVERDUE_MS = 3 * 24 * 60 * 60 * 1000;
+/** Audit L4: a bounded batch per run; the rest follows the next day (the emails are de-duplicated). */
+const OVERDUE_BATCH = 50;
 
 class PayoutWatchdogService {
 	/**
@@ -13,6 +14,7 @@ class PayoutWatchdogService {
 		const stale = await adminAlertService.checkStale(now);
 		const overdue = await refundRequestRepository.findOverdueIds(
 			new Date(now.getTime() - REFUND_OVERDUE_MS),
+			OVERDUE_BATCH,
 		);
 		for (const requestId of overdue) {
 			await adminAlertService.refundOverdue(requestId);

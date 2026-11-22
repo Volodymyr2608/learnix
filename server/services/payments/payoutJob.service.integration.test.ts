@@ -314,6 +314,10 @@ describe("payout run lifecycle (M1, M2)", () => {
 		await testDb.payoutRun.create({
 			data: { trigger: "manual", startedAt: at(5) },
 		}); // still running
+		// review M10: the newest row is an account.updated run; findLatest must skip it.
+		await testDb.payoutRun.create({
+			data: { trigger: "account_updated", startedAt: at(1), finishedAt: at(1) },
+		});
 
 		const last = await payoutRunRepository.findLastSuccessful();
 		expect(last?.startedAt).toEqual(at(50));
