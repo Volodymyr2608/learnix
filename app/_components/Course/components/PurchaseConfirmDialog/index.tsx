@@ -11,6 +11,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/app/_components/_shared/ui/dialog";
+import { useStudentRefundEnabled } from "@/app/_components/Billing/RefundFlagProvider";
 import type { PurchaseConfirmDialogProps } from "@/app/_components/Course/components/PurchaseConfirmDialog/types";
 import { formatPrice } from "@/lib/formatPrice";
 import { api } from "@/trpc/client";
@@ -20,6 +21,8 @@ const PurchaseConfirmDialog = ({
 	onOpenChange,
 	course,
 }: PurchaseConfirmDialogProps) => {
+	// UI-1 / U11: no refund promise in the purchase dialog once self-service refunds are on.
+	const refundsEnabled = useStudentRefundEnabled();
 	const checkout = api.payment.createCheckoutSession.useMutation({
 		onSuccess: ({ url }) => {
 			window.location.href = url;
@@ -77,10 +80,12 @@ const PurchaseConfirmDialog = ({
 						<Award className="h-4 w-4 text-green-500" />
 						<span>Certificate of completion</span>
 					</div>
-					<div className="flex items-center gap-2 text-muted-foreground text-sm">
-						<ShieldCheck className="h-4 w-4 text-green-500" />
-						<span>30-day money-back guarantee</span>
-					</div>
+					{!refundsEnabled && (
+						<div className="flex items-center gap-2 text-muted-foreground text-sm">
+							<ShieldCheck className="h-4 w-4 text-green-500" />
+							<span>30-day money-back guarantee</span>
+						</div>
+					)}
 				</div>
 
 				<div className="flex gap-3 pt-4">

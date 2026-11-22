@@ -11,6 +11,9 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import { RefundPolicySection } from "@/app/_components/Billing/RefundPolicySection";
+import { refundFaqAnswer } from "@/server/entities/refund/refundPolicy";
+import { isStudentRefundEnabled } from "@/server/services/refund/refundFlag";
 
 const plans = [
 	{
@@ -79,14 +82,18 @@ const faqs = [
 		answer:
 			"We accept all major credit cards, PayPal, and bank transfers for Enterprise plans.",
 	},
-	{
-		question: "Can I get a refund?",
-		answer:
-			"Yes, we offer a 30-day money-back guarantee. If you're not satisfied, contact us for a full refund.",
-	},
 ];
 
 export default function PricingPage() {
+	// U11: the policy changes with the student flag; until then today's promise stands.
+	const refundsEnabled = isStudentRefundEnabled();
+	const allFaqs = [
+		...faqs,
+		{
+			question: "Can I get a refund?",
+			answer: refundFaqAnswer(refundsEnabled),
+		},
+	];
 	return (
 		<PageLayout>
 			{/* Hero Section */}
@@ -249,7 +256,7 @@ export default function PricingPage() {
 						</div>
 
 						<div className="space-y-6">
-							{faqs.map((faq) => (
+							{allFaqs.map((faq) => (
 								<Card key={faq.question}>
 									<CardHeader>
 										<CardTitle className="text-lg">{faq.question}</CardTitle>
@@ -263,6 +270,8 @@ export default function PricingPage() {
 					</div>
 				</div>
 			</section>
+
+			{refundsEnabled && <RefundPolicySection />}
 
 			{/* CTA Section */}
 			<section className="border-t bg-gradient-to-br from-primary/10 via-primary/5 to-background">
