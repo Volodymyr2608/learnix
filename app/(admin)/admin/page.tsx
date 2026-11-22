@@ -1,4 +1,5 @@
 import { DollarSign } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
 	Card,
@@ -53,7 +54,15 @@ export default async function AdminPage() {
 
 			<div>
 				<h2 className="mb-3 font-semibold text-lg">Operations</h2>
-				<RunPayoutJobButton />
+				<div className="flex flex-wrap items-center gap-3">
+					<RunPayoutJobButton />
+					<Link
+						className="text-primary text-sm underline"
+						href="/admin/payouts"
+					>
+						Open the payouts panel
+					</Link>
+				</div>
 			</div>
 		</div>
 	);
