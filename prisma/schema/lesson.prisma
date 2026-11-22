@@ -1,7 +1,7 @@
 model Lesson {
-  id       String  @id @default(cuid())
-  title    String
-  durationMinutes Int? @map("duration_minutes")
+  id              String @id @default(cuid())
+  title           String
+  durationMinutes Int?   @map("duration_minutes")
 
   description String?
   videoUrl    String? @map("video_url")
@@ -17,9 +17,9 @@ model Lesson {
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
-  quizzes    Quiz[]
-  progresses LessonProgress[]
-  lessonInsights   LessonInsights?
+  quizzes                      Quiz[]
+  progresses                   LessonProgress[]
+  lessonInsights               LessonInsights?
   chunkEmbeddings              LessonChunkEmbedding[]
   lessonAssistantConversations LessonAssistantConversation[]
   conceptChecks                ConceptCheck[]
@@ -60,7 +60,7 @@ model LessonInsights {
   contentHash String
   generatedAt DateTime @default(now())
 
-  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@index([lessonId])
   @@map("lesson_insights")

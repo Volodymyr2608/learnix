@@ -5,15 +5,15 @@ model Conversation {
   student   User   @relation("StudentConversations", fields: [studentId], references: [id], onDelete: Restrict)
 
   instructorId String
-  instructor   User @relation("InstructorConversations", fields: [instructorId], references: [id], onDelete: Restrict)
+  instructor   User   @relation("InstructorConversations", fields: [instructorId], references: [id], onDelete: Restrict)
 
   courseId String
   course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   messages Message[]
 
-  createdAt     DateTime @default(now())
-  lastMessageAt DateTime @default(now())
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime  @default(now())
   /// FR-P11 / D1: closed after a refund — nobody can send, history stays readable.
   closedAt      DateTime? @map("closed_at")
 

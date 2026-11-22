@@ -296,3 +296,37 @@ export function makeLessonAssistantConversation(
 		},
 	});
 }
+
+export function makeAppeal(
+	overrides: Partial<Prisma.RefundAppealUncheckedCreateInput> & {
+		requestId: string;
+	},
+) {
+	return testDb.refundAppeal.create({
+		data: {
+			kind: "after_denial",
+			exceededCondition: "window",
+			reason: "other",
+			text: "The course did not match its description.",
+			deadlineAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+			...overrides,
+		},
+	});
+}
+
+export function makeEvidenceFile(
+	overrides: Partial<Prisma.RefundEvidenceFileUncheckedCreateInput> & {
+		appealId: string;
+	},
+) {
+	return testDb.refundEvidenceFile.create({
+		data: {
+			uploadedBy: "student",
+			blobPathname: `refund-evidence/${Math.random().toString(36).slice(2)}`,
+			fileName: "proof.png",
+			contentType: "image/png",
+			sizeBytes: 10,
+			...overrides,
+		},
+	});
+}

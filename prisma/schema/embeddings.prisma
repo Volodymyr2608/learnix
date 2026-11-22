@@ -1,22 +1,22 @@
 model CourseEmbedding {
-  courseId  String   @id
+  courseId  String                      @id
   embedding Unsupported("vector(1536)")
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime                    @updatedAt
 
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@map("course_embeddings")
 }
 
 model LessonChunkEmbedding {
-  id         String   @id @default(cuid())
+  id         String                      @id @default(cuid())
   lessonId   String
   chunkIndex Int
-  content    String   @db.Text
+  content    String                      @db.Text
   embedding  Unsupported("vector(1536)")
   tokens     Int
 
-  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([lessonId, chunkIndex])
   @@index([lessonId])
@@ -24,11 +24,11 @@ model LessonChunkEmbedding {
 }
 
 model UserInterestEmbedding {
-  userId    String   @id
+  userId    String                      @id
   embedding Unsupported("vector(1536)")
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime                    @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_interest_embeddings")
 }

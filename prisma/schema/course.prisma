@@ -4,20 +4,20 @@ enum CourseStatus {
 }
 
 model Course {
-  id            String   @id @default(cuid())
-  title         String
-  subtitle      String?
-  description   String   @db.Text
-  category      String
-  level         String
-  language      String
-  duration      String
+  id                 String   @id @default(cuid())
+  title              String
+  subtitle           String?
+  description        String   @db.Text
+  category           String
+  level              String
+  language           String
+  duration           String
   priceCents         Int      @default(0) @map("price_cents")
   originalPriceCents Int?     @map("original_price_cents")
-  averageRating Float    @default(0) @map("average_rating")
-  reviewsCount  Int      @default(0) @map("reviews_count")
-  objectives    String[]
-  requirements  String[]
+  averageRating      Float    @default(0) @map("average_rating")
+  reviewsCount       Int      @default(0) @map("reviews_count")
+  objectives         String[]
+  requirements       String[]
 
   status      CourseStatus @default(draft)
   publishedAt DateTime?    @map("published_at")
@@ -105,9 +105,9 @@ model LearningPathCache {
 }
 
 model Skill {
-  id    String @id @default(cuid())
-  name  String @unique
-  slug  String @unique
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
 
   courseSkills CourseSkill[]
 

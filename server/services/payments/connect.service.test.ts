@@ -120,6 +120,7 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
 		disputeState: null,
 		disputeUpdatedAt: null,
 		refundSource: null,
+		needsReviewAt: null,
 		refundedAt: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
