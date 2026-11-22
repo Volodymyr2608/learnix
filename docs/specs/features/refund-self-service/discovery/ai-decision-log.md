@@ -1417,3 +1417,30 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me* (each task's test ran red, then green; unit 2520/2520)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 3 /qa: what the review and the audits changed
+- **Stage:** validation
+- **Context the AI had:** the slice-3 diff (676d718..984a906), `build/plan-slice-3.md`, `spec.md`,
+  `security.md`, ADR-037; one fresh code reviewer (Opus) and two auditors, each in its own context
+- **AI found:**
+  - security audit, **High** — `course.enroll` re-activated a refunded paid course for free, and since
+    this slice also un-revoked its certificate and reopened the conversation: refund + access → fixed,
+    the student enrol action is for free courses only;
+  - review — a refund during a release left the share `pending` (owed balance wrong) → cancelled;
+    a partial Dashboard refund counted as full (course revoked, part of the money returned) → the
+    remainder is refunded; an effects failure after the Stripe refund errored to the student and one
+    failing retry stopped the daily job → contained;
+  - security audit — a missing `await` let a failed reversal abort the payout run; requests that can
+    never finish starved the refund retry → fixed;
+  - review / audit, Low — self-service refunds revoked as "dashboard_refund" when the webhook won →
+    fixed; the archive day for correct answers depended on the DB time zone → fixed;
+  - LLM audit, Low — tutor history, the pending check and the learning path relied on deletion alone
+    → they now require a live enrollment;
+  - all slice-3 controls (C2, C3, C5, C7, C8, C12 partly, C23, C25, C26, AI-L13) implemented; C29 still
+    open
+- **Accepted for slice 3 only:** a Stripe refund failing later (FR-P27), the dashboard certificate
+  count, a poison replay event, two reversers vs the lost-dispute rule (slice 4), a restored review's
+  date, the non-atomic interest recompute (all in `security.md`)
+- **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

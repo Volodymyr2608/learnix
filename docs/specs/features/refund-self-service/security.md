@@ -162,6 +162,30 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | C26 | Implemented: a closed conversation rejects sends from both sides; history readable | `messaging.service.ts` `send` |
 | AI-L13 | Implemented: concept checks and the learning-path cache are deleted with the course's records | `learningRecords.repository.ts` |
 
+### Accepted for slice 3 only — close in the named slice
+
+Found by the slice-3 `/qa` review and audits (2026-11-22). The High (free re-activation of a
+refunded paid course through `course.enroll`) and the correctness findings were fixed; these remain.
+
+- **A Stripe refund that later fails is not noticed (audit Low-3).** A `pending` refund counts as
+  made and the effects apply; if Stripe later fails it, the student has lost access without the
+  money. Closes with FR-P27 (refund failed at the bank: `refund.updated` / `charge.refund.updated`).
+- **The dashboard counts a revoked certificate (audit Low-4).** `getStudentCompletionStats` counts
+  completed enrollments regardless of revocation, as R8 keeps completion counts for A11. Display
+  only, the student's own data; revisit with the certificate UI.
+- **A poison event stalls the replay (review #6).** A `charge.refunded` whose handling keeps failing
+  stops the replay at the cursor until Stripe drops it (30 days); the webhook still covers new
+  events. Slice 5 (payout monitoring) surfaces it.
+- **Two reversers ignore the lost-dispute rule (review #5, Task 12 ruling).** `recordTransfer` and
+  the reversal retry reverse any refunded + transferred payment; the lost-dispute path (slice 4) must
+  exclude its payments from both.
+- **A restored review keeps its first date (review #7).** Ordering and the shown date follow the
+  first review. Cosmetic.
+- **The interest-profile recompute is not atomic or retried (LLM audit).** A failure leaves the old
+  profile, refunded course included, until the next enrollment. Ranking only; never enters a prompt.
+- **C29 is still open.** Account deletion now removes the study archive but not `refund_requests.text`;
+  a Release checklist item before the student flag.
+
 ### Accepted for slice 2 only — close in the named slice
 
 Found by the slice-2 final review and `/qa` audit (2026-11-22). Money is never paid wrongly by any
