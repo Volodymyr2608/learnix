@@ -181,6 +181,47 @@ class PaymentRepository extends BaseRepository<
 		});
 	}
 
+	/** FR-P27 (W6): payments whose refund failed at the bank and is not closed yet. */
+	findOpenBankFailures() {
+		return this.db.payment.findMany({
+			where: { bankFailureAt: { not: null } },
+			orderBy: { bankFailureAt: "asc" },
+			select: {
+				id: true,
+				amountCents: true,
+				currency: true,
+				bankFailureAt: true,
+				course: { select: { title: true } },
+				student: { select: { name: true } },
+			},
+		});
+	}
+
+	/**
+	 * FR-P27 (W6): closes an open bank failure exactly once, in the transaction of its audit row.
+	 * "refunded_elsewhere": the share is cancelled; "sale_stands": the payment counts as paid again.
+	 */
+	async resolveBankFailureInTx(
+		tx: Prisma.TransactionClient,
+		paymentId: string,
+		outcome: "refunded_elsewhere" | "sale_stands",
+	): Promise<boolean> {
+		const { count } = await tx.payment.updateMany({
+			where: { id: paymentId, bankFailureAt: { not: null } },
+			data:
+				outcome === "refunded_elsewhere"
+					? { bankFailureAt: null, transferStatus: "cancelled" }
+					: {
+							bankFailureAt: null,
+							status: "succeeded",
+							refundedAt: null,
+							refundSource: null,
+							transferStatus: "pending",
+						},
+		});
+		return count === 1;
+	}
+
 	/** W2 / FR-P28: recent succeeded payments saved without their Stripe fee. */
 	async findMissingFees(paidSince: Date, limit: number) {
 		const rows = await this.db.payment.findMany({

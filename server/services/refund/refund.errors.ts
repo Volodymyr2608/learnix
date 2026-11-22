@@ -93,3 +93,10 @@ export class RefundExceptionError extends DomainError {
 		super(message, code);
 	}
 }
+
+/** FR-P27 (W6): a bank failure cannot be closed (already closed, or no note). */
+export class BankFailureResolutionError extends DomainError {
+	constructor(message: string, code: "CONFLICT" | "BAD_REQUEST") {
+		super(message, code);
+	}
+}
