@@ -169,6 +169,23 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | C12 | Implemented except the page text: dispute events (webhook + replay) set `Payment.disputeState` in event order; the refund rules, `executeRefund` and the release read it; Stripe's `charge_disputed` sets it open; a won dispute is not blocked by Stripe's sticky `disputed` flag. The FR-S11 text and the Purchases row (no Stripe call on render) → slice 7 | `stripeEvent.service.ts`, `payment.repository.ts` `recordDisputeState`, `refund.service.ts`, `payout.repository.ts`, `connect.service.ts` |
 | DL | Implemented: a lost dispute applies the effects once (path `lost_dispute`, `refundSource` recorded), closes a processing request as `refunded_by_bank`, counts for D3 and the account limit once per payment, and never reverses a released share | `refundEffects.repository.ts`, `refundRequest.repository.ts`, `connect.service.ts` |
 
+### Slice 6 (content gate, 2026-11-22) — control status
+
+| C | Status | Where |
+|---|---|---|
+| AI-C1 | Implemented: the authorizing query selects the student's open of the lesson; none → `403 "Lesson not opened"` and a `lesson_not_opened` event, before the guard and any model call | `app/api/chat/lesson/route.ts` |
+| AI-C2 | Implemented: `searchCourseChunks(courseId, studentId, …)` joins `opened_lessons`; the tool takes the student id from its closure, the schema is unchanged; a canary sentence per lesson proves no unopened text returns (the LLM-graded eval row is not added — the eval stubs retrieval; G7) | `embedding.repository.ts`, `searchAcrossCourse.tool.ts`, `searchAcrossCourse.canary.integration.test.ts` |
+| AI-C3 | Implemented: the student branch of `getForLesson` requires `lessonOpenedBy`; an unopened lesson returns `null` and logs the event; the instructor branch is unchanged | `lessonInsightsAI.service.ts` |
+| AI-C4 | Implemented: `verifyEnrollment` (get and submit) refuses an unopened lesson with `FORBIDDEN "Open the lesson first"`, stores no attempt, logs the event | `quiz.service.ts`, `quizContentGate.integration.test.ts` |
+| AI-C7 | Implemented: `CONTENT_READERS` registry + contract test — every lesson-content reader is listed with its gate, opened readers use `lessonOpenedBy`, no stale entries | `server/services/_shared/conformance/contentReaders*.ts` |
+| AI-L9 | Implemented: no AI entry point, AI service directory or chat route references refund data | `refundIsolation.contract.test.ts` |
+| AI-L10 | Implemented: no tutor tool reaches opened-lesson or refund state | `refundIsolation.contract.test.ts` |
+| AI-L11 | Implemented as a reported (not gated) eval category `refund-terms`, 4 rows; the rate is in the AI decision log | `evals/datasets/lessonAI/tutor.jsonl` |
+
+**Telemetry:** `lesson_not_opened` (layer `content_gate`) is logged on AI-C1, C3, C4 and not forwarded
+to Sentry (a direct API caller can trigger it at will). The AI-C2 usefulness count is deferred (G8).
+`ai-tutor-guardrails/security.md` S13 §25 is marked closed.
+
 ### Slice 5 (payout monitoring, 2026-11-22) — control status
 
 | C | Status | Where |

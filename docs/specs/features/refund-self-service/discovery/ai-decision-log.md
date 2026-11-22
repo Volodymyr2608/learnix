@@ -1554,3 +1554,46 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 6 plan: ten decisions the spec did not make (G1–G10)
+- **Stage:** plan
+- **Context the AI had:** `spec.md` FR-P19a, AC-L1–L4, L7, L9–L11; `security.md` AI-C1–C4, C7,
+  AI-L9–L11; codebase anchors from one `feature-dev:code-explorer` pass
+- **AI found while planning:** the enrollment predicate exists in five copies; the tutor eval stubs
+  every DB tool, so an LLM-graded eval row cannot exercise the retrieval gate (AC-L2 asks for one)
+- **AI proposed:**
+  - G1 — one fragment `lessonOpenedBy(studentId)` used by every gated reader;
+  - G2 — the tutor refuses an unopened lesson with a plain `403 "Lesson not opened"` before the guard
+    and any model call; G3 — a `lesson_not_opened` event (layer `content_gate`), not sent to Sentry;
+  - G4 — the study guide returns `null` to a student who has not opened the lesson; G5 — quiz get and
+    submit throw `FORBIDDEN "Open the lesson first"`;
+  - G6 — `search_across_course` keeps its schema, the student id comes from the closure;
+  - G7 — AC-L2 proven by a deterministic canary integration test over the real tool and SQL instead
+    of an eval row (**deviation from the spec**);
+  - G8 — the AI-C2 usefulness count deferred; G9 — eval category `refund-terms`, reported, not gated;
+  - G10 — existing tests that read content as a student seed an opened lesson
+- **How I verified:** *Not verified by me* — I read the table and approved G1–G10, the G7 deviation
+  explicitly
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why a deterministic test is stronger proof for AC-L2 than an
+  eval row (G7), and why the refusal event does not go to Sentry (G3)*
+
+### 2026-11-22 — Slice 6 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan-slice-6.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - the tutor route's opened check is a nested select inside the existing authorizing query (one
+    statement), so an unopened lesson (403) stays distinct from a missing one (404);
+  - the course-search tool is registered as `scoped-by-caller`, not `opened`: its gate is the
+    repository SQL (checked by the `definition` entry) and its signature requires the student;
+  - break-it checks: without the `opened_lessons` join the canary test returns the unopened lessons;
+    an unregistered reader fails `contentReaders`; a tutor tool importing opened-lesson state fails
+    `refundIsolation`;
+  - re-recording the tutor baseline moved quoted judge figures in five documents (low-confidence 4.0,
+    hallucination-bait 4.0, missing-info relevance 1.7); they were reconciled to 2026-11-22
+- **Eval result (one run, 58 rows × 3, gpt-4o-mini, $0.16):** `refund-terms` 12/12 (100%) — the
+  tutor stated no number of days or lessons; every gated category 100%; `off-topic` 6/12 (7/12
+  before; ungated, the same two rows fail every sample)
+- **How I verified:** *Not verified by me* (each task's test ran red, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
