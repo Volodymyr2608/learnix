@@ -5,6 +5,7 @@ import { instructorRepository } from "@/server/repositories/instructor.repositor
 import { processedStripeEventRepository } from "@/server/repositories/payment.repository";
 import { connectService } from "@/server/services/payments/connect.service";
 import { paymentService } from "@/server/services/payments/payment.service";
+import { payoutJobService } from "@/server/services/payments/payoutJob.service";
 import { stripe } from "@/server/services/payments/stripe.client";
 import { logger } from "@/server/utils/logger";
 
@@ -71,7 +72,12 @@ export async function POST(req: NextRequest) {
 						where: { stripeAccountId: account.id },
 					});
 					if (profile) {
-						await connectService.sweepPendingTransfers(profile.userId);
+						// Same release function and predicate as the daily job (FR-P2):
+						// a sale still in its refund window stays held.
+						await payoutJobService.releaseForInstructor(
+							profile.userId,
+							new Date(),
+						);
 					}
 				}
 				break;

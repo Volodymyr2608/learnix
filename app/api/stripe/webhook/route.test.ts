@@ -21,10 +21,11 @@ vi.mock("@/server/repositories/payment.repository", () => ({
 }));
 
 vi.mock("@/server/services/payments/connect.service", () => ({
-	connectService: {
-		syncAccountStatus: vi.fn(),
-		sweepPendingTransfers: vi.fn(),
-	},
+	connectService: { syncAccountStatus: vi.fn() },
+}));
+
+vi.mock("@/server/services/payments/payoutJob.service", () => ({
+	payoutJobService: { releaseForInstructor: vi.fn() },
 }));
 
 vi.mock("@/server/services/payments/payment.service", () => ({
@@ -32,6 +33,10 @@ vi.mock("@/server/services/payments/payment.service", () => ({
 }));
 
 const { POST } = await import("./route");
+const { payoutJobService } = await import(
+	"@/server/services/payments/payoutJob.service"
+);
+const mockPayoutJobService = vi.mocked(payoutJobService);
 const { instructorRepository } = await import(
 	"@/server/repositories/instructor.repository"
 );
@@ -85,8 +90,9 @@ describe("POST /api/stripe/webhook", () => {
 
 		expect(res.status).toBe(200);
 		expect(mockConnectService.syncAccountStatus).toHaveBeenCalled();
-		expect(mockConnectService.sweepPendingTransfers).toHaveBeenCalledWith(
+		expect(mockPayoutJobService.releaseForInstructor).toHaveBeenCalledWith(
 			"user-1",
+			expect.any(Date),
 		);
 	});
 

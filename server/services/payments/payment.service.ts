@@ -131,12 +131,8 @@ class PaymentService {
 			return { status: "not_found" };
 		}
 
-		// 3. Idempotency — already succeeded
+		// 3. Idempotency — already succeeded. No transfer here (H9): the release job pays it later.
 		if (payment.status === "succeeded") {
-			// Retry transfer if it was never attempted (e.g., prior run threw after marking succeeded)
-			if (payment.transferStatus === "none" && payment.instructorNetCents) {
-				await connectService.transferToInstructor(payment);
-			}
 			return { status: "succeeded" };
 		}
 
@@ -171,14 +167,13 @@ class PaymentService {
 			env.STRIPE_PLATFORM_FEE_PERCENT,
 		);
 
-		// 8. Persist split amounts
-		const paymentWithSplit = await paymentRepository.update(updatedPayment.id, {
+		// 8. Persist split amounts. The instructor's net is held, not transferred (FR-P1, ADR-037 §1):
+		// the release job pays it once the refund window has closed.
+		await paymentRepository.update(updatedPayment.id, {
 			platformFeeCents,
 			instructorNetCents,
+			transferStatus: "pending",
 		});
-
-		// 9. Attempt transfer to instructor (handles onboarding check internally)
-		await connectService.transferToInstructor(paymentWithSplit);
 
 		return { status: "succeeded" };
 	}

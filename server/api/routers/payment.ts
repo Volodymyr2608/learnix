@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createCheckoutSessionInput } from "@/server/entities/payment";
 import {
@@ -7,6 +8,7 @@ import {
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { connectService } from "@/server/services/payments/connect.service";
 import { paymentService } from "@/server/services/payments/payment.service";
+import { payoutJobService } from "@/server/services/payments/payoutJob.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 import {
 	adminProcedure,
@@ -130,19 +132,21 @@ export const paymentRouter = createTRPCRouter({
 		}
 	}),
 
-	sweepAllPendingTransfers: adminProcedure.mutation(async () => {
-		try {
-			const pending = await paymentRepository.findMany({
-				where: { transferStatus: "pending" },
-				select: { instructorId: true },
+	/**
+	 * "Run job now" (ADR-037 §3.7): the same job, lock and predicate as the daily cron. Replaces the
+	 * old Sweep, which paid every pending sale, held and refunded ones included (C14).
+	 */
+	runPayoutJobNow: adminProcedure.mutation(async () => {
+		const summary = await payoutJobService.run({
+			trigger: "manual",
+			now: new Date(),
+		});
+		if (summary.status === "already_running") {
+			throw new TRPCError({
+				code: "CONFLICT",
+				message: "The payout job is already running",
 			});
-			const instructorIds = [...new Set(pending.map((p) => p.instructorId))];
-			for (const instructorId of instructorIds) {
-				await connectService.sweepPendingTransfers(instructorId);
-			}
-			return { instructorsSwept: instructorIds.length };
-		} catch (error) {
-			throw handleServiceError(error);
 		}
+		return summary;
 	}),
 });

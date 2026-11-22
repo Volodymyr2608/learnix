@@ -6,7 +6,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import { SweepButton } from "@/app/(admin)/admin/SweepButton";
+import { RunPayoutJobButton } from "@/app/(admin)/admin/_components/RunPayoutJobButton";
 import { Role } from "@/generated/prisma";
 import { formatPrice } from "@/lib/formatPrice";
 import { getSession } from "@/server/better-auth/server";
@@ -53,7 +53,7 @@ export default async function AdminPage() {
 
 			<div>
 				<h2 className="mb-3 font-semibold text-lg">Operations</h2>
-				<SweepButton />
+				<RunPayoutJobButton />
 			</div>
 		</div>
 	);
