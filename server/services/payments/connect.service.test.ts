@@ -61,6 +61,7 @@ vi.mock("@/server/repositories/payout.repository", () => ({
 		releaseClaim: vi.fn(),
 		touch: vi.fn(),
 		markReversed: vi.fn(),
+		isRefunded: vi.fn(),
 	},
 }));
 
@@ -214,6 +215,10 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 		mockPayoutRepo.claimForRelease.mockResolvedValue(true);
 		mockPayoutRepo.markTransferred.mockResolvedValue(true);
 		mockPayoutRepo.releaseClaim.mockResolvedValue(true);
+		mockPayoutRepo.isRefunded.mockResolvedValue(false);
+		mockPayoutRepo.markReversed.mockResolvedValue(true);
+		mockTransfersListReversals.mockResolvedValue({ data: [] });
+		mockTransfersCreateReversal.mockResolvedValue({ id: "trr_1" });
 		mockAccountsRetrieve.mockResolvedValue({ payouts_enabled: true });
 		mockTransfersList.mockResolvedValue({ data: [] });
 		connected();
@@ -384,28 +389,36 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 		expect(mockTransfersCreate).not.toHaveBeenCalled();
 	});
 
-	it("reports a refunded payment whose transfer exists as a failure, not a release (audit Low-1)", async () => {
+	it("reverses a transfer found for a payment refunded meanwhile (C5 remainder)", async () => {
 		mockTransfersList.mockResolvedValue({ data: [{ id: "tr_made" }] });
+		mockPayoutRepo.isRefunded.mockResolvedValue(true);
 
 		const outcome = await connectService.releasePayment(
-			makePayment({
-				transferStatus: "transferring",
-				status: "refunded",
-				refundedAt: NOW,
-			}),
+			makePayment({ transferStatus: "transferring" }),
 			NOW,
 		);
 
 		expect(outcome).toEqual({
-			kind: "failed",
+			kind: "reversed_after_refund",
 			paymentId: "pay_1",
-			error: "Transferred after a refund — the transfer needs a reversal",
 		});
-		expect(mockPayoutRepo.markTransferred).toHaveBeenCalledWith(
-			"pay_1",
+		expect(mockTransfersCreateReversal).toHaveBeenCalledWith(
 			"tr_made",
-			NOW,
+			{ refund_application_fee: false },
+			{ idempotencyKey: "reversal:pay_1" },
 		);
+		expect(mockPayoutRepo.markReversed).toHaveBeenCalledWith("pay_1");
+	});
+
+	it("reverses a transfer it just created when the payment was refunded during the call (AC-C5)", async () => {
+		mockTransfersCreate.mockResolvedValue({ id: "tr_new" });
+		mockPayoutRepo.isRefunded.mockResolvedValue(true);
+
+		const outcome = await connectService.releasePayment(makePayment(), NOW);
+
+		expect(outcome.kind).toBe("reversed_after_refund");
+		expect(mockTransfersCreateReversal).toHaveBeenCalledTimes(1);
+		expect(mockTransfersCreateReversal.mock.calls[0]?.[0]).toBe("tr_new");
 	});
 
 	it("moves a failing payment to the back of the queue (audit Low-2)", async () => {

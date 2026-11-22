@@ -5,6 +5,8 @@ export type ReleaseOutcome =
 	| { kind: "not_eligible"; paymentId: string }
 	| { kind: "waiting_for_stripe"; paymentId: string }
 	| { kind: "charge_not_payable"; paymentId: string }
+	/** C5 remainder: a refund committed during the release; the transfer was reversed. */
+	| { kind: "reversed_after_refund"; paymentId: string }
 	| { kind: "failed"; paymentId: string; error: string };
 
 export type ReleaseOutcomeKind = ReleaseOutcome["kind"];

@@ -15,6 +15,8 @@ const stripeMock = vi.hoisted(() => ({
 	paymentIntentsRetrieve: vi.fn(),
 	transfersList: vi.fn(),
 	transfersCreate: vi.fn(),
+	listReversals: vi.fn(),
+	createReversal: vi.fn(),
 }));
 
 vi.mock("@/server/services/payments/stripe.client", () => ({
@@ -27,6 +29,8 @@ vi.mock("@/server/services/payments/stripe.client", () => ({
 		transfers: {
 			list: stripeMock.transfersList,
 			create: stripeMock.transfersCreate,
+			listReversals: stripeMock.listReversals,
+			createReversal: stripeMock.createReversal,
 		},
 	},
 }));
@@ -134,5 +138,30 @@ describe("a sale is held, then paid exactly once (AC-F13)", () => {
 			transferStatus: "transferred",
 			stripeTransferId: "tr_sale",
 		});
+	});
+
+	it("ends a refund committed between claim and transfer with exactly one reversal (AC-C5)", async () => {
+		await paymentService.finalizeCheckout("cs_sale");
+		stripeMock.listReversals.mockResolvedValue({ data: [] });
+		stripeMock.createReversal.mockResolvedValue({ id: "trr_1" });
+		// The refund's effects commit while the release is inside transfers.create.
+		stripeMock.transfersCreate.mockImplementation(async () => {
+			await testDb.payment.update({
+				where: { id: paymentId },
+				data: { status: "refunded", refundedAt: later(15) },
+			});
+			return { id: "tr_sale" };
+		});
+
+		const run = await payoutJobService.run({ trigger: "cron", now: later(15) });
+
+		expect(stripeMock.createReversal).toHaveBeenCalledTimes(1);
+		expect(
+			await testDb.payment.findUniqueOrThrow({ where: { id: paymentId } }),
+		).toMatchObject({
+			transferStatus: "reversed",
+			stripeTransferId: "tr_sale",
+		});
+		expect(run).toMatchObject({ released: 0 });
 	});
 });

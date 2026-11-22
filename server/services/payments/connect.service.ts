@@ -143,21 +143,12 @@ class ConnectService {
 			});
 			const groupedTransfer = grouped.data[0];
 			if (groupedTransfer) {
-				await payoutRepository.markTransferred(
-					paymentId,
+				return this.recordTransfer(
+					payment,
 					groupedTransfer.id,
 					now,
+					"already_transferred",
 				);
-				// Audit Low-1: money left after the student was refunded. Record the truth and surface
-				// it as a failure; the reversal itself is slice 3 (C5 remainder).
-				if (payment.refundedAt || payment.status === "refunded") {
-					return {
-						kind: "failed",
-						paymentId,
-						error: "Transferred after a refund — the transfer needs a reversal",
-					};
-				}
-				return { kind: "already_transferred", paymentId };
 			}
 
 			const profile = await instructorRepository.findFirst({
@@ -186,12 +177,12 @@ class ConnectService {
 				charge,
 			);
 			if (legacyTransfer) {
-				await payoutRepository.markTransferred(
-					paymentId,
+				return this.recordTransfer(
+					payment,
 					legacyTransfer.id,
 					now,
+					"already_transferred",
 				);
-				return { kind: "already_transferred", paymentId };
 			}
 
 			const transfer = await stripe.transfers.create(
@@ -204,8 +195,7 @@ class ConnectService {
 				},
 				{ idempotencyKey: `transfer:${paymentId}` },
 			);
-			await payoutRepository.markTransferred(paymentId, transfer.id, now);
-			return { kind: "released", paymentId };
+			return this.recordTransfer(payment, transfer.id, now, "released");
 		} catch (error) {
 			// H5: never guess whether Stripe created the transfer; stay `transferring` and let the
 			// next run recover it list-before-retry. Audit Low-2: touch the row so it goes behind
@@ -221,6 +211,29 @@ class ConnectService {
 				error: error instanceof Error ? error.message : String(error),
 			};
 		}
+	}
+
+	/**
+	 * Records the transfer, then re-reads the payment: a refund whose effects committed while the
+	 * release was in flight (the share was `transferring`, so it could not be cancelled) ends in
+	 * exactly one reversal (C5 remainder, AC-C5).
+	 */
+	private async recordTransfer(
+		payment: Payment,
+		transferId: string,
+		now: Date,
+		kind: "released" | "already_transferred",
+	): Promise<ReleaseOutcome> {
+		await payoutRepository.markTransferred(payment.id, transferId, now);
+		if (await payoutRepository.isRefunded(payment.id)) {
+			await this.reverseTransfer({
+				...payment,
+				stripeTransferId: transferId,
+				transferStatus: "transferred",
+			});
+			return { kind: "reversed_after_refund", paymentId: payment.id };
+		}
+		return { kind, paymentId: payment.id };
 	}
 
 	/**

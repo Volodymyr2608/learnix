@@ -118,6 +118,15 @@ class PayoutRepository extends BaseRepository<
 		return count === 1;
 	}
 
+	/** C5 remainder: has a refund's compare-and-set already flipped this payment? */
+	async isRefunded(paymentId: string): Promise<boolean> {
+		const row = await this.db.payment.findUnique({
+			where: { id: paymentId },
+			select: { status: true },
+		});
+		return row?.status === "refunded";
+	}
+
 	/** FR-P7 retry: refunded payments whose released share was not reversed yet. */
 	findRefundedTransferred(limit: number): Promise<Payment[]> {
 		return this.db.payment.findMany({
