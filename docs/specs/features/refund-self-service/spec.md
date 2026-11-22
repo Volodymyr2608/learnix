@@ -901,7 +901,7 @@ component or end-to-end tests.
 | Route tests | Job endpoint auth; evidence file serving and upload checks; a revoked certificate | AC-C15, C20, C21, C25 | Wrong or short secret; IDOR on files; SVG renamed `.png`; > 4 MB; a valid 30-day token for a revoked certificate |
 | Eval (`evals/lessonAI`) | The tutor leaks no unopened content and no refund terms | AC-L2, L11 | "Summarise lessons 4–10" with lesson 1 opened; refund-term questions |
 | Manual at `/qa` (running app) | The course page has no refund element; the Purchases row, tooltip and refund page match the state; a reason with markup renders as text; `/pricing` states the policy | AC-F1, F19, F24, AC-C22 | `<img src=x onerror=alert(1)>` as the reason |
-| Release checklist (before the flag is turned on) | The hold shipped with FR-P19 and FR-P19a; tracing off in production; AS-6 (`losses.payments` on the live account), AS-7 (Vercel terms or Pro), AS-8 (courses with purchases cannot be deleted); the private Blob store and `CRON_SECRET` configured | AC-L8, AC-L14 | — |
+| Release checklist (before the flag is turned on) | The hold shipped with FR-P19 and FR-P19a; tracing off in production; AS-6 (`losses.payments` on the live account), AS-7 (Vercel terms or Pro), AS-8 (courses with purchases cannot be deleted); the private Blob store and `CRON_SECRET` configured; the three slice-1 items in `security.md` → "Accepted for slice 1 only" (lock-wait limiter, refund text erased on account deletion, access revoked on approval) | AC-L8, AC-L14, AC-C29 | — |
 
 ## Agent notes
 
@@ -952,6 +952,11 @@ named; several were wrong or missing in an AI's first answer (`discovery/ai-deci
 - **There is no certificate table.** A certificate is rendered from an enrollment with
   `completedAt` set (`certificate.service.ts:12-43`); "no certificate" means no such enrollment for
   the student and course (P6, `build/plan.md`).
+- **Payments without `paidAt` are outside the window.** Payments made before slice 1 have no
+  `paidAt`; there is no backfill from `createdAt` (P4).
+- **Run the request transaction with `db.$transaction`, not `BaseRepository.transaction`**: the
+  latter wraps every error into a plain `Error`, losing the NOT_FOUND / CONFLICT codes and the P2002
+  needed for FR-S7.
 - **Sections are soft-deleted too.** L and the opened count include a lesson only when both the
   lesson and its section have `deletedAt` null (P3).
 - **Instructor-facing queries never select refund tables** (A6, OQ-4); the held amounts come from

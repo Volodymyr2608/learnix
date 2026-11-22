@@ -9,6 +9,11 @@
   `Payment.paidAt`; recovery after a crash checks Stripe before retrying, because idempotency keys
   expire (§2); the refund effects are gated by a compare-and-set on the payment status, not by event
   dedup (§4)
+- **Amended**: 2026-11-22, slice 1 (student request): the account-limit race (security C4) is closed
+  with a per-student `pg_advisory_xact_lock` inside the request transaction. This does not contradict
+  the rejected "advisory lock around the Stripe call" below: the request transaction makes no
+  network call — the facts are counted and the row inserted under the lock, and the Stripe refund
+  runs after it commits
 
 ## Context
 
@@ -182,7 +187,8 @@ Postgres provides the atomicity. No transaction stays open across the network ca
   balance, so cancellation becomes a reversal again, and someone still has to trigger payouts.
   Rejected.
 - **Row lock (`SELECT … FOR UPDATE`) or a Postgres advisory lock** around the Stripe call. Both hold
-  a transaction open across a network call. Rejected.
+  a transaction open across a network call. Rejected. (A short advisory lock with no network call inside is used for
+  the account limit; see the 2026-11-22 amendment.)
 - **A Redis distributed lock per payment.** Money consistency would then depend on a second store.
   Redis is used only to stop overlapping runs. Rejected.
 - **A job queue for all transfer operations.** It removes races by construction, but it is the

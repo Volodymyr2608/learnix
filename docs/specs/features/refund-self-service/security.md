@@ -116,6 +116,25 @@ never calls them before an open; any count means direct API use); for AI-C2, a c
 where an unopened lesson would have ranked in the top-k (the usefulness cost). Run the tutor evals
 (`pnpm eval`) before merge.
 
+### Accepted for slice 1 only — must be closed before the student flag is turned on
+
+Found by the `/qa` audit of slice 1 (2026-11-22). Each is unreachable while `REFUND_STUDENT_ENABLED`
+is off, because the flag check runs before any database work (C24); each is a Release checklist item.
+
+- **Lock wait holds pool connections (Medium before flag-on).** `refund.request` opens an
+  interactive transaction and then waits on the per-student advisory lock (C4); the lock is taken
+  before the payment is checked and there is no rate limit. One student keeping ~20 requests in
+  flight can hold most of the Prisma pool; other users' queries time out (P2024) and the refund
+  transactions hit the 5 s timeout, returning a generic error (nothing is written wrongly). Fix
+  before flag-on: a per-user limiter before the transaction (the `checkAiRateLimit` pattern), an
+  ownership pre-check outside the transaction, and a bounded wait (`SET LOCAL lock_timeout`) mapped
+  to a typed "try again" error. Testable: a request blocked longer than the timeout rejects.
+- **Refund free text survives account deletion (C29).** Slice 1 is the first to store
+  `refund_requests.text`; `userService.anonymiseAccount` does not clear it yet (FR-P23, AC-C29).
+- **Access continues after an automatic approval.** Under P1 an approved request revokes nothing, so
+  the student keeps reading the course. The Stripe slice must revoke access in the same transaction
+  as the refund effects, or the content read must refuse once a request is approved or processing.
+
 ## Open
 
 - **Unverified by the passes:** whether a `ConceptMastery` row references a `ConceptCheck` (matters
