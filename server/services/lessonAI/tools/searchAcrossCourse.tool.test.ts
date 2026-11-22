@@ -59,8 +59,15 @@ describe("search_across_course", () => {
 		mockSearchCourseChunks.mockResolvedValue([]);
 
 		expect(await invoke()).toBe(
-			"No relevant content found across this course.",
+			"No relevant content in the lessons opened so far; later lessons may cover it.",
 		);
+	});
+
+	it("tells the model it searches only opened lessons (audit L-1)", () => {
+		const { description } = buildSearchAcrossCourseTool("c", "s");
+
+		expect(description).toMatch(/already opened/);
+		expect(description).not.toMatch(/all lessons/i);
 	});
 
 	it("binds the student by closure, never as a tool argument (AC-L2, G6)", async () => {

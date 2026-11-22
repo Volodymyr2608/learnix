@@ -22,7 +22,7 @@ export const buildSearchAcrossCourseTool = (
 				k,
 			);
 			if (chunks.length === 0)
-				return "No relevant content found across this course.";
+				return "No relevant content in the lessons opened so far; later lessons may cover it.";
 			// The lesson titles in the prefix are instructor-authored too, so the
 			// whole assembled blob goes inside one wrapper — not just the bodies.
 			return wrapUntrustedContent(
@@ -35,7 +35,7 @@ export const buildSearchAcrossCourseTool = (
 		{
 			name: "search_across_course",
 			description:
-				"Searches all lessons in this course for relevant excerpts. Use for questions like 'where did we cover X' or to surface prerequisite material.",
+				"Searches the lessons of this course the student has already opened for relevant excerpts. Use for questions like 'where did we cover X' or to surface prerequisite material. Later lessons are not searched, so an empty result does not mean the course lacks the topic.",
 			schema: z.object({
 				query: z
 					.string()

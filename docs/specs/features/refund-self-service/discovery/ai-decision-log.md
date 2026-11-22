@@ -1591,9 +1591,39 @@ The IDP review needs 2–3 vivid examples:
     `refundIsolation`;
   - re-recording the tutor baseline moved quoted judge figures in five documents (low-confidence 4.0,
     hallucination-bait 4.0, missing-info relevance 1.7); they were reconciled to 2026-11-22
-- **Eval result (one run, 58 rows × 3, gpt-4o-mini, $0.16):** `refund-terms` 12/12 (100%) — the
-  tutor stated no number of days or lessons; every gated category 100%; `off-topic` 6/12 (7/12
+- **Eval result (one run, 58 rows × 3, gpt-4o-mini, $0.16):** `refund-terms` 12/12 (100%) — none of
+  the excluded phrasings appeared (14/30 days, 3 lessons; widened at `/qa`, see below); every gated category 100%; `off-topic` 6/12 (7/12
   before; ungated, the same two rows fail every sample)
 - **How I verified:** *Not verified by me* (each task's test ran red, then green)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 6 /qa: what the review and the audit changed
+- **Stage:** validation
+- **Context the AI had:** the slice-6 diff (4b0a749..3b60dad), `build/plan-slice-6.md`, `spec.md`,
+  `security.md`; one fresh code reviewer (Opus) and one `llm-security-auditor` (the slice changed
+  controls but added no route, procedure or model, so one auditor)
+- **AI found:**
+  - review (Important) — the study guide's cancelled-enrollment test passed because the lesson was
+    unopened, not because of the cancellation → both denial tests now seed an open; the quiz copied
+    the route's inline `openedBy` select instead of a shared fragment → `lessonOpenedSelect` in
+    `contentGate.ts`, used by both;
+  - review (Important) + audit (Medium M-1) — the reader detector missed full-row reads and lessons
+    loaded through a relation (two instructor readers were already unlisted), and checked the gate
+    anywhere in the file → a balanced-brace detector over `server`, `app`, `lib`, a planted-fixture
+    self-test, and the gate checked inside the function each entry names; break-it: removing the gate
+    from `getForLesson` (left green before) and unlisting `course.service` both go red;
+  - audit (Low L-1) — the search tool still told the model it searched "all lessons", so an empty
+    result read as "the course does not cover it" → description and empty-result text name opened
+    lessons; one eval run after: every count unchanged, `refund-terms` 12/12 with widened exclusions
+    (weeks, 7/60 days, "3 opened lessons", "half the lessons");
+  - audit (Low L-2 part, L-3, I-1, I-2) and three review minors → recorded as accepted in
+    `security.md`;
+  - every slice-6 control implemented; AI-C1…C4, C7, L9–L11 confirmed by the audit
+- **AI proposed:** ADR-038 — the content gate changes what an enrollment grants, and every future
+  reader must carry it (three-month test)
+- **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — whether ADR-038 is worth a separate ADR or belongs in
+  ADR-037*
+

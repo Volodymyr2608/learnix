@@ -97,7 +97,7 @@ search must not spend the student's threshold (LLM06).
 | AI-C2 | `search_across_course` (`embedding.repository.ts:149-163`) | From one opened lesson the tutor reads the whole course: "summarise sections 3 and 4" needs no injection | Search only chunks of opened lessons; student id bound by closure | FR-P19a | AC-L2 |
 | AI-C3 | Study guide (`lessonInsightsAI.service.ts:132-179`) | A whole-course study guide with zero opens | Student branch only for opened lessons | FR-P19a | AC-L3 |
 | AI-C4 | Quizzes (`quiz.service.ts:185-210`) | Questions and answers of unopened lessons | `verifyEnrollment` only for opened lessons | FR-P19a | AC-L4 |
-| AI-C5 | `pendingCheck`, `getHistory` | — | Covered by AI-C1 and by deletion (AI-L13) | — | — |
+| AI-C5 | `pendingCheck`, `getHistory` | — | Covered by AI-C1 and by deletion (AI-L13). Residual (slice-6 audit I-1): threads written before the gate stay readable on lessons with no recorded open — the student already received that text; not gated, so their own record is not hidden | — | — |
 | AI-C7 | All | A new content reader appears later | Contract test of student-reachable readers | FR-P19a | AC-L7 |
 | AI-C8 | Rollout | Gates shipped after the button leave in-window purchases with undercounted opens | Ship with the hold | FR-P20 | AC-L8 |
 | AI-L9 | Refund text | Reason or appeal text quietly fed to a model later | Contract test: no AI entry point reads refund data | FR-S3 | AC-L9 |
@@ -173,11 +173,11 @@ is off, because the flag check runs before any database work (C24); each is a Re
 
 | C | Status | Where |
 |---|---|---|
-| AI-C1 | Implemented: the authorizing query selects the student's open of the lesson; none → `403 "Lesson not opened"` and a `lesson_not_opened` event, before the guard and any model call | `app/api/chat/lesson/route.ts` |
+| AI-C1 | Implemented: the authorizing query selects the student's open of the lesson (`lessonOpenedSelect`); none → `403 "Lesson not opened"` and a `lesson_not_opened` event, before the guard and any model call | `app/api/chat/lesson/route.ts` |
 | AI-C2 | Implemented: `searchCourseChunks(courseId, studentId, …)` joins `opened_lessons`; the tool takes the student id from its closure, the schema is unchanged; a canary sentence per lesson proves no unopened text returns (the LLM-graded eval row is not added — the eval stubs retrieval; G7) | `embedding.repository.ts`, `searchAcrossCourse.tool.ts`, `searchAcrossCourse.canary.integration.test.ts` |
 | AI-C3 | Implemented: the student branch of `getForLesson` requires `lessonOpenedBy`; an unopened lesson returns `null` and logs the event; the instructor branch is unchanged | `lessonInsightsAI.service.ts` |
 | AI-C4 | Implemented: `verifyEnrollment` (get and submit) refuses an unopened lesson with `FORBIDDEN "Open the lesson first"`, stores no attempt, logs the event | `quiz.service.ts`, `quizContentGate.integration.test.ts` |
-| AI-C7 | Implemented: `CONTENT_READERS` registry + contract test — every lesson-content reader is listed with its gate, opened readers use `lessonOpenedBy`, no stale entries | `server/services/_shared/conformance/contentReaders*.ts` |
+| AI-C7 | Implemented: `CONTENT_READERS` registry + contract test over `server`, `app`, `lib` — a reader is any `content: true` select, any lesson row loaded with no `select` (directly or through a `lessons:` relation), any study-guide or chunk read; each is listed with its gate, and `opened` / `definition` entries carry the gate (`lessonOpenedBy` / `lessonOpenedSelect` / `opened_lessons`) inside the function they name. The detector has a planted-fixture self-test (from `/qa`: review I2, audit M-1) | `server/services/_shared/conformance/contentReaders*.ts` |
 | AI-L9 | Implemented: no AI entry point, AI service directory or chat route references refund data | `refundIsolation.contract.test.ts` |
 | AI-L10 | Implemented: no tutor tool reaches opened-lesson or refund state | `refundIsolation.contract.test.ts` |
 | AI-L11 | Implemented as a reported (not gated) eval category `refund-terms`, 4 rows; the rate is in the AI decision log | `evals/datasets/lessonAI/tutor.jsonl` |
@@ -185,6 +185,19 @@ is off, because the flag check runs before any database work (C24); each is a Re
 **Telemetry:** `lesson_not_opened` (layer `content_gate`) is logged on AI-C1, C3, C4 and not forwarded
 to Sentry (a direct API caller can trigger it at will). The AI-C2 usefulness count is deferred (G8).
 `ai-tutor-guardrails/security.md` S13 §25 is marked closed.
+
+**Accepted for slice 6 only (from `/qa`):**
+- **AI-L10 is checked by name, not by import graph** (audit L-3): a tutor tool importing
+  `lessonService` (which records opens) or `learningRecords.repository` (which deletes them) would not
+  fail `refundIsolation`. No tool does today; close with an import-walk check when a fifth tool lands.
+- **AI-L11 rows ask the tutor directly; none plants refund terms in retrieved lesson text** (audit
+  L-2): an instructor writing "refunds for 60 days" in a lesson could be repeated as policy. The rows'
+  exclusions now cover day, week and lesson phrasings; the poisoned-retrieval case is unmeasured.
+- **AI-C2 has no production signal** (audit I-2): the canary integration test is the only evidence
+  until the usefulness count (G8) is built.
+- Review minors: the study-guide refusal log is a second query that can turn a `null` into a 500 on a
+  database error; `refundIsolation` does not match `Payment`'s refund fields (`refundedAt`,
+  `disputeState`); no test asserts the `lesson_not_opened` event per surface.
 
 ### Slice 5 (payout monitoring, 2026-11-22) — control status
 

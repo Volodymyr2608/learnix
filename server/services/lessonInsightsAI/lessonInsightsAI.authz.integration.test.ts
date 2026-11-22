@@ -69,6 +69,8 @@ describe("getForLesson is instructor-or-enrolled (AC 11)", () => {
 	it("denies a student with no enrollment", async () => {
 		const { lesson } = await seed();
 		const stranger = await makeUser({ role: Role.STUDENT });
+		// opened, so the missing enrollment is the only reason left for null
+		await makeOpenedLesson({ studentId: stranger.id, lessonId: lesson.id });
 
 		expect(
 			await lessonInsightsAIService.getForLesson(lesson.id, stranger.id),
@@ -83,6 +85,8 @@ describe("getForLesson is instructor-or-enrolled (AC 11)", () => {
 			status: EnrollmentStatus.cancelled,
 			studentId: student.id,
 		});
+		// a refunded student who did open the lesson: the cancelled status alone must deny
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 
 		expect(
 			await lessonInsightsAIService.getForLesson(lesson.id, student.id),

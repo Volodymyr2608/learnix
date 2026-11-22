@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
+import { lessonOpenedSelect } from "@/server/repositories/contentGate";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
@@ -75,11 +76,7 @@ export async function POST(req: Request) {
 									lessonInsights: { select: { concepts: true } },
 									// FR-P19a / AI-C1: read from the same authorizing statement — has
 									// this student opened the lesson?
-									openedBy: {
-										where: { studentId: session.user.id },
-										select: { studentId: true },
-										take: 1,
-									},
+									...lessonOpenedSelect(session.user.id),
 								},
 							},
 						},

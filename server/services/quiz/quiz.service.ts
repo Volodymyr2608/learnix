@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma";
 import { EnrollmentStatus, MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
+import { lessonOpenedSelect } from "@/server/repositories/contentGate";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
@@ -204,11 +205,7 @@ class QuizService {
 			select: {
 				id: true,
 				// AI-C4 / FR-P19a: same statement — has this student opened the lesson?
-				openedBy: {
-					where: { studentId },
-					select: { studentId: true },
-					take: 1,
-				},
+				...lessonOpenedSelect(studentId),
 			},
 		});
 

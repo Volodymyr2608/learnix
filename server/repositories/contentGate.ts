@@ -9,3 +9,17 @@ import type { Prisma } from "@/generated/prisma";
 export const lessonOpenedBy = (studentId: string): Prisma.LessonWhereInput => ({
 	openedBy: { some: { studentId } },
 });
+
+/**
+ * The same gate as a `select` fragment, for readers that must tell an unopened lesson apart from a
+ * missing one inside their authorizing query (tutor route 403 vs 404; quiz FORBIDDEN). The open
+ * exists when `openedBy` is non-empty.
+ */
+export const lessonOpenedSelect = (studentId: string) =>
+	({
+		openedBy: {
+			where: { studentId },
+			select: { studentId: true },
+			take: 1,
+		},
+	}) satisfies Prisma.LessonSelect;

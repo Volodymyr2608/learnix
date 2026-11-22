@@ -20,7 +20,7 @@ money back from the instructor.
 - **Decisions that carry the design:** rules decide, an admin sees appeals only (A1); the rule counts
   opened lessons, at most `min(3, ⌊L/2⌋)` (Q13); a 14-day window from payment (A3); the instructor's
   share is held until the window closes (ADR-037); AI features serve content only from opened lessons,
-  or the threshold means nothing (FR-P19a); a phased launch, hold first (S2). Self-service was chosen
+  or the threshold means nothing (FR-P19a, ADR-038); a phased launch, hold first (S2). Self-service was chosen
   over a human deciding every request (M4 in A1).
 - **Deliberately not done:** partial refunds, refund data for instructors, a `/contact` page
   (Unsupported use cases). Protection against course deletion is a separate feature that must ship
@@ -459,7 +459,7 @@ Dashboard webhook, lost bank dispute or daily event replay)
   "Complete" is unchanged. Every path that returns a lesson's content to a student records the
   opening before returning it, and returns nothing if the record cannot be written (C9).
 - **FR-P19a.** AI and lesson-derived features give a student content only from lessons they have
-  opened (AI-C1…C4):
+  opened (AI-C1…C4; one gate, ADR-038):
   - the tutor answers only on an opened lesson;
   - the tutor's course-wide search returns text only from opened lessons;
   - the study guide and quizzes of an unopened lesson are not served.

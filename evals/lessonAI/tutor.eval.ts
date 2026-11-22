@@ -87,7 +87,8 @@ const JUDGE_CONCURRENCY = 2;
 
 /** What the real tools return when they find nothing. */
 const NO_LESSON_CONTENT = "No relevant content found for this lesson.";
-const NO_COURSE_CONTENT = "No relevant content found across this course.";
+const NO_COURSE_CONTENT =
+	"No relevant content in the lessons opened so far; later lessons may cover it.";
 const NO_PROGRESS = "Student has not completed any lessons yet.";
 
 /** The model answered without calling a retrieval tool at all. */
@@ -140,7 +141,7 @@ export const buildStubTools = (row: TutorRow) => {
 		tool(async () => serve(crossLesson), {
 			name: "search_across_course",
 			description:
-				"Searches all lessons in this course for relevant excerpts. Use for questions like 'where did we cover X' or to surface prerequisite material.",
+				"Searches the lessons of this course the student has already opened for relevant excerpts. Use for questions like 'where did we cover X' or to surface prerequisite material. Later lessons are not searched, so an empty result does not mean the course lacks the topic.",
 			schema: z.object({
 				query: z
 					.string()
