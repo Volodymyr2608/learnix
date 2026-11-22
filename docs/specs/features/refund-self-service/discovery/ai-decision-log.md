@@ -1369,3 +1369,51 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 3 plan: eleven decisions the spec did not make (R1–R11)
+- **Stage:** plan
+- **Context the AI had:** `spec.md` FR-P6–P15, FR-S6, FR-S20; `security.md` C2, C3, C5, C7, C8, C12,
+  C25, C26, AI-L13; ADR-037 §4; codebase anchors from one `feature-dev:code-explorer` pass
+- **AI proposed:**
+  - R1 — the request stores its refund state (`processing` / `refunded`), the Stripe refund id and
+    Stripe's error for the admin only;
+  - R2 — a partial `charge.refunded` applies no effects yet (FR-P16 later);
+  - R3 — a disputed charge is not refunded; the request stays `processing` ("charge disputed");
+  - R4 — a fourth revocation reason, `refund_request`, for a course completed while its refund was
+    processing;
+  - R5 — a repurchase clears the revocation and reopens the conversation;
+  - R6 — the replay cursor lives in its own table; the first run starts 30 days back; only
+    `charge.refunded` for now;
+  - R7 — the job retries processing refunds (20), then replays, then releases;
+  - R8 — completed-course counts are not reduced by revocation (A11);
+  - R9 — the unawaited progress sync never touches a cancelled enrollment;
+  - R10 — legacy `auto_approved` rows become `processing`;
+  - R11 — the review is hidden on every path
+- **AI found while planning:** the certificate list and PDF ignored enrollment status (a refunded
+  student kept a downloadable certificate); messaging `send` checked no enrollment; the progress sync
+  could revive a refunded enrollment and re-issue its certificate; every study statistic was derived
+  from the rows a refund deletes
+- **How I verified:** *Not verified by me* — I read the table and approved R1–R11 as proposed
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why R2 changes today's behaviour for partial refunds, and
+  why a repurchase should reopen the conversation (R5)*
+
+### 2026-11-22 — Slice 3 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan-slice-3.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - the "correct quiz answers" achievements count quiz attempts, which a refund deletes — the archive
+    gained a `correct_answers` column (a second migration) so A11 holds;
+  - archive days are UTC midnights while week/month windows are server-local — exact on UTC servers
+    (Vercel), cosmetic drift on a non-UTC dev machine;
+  - a duplicate purchase (DC) must keep the records, certificate, conversation and review, not only
+    the enrollment — only the payment, its share and its request change;
+  - a reversal that fails after the effects commit is retried by the daily job (logged, not thrown);
+  - a repeat request on a refunded payment stays CONFLICT (AC-F6), so the payment lookup also finds
+    refunded payments; a Dashboard-refunded payment with no request is NOT_FOUND;
+  - replay re-reads the cursor's last second (`gte`), so events sharing a second are never skipped;
+  - break-it runs: dropping the effects CAS guard turns the race test and the end-to-end "late
+    webhook changes nothing" test red
+- **How I verified:** *Not verified by me* (each task's test ran red, then green; unit 2520/2520)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

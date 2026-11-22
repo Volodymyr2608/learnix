@@ -131,9 +131,10 @@ is off, because the flag check runs before any database work (C24); each is a Re
   to a typed "try again" error. Testable: a request blocked longer than the timeout rejects.
 - **Refund free text survives account deletion (C29).** Slice 1 is the first to store
   `refund_requests.text`; `userService.anonymiseAccount` does not clear it yet (FR-P23, AC-C29).
-- **Access continues after an automatic approval.** Under P1 an approved request revokes nothing, so
-  the student keeps reading the course. The Stripe slice must revoke access in the same transaction
-  as the refund effects, or the content read must refuse once a request is approved or processing.
+- ~~**Access continues after an automatic approval.**~~ *Closed by slice 3:* an approved request is
+  refunded at once and its effects cancel the enrollment in the same transaction as the refund's
+  compare-and-set; while Stripe has not confirmed (`processing`), access stays open by design
+  (FR-S20).
 
 ### Slice 2 (hold and release, 2026-11-22) — control status
 
@@ -146,6 +147,20 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | C15 | Implemented: constant-time Bearer compare, empty 401, counts only; `CRON_SECRET` ≥ 32 chars, re-checked in the route; missing secret refuses every caller | `app/api/cron/release-payouts/route.ts` |
 | C16 | Implemented: Redis `SET NX PX` with a token, compare-and-delete release, 15 min TTL; per-process fallback only in development and test | `runLock.ts` |
 | C28 | Implemented: the status procedure finalizes only the caller's own session | `finalizeCheckoutForStudent` |
+
+### Slice 3 (refund effects, 2026-11-22) — control status
+
+| C | Status | Where |
+|---|---|---|
+| C2 | Implemented: `refunds.create` gets exactly `{ payment_intent }` from the stored payment, plus an idempotency key; input stays strict | `refund.service.ts` `createStripeRefund` |
+| C3 | Implemented: unique request per payment; one Stripe refund for concurrent requests; `charge_already_refunded` is success | `executeRefund` |
+| C5 | Remainder implemented: a refund committed during a release ends in exactly one reversal | `connect.service.ts` `recordTransfer` |
+| C7 | Implemented for refunds (`refunds.list` before create) and reversals (`listReversals` before `createReversal`, key `reversal:<payment>`) | `executeRefund`, `reverseTransfer` |
+| C8 | Implemented: one `succeeded → refunded` compare-and-set gates every effect; database effects in the same transaction; webhook + replay race tested | `refundEffects.repository.ts` `claimRefund` |
+| C12 | Partly: no `refunds.create` on a disputed charge (live check). Stored dispute state and its display → slice 4 | `executeRefund` |
+| C25 | Implemented: revoked certificates are not listed and the PDF 404s even with a valid token | `certificate.service.ts`, `enrollment.repository.ts` |
+| C26 | Implemented: a closed conversation rejects sends from both sides; history readable | `messaging.service.ts` `send` |
+| AI-L13 | Implemented: concept checks and the learning-path cache are deleted with the course's records | `learningRecords.repository.ts` |
 
 ### Accepted for slice 2 only — close in the named slice
 
