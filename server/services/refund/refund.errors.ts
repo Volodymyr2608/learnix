@@ -30,3 +30,17 @@ export class RefundBusyError extends DomainError {
 		);
 	}
 }
+
+/** C21: an evidence file was refused — `reason` says why (type by content, count, total size). */
+export class EvidenceRejectedError extends DomainError {
+	constructor(readonly reason: "type" | "count" | "size") {
+		super(
+			{
+				type: "Only PNG, JPEG or PDF files are accepted.",
+				count: "At most 3 files can be attached.",
+				size: "The files together can be at most 4 MB.",
+			}[reason],
+			"BAD_REQUEST",
+		);
+	}
+}
