@@ -1126,7 +1126,25 @@ The IDP review needs 2–3 vivid examples:
   `deletedAt` (`course.prisma:72-86`). *The rest not verified by me.*
 - **My decisions:** accepted all six (2026-11-22)
 - **Verdict:** `accepted`
-- **Why:** *TODO (me)*
+- **Why:** *(drafted by AI, edited by me)*
+  - **P1:** the decision logic is where my own decisions (A1, Q13) live, so it is what the slice has
+    to show; moving money before the payout hold exists would reopen the leak ADR-037 closes. With
+    the flag off, nothing reaches a student.
+  - **P2:** no dispute state is stored anywhere; a fake source would hide the gap. Writing the rule
+    now means the disputes slice only has to supply data.
+  - **P3:** a lesson in a deleted section is invisible to the student; counting it in L would raise
+    the threshold with lessons nobody can open. Same principle as EC-3: the instructor's deletion
+    falls on the instructor.
+  - **P4:** `createdAt` is when the checkout was created, not when the payment happened; a session
+    can be paid up to 24 h later, so a backfill would start the window early and cut the student's
+    time. A backfill would not change any outcome anyway: payments made before slice 1 have no
+    `paidAt`, and the button turns on at least 14 days after deploy (FR-P20), so every such payment
+    is already outside the window. This only holds if the flag goes on 14 days or more after
+    `paidAt` starts being recorded, which is now a Release checklist item.
+  - **P5:** the spec asks for a cap (C22) but gives no number; 2000 characters is enough for a
+    paragraph of reason, and the number is easy to change.
+  - **P6:** the code has no certificate table; certificates are rendered from a completed
+    enrollment, so that is the source of truth. The spec assumed an entity that does not exist.
 
 ### 2026-11-22 — Slice 1 implementation: where the code disagreed with the plan
 - **Stage:** implementation
@@ -1142,7 +1160,10 @@ The IDP review needs 2–3 vivid examples:
     account limit) fails; AC-C3 still passes on the unique key alone
 - **How I verified:** *Not verified by me* (the tests named in `build/plan.md` ran red, then green)
 - **Verdict:** `accepted`
-- **Why:** *TODO (me)*
+- **Why:** *(drafted by AI, edited by me)* each change was forced by a fact in the code that a
+  failing test revealed, not by preference: error codes were lost, the flag was always off, and
+  `migrate dev` would have dropped dev data. I accepted the lock only after the break-it run: without
+  it the account-limit test fails, so the lock is required, not just defensive.
 
 ### 2026-11-22 — Slice 1 /qa: what the review and the audits changed
 - **Stage:** validation
@@ -1171,4 +1192,7 @@ The IDP review needs 2–3 vivid examples:
   unit 2466/2466, integration 481/481)
 - **My decisions:** do not push the branch yet; it is merged as one module at the end
 - **Verdict:** `accepted`
-- **Why:** *TODO (me)*
+- **Why:** *(drafted by AI, edited by me)* my rule: fix anything that disagrees with the spec, or
+  that is cheap and testable; accept only what cannot be reached while the flag is off, and write it
+  down as a release condition, not as "later". The branch is not pushed because the feature merges
+  as one module, and slice 1 alone does not keep the refund promise.
