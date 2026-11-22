@@ -132,7 +132,7 @@ is off, because the flag check runs before any database work (C24); each is a Re
   before flag-on: a per-user limiter before the transaction (the `checkAiRateLimit` pattern), an
   ownership pre-check outside the transaction, and a bounded wait (`SET LOCAL lock_timeout`) mapped
   to a typed "try again" error. Testable: a request blocked longer than the timeout rejects.
-- **Refund free text survives account deletion (C29).** Slice 1 is the first to store
+- ~~**Refund free text survives account deletion (C29).**~~ *Closed by slice 9 (W11).* Slice 1 is the first to store
   `refund_requests.text`; `userService.anonymiseAccount` does not clear it yet (FR-P23, AC-C29).
 - ~~**Access continues after an automatic approval.**~~ *Closed by slice 3:* an approved request is
   refunded at once and its effects cancel the enrollment in the same transaction as the refund's
@@ -171,6 +171,17 @@ is off, because the flag check runs before any database work (C24); each is a Re
 |---|---|---|
 | C12 | Implemented except the page text: dispute events (webhook + replay) set `Payment.disputeState` in event order; the refund rules, `executeRefund` and the release read it; Stripe's `charge_disputed` sets it open; a won dispute is not blocked by Stripe's sticky `disputed` flag. The FR-S11 text and the Purchases row (no Stripe call on render) → slice 7 | `stripeEvent.service.ts`, `payment.repository.ts` `recordDisputeState`, `refund.service.ts`, `payout.repository.ts`, `connect.service.ts` |
 | DL | Implemented: a lost dispute applies the effects once (path `lost_dispute`, `refundSource` recorded), closes a processing request as `refunded_by_bank`, counts for D3 and the account limit once per payment, and never reverses a released share | `refundEffects.repository.ts`, `refundRequest.repository.ts`, `connect.service.ts` |
+
+### Slice 9 (the rest, 2026-11-22) — control status
+
+| C | Status | Where |
+|---|---|---|
+| C19 | Implemented: a contract test scans every instructor-facing module (`app/_components/Instructor`, `app/instructor`, `lib/requests/instructor`, the revenue DTO, instructor emails) for refund request, appeal, evidence or reason data; revenue answers are identical with and without an open appeal, apart from the held amounts; no instructor email on any refund path | `instructorRefundIsolation.contract.test.ts`, `instructorHeld.integration.test.ts` |
+| C29 | Implemented: anonymisation erases the student's request and appeal texts and file names, closes an open appeal as `closed_account_deleted` (no approval), keeps snapshot numbers and the audit; the evidence blobs are deleted after commit (the 30-day retention catches a failed delete) | `user.repository.ts`, `user.service.ts`, `accountDeletionRefund.integration.test.ts` |
+| C17, C18 | Extended to the bank-failure outcomes: admin-only, a note required, one audit row per closure | `refundAdmin.ts`, `bankFailure.service.ts` |
+| AC-C13 | Implemented: `claimCheckout` serialises finalizes of one (student, course) with an advisory lock; the later paid checkout is the duplicate, never held, refunded at once. The concurrency test cannot prove the lock itself (the test pool serialises the transactions) | `payment.repository.ts`, `doubleCharge.integration.test.ts` |
+
+The slice-1 accepted item "Refund free text survives account deletion" is closed (above).
 
 ### Slice 8 (appeals and the admin exception, 2026-11-22) — control status
 

@@ -1757,3 +1757,43 @@ The IDP review needs 2–3 vivid examples:
 - **Why:** *TODO (me)* — I-8 decided 2026-11-22: `earlier_refund` is never approved on time alone (a
   second refund of a course always needs an admin)
 
+### 2026-11-22 — Slice 9 plan: thirteen decisions the spec did not make (W1–W13)
+- **Stage:** plan
+- **Context the AI had:** `spec.md` FR-I1–I3, FR-P16, P17, P22, P23, P27, P28, FR-S22–S23 and their
+  edge cases; `security.md` C19, C29; codebase anchors from one `feature-dev:code-explorer` pass
+- **AI found while planning:** no Stripe fee, double-charge or bank-failure handling existed; a partial
+  Dashboard refund lived only in an admin email; the instructor saw one "Pending" amount; refund text
+  survived account deletion
+- **AI proposed:**
+  - W1 — one additive migration (fee, refunded amount, bank failure, enum values);
+  - W2 — the fee from the balance transaction, never failing the checkout, filled by the daily job;
+  - W3 — record partial refunds; show the remainder everywhere;
+  - W4 — a per-(student, course) lock; the later paid checkout is refunded at once, counts for nothing;
+  - W5/W6 — a failed bank refund restores access and holds the share; the admin closes it with one of
+    two audited outcomes;
+  - W7/W8 — the instructor's two held amounts from the release predicate; a C19 contract test;
+  - W9 — the repurchase warning by the counting definition; no repurchase during an open dispute;
+  - W10 — evidence deleted 30 days after the decision; W11/W12 — account deletion erases refund text
+    and files and warns about an open appeal; W13 — AC-F27 and AC-F29 proven, not changed
+- **How I verified:** *Not verified by me* — I read the table and approved W1–W13 as proposed
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 9 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan-slice-9.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - only partial Dashboard refunds are recorded, so `amount − refunded` stays the remainder after a
+    later full refund too;
+  - the checkout claim moved into the repository (one transaction, the split written with the status);
+    the concurrency test passes even without the lock — the test pool serialises — so the lock is
+    proven by reasoning, not by that test;
+  - the reactivation of a cancelled enrollment is shared by a repurchase and a failed bank refund;
+  - the purchase dialog asks for the repurchase warning itself instead of a prop threaded through four
+    components; the "Waiting for Stripe" amount excludes a share due in the next run (counted on hold);
+  - appeal status types now come from the Prisma enum, so a new value cannot drift;
+  - break-it: a refund-appeal reference in an instructor component turns the C19 contract red
+- **How I verified:** *Not verified by me* (each task's test ran red, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
