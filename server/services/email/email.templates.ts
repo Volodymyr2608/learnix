@@ -12,6 +12,8 @@ import { InstructorWelcomeEmail } from "@/app/_emails/InstructorWelcomeEmail";
 import { MessageNewEmail } from "@/app/_emails/MessageNewEmail";
 import { PayoutRunFailedEmail } from "@/app/_emails/PayoutRunFailedEmail";
 import { PayoutStaleEmail } from "@/app/_emails/PayoutStaleEmail";
+import { RefundDeniedEmail } from "@/app/_emails/RefundDeniedEmail";
+import { RefundDoneEmail } from "@/app/_emails/RefundDoneEmail";
 import { RefundOverdueEmail } from "@/app/_emails/RefundOverdueEmail";
 import { RefundStillProcessingEmail } from "@/app/_emails/RefundStillProcessingEmail";
 import { UserWelcomeEmail } from "@/app/_emails/UserWelcomeEmail";
@@ -172,6 +174,27 @@ export const emailTemplates = {
 		// strict: the student's email can never carry Stripe's or any error text (C23).
 		payload: z.strictObject({ name: z.string(), courseTitle: z.string() }),
 		subject: (p) => `Your refund for ${p.courseTitle} is still being processed`,
+		criticality: "CRITICAL",
+	},
+	// Refund slice 7 (FR-S21, U10): strict — no student free text, no Stripe text (C22, C23).
+	"refund.done": {
+		component: RefundDoneEmail,
+		payload: z.strictObject({
+			name: z.string(),
+			courseTitle: z.string(),
+			amount: z.string(),
+		}),
+		subject: (p) => `Your refund for ${p.courseTitle} is on its way`,
+		criticality: "CRITICAL",
+	},
+	"refund.denied": {
+		component: RefundDeniedEmail,
+		payload: z.strictObject({
+			name: z.string(),
+			courseTitle: z.string(),
+			condition: z.string(),
+		}),
+		subject: (p) => `Your refund request for ${p.courseTitle}`,
 		criticality: "CRITICAL",
 	},
 	// biome-ignore lint/suspicious/noExplicitAny: registry requires any for generic constraint

@@ -144,7 +144,11 @@ describe("refund.getForPayment", () => {
 		});
 
 		expect(state).toMatchObject({ kind: "status", status: "processing" });
-		for (const key of ["refundError", "stripeRefundId", "stripePaymentIntentId"])
+		for (const key of [
+			"refundError",
+			"stripeRefundId",
+			"stripePaymentIntentId",
+		])
 			expect(findKeyPaths(state, key)).toEqual([]);
 		expect(JSON.stringify(state)).not.toContain("declined");
 		expect(JSON.stringify(state)).not.toContain("re_secret");

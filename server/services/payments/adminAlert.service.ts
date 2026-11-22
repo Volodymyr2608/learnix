@@ -1,6 +1,5 @@
 import type { PayoutRun } from "@/generated/prisma";
 import { env } from "@/lib/env";
-import { notificationLogRepository } from "@/server/repositories/notificationLog.repository";
 import { payoutRepository } from "@/server/repositories/payout.repository";
 import { payoutRunRepository } from "@/server/repositories/payoutRun.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
@@ -8,49 +7,12 @@ import {
 	ANONYMISED_EMAIL_DOMAIN,
 	userRepository,
 } from "@/server/repositories/user.repository";
-import { emailService } from "@/server/services/email/email.service";
-import type { TemplateKey } from "@/server/services/email/email.templates";
+import { sendOnce } from "@/server/services/email/sendOnce";
 import { logger } from "@/server/utils/logger";
 import { isStale } from "./payoutMonitorRules";
 
 const panelUrl = () => `${env.BASE_URL}/admin/payouts`;
 const utcDay = (now: Date) => now.toISOString().slice(0, 10);
-
-/**
- * M5: one email per de-dup key. The key is logged first, so concurrent callers send once; a failed
- * send deletes it again, so the next check retries instead of staying silent.
- */
-const sendOnce = async (input: {
-	dedupKey: string;
-	userId: string;
-	automation: string;
-	templateKey: TemplateKey;
-	toEmail: string;
-	payload: unknown;
-}): Promise<boolean> => {
-	const logged = await notificationLogRepository.tryLog({
-		dedupKey: input.dedupKey,
-		userId: input.userId,
-		automation: input.automation,
-	});
-	if (!logged.created) return false;
-	try {
-		await emailService.send({
-			templateKey: input.templateKey,
-			toEmail: input.toEmail,
-			userId: input.userId,
-			payload: input.payload,
-		});
-		return true;
-	} catch (error) {
-		await notificationLogRepository.deleteByDedupKey(input.dedupKey);
-		logger.error("Payout alert email failed; it will be retried", {
-			dedupKey: input.dedupKey,
-			error,
-		});
-		return false;
-	}
-};
 
 /** Review M4: with no ADMIN user an alert has nobody to reach — say so in the logs. */
 const adminsOrWarn = async (automation: string) => {

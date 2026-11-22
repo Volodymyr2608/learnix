@@ -11,6 +11,7 @@ import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { checkRefundRequestRateLimit } from "@/server/services/_shared/aiLimits/checkRefundRequestRateLimit";
 import { stripe } from "@/server/services/payments/stripe.client";
+import { logger } from "@/server/utils/logger";
 import {
 	ChargeDisputedError,
 	RefundAlreadyRequestedError,
@@ -19,6 +20,7 @@ import {
 } from "./refund.errors";
 import { refundEffectsService } from "./refundEffects.service";
 import { isStudentRefundEnabled } from "./refundFlag";
+import { refundNotificationsService } from "./refundNotifications.service";
 import { accountLimitSince, decideRefund } from "./refundRules";
 import { refundPageState } from "./refundView";
 
@@ -219,7 +221,18 @@ class RefundService {
 					failedConditions: result.failedConditions,
 				};
 			});
-			if (created.decision !== "auto_approved") return created;
+			if (created.decision !== "auto_approved") {
+				// U10: after commit; a failed email never fails the request.
+				await refundNotificationsService
+					.refundDenied(created.requestId, created.failedConditions)
+					.catch((error) =>
+						logger.error("Refund-denied email failed", {
+							requestId: created.requestId,
+							error,
+						}),
+					);
+				return created;
+			}
 			const refundStatus = await this.executeRefund(
 				created.requestId,
 				new Date(),

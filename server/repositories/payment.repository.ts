@@ -88,6 +88,20 @@ class PaymentRepository extends BaseRepository<
 		});
 	}
 
+	/** U10: what the student's "refund done" email needs — no Stripe fields. */
+	findForRefundEmail(paymentId: string) {
+		return this.db.payment.findUnique({
+			where: { id: paymentId },
+			select: {
+				id: true,
+				amountCents: true,
+				currency: true,
+				student: { select: { id: true, email: true, name: true } },
+				course: { select: { title: true } },
+			},
+		});
+	}
+
 	findByPaymentIntentId(stripePaymentIntentId: string) {
 		return this.findFirst({ where: { stripePaymentIntentId } });
 	}

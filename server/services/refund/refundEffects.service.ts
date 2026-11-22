@@ -5,6 +5,7 @@ import { refundEffectsRepository } from "@/server/repositories/refundEffects.rep
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { connectService } from "@/server/services/payments/connect.service";
 import { logger } from "@/server/utils/logger";
+import { refundNotificationsService } from "./refundNotifications.service";
 
 const REVOCATION_REASON: Record<RefundEffectPath, CertificateRevocationReason> =
 	{
@@ -56,6 +57,14 @@ class RefundEffectsService {
 					error,
 				});
 			}
+		}
+		// U10 / FR-S21: the student's own request was refunded — told once, behind the CAS above.
+		if (path === "refund_request") {
+			await refundNotificationsService
+				.refundDone(paymentId)
+				.catch((error) =>
+					logger.error("Refund-done email failed", { paymentId, error }),
+				);
 		}
 		// FR-P12: the refunded course stops feeding the interest profile.
 		void embeddingsService
