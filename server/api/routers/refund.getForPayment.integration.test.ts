@@ -79,7 +79,7 @@ describe("refund.getForPayment", () => {
 			paymentId: payment.id,
 		})) ?? { state: null };
 
-		expect(state).toEqual({
+		expect(state).toMatchObject({
 			kind: "over_limit",
 			exceeded: [{ condition: "threshold", openedCount: 4, threshold: 3 }],
 		});

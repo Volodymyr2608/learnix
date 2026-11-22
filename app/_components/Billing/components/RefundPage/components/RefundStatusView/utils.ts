@@ -4,6 +4,7 @@ const HEADING: Record<RefundStatusState["status"], string> = {
 	processing: "Refund processing",
 	refunded: "Refunded",
 	denied: "Refund not approved",
+	under_review: "Under review",
 };
 
 export const statusHeading = (status: RefundStatusState["status"]): string =>

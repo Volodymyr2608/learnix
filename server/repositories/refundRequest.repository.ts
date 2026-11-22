@@ -86,6 +86,19 @@ class RefundRequestRepository extends BaseRepository<
 						text: true,
 						createdAt: true,
 						refundedAt: true,
+						// FR-S17, S18: the appeal as the student may see it (never the admin's id).
+						appeal: {
+							select: {
+								status: true,
+								createdAt: true,
+								denialReason: true,
+								files: {
+									where: { deletedAt: null },
+									orderBy: { createdAt: "asc" },
+									select: { id: true, fileName: true, uploadedBy: true },
+								},
+							},
+						},
 					},
 				},
 			},

@@ -7,6 +7,7 @@ import type {
 	RefundRequestStatus,
 	RefundRequestView,
 } from "@/server/entities/refund/refundView.dto";
+import { appealDeadline } from "./appealRules";
 import {
 	ACCOUNT_LIMIT,
 	isInsideRefundWindow,
@@ -22,10 +23,15 @@ import {
 export const refundWindowEndsAt = (paidAt: Date | null): Date | null =>
 	paidAt ? new Date(paidAt.getTime() + REFUND_WINDOW_MS) : null;
 
-const requestStatus = (
-	request: Pick<RefundRequestView, "decision" | "refundState">,
-): RefundRequestStatus => {
-	if (request.decision === "auto_denied") return "denied";
+const requestStatus = (request: {
+	decision: RefundRequestView["decision"];
+	refundState: RefundRequestView["refundState"];
+	appeal: { status: string } | null;
+}): RefundRequestStatus => {
+	if (request.appeal?.status === "open") return "under_review";
+	if (request.appeal?.status === "denied") return "denied";
+	if (request.decision !== "auto_approved" && request.refundState === null)
+		return "denied";
 	if (
 		request.refundState === "refunded" ||
 		request.refundState === "refunded_by_bank"
@@ -72,24 +78,52 @@ const overLimit = (facts: RefundPageFacts): RefundOverLimit[] => {
 	return exceeded;
 };
 
+/** FR-S14, S16: a denied request with no appeal yet can be appealed until its deadline. */
+const openAppealDeadline = (
+	request: RefundRequestView,
+	paidAt: Date | null,
+	now: Date,
+): Date | null => {
+	if (request.decision !== "auto_denied" || request.appeal) return null;
+	const deadline = appealDeadline({
+		kind: "after_denial",
+		paidAt,
+		deniedAt: request.createdAt,
+	});
+	return deadline && now < deadline ? deadline : null;
+};
+
 /** U3: the request's own status; dispute; certificate; earlier refund; window; limits; the form. */
 export const refundPageState = (
 	facts: RefundPageFacts,
 	now: Date,
 ): RefundPageState => {
 	const { request } = facts;
-	if (request)
+	if (request) {
+		const status = requestStatus(request);
+		const appeal = request.appeal;
 		return {
 			kind: "status",
-			status: requestStatus(request),
+			status,
 			amountCents: facts.amountCents,
 			currency: facts.currency,
 			reason: request.reason,
 			text: request.text,
-			submittedAt: request.createdAt,
+			submittedAt: appeal?.createdAt ?? request.createdAt,
 			refundedAt: request.refundedAt,
 			failedConditions: request.failedConditions,
+			appealDeadline: openAppealDeadline(request, facts.paidAt, now),
+			adminDecision:
+				appeal?.status === "denied"
+					? {
+							reason: appeal.denialReason ?? "",
+							files: appeal.files.filter((f) => f.uploadedBy === "admin"),
+						}
+					: null,
+			studentFiles:
+				appeal?.files.filter((f) => f.uploadedBy === "student") ?? [],
 		};
+	}
 	if (facts.paymentRefunded) return { kind: "payment_refunded" };
 	if (facts.hasOpenDispute) return { kind: "dispute" };
 	if (facts.hasCertificate) return { kind: "certificate" };
@@ -98,7 +132,8 @@ export const refundPageState = (
 	if (windowEndsAt === null || !isInsideRefundWindow(facts.paidAt, now))
 		return { kind: "window_closed", endedAt: windowEndsAt };
 	const exceeded = overLimit(facts);
-	if (exceeded.length > 0) return { kind: "over_limit", exceeded };
+	if (exceeded.length > 0)
+		return { kind: "over_limit", exceeded, appealDeadline: windowEndsAt };
 	return {
 		kind: "form",
 		amountCents: facts.amountCents,

@@ -11,27 +11,41 @@ import { RefundStatusView } from "../RefundStatusView";
 import { RefundUnavailable } from "../RefundUnavailable";
 import type { RefundStateViewProps } from "./types";
 
-/** U3: one view per state the server decided. */
+/** U3: one view per state the server decided — exhaustive, so a new kind cannot fall through. */
 export const RefundStateView = ({ paymentId, state }: RefundStateViewProps) => {
-	if (state.kind === "form")
-		return (
-			<RefundRequestForm
-				amountCents={state.amountCents}
-				currency={state.currency}
-				paymentId={paymentId}
-				windowEndsAt={state.windowEndsAt}
-			/>
-		);
-	if (state.kind === "status") return <RefundStatusView state={state} />;
-	if (state.kind === "over_limit")
-		return <RefundOverLimit exceeded={state.exceeded} />;
-	if (state.kind === "window_closed")
-		return <RefundUnavailable message={windowClosedText(state.endedAt)} />;
-	if (state.kind === "dispute")
-		return <RefundUnavailable message={DISPUTE_TEXT} />;
-	if (state.kind === "certificate")
-		return <RefundUnavailable message={CERTIFICATE_TEXT} />;
-	if (state.kind === "already_refunded")
-		return <RefundUnavailable message={ALREADY_REFUNDED_TEXT} />;
-	return <RefundUnavailable message={PAYMENT_REFUNDED_TEXT} />;
+	switch (state.kind) {
+		case "form":
+			return (
+				<RefundRequestForm
+					amountCents={state.amountCents}
+					currency={state.currency}
+					paymentId={paymentId}
+					windowEndsAt={state.windowEndsAt}
+				/>
+			);
+		case "status":
+			return <RefundStatusView paymentId={paymentId} state={state} />;
+		case "over_limit":
+			return (
+				<RefundOverLimit
+					appealDeadline={state.appealDeadline}
+					exceeded={state.exceeded}
+					paymentId={paymentId}
+				/>
+			);
+		case "window_closed":
+			return <RefundUnavailable message={windowClosedText(state.endedAt)} />;
+		case "dispute":
+			return <RefundUnavailable message={DISPUTE_TEXT} />;
+		case "certificate":
+			return <RefundUnavailable message={CERTIFICATE_TEXT} />;
+		case "already_refunded":
+			return <RefundUnavailable message={ALREADY_REFUNDED_TEXT} />;
+		case "payment_refunded":
+			return <RefundUnavailable message={PAYMENT_REFUNDED_TEXT} />;
+		default: {
+			const unhandled: never = state;
+			return unhandled;
+		}
+	}
 };

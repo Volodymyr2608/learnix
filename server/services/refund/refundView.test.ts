@@ -37,6 +37,17 @@ const request = (
 	text: null,
 	createdAt: at(DAY),
 	refundedAt: null,
+	appeal: null,
+	...overrides,
+});
+
+const appeal = (
+	overrides: Partial<NonNullable<RefundRequestView["appeal"]>> = {},
+): NonNullable<RefundRequestView["appeal"]> => ({
+	status: "open",
+	createdAt: at(2 * DAY),
+	denialReason: null,
+	files: [],
 	...overrides,
 });
 
@@ -150,6 +161,9 @@ describe("refundPageState (FR-S3–S12, S19, S20, U3, U4)", () => {
 			submittedAt: at(DAY),
 			refundedAt: at(DAY),
 			failedConditions: [],
+			appealDeadline: null,
+			adminDecision: null,
+			studentFiles: [],
 		});
 	});
 
@@ -199,6 +213,7 @@ describe("refundPageState (FR-S3–S12, S19, S20, U3, U4)", () => {
 		expect(refundPageState(page({ openedCount: 4 }), NOW)).toEqual({
 			kind: "over_limit",
 			exceeded: [{ condition: "threshold", openedCount: 4, threshold: 3 }],
+			appealDeadline: WINDOW_END,
 		});
 	});
 
@@ -211,6 +226,7 @@ describe("refundPageState (FR-S3–S12, S19, S20, U3, U4)", () => {
 				{ condition: "threshold", openedCount: 4, threshold: 3 },
 				{ condition: "account_limit", refunds: 3, limit: 3 },
 			],
+			appealDeadline: WINDOW_END,
 		});
 	});
 
@@ -222,5 +238,83 @@ describe("refundPageState (FR-S3–S12, S19, S20, U3, U4)", () => {
 			refundPageState(page({ hasOpenDispute: true, request: request() }), NOW)
 				.kind,
 		).toBe("status");
+	});
+});
+
+describe("appeals on the row and the page (FR-S13–S18, V17)", () => {
+	const deniedRequest = (overrides: Partial<RefundRequestView> = {}) =>
+		request({
+			decision: "auto_denied",
+			refundState: null,
+			failedConditions: ["window"],
+			createdAt: at(13 * DAY),
+			...overrides,
+		});
+
+	it("shows 'Under review' on the row and the page while an appeal is open", () => {
+		const req = deniedRequest({ appeal: appeal() });
+		expect(purchaseRefundRowState(row({ request: req }), NOW)).toEqual({
+			kind: "status",
+			status: "under_review",
+		});
+		expect(refundPageState(page({ request: req }), NOW)).toMatchObject({
+			kind: "status",
+			status: "under_review",
+			submittedAt: at(2 * DAY),
+			appealDeadline: null,
+		});
+	});
+
+	it("offers an appeal on a denial until its deadline (later of window end or denial + 3 d)", () => {
+		const req = deniedRequest();
+		expect(refundPageState(page({ request: req }), NOW)).toMatchObject({
+			kind: "status",
+			status: "denied",
+			appealDeadline: at(16 * DAY),
+		});
+		expect(refundPageState(page({ request: req }), at(16 * DAY))).toMatchObject(
+			{
+				status: "denied",
+				appealDeadline: null,
+			},
+		);
+	});
+
+	it("shows the admin's reason and files after a denied appeal, with no further appeal", () => {
+		const files = [
+			{ id: "f1", fileName: "terms.pdf", uploadedBy: "admin" as const },
+		];
+		const req = deniedRequest({
+			appeal: appeal({
+				status: "denied",
+				denialReason: "Matches the description.",
+				files,
+			}),
+		});
+		expect(refundPageState(page({ request: req }), NOW)).toMatchObject({
+			kind: "status",
+			status: "denied",
+			appealDeadline: null,
+			adminDecision: { reason: "Matches the description.", files },
+		});
+	});
+
+	it("follows the refund after an approved appeal", () => {
+		const req = request({
+			decision: "direct_appeal",
+			refundState: "processing",
+			appeal: appeal({ status: "approved" }),
+		});
+		expect(purchaseRefundRowState(row({ request: req }), NOW)).toEqual({
+			kind: "status",
+			status: "processing",
+		});
+	});
+
+	it("gives the over-limit page the direct-appeal deadline (window end)", () => {
+		expect(refundPageState(page({ openedCount: 4 }), NOW)).toMatchObject({
+			kind: "over_limit",
+			appealDeadline: WINDOW_END,
+		});
 	});
 });

@@ -9,6 +9,7 @@ const STATUS_LABEL: Record<RefundRequestStatus, string> = {
 	// The row's own badge already says "Refunded" (review M6).
 	refunded: "Refund details",
 	denied: "Refund denied",
+	under_review: "Under review",
 };
 
 /** FR-S12: the status a row shows instead of the action — a link to its details (review I1). */

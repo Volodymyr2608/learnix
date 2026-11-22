@@ -65,3 +65,15 @@ export const deniedConditions = (failed: RefundCondition[]): string[] =>
 
 export const submittedText = (date: Date) =>
 	`Submitted on ${formatUtcDate(date)}`;
+
+/** FR-S17: an open appeal — no promised decision date. */
+export const underReviewText = (submittedAt: Date) =>
+	`Submitted on ${formatUtcDate(submittedAt)}. We will email you when it is decided.`;
+
+/** FR-S16: how long the appeal stays possible. */
+export const appealDeadlineText = (deadline: Date) =>
+	`You can ask an admin to review this until ${formatUtcDate(deadline)} (UTC).`;
+
+/** C20: every evidence file is downloaded through the authorizing route. */
+export const evidenceHref = (fileId: string) =>
+	`/api/refunds/evidence/${fileId}`;

@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
 	ALREADY_REFUNDED_TEXT,
+	appealDeadlineText,
 	CERTIFICATE_TEXT,
 	DISPUTE_TEXT,
 	deniedConditions,
+	evidenceHref,
 	overLimitLines,
 	PROCESSING_TEXT,
 	REFUND_CONSEQUENCES,
 	refundAmountText,
 	refundedText,
 	submittedText,
+	underReviewText,
 	windowClosedText,
 } from "./utils";
 
@@ -78,5 +81,21 @@ describe("refund page texts", () => {
 	it("explains a certificate and an earlier refund", () => {
 		expect(CERTIFICATE_TEXT).toContain("certificate");
 		expect(ALREADY_REFUNDED_TEXT).toContain("only once");
+	});
+
+	it("states the FR-S17 text for an open appeal, with no decision date", () => {
+		expect(underReviewText(new Date("2026-11-03T10:00:00.000Z"))).toBe(
+			"Submitted on 3 November 2026. We will email you when it is decided.",
+		);
+	});
+
+	it("states the appeal deadline as a UTC date", () => {
+		expect(appealDeadlineText(new Date("2026-11-15T23:30:00.000Z"))).toBe(
+			"You can ask an admin to review this until 15 November 2026 (UTC).",
+		);
+	});
+
+	it("links a file to the authorizing download route (C20)", () => {
+		expect(evidenceHref("f_1")).toBe("/api/refunds/evidence/f_1");
 	});
 });

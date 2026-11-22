@@ -5,6 +5,21 @@ import type {
 } from "@/generated/prisma";
 import type { RefundCondition } from "./refund.dto";
 
+/** An evidence file as the student sees it: downloaded through the authorizing route (C20). */
+export type EvidenceFileView = {
+	id: string;
+	fileName: string;
+	uploadedBy: "student" | "admin";
+};
+
+/** The parts of a stored appeal the student may see (FR-S17, FR-S18). */
+export type RefundAppealView = {
+	status: "open" | "approved" | "denied" | "overdue_approved";
+	createdAt: Date;
+	denialReason: string | null;
+	files: EvidenceFileView[];
+};
+
 /** The parts of a stored request the student may see (C23: never `refundError` or Stripe ids). */
 export type RefundRequestView = {
 	decision: RefundDecision;
@@ -14,10 +29,15 @@ export type RefundRequestView = {
 	text: string | null;
 	createdAt: Date;
 	refundedAt: Date | null;
+	appeal: RefundAppealView | null;
 };
 
-/** FR-S12: the statuses a row shows instead of the action. "Under review" arrives with appeals. */
-export type RefundRequestStatus = "processing" | "refunded" | "denied";
+/** FR-S12, S17: the statuses a row shows instead of the action. */
+export type RefundRequestStatus =
+	| "processing"
+	| "refunded"
+	| "denied"
+	| "under_review";
 
 /** What the Purchases row needs (U2) — no opened-lesson or account-limit counts. */
 export type PurchaseRowFacts = {
@@ -27,7 +47,11 @@ export type PurchaseRowFacts = {
 	hasCertificate: boolean;
 	hasEarlierCountingRefund: boolean;
 	hasOpenDispute: boolean;
-	request: Pick<RefundRequestView, "decision" | "refundState"> | null;
+	request:
+		| (Pick<RefundRequestView, "decision" | "refundState"> & {
+				appeal: Pick<RefundAppealView, "status"> | null;
+		  })
+		| null;
 };
 
 export type PurchaseRefundRowState =
@@ -61,10 +85,16 @@ export type RefundPageState =
 			submittedAt: Date;
 			refundedAt: Date | null;
 			failedConditions: RefundCondition[];
+			/** FR-S14, S16: set while a denied request can still be appealed. */
+			appealDeadline: Date | null;
+			/** FR-S18: the admin's reason and files after a denied appeal. */
+			adminDecision: { reason: string; files: EvidenceFileView[] } | null;
+			/** The student's own evidence files, once an appeal was filed. */
+			studentFiles: EvidenceFileView[];
 	  }
 	| { kind: "payment_refunded" }
 	| { kind: "dispute" }
 	| { kind: "certificate" }
 	| { kind: "already_refunded" }
 	| { kind: "window_closed"; endedAt: Date | null }
-	| { kind: "over_limit"; exceeded: RefundOverLimit[] };
+	| { kind: "over_limit"; exceeded: RefundOverLimit[]; appealDeadline: Date };
