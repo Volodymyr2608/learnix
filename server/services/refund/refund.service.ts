@@ -215,6 +215,8 @@ class RefundService {
 					snapshot: result.snapshot as Prisma.InputJsonValue,
 					refundState:
 						result.decision === "auto_approved" ? "processing" : null,
+					// V2: counts for D3 and the account limit.
+					approval: result.decision === "auto_approved" ? "automatic" : null,
 				});
 
 				return {

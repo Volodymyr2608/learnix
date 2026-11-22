@@ -225,13 +225,16 @@ export function makeRefundRequest(
 		courseId: string;
 	},
 ) {
+	const decision = overrides.decision ?? "auto_approved";
 	return testDb.refundRequest.create({
 		data: {
 			reason: "too_easy",
-			decision: "auto_approved",
 			failedConditions: [],
 			snapshot: {},
+			// V2: an automatic approval carries approval = automatic, as the request path writes it.
+			approval: decision === "auto_approved" ? "automatic" : null,
 			...overrides,
+			decision,
 		},
 	});
 }

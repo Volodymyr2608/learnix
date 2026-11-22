@@ -122,7 +122,8 @@ class RefundRequestRepository extends BaseRepository<
 	): Promise<boolean> {
 		const [requests, lostDisputes] = await Promise.all([
 			tx.refundRequest.count({
-				where: { studentId, courseId, decision: "auto_approved" },
+				// V2: a refund approved automatically, on appeal, or overdue (D3).
+				where: { studentId, courseId, approval: { not: null } },
 			}),
 			tx.payment.count({
 				where: { studentId, courseId, refundSource: "lost_dispute" },
@@ -145,7 +146,7 @@ class RefundRequestRepository extends BaseRepository<
 				SELECT r.payment_id
 				  FROM refund_requests r
 				 WHERE r.student_id = ${studentId}
-				   AND r.decision = 'auto_approved'
+				   AND r.approval = 'automatic'
 				   AND r.created_at >= ${since}::timestamp
 				UNION ALL
 				SELECT p.id
@@ -190,7 +191,7 @@ class RefundRequestRepository extends BaseRepository<
 				where: {
 					studentId,
 					courseId: { in: courseIds },
-					decision: "auto_approved",
+					approval: { not: null },
 				},
 				select: { courseId: true },
 			}),
@@ -216,7 +217,7 @@ class RefundRequestRepository extends BaseRepository<
 			{
 				id: string;
 				payment_id: string;
-				decision: "auto_approved" | "auto_denied";
+				decision: "auto_approved" | "auto_denied" | "direct_appeal";
 				failed_conditions: string[];
 			}[]
 		>`
@@ -226,7 +227,7 @@ class RefundRequestRepository extends BaseRepository<
 			         (r.decision = 'auto_denied' AND r.created_at >= ${since}::timestamp
 			          AND NOT EXISTS (SELECT 1 FROM notification_logs n
 			                           WHERE n."dedupKey" = r.student_id || ':refund_denied:' || r.id))
-			      OR (r.decision = 'auto_approved' AND r.refund_state = 'refunded'
+			      OR (r.approval IS NOT NULL AND r.refund_state = 'refunded'
 			          AND r.refunded_at >= ${since}::timestamp
 			          AND NOT EXISTS (SELECT 1 FROM notification_logs n
 			                           WHERE n."dedupKey" = r.student_id || ':refund_done:' || r.payment_id))
