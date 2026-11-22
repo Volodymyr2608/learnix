@@ -258,4 +258,23 @@ describe("logSecurityEvent", () => {
 		);
 		expect(mockLogger.error).not.toHaveBeenCalled();
 	});
+
+	it("logs a content-gate refusal without forwarding it to Sentry (G3)", async () => {
+		const { logContentGateRefusal } = await import("./securityLog");
+
+		logContentGateRefusal({
+			feature: "lessonAI",
+			userId: "user-1",
+			lessonId: "lesson-1",
+		});
+
+		const [fields] = mockLogger.warn.mock.calls[0] ?? [];
+		expect(fields).toMatchObject({
+			feature: "lessonAI",
+			layer: "content_gate",
+			outcome: "lesson_not_opened",
+			subject: { kind: "lesson", id: "lesson-1" },
+		});
+		expect(mockReportMessage).not.toHaveBeenCalled();
+	});
 });

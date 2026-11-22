@@ -89,7 +89,9 @@ export type SecurityLayer =
 	// A write to a durable educational record. Not a guard layer: nothing here
 	// decides whether a call proceeds, and the events it emits are evidence for a
 	// later investigation rather than detection.
-	| "mastery_write";
+	| "mastery_write"
+	// FR-P19a: a student asked for content of a lesson they have not opened.
+	| "content_gate";
 
 export type SecurityOutcome =
 	| "guard_blocked"
@@ -110,7 +112,10 @@ export type SecurityOutcome =
 	// Level 3 written because every quiz on a lesson was answered correctly. The
 	// normal, successful path — recorded so a suspected fabrication has something
 	// to be reconstructed from.
-	| "mastery_promoted";
+	| "mastery_promoted"
+	// FR-P19a: refused because the lesson is not opened. The UI never asks before an open, so the
+	// normal rate is ~0 — but direct API use can trigger it at will.
+	| "lesson_not_opened";
 
 /**
  * Who authored the content that tripped the boundary, when that is not the user
