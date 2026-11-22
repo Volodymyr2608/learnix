@@ -4,6 +4,7 @@ import {
 	makeCourse,
 	makeEnrollment,
 	makeLesson,
+	makeOpenedLesson,
 	makeSection,
 	makeUser,
 } from "@/test/factories";
@@ -50,6 +51,8 @@ describe("POST /api/chat/lesson — rejected turns never return as context", () 
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		// G10: normal use opens the lesson before the tutor is reachable.
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 
 		lessonId = lesson.id;
 		studentId = student.id;

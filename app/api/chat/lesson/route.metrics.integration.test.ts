@@ -5,6 +5,7 @@ import {
 	makeEnrollment,
 	makeLesson,
 	makeLessonInsights,
+	makeOpenedLesson,
 	makeSection,
 	makeUser,
 } from "@/test/factories";
@@ -81,6 +82,8 @@ describe("a blocked turn still reaches the metric (AC 5)", () => {
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		// G10: normal use opens the lesson before the tutor is reachable.
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		await makeLessonInsights({ lessonId: lesson.id });
 		lessonId = lesson.id;
 		mockGetSession.mockResolvedValue({
