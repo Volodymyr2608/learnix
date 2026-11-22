@@ -1143,3 +1143,32 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me* (the tests named in `build/plan.md` ran red, then green)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 1 /qa: what the review and the audits changed
+- **Stage:** validation
+- **Context the AI had:** the branch diff (26b9716..590d41a), `build/plan.md`, `spec.md`,
+  `security.md`, the contract tests; one code reviewer and two security auditors
+  (`security-auditor`, `llm-security-auditor`), each in a fresh context
+- **AI found:**
+  - code review — `markLessonComplete`/`markLessonIncomplete` reused `getStudentLesson`, so marking
+    a lesson recorded it as opened, against FR-P19 ("marking is unchanged") → fixed: the access check
+    no longer records for those callers (`fix(lesson)` 804938b);
+  - code review — the account limit looked back 365 days, the spec says 12 months → fixed: 12
+    calendar months in UTC (`fix(refund)` 7c0f477);
+  - security audit, Low — `paymentId` had no length cap; a NUL byte in the text gave a 500 → fixed
+    (3bd5e6f);
+  - security audit, test gap — nothing pinned "another student's payment that already has a request
+    returns NOT_FOUND, not CONFLICT" (an existence oracle after a refactor) → test added, proved by a
+    mutation that moves the duplicate check before the ownership check (3bd5e6f);
+  - security audit, Medium before flag-on — waiting on the per-student lock holds pool connections;
+    no rate limit → accepted for slice 1 only, a Release checklist item (`security.md`);
+  - security audit — refund text is not erased on account deletion (C29); access continues after
+    an automatic approval → accepted for slice 1 only, Release checklist items;
+  - LLM audit — no findings; refund and opened-lesson code is not reachable from any AI entry point
+- **AI proposed:** keep `status: in-progress` (slice 1 of many); amend ADR-037, which rejects an
+  advisory lock "around the Stripe call", to say the slice's lock has no network call inside
+- **How I verified:** *Not verified by me* (each fix: test red, then green; full suites green —
+  unit 2466/2466, integration 481/481)
+- **My decisions:** do not push the branch yet; it is merged as one module at the end
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
