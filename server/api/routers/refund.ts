@@ -2,9 +2,25 @@ import { z } from "zod";
 import { refundRequestInput } from "@/server/entities/refund/refund.dto";
 import { refundService } from "@/server/services/refund/refund.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
-import { createTRPCRouter, studentProcedure } from "../trpc";
+import {
+	createTRPCRouter,
+	protectedProcedure,
+	studentProcedure,
+} from "../trpc";
 
 export const refundRouter = createTRPCRouter({
+	/** EC-12 (W12): the courses whose open appeal an account deletion would close. */
+	openAppeals: protectedProcedure.query(async ({ ctx }) => {
+		try {
+			return await refundService.openAppealCourses(
+				ctx.session.user.id,
+				ctx.session.user.role,
+			);
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+
 	/** FR-S23 (W9): whether a repurchase of this course could be refunded again. */
 	repurchaseWarning: studentProcedure
 		.input(z.object({ courseId: z.string().min(1).max(64) }).strict())

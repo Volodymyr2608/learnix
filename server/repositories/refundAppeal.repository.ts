@@ -230,6 +230,24 @@ class RefundAppealRepository extends BaseRepository<
 		});
 	}
 
+	/** FR-P23 (W11): the student's evidence files not yet deleted, read before anonymisation. */
+	findEvidenceOfStudent(studentId: string) {
+		return this.db.refundEvidenceFile.findMany({
+			where: { deletedAt: null, appeal: { request: { studentId } } },
+			select: { id: true, blobPathname: true },
+		});
+	}
+
+	/** EC-12 (W12): the course titles of the student's open appeals. */
+	async findOpenAppealCourseTitles(studentId: string): Promise<string[]> {
+		const rows = await this.db.refundAppeal.findMany({
+			where: { status: "open", request: { studentId } },
+			orderBy: { createdAt: "asc" },
+			select: { request: { select: { course: { select: { title: true } } } } },
+		});
+		return rows.map((r) => r.request.course.title);
+	}
+
 	markEvidenceDeleted(fileIds: string[], now: Date) {
 		return this.db.refundEvidenceFile.updateMany({
 			where: { id: { in: fileIds }, deletedAt: null },

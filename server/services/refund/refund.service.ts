@@ -11,6 +11,7 @@ import type {
 } from "@/server/entities/refund/refund.dto";
 import type { RefundPageState } from "@/server/entities/refund/refundView.dto";
 import { paymentRepository } from "@/server/repositories/payment.repository";
+import { refundAppealRepository } from "@/server/repositories/refundAppeal.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { checkRefundRequestRateLimit } from "@/server/services/_shared/aiLimits/checkRefundRequestRateLimit";
 import { stripe } from "@/server/services/payments/stripe.client";
@@ -62,6 +63,11 @@ class RefundService {
 	 * (an approved refund or a lost dispute) cannot be refunded again — the checkout says so. An
 	 * exception or a Dashboard refund does not count, so it does not warn. Nothing with the flag off.
 	 */
+	async openAppealCourses(userId: string, role: string): Promise<string[]> {
+		if (!isStudentRefundEnabled() || role !== "STUDENT") return [];
+		return refundAppealRepository.findOpenAppealCourseTitles(userId);
+	}
+
 	async repurchaseWarning(
 		studentId: string,
 		courseId: string,
