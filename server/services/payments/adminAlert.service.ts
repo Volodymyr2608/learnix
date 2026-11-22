@@ -2,6 +2,7 @@ import type { PayoutRun } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { payoutRepository } from "@/server/repositories/payout.repository";
 import { payoutRunRepository } from "@/server/repositories/payoutRun.repository";
+import { refundAppealRepository } from "@/server/repositories/refundAppeal.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import {
 	ANONYMISED_EMAIL_DOMAIN,
@@ -12,6 +13,10 @@ import { logger } from "@/server/utils/logger";
 import { isStale } from "./payoutMonitorRules";
 
 const panelUrl = () => `${env.BASE_URL}/admin/payouts`;
+const refundsUrl = () => `${env.BASE_URL}/admin/refunds`;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysLeft = (deadline: Date, now: Date) =>
+	Math.max(0, Math.ceil((deadline.getTime() - now.getTime()) / DAY_MS));
 const utcDay = (now: Date) => now.toISOString().slice(0, 10);
 
 /** Review M4: with no ADMIN user an alert has nobody to reach — say so in the logs. */
@@ -106,6 +111,27 @@ class AdminAlertService {
 				courseTitle: request.course.title,
 			},
 		});
+	}
+
+	/** V16 / matrix "Appeal filed": every admin, once per appeal. Fixed text only (C22). */
+	async appealFiled(appealId: string, now: Date = new Date()): Promise<void> {
+		const appeal = await refundAppealRepository.findForAdminNotice(appealId);
+		if (!appeal) return;
+		const admins = await adminsOrWarn("appeal_filed");
+		for (const admin of admins) {
+			await sendOnce({
+				dedupKey: `admin:${admin.id}:appeal_filed:${appeal.id}`,
+				userId: admin.id,
+				automation: "appeal_filed",
+				templateKey: "admin.appeal-filed",
+				toEmail: admin.email,
+				payload: {
+					title: "A refund appeal was filed",
+					summary: `A ${appeal.kind === "direct" ? "direct appeal" : "appeal after an automatic denial"} for ${appeal.request.course.title} is waiting for a decision (${daysLeft(appeal.deadlineAt, now)} days until its deadline).`,
+					panelUrl: refundsUrl(),
+				},
+			});
+		}
 	}
 }
 

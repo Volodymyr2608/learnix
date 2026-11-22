@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { z } from "zod";
+import { AdminRefundNoticeEmail } from "@/app/_emails/AdminRefundNoticeEmail";
 import { AuthAccountDeletionEmail } from "@/app/_emails/AuthAccountDeletionEmail";
 import { AuthEmailChangeEmail } from "@/app/_emails/AuthEmailChangeEmail";
 import { AuthPasswordResetEmail } from "@/app/_emails/AuthPasswordResetEmail";
@@ -16,6 +17,7 @@ import { RefundDeniedEmail } from "@/app/_emails/RefundDeniedEmail";
 import { RefundDoneEmail } from "@/app/_emails/RefundDoneEmail";
 import { RefundOverdueEmail } from "@/app/_emails/RefundOverdueEmail";
 import { RefundStillProcessingEmail } from "@/app/_emails/RefundStillProcessingEmail";
+import { StudentRefundNoticeEmail } from "@/app/_emails/StudentRefundNoticeEmail";
 import { UserWelcomeEmail } from "@/app/_emails/UserWelcomeEmail";
 
 type TemplateEntry<P> = {
@@ -24,6 +26,36 @@ type TemplateEntry<P> = {
 	subject: (p: P) => string;
 	criticality: "CRITICAL" | "STANDARD";
 };
+
+const ADMIN_NOTICE_PAYLOAD = z.strictObject({
+	title: z.string(),
+	summary: z.string(),
+	panelUrl: z.url(),
+});
+
+const adminNotice = (
+	subject: (p: z.infer<typeof ADMIN_NOTICE_PAYLOAD>) => string,
+) => ({
+	component: AdminRefundNoticeEmail,
+	payload: ADMIN_NOTICE_PAYLOAD,
+	subject,
+	criticality: "CRITICAL" as const,
+});
+
+const STUDENT_NOTICE_PAYLOAD = z.strictObject({
+	name: z.string(),
+	title: z.string(),
+	body: z.string(),
+});
+
+const studentNotice = (
+	subject: (p: z.infer<typeof STUDENT_NOTICE_PAYLOAD>) => string,
+) => ({
+	component: StudentRefundNoticeEmail,
+	payload: STUDENT_NOTICE_PAYLOAD,
+	subject,
+	criticality: "CRITICAL" as const,
+});
 
 export const emailTemplates = {
 	"auth.verify-email": {
@@ -197,6 +229,17 @@ export const emailTemplates = {
 		subject: (p) => `Your refund request for ${p.courseTitle}`,
 		criticality: "CRITICAL",
 	},
+	// Refund slice 8 (V16): admin notices share one layout; the summary never carries student text.
+	"admin.appeal-filed": adminNotice(() => "Learnix: a refund appeal was filed"),
+	"admin.appeal-undecided": adminNotice(
+		() => "Learnix: a refund appeal is waiting for a decision",
+	),
+	"admin.dashboard-refund": adminNotice(
+		() => "Learnix: a refund was made in the Stripe Dashboard",
+	),
+	"admin.dispute-lost": adminNotice(() => "Learnix: a bank dispute was lost"),
+	"refund.appeal-decided": studentNotice((p) => p.title),
+	"refund.dispute-lost": studentNotice((p) => p.title),
 	// biome-ignore lint/suspicious/noExplicitAny: registry requires any for generic constraint
 } as const satisfies Record<string, TemplateEntry<any>>;
 

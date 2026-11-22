@@ -44,3 +44,24 @@ export class EvidenceRejectedError extends DomainError {
 		);
 	}
 }
+
+/** V9: the appeal is not possible in this state (filed already, deadline passed, not needed). */
+export class RefundAppealConflictError extends DomainError {
+	constructor(message: string) {
+		super(message, "CONFLICT");
+	}
+}
+
+/** Invalid appeal input (FR-S15: reason from the closed list, text required). */
+export class RefundAppealInputError extends DomainError {
+	constructor(message: string) {
+		super(message, "BAD_REQUEST");
+	}
+}
+
+/** V5: files were attached but the private evidence store is not configured. */
+export class EvidenceStorageMissingError extends DomainError {
+	constructor() {
+		super("Files cannot be accepted right now.", "PRECONDITION_FAILED");
+	}
+}

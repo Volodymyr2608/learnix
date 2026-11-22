@@ -64,3 +64,19 @@ export type RefundEffectPath =
 	| "dashboard_refund"
 	| "admin_exception"
 	| "lost_dispute";
+
+/** FR-S15 (V8): an appeal's closed-list reason and mandatory text; files travel beside it. */
+export const refundAppealInput = z
+	.object({
+		paymentId: z.string().min(1).max(64),
+		reason: z.nativeEnum(RefundReason),
+		text: z
+			.string()
+			.trim()
+			.min(1, "Tell us why you are appealing")
+			.max(2000)
+			.refine((v) => !v.includes("\u0000"), "Invalid character"),
+	})
+	.strict();
+
+export type RefundAppealInput = z.infer<typeof refundAppealInput>;
