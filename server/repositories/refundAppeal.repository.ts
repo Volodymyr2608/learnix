@@ -217,6 +217,26 @@ class RefundAppealRepository extends BaseRepository<
 		});
 	}
 
+	/** FR-P22 (W10): files of appeals decided on or before `decidedBefore`, not yet deleted. */
+	findExpiredEvidence(decidedBefore: Date, limit: number) {
+		return this.db.refundEvidenceFile.findMany({
+			where: {
+				deletedAt: null,
+				appeal: { status: { not: "open" }, decidedAt: { lte: decidedBefore } },
+			},
+			orderBy: { createdAt: "asc" },
+			take: limit,
+			select: { id: true, blobPathname: true },
+		});
+	}
+
+	markEvidenceDeleted(fileIds: string[], now: Date) {
+		return this.db.refundEvidenceFile.updateMany({
+			where: { id: { in: fileIds }, deletedAt: null },
+			data: { deletedAt: now },
+		});
+	}
+
 	/** V12: what the admin notices name — the course and the deadline; never the student's text. */
 	findForAdminNotice(appealId: string) {
 		return this.db.refundAppeal.findUnique({

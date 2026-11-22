@@ -1,4 +1,5 @@
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
+import { evidenceRetentionService } from "@/server/services/refund/evidenceRetention.service";
 import { refundNotificationsService } from "@/server/services/refund/refundNotifications.service";
 import { adminAlertService } from "./adminAlert.service";
 import { REFUND_OVERDUE_MS } from "./payoutMonitorRules";
@@ -16,6 +17,7 @@ class PayoutWatchdogService {
 		overdueRefunds: number;
 		resentEmails: number;
 		appealReminders: number;
+		evidenceDeleted: number;
 	}> {
 		const stale = await adminAlertService.checkStale(now);
 		const overdue = await refundRequestRepository.findOverdueIds(
@@ -29,11 +31,14 @@ class PayoutWatchdogService {
 		const resentEmails = await refundNotificationsService.resendMissing(now);
 		// V12 / FR-A4: undecided appeals remind the admins on days 10 and 13, then daily.
 		const appealReminders = await adminAlertService.appealUndecided(now);
+		// W10 / FR-P22: evidence files 30 days after the final decision.
+		const evidenceDeleted = await evidenceRetentionService.deleteExpired(now);
 		return {
 			stale,
 			overdueRefunds: overdue.length,
 			resentEmails,
 			appealReminders,
+			evidenceDeleted,
 		};
 	}
 }
