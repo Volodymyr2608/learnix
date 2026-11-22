@@ -148,6 +148,15 @@ class ConnectService {
 					groupedTransfer.id,
 					now,
 				);
+				// Audit Low-1: money left after the student was refunded. Record the truth and surface
+				// it as a failure; the reversal itself is slice 3 (C5 remainder).
+				if (payment.refundedAt || payment.status === "refunded") {
+					return {
+						kind: "failed",
+						paymentId,
+						error: "Transferred after a refund — the transfer needs a reversal",
+					};
+				}
 				return { kind: "already_transferred", paymentId };
 			}
 
@@ -172,13 +181,9 @@ class ConnectService {
 
 			// Review #3: transfers made before slice 2 carry no transfer_group; find one by its source
 			// charge so a legacy sale whose DB update was lost is not paid twice.
-			const legacy = await stripe.transfers.list({
-				destination: profile.stripeAccountId,
-				created: { gte: charge.created },
-				limit: 100,
-			});
-			const legacyTransfer = legacy.data.find(
-				(t) => t.source_transaction === charge.id,
+			const legacyTransfer = await this.findLegacyTransfer(
+				profile.stripeAccountId,
+				charge,
 			);
 			if (legacyTransfer) {
 				await payoutRepository.markTransferred(
@@ -203,12 +208,42 @@ class ConnectService {
 			return { kind: "released", paymentId };
 		} catch (error) {
 			// H5: never guess whether Stripe created the transfer; stay `transferring` and let the
-			// next run recover it list-before-retry.
+			// next run recover it list-before-retry. Audit Low-2: touch the row so it goes behind
+			// fresh sales instead of heading every batch.
+			try {
+				await payoutRepository.touch(paymentId);
+			} catch {
+				// Ordering only; the run still reports the original error.
+			}
 			return {
 				kind: "failed",
 				paymentId,
 				error: error instanceof Error ? error.message : String(error),
 			};
+		}
+	}
+
+	/**
+	 * Review #3 / audit Medium-1: a pre-slice-2 transfer has no transfer_group; find it by its source
+	 * charge across every page of the destination's transfers since that charge.
+	 */
+	private async findLegacyTransfer(
+		destination: string,
+		charge: Stripe.Charge,
+	): Promise<Stripe.Transfer | undefined> {
+		let startingAfter: string | undefined;
+		for (;;) {
+			const page = await stripe.transfers.list({
+				destination,
+				created: { gte: charge.created },
+				limit: 100,
+				...(startingAfter ? { starting_after: startingAfter } : {}),
+			});
+			const match = page.data.find((t) => t.source_transaction === charge.id);
+			if (match) return match;
+			const last = page.data.at(-1);
+			if (!page.has_more || !last) return undefined;
+			startingAfter = last.id;
 		}
 	}
 

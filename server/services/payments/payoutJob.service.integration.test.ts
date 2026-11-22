@@ -207,6 +207,25 @@ describe("payoutJobService", () => {
 		});
 	});
 
+	it("does not let 50 always-failing transferring rows block a fresh sale (audit Low-2)", async () => {
+		await seed(50, { transferStatus: "transferring" });
+		const [fresh] = await seed(1);
+		mockTransfersCreate.mockImplementation(
+			async (params: { transfer_group: string }) => {
+				if (params.transfer_group === fresh?.id) return { id: "tr_fresh" };
+				throw new Error("Stripe rejects it");
+			},
+		);
+
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		expect(
+			(await testDb.payment.findUniqueOrThrow({ where: { id: fresh?.id } }))
+				.transferStatus,
+		).toBe("transferred");
+	});
+
 	describe("releaseForInstructor (account.updated, FR-P2)", () => {
 		it("pays the instructor's eligible sales and keeps a held one", async () => {
 			await seed(1);

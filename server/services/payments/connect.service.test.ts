@@ -57,6 +57,7 @@ vi.mock("@/server/repositories/payout.repository", () => ({
 		claimForRelease: vi.fn(),
 		markTransferred: vi.fn(),
 		releaseClaim: vi.fn(),
+		touch: vi.fn(),
 	},
 }));
 
@@ -352,6 +353,63 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 			"tr_legacy",
 			NOW,
 		);
+	});
+
+	it("finds a legacy transfer on a later page of the destination list (audit Medium-1)", async () => {
+		mockTransfersList.mockImplementation(
+			async (params: Record<string, unknown>) => {
+				if (!params.destination) return { data: [] };
+				return params.starting_after
+					? {
+							data: [{ id: "tr_legacy", source_transaction: "ch_test_abc" }],
+							has_more: false,
+						}
+					: {
+							data: [{ id: "tr_page1", source_transaction: "ch_other" }],
+							has_more: true,
+						};
+			},
+		);
+
+		const outcome = await connectService.releasePayment(makePayment(), NOW);
+
+		expect(outcome.kind).toBe("already_transferred");
+		expect(mockTransfersList).toHaveBeenCalledWith(
+			expect.objectContaining({ starting_after: "tr_page1" }),
+		);
+		expect(mockTransfersCreate).not.toHaveBeenCalled();
+	});
+
+	it("reports a refunded payment whose transfer exists as a failure, not a release (audit Low-1)", async () => {
+		mockTransfersList.mockResolvedValue({ data: [{ id: "tr_made" }] });
+
+		const outcome = await connectService.releasePayment(
+			makePayment({
+				transferStatus: "transferring",
+				status: "refunded",
+				refundedAt: NOW,
+			}),
+			NOW,
+		);
+
+		expect(outcome).toEqual({
+			kind: "failed",
+			paymentId: "pay_1",
+			error: "Transferred after a refund — the transfer needs a reversal",
+		});
+		expect(mockPayoutRepo.markTransferred).toHaveBeenCalledWith(
+			"pay_1",
+			"tr_made",
+			NOW,
+		);
+	});
+
+	it("moves a failing payment to the back of the queue (audit Low-2)", async () => {
+		mockTransfersCreate.mockRejectedValue(new Error("Stripe timeout"));
+
+		await connectService.releasePayment(makePayment(), NOW);
+
+		expect(mockPayoutRepo.touch).toHaveBeenCalledWith("pay_1");
 	});
 
 	it("recovers a transferring payment without claiming it again", async () => {

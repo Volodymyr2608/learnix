@@ -118,6 +118,14 @@ class PayoutRepository extends BaseRepository<
 		return count === 1;
 	}
 
+	/** Audit Low-2: mark a row as just tried, so candidate order puts it behind fresh sales. */
+	async touch(paymentId: string): Promise<void> {
+		await this.db.payment.updateMany({
+			where: { id: paymentId },
+			data: { updatedAt: new Date() },
+		});
+	}
+
 	/** `transferring → pending` when a live check says "not now" (H4, waiting for Stripe). */
 	async releaseClaim(paymentId: string): Promise<boolean> {
 		const { count } = await this.db.payment.updateMany({
