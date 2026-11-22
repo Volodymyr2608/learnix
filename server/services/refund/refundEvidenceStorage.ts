@@ -27,12 +27,19 @@ export const refundEvidenceStorage = {
 	},
 
 	async get(pathname: string) {
-		const result = await get(pathname, { access: "private", token: token() });
+		// Audit I-3: without the private token, never fall back to the public store's token.
+		const configured = token();
+		if (!configured) return null;
+		const result = await get(pathname, {
+			access: "private",
+			token: configured,
+		});
 		return result?.statusCode === 200 ? result.stream : null;
 	},
 
 	async del(pathnames: string[]): Promise<void> {
-		if (pathnames.length === 0) return;
-		await del(pathnames, { token: token() });
+		const configured = token();
+		if (pathnames.length === 0 || !configured) return;
+		await del(pathnames, { token: configured });
 	},
 };

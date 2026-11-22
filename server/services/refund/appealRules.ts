@@ -31,7 +31,16 @@ export const appealDeadline = (input: {
 };
 
 /** T11 (C11): never approved on time alone — the student controls these two. */
-const NEVER_AUTO = new Set(["threshold", "account_limit"]);
+export const NEVER_AUTO = new Set(["threshold", "account_limit"]);
+
+/**
+ * Audit H-1: the condition an after-denial appeal is filed under — a threshold or account-limit
+ * failure wins over any other (a late request fails `window` first), so the label never hides them.
+ */
+export const appealConditionOf = (failedConditions: string[]): string =>
+	failedConditions.find((c) => NEVER_AUTO.has(c)) ??
+	failedConditions[0] ??
+	"window";
 
 /**
  * FR-A5 / AC-C11: an open appeal that followed an automatic denial is approved on day 14 — unless the
@@ -44,12 +53,15 @@ export const isAutoApprovable = (
 		kind: AppealKind;
 		exceededCondition: string;
 		paidAt: Date | null;
+		/** Audit H-1: every condition the denial failed, from the stored request. */
+		failedConditions?: string[];
 	},
 	now: Date,
 ): boolean =>
 	appeal.status === "open" &&
 	appeal.kind === "after_denial" &&
 	!NEVER_AUTO.has(appeal.exceededCondition) &&
+	!(appeal.failedConditions ?? []).some((c) => NEVER_AUTO.has(c)) &&
 	appeal.paidAt !== null &&
 	now.getTime() >= appeal.paidAt.getTime() + REFUND_WINDOW_MS;
 

@@ -23,6 +23,7 @@ import { refundEffectsService } from "./refundEffects.service";
 import { refundEvidenceStorage } from "./refundEvidenceStorage";
 import { isDisputeBlocking } from "./refundFacts";
 import { refundNotificationsService } from "./refundNotifications.service";
+import { REFUND_WINDOW_MS } from "./refundRules";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -227,7 +228,10 @@ class RefundAppealAdminService {
 	 * release. Returns how many it approved.
 	 */
 	async approveOverdueAppeals(now: Date): Promise<number> {
-		const open = await refundAppealRepository.findOpenForJobs(OVERDUE_BATCH);
+		const open = await refundAppealRepository.findOverdueCandidates(
+			new Date(now.getTime() - REFUND_WINDOW_MS),
+			OVERDUE_BATCH,
+		);
 		let approved = 0;
 		for (const appeal of open) {
 			const due = isAutoApprovable(
@@ -236,11 +240,15 @@ class RefundAppealAdminService {
 					kind: appeal.kind,
 					exceededCondition: appeal.exceededCondition,
 					paidAt: appeal.request.payment.paidAt,
+					failedConditions: appeal.request.failedConditions,
 				},
 				now,
 			);
 			if (!due) continue;
 			const closed = await db.$transaction(async (tx) => {
+				// Audit M-1 / EC-10: the same re-check as a manual approval; a blocked appeal stays
+				// open for the admin (the queue shows why) and keeps being reminded.
+				if (await blockerOf(tx, appeal.request)) return false;
 				const won = await refundAppealRepository.closeInTx(tx, appeal.id, {
 					status: "overdue_approved",
 					decidedBy: null,

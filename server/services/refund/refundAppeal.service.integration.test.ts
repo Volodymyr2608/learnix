@@ -176,6 +176,27 @@ describe("refundAppealService.fileAppeal (FR-S13–S16, AC-F6, AC-F8)", () => {
 			});
 		});
 
+		it("labels a late denial that also failed the threshold by the threshold (audit H-1)", async () => {
+			await makeRefundRequest({
+				paymentId,
+				studentId: student.id,
+				courseId,
+				decision: "auto_denied",
+				refundState: null,
+				failedConditions: ["window", "threshold"],
+			});
+
+			const { appealId } = await file();
+
+			expect(
+				(
+					await testDb.refundAppeal.findUniqueOrThrow({
+						where: { id: appealId },
+					})
+				).exceededCondition,
+			).toBe("threshold");
+		});
+
 		it("is refused after its deadline", async () => {
 			await testDb.payment.update({
 				where: { id: paymentId },

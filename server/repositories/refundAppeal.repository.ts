@@ -153,6 +153,45 @@ class RefundAppealRepository extends BaseRepository<
 			 LIMIT ${limit}`;
 	}
 
+	/**
+	 * V11 / audit L-1: open after-denial appeals whose window has ended and whose denial failed
+	 * neither the threshold nor the account limit — the only ones the day-14 rule can approve, so
+	 * undecided direct appeals never crowd them out of the batch.
+	 */
+	findOverdueCandidates(windowEndedBefore: Date, limit: number) {
+		return this.db.refundAppeal.findMany({
+			where: {
+				status: "open",
+				kind: "after_denial",
+				exceededCondition: { notIn: ["threshold", "account_limit"] },
+				request: {
+					payment: { paidAt: { lte: windowEndedBefore } },
+					NOT: {
+						failedConditions: { hasSome: ["threshold", "account_limit"] },
+					},
+				},
+			},
+			orderBy: { createdAt: "asc" },
+			take: limit,
+			select: {
+				id: true,
+				kind: true,
+				status: true,
+				exceededCondition: true,
+				request: {
+					select: {
+						id: true,
+						paymentId: true,
+						studentId: true,
+						courseId: true,
+						failedConditions: true,
+						payment: { select: { paidAt: true, disputeState: true } },
+					},
+				},
+			},
+		});
+	}
+
 	/** V11, V12: every open appeal with what the day-14 rule and the reminders read. */
 	findOpenForJobs(limit: number) {
 		return this.db.refundAppeal.findMany({

@@ -15,6 +15,10 @@ const mockGetSession = vi.hoisted(() => vi.fn());
 vi.mock("@/server/better-auth/server", () => ({ getSession: mockGetSession }));
 const blob = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), del: vi.fn() }));
 vi.mock("@vercel/blob", () => blob);
+vi.mock("@/lib/env", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/lib/env")>();
+	return { env: { ...actual.env, REFUND_EVIDENCE_BLOB_TOKEN: "test-private-token" } };
+});
 
 const { GET } = await import("./route");
 
@@ -83,7 +87,7 @@ describe("GET /api/refunds/evidence/[fileId] (C20, C21)", () => {
 		expect(res.headers.get("Cache-Control")).toBe("private, no-store");
 		expect(blob.get).toHaveBeenCalledWith(
 			expect.stringMatching(/^refund-evidence\//),
-			expect.objectContaining({ access: "private" }),
+			expect.objectContaining({ access: "private", token: "test-private-token" }),
 		);
 	});
 

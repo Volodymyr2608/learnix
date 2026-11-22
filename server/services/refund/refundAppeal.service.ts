@@ -7,7 +7,7 @@ import { refundRequestRepository } from "@/server/repositories/refundRequest.rep
 import { checkRefundRequestRateLimit } from "@/server/services/_shared/aiLimits/checkRefundRequestRateLimit";
 import { adminAlertService } from "@/server/services/payments/adminAlert.service";
 import { logger } from "@/server/utils/logger";
-import { appealDeadline } from "./appealRules";
+import { appealConditionOf, appealDeadline } from "./appealRules";
 import { type AcceptedEvidence, validateEvidence } from "./evidenceFiles";
 import {
 	EvidenceStorageMissingError,
@@ -90,7 +90,14 @@ class RefundAppealService {
 			const appealId = await db.$transaction(async (tx) => {
 				await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = '2s'`);
 				await refundRequestRepository.lockStudent(tx, studentId);
-				const plan = await this.decide(tx, studentId, input.paymentId, now);
+				// Audit L-3: uploads take time; the deadline is re-checked at commit time.
+				const commitNow = new Date(Math.max(now.getTime(), Date.now()));
+				const plan = await this.decide(
+					tx,
+					studentId,
+					input.paymentId,
+					commitNow,
+				);
 
 				const requestId =
 					plan.kind === "direct"
@@ -185,7 +192,7 @@ class RefundAppealService {
 			return {
 				kind: "after_denial" as const,
 				requestId: request.id,
-				exceededCondition: request.failedConditions[0] ?? "window",
+				exceededCondition: appealConditionOf(request.failedConditions),
 				deadlineAt,
 			};
 		}

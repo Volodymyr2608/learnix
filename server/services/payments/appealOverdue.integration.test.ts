@@ -50,6 +50,7 @@ describe("day 14: overdue appeals and admin reminders (FR-A4, FR-A5, AC-C11)", (
 	const appealFor = async (
 		kind: "direct" | "after_denial",
 		exceededCondition: string,
+		failedConditions: string[] = [exceededCondition],
 	) => {
 		const course = await makeCourse({ instructorId, title: "Rust" });
 		await makeEnrollment({ studentId, courseId: course.id });
@@ -65,7 +66,7 @@ describe("day 14: overdue appeals and admin reminders (FR-A4, FR-A5, AC-C11)", (
 			studentId,
 			courseId: course.id,
 			decision: kind === "direct" ? "direct_appeal" : "auto_denied",
-			failedConditions: [exceededCondition],
+			failedConditions,
 			createdAt: onDay(12),
 		});
 		return makeAppeal({
@@ -172,5 +173,71 @@ describe("day 14: overdue appeals and admin reminders (FR-A4, FR-A5, AC-C11)", (
 		await payoutJobService.run({ trigger: "manual", now: onDay(14) });
 
 		expect(spy).toHaveBeenCalledWith(onDay(14));
+	});
+
+	it.each([
+		["window + threshold", ["window", "threshold"]],
+		["window + account limit", ["window", "account_limit"]],
+	])("never auto-approves a late denial that also failed %s (audit H-1, C11)", async (_l, failed) => {
+		// The label the old code stored: the first failed condition.
+		const appeal = await appealFor("after_denial", "window", failed);
+
+		expect(
+			await refundAppealAdminService.approveOverdueAppeals(onDay(20)),
+		).toBe(0);
+		expect(
+			(
+				await testDb.refundAppeal.findUniqueOrThrow({
+					where: { id: appeal.id },
+				})
+			).status,
+		).toBe("open");
+		expect(stripeMock.refundsCreate).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		"certificate",
+		"dispute",
+	])("does not auto-approve while a %s exists, and leaves the appeal open (audit M-1, EC-10)", async (blocker) => {
+		const appeal = await appealFor("after_denial", "earlier_refund");
+		const request = await testDb.refundRequest.findFirstOrThrow({
+			where: { appeal: { id: appeal.id } },
+		});
+		if (blocker === "certificate")
+			await testDb.enrollment.updateMany({
+				where: { studentId, courseId: request.courseId },
+				data: { completedAt: onDay(13) },
+			});
+		else
+			await testDb.payment.update({
+				where: { id: request.paymentId },
+				data: { disputeState: "open" },
+			});
+
+		expect(
+			await refundAppealAdminService.approveOverdueAppeals(onDay(14)),
+		).toBe(0);
+		expect(
+			(
+				await testDb.refundAppeal.findUniqueOrThrow({
+					where: { id: appeal.id },
+				})
+			).status,
+		).toBe("open");
+		expect(await testDb.refundAudit.count()).toBe(0);
+		expect(stripeMock.refundsCreate).not.toHaveBeenCalled();
+	});
+
+	it("is not blocked by older appeals that can never be approved on time (audit L-1)", async () => {
+		for (let i = 0; i < 51; i++) await appealFor("direct", "threshold");
+		const due = await appealFor("after_denial", "window");
+
+		expect(
+			await refundAppealAdminService.approveOverdueAppeals(onDay(14)),
+		).toBe(1);
+		expect(
+			(await testDb.refundAppeal.findUniqueOrThrow({ where: { id: due.id } }))
+				.status,
+		).toBe("overdue_approved");
 	});
 });
