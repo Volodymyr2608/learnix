@@ -1500,3 +1500,38 @@ The IDP review needs 2–3 vivid examples:
   the fix — then green)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 5 plan: ten decisions the spec did not make (M1–M10)
+- **Stage:** plan
+- **Context the AI had:** `spec.md` FR-A8–A11, FS-1, FS-5, FS-14; `security.md` C15–C17, C23;
+  ADR-037 §3; codebase anchors from one `feature-dev:code-explorer` pass
+- **AI found while planning:** a run that crashed left no `PayoutRun` row and no row had a success
+  flag, so "the job failed" and "48 h without success" were not observable at all; nothing could
+  email admins (no admin address setting)
+- **AI proposed:**
+  - M1 — a run row from the start; a throw records `error`; unfinished past the lock TTL = crashed;
+  - M2 — a successful run is a finished cron/manual run without `error`; per-payment failures are
+    problems on the panel, not job failures;
+  - M3 — a second daily cron (watchdog) for the 48 h alert and the day-3 reminders; residual risk if
+    Vercel Cron itself stops;
+  - M4 — recipients: every `ADMIN` user; M5 — de-dup through `notificationLog`, a failed send frees
+    its key; M6 — one email per incident, one 48 h email per day;
+  - M7 — the day-3 clock starts at the request (automatic approval); M8 — three problem kinds with
+    their own Retry; M9 — "coming days" = 7; M10 — CRITICAL templates, no Stripe text to the student
+- **How I verified:** *Not verified by me* — I read the table and approved M1–M10 as proposed
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why per-payment failures do not email (M2), and what the
+  watchdog cannot catch (M3)*
+
+### 2026-11-22 — Slice 5 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan-slice-5.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - one entry point, `refundOverdue(requestId)`, sends both the admin reminders and the student's
+    notice (the plan listed two);
+  - both cron routes now share one `isCronRequest` check instead of two copies;
+  - the job's constants moved to `payoutJob.constants.ts`, so the pure panel rules import no service;
+  - the student's template payload is strict, so no field carrying error text can be added by mistake
+- **How I verified:** *Not verified by me* (each task's test ran red, then green; unit 2564/2564)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

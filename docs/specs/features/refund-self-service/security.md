@@ -169,6 +169,18 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | C12 | Implemented except the page text: dispute events (webhook + replay) set `Payment.disputeState` in event order; the refund rules, `executeRefund` and the release read it; Stripe's `charge_disputed` sets it open; a won dispute is not blocked by Stripe's sticky `disputed` flag. The FR-S11 text and the Purchases row (no Stripe call on render) → slice 7 | `stripeEvent.service.ts`, `payment.repository.ts` `recordDisputeState`, `refund.service.ts`, `payout.repository.ts`, `connect.service.ts` |
 | DL | Implemented: a lost dispute applies the effects once (path `lost_dispute`, `refundSource` recorded), closes a processing request as `refunded_by_bank`, counts for D3 and the account limit once per payment, and never reverses a released share | `refundEffects.repository.ts`, `refundRequest.repository.ts`, `connect.service.ts` |
 
+### Slice 5 (payout monitoring, 2026-11-22) — control status
+
+| C | Status | Where |
+|---|---|---|
+| C15 | Reused: the watchdog route goes through the same `isCronRequest` (constant-time, ≥ 32 chars, empty 401) as the release route, each with its own route test | `server/services/payments/cronAuth.ts`, `app/api/cron/payout-watchdog/route.ts` |
+| C16 | Unchanged; "Run job now" now also lives on the payouts page, through the same procedure | `payoutJob.service.ts` |
+| C17 | Implemented for the new procedures: `getPayoutStatus`, `retryRefund`, `retryRelease`, `retryReversal` are `adminProcedure`, each with a STUDENT / INSTRUCTOR denial test | `server/api/routers/payment.ts` |
+| C23 | Implemented for the day-3 notice: fixed text, a strict payload with no error field; Stripe's text appears only on the admin panel and admin emails | `refund.still-processing` template |
+
+**Residual risk (M3):** the 48 h alert runs on a second Vercel cron. If Vercel Cron itself stops,
+both routes stop and no email is sent; the warning on `/admin/payouts` is the only signal then.
+
 ### Accepted for slice 4 only — close in the named slice
 
 Found by the slice-4 `/qa` review and audit (2026-11-22). The same-second ordering defect and the
