@@ -6,6 +6,7 @@ import { enrollmentRepository } from "@/server/repositories/enrollment.repositor
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
+import { openedLessonRepository } from "@/server/repositories/openedLesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { notificationService } from "@/server/services/notifications/notification.service";
@@ -147,6 +148,11 @@ class LessonService {
 			if (!lesson) {
 				throw new LessonError("Lesson not found or access denied", "NOT_FOUND");
 			}
+
+			// FR-P19: the refund threshold counts opened lessons, so the record is
+			// written before the content is returned and is NOT tolerated like the
+			// touch below — if it fails, the student gets no content (fail closed).
+			await openedLessonRepository.record(studentId, lesson.id);
 
 			// Opening a lesson is the student's "last active" signal, powering the
 			// instructor Students table and its Active Learners count. Tolerate a
