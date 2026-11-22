@@ -46,6 +46,15 @@ class EnrollmentRepository extends BaseRepository<
 > {
 	protected readonly modelName = "enrollment" as const;
 
+	/** REC: every course the student ever enrolled in — a refunded (cancelled) one included. */
+	async findAnyEnrollmentCourseIds(userId: string): Promise<string[]> {
+		const rows = await this.findMany({
+			where: { studentId: userId },
+			select: { courseId: true },
+		});
+		return rows.map((r) => (r as { courseId: string }).courseId);
+	}
+
 	async findEnrolledCourseIds(userId: string): Promise<string[]> {
 		const rows = await this.findMany({
 			where: {

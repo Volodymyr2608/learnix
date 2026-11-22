@@ -12,12 +12,13 @@ class RecommendationsService {
 			const interest = await embeddingRepository.findUserInterest(userId);
 			if (!interest) return [];
 
-			const enrolledIds =
-				await enrollmentRepository.findEnrolledCourseIds(userId);
+			// REC: a refunded course is never recommended back to its refunder.
+			const excludedIds =
+				await enrollmentRepository.findAnyEnrollmentCourseIds(userId);
 			const rows = await embeddingRepository.searchCoursesExcluding(
 				interest,
 				limit,
-				enrolledIds,
+				excludedIds,
 			);
 
 			if (rows.length < MIN_RECOMMENDATIONS) return [];
