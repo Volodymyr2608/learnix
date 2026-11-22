@@ -1234,3 +1234,37 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** see the table
 - **Why:** *TODO (me): in my own words — why X1 and X8 flipped, why opened and not completed lessons
   (X4), and what X6 taught me about trusting "AI + a docs link"*
+
+### 2026-11-22 — Validation: slice 1 acceptance criteria against the tests
+- **Stage:** validation
+- **Context the AI had:** `spec.md` (AC-F2–F6, AC-C1–C4, C9, C22, C24), `build/plan.md` (Self-review,
+  Final verification), the nine test files of the slice
+- **AI did:** mapped each slice-1 AC to the tests that prove it and ran them — 9 files, 93/93 green
+  (unit + integration on `learnix_test`, 2026-11-22)
+
+  | AC | Tests | Coverage |
+  |---|---|---|
+  | AC-F2 | `refundRules.test.ts:63,112`, `refund.service.integration.test.ts:100` | Partial: decision + snapshot; "refunded at once" → Stripe slice (P1) |
+  | AC-F3 | `refundRules.test.ts:27`, `openedLesson.repository.integration.test.ts:35,45,59` | Full |
+  | AC-F4 | `refundRules.test.ts:43,47,52`, `refund.service.integration.test.ts:147` | Full ("judged at submission" has no own test: the service takes `now` at the request) |
+  | AC-F5 | `refundRules.test.ts:100`, `refund.service.integration.test.ts:123,184` | Partial: denial names the condition; page text and "Ask an admin" → UI slice |
+  | AC-F6 | `refund.service.integration.test.ts:234`, `refundSchema.integration.test.ts:44` | Partial: one request; the appeal → appeals slice |
+  | AC-C1 | `refund.service.integration.test.ts:202,212`, `refund.integration.test.ts:37` | Partial: request endpoint, incl. no existence oracle; page, appeal, status → later slices |
+  | AC-C2 | `refund.dto.test.ts:14` (`.strict()`) | Partial: extra input keys rejected; `refunds.create` args → Stripe slice |
+  | AC-C3 | `refund.service.integration.test.ts:243` | Partial: one row; one `refunds.create` → Stripe slice |
+  | AC-C4 | `refund.service.integration.test.ts:259` + break-it run (red without the lock) | Full |
+  | AC-C9 | `openedLessonRecord.integration.test.ts:32,40,51` | Partial: lesson page, fail closed, marking does not record; tutor → FR-P19a slice |
+  | AC-C22 | `refund.service.integration.test.ts:291`, `refund.dto.test.ts:30,45` | Partial: stored as typed, length cap, NUL rejected; rendering → UI/admin slices |
+  | AC-C24 | `refund.service.integration.test.ts:281`, `refundFlag.test.ts` | Partial: request endpoint; appeal → appeals slice |
+
+  Also pinned by tests, not ACs: P4 (`paidAt` null → outside, `:157`), P6 (certificate = completed
+  enrollment, `:137`), `paidAt` from the Stripe charge (`payment.service.test.ts`), 12 calendar
+  months for the account limit (`refundRules.test.ts:146`).
+- **Result:** 3 ACs fully covered, 9 within the slice; every deferred part was named in the plan
+  before coding. No disagreement between code and spec found. Against the problem: slice 1 does
+  **not** solve it yet — no money is returned, the hold and FR-P19a are not built, and the Release
+  checklist (AC-L8) keeps the flag off until they ship. The slice proves the automatic decision only.
+- **How I verified:** *Not verified by me* — the mapping and the run were done by the AI
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why "partial" is acceptable for slice 1, and why a green
+  slice still does not mean the problem is solved*
