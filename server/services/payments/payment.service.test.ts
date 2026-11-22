@@ -130,6 +130,7 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
 		transferredAt: null,
 		stripeCheckoutSessionId: SESSION_ID,
 		stripePaymentIntentId: null,
+		paidAt: null,
 		refundedAt: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),

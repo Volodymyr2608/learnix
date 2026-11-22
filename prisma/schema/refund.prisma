@@ -1,0 +1,34 @@
+enum RefundReason {
+  too_easy
+  too_hard
+  thin_content
+  other
+}
+
+enum RefundDecision {
+  auto_approved
+  auto_denied
+}
+
+// A student's refund request (FR-S5). One per payment (FR-S7); the snapshot
+// freezes every condition at submission. Shape: RefundSnapshot in
+// server/entities/refund.ts.
+model RefundRequest {
+  id               String         @id @default(cuid())
+  paymentId        String         @unique @map("payment_id")
+  payment          Payment        @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  studentId        String         @map("student_id")
+  student          User           @relation("StudentRefundRequests", fields: [studentId], references: [id], onDelete: Restrict)
+  courseId         String         @map("course_id")
+  course           Course         @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  reason           RefundReason
+  text             String?        @db.VarChar(2000)
+  decision         RefundDecision
+  failedConditions String[]       @map("failed_conditions")
+  snapshot         Json
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([studentId, decision, createdAt])
+  @@index([studentId, courseId, decision])
+  @@map("refund_requests")
+}

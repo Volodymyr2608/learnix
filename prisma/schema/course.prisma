@@ -36,6 +36,7 @@ model Course {
   sections           Section[]
   enrollments        Enrollment[]
   payments           Payment[]
+  refundRequests     RefundRequest[]
   courseProgresses   CourseProgress[]
   reviews            CourseReview[]
   embedding          CourseEmbedding?

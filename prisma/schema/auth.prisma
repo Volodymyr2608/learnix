@@ -36,6 +36,8 @@ model User {
   studentConversations         Conversation[]                @relation("StudentConversations")
   instructorConversations      Conversation[]                @relation("InstructorConversations")
   sentMessages                 Message[]                     @relation("SentMessages")
+  refundRequests               RefundRequest[]               @relation("StudentRefundRequests")
+  openedLessons                OpenedLesson[]
 
   @@unique([email])
   @@map("users")

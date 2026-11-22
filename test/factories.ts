@@ -180,6 +180,7 @@ export function makePayment(
 			instructorNetCents: 3999,
 			status: "succeeded",
 			transferStatus: "none",
+			paidAt: new Date(),
 			...overrides,
 		},
 	});
@@ -215,4 +216,31 @@ export function makeMessage(
 	return testDb.message.create({
 		data: { body: "Hello, I have a question about lesson 2.", ...overrides },
 	});
+}
+
+export function makeRefundRequest(
+	overrides: Partial<Prisma.RefundRequestUncheckedCreateInput> & {
+		paymentId: string;
+		studentId: string;
+		courseId: string;
+	},
+) {
+	return testDb.refundRequest.create({
+		data: {
+			reason: "too_easy",
+			decision: "auto_approved",
+			failedConditions: [],
+			snapshot: {},
+			...overrides,
+		},
+	});
+}
+
+export function makeOpenedLesson(
+	overrides: Partial<Prisma.OpenedLessonUncheckedCreateInput> & {
+		studentId: string;
+		lessonId: string;
+	},
+) {
+	return testDb.openedLesson.create({ data: { ...overrides } });
 }

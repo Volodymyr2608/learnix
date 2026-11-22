@@ -1,6 +1,6 @@
 ---
 feature: refund-self-service
-status: planned
+status: in-progress
 models: [Payment, Enrollment, RefundRequest, PayoutRun]
 depends-on: [payments, billing, certificates, ai-tutor-guardrails, study-guide, quiz-answer-key, learning-path, semantic-search-recommendations, messages, achievements, account-deletion-data-retention]
 ---

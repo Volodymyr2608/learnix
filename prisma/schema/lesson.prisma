@@ -23,6 +23,7 @@ model Lesson {
   chunkEmbeddings              LessonChunkEmbedding[]
   lessonAssistantConversations LessonAssistantConversation[]
   conceptChecks                ConceptCheck[]
+  openedBy                     OpenedLesson[]
 
   @@index([deletedAt])
   @@map("lessons")
@@ -63,4 +64,17 @@ model LessonInsights {
 
   @@index([lessonId])
   @@map("lesson_insights")
+}
+
+// A lesson whose content was returned to the student (FR-P19). Written before
+// the content is returned; one row per (student, lesson) — opening twice counts once.
+model OpenedLesson {
+  studentId String   @map("student_id")
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lessonId  String   @map("lesson_id")
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  openedAt  DateTime @default(now()) @map("opened_at")
+
+  @@id([studentId, lessonId])
+  @@map("opened_lessons")
 }
