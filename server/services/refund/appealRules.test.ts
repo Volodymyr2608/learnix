@@ -61,7 +61,8 @@ describe("isAutoApprovable (FR-A5, AC-C11)", () => {
 	it.each(
 		REFUND_CONDITIONS.map((c) => [
 			c,
-			c !== "threshold" && c !== "account_limit",
+			// I-8 (author's decision): a second refund of a course always needs an admin.
+			c !== "threshold" && c !== "account_limit" && c !== "earlier_refund",
 		]),
 	)("for an exceeded %s: %s", (condition, expected) => {
 		expect(

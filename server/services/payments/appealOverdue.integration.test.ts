@@ -199,7 +199,7 @@ describe("day 14: overdue appeals and admin reminders (FR-A4, FR-A5, AC-C11)", (
 		"certificate",
 		"dispute",
 	])("does not auto-approve while a %s exists, and leaves the appeal open (audit M-1, EC-10)", async (blocker) => {
-		const appeal = await appealFor("after_denial", "earlier_refund");
+		const appeal = await appealFor("after_denial", "window");
 		const request = await testDb.refundRequest.findFirstOrThrow({
 			where: { appeal: { id: appeal.id } },
 		});
@@ -239,5 +239,20 @@ describe("day 14: overdue appeals and admin reminders (FR-A4, FR-A5, AC-C11)", (
 			(await testDb.refundAppeal.findUniqueOrThrow({ where: { id: due.id } }))
 				.status,
 		).toBe("overdue_approved");
+	});
+
+	it("never auto-approves an appeal after a denial for an earlier refund of the course (I-8)", async () => {
+		const appeal = await appealFor("after_denial", "earlier_refund");
+
+		expect(
+			await refundAppealAdminService.approveOverdueAppeals(onDay(20)),
+		).toBe(0);
+		expect(
+			(
+				await testDb.refundAppeal.findUniqueOrThrow({
+					where: { id: appeal.id },
+				})
+			).status,
+		).toBe("open");
 	});
 });

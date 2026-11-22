@@ -1,4 +1,5 @@
 import type { Prisma, RefundAppeal } from "@/generated/prisma";
+import { NEVER_AUTO } from "@/server/services/refund/appealRules";
 import { BaseRepository } from "./base/base.repository";
 
 class RefundAppealRepository extends BaseRepository<
@@ -163,11 +164,11 @@ class RefundAppealRepository extends BaseRepository<
 			where: {
 				status: "open",
 				kind: "after_denial",
-				exceededCondition: { notIn: ["threshold", "account_limit"] },
+				exceededCondition: { notIn: [...NEVER_AUTO] },
 				request: {
 					payment: { paidAt: { lte: windowEndedBefore } },
 					NOT: {
-						failedConditions: { hasSome: ["threshold", "account_limit"] },
+						failedConditions: { hasSome: [...NEVER_AUTO] },
 					},
 				},
 			},

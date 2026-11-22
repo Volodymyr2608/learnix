@@ -6,12 +6,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const APPEAL_AFTER_DENIAL_MS = 3 * DAY_MS;
 
 export type AppealKind = "direct" | "after_denial";
-export type AppealStatus =
-	| "open"
-	| "approved"
-	| "denied"
-	| "overdue_approved"
-	| "closed_refunded";
+
+import type { AppealStatus } from "@/generated/prisma";
+
+export type { AppealStatus };
 
 /**
  * FR-S16 / AC-F6: a direct appeal until the window ends; after an automatic denial, until the later
@@ -35,8 +33,16 @@ export const appealDeadline = (input: {
 	return new Date(Math.max(windowEnd ?? 0, afterDenial ?? 0));
 };
 
-/** T11 (C11): never approved on time alone — the student controls these two. */
-export const NEVER_AUTO = new Set(["threshold", "account_limit"]);
+/**
+ * T11 (C11): never approved on time alone — the student controls the threshold and the account
+ * limit; and (I-8, the author's decision, 2026-11-22) a second refund of the same course always needs
+ * an admin.
+ */
+export const NEVER_AUTO = new Set([
+	"threshold",
+	"account_limit",
+	"earlier_refund",
+]);
 
 /**
  * Audit H-1: the condition an after-denial appeal is filed under — a threshold or account-limit

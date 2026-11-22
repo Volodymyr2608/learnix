@@ -207,9 +207,9 @@ request's start time (L-3); evidence reads could fall back to the public store's
 - **The app's database role can TRUNCATE `refund_audit`** (audit I-4): the trigger is row-level.
   Release checklist: `REVOKE TRUNCATE ON refund_audit` from the application role in production.
 - **"Mark reviewed" writes no audit row** (audit I-5): admin-only; no control requires one.
-- **Open question for the author (audit I-8):** an appeal after a denial for `earlier_refund` alone is
-  approved on day 14 by FR-A5's wording; if a second refund of a course must always need an admin,
-  `earlier_refund` belongs with the threshold and the account limit in `NEVER_AUTO`.
+- ~~**Open question (audit I-8)**~~ *Decided 2026-11-22 by the author:* a second refund of the same
+  course always needs an admin — `earlier_refund` joins the threshold and the account limit in
+  `NEVER_AUTO`; such an appeal is never approved on day 14 (`appealOverdue.integration.test.ts`).
 
 ### Slice 7 (student UI and `/pricing`, 2026-11-22) — control status
 

@@ -1754,5 +1754,6 @@ The IDP review needs 2–3 vivid examples:
     I-8 (should `earlier_refund` never be approved on time alone?) → an open question for me
 - **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
 - **Verdict:** `accepted`
-- **Why:** *TODO (me): decide I-8*
+- **Why:** *TODO (me)* — I-8 decided 2026-11-22: `earlier_refund` is never approved on time alone (a
+  second refund of a course always needs an admin)
 
