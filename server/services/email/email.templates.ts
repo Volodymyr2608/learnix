@@ -10,6 +10,10 @@ import { EngagementNearCompletionEmail } from "@/app/_emails/EngagementNearCompl
 import { EnrollmentConfirmedEmail } from "@/app/_emails/EnrollmentConfirmedEmail";
 import { InstructorWelcomeEmail } from "@/app/_emails/InstructorWelcomeEmail";
 import { MessageNewEmail } from "@/app/_emails/MessageNewEmail";
+import { PayoutRunFailedEmail } from "@/app/_emails/PayoutRunFailedEmail";
+import { PayoutStaleEmail } from "@/app/_emails/PayoutStaleEmail";
+import { RefundOverdueEmail } from "@/app/_emails/RefundOverdueEmail";
+import { RefundStillProcessingEmail } from "@/app/_emails/RefundStillProcessingEmail";
 import { UserWelcomeEmail } from "@/app/_emails/UserWelcomeEmail";
 
 type TemplateEntry<P> = {
@@ -131,6 +135,44 @@ export const emailTemplates = {
 		}),
 		subject: (p) => `${p.lessonsRemaining} lessons left in ${p.courseTitle}`,
 		criticality: "STANDARD",
+	},
+	// Refund slice 5 (FR-A10, FR-A11, M10): operational and money notices — CRITICAL, no unsubscribe.
+	"admin.payout-run-failed": {
+		component: PayoutRunFailedEmail,
+		payload: z.object({
+			runId: z.string(),
+			error: z.string(),
+			startedAt: z.string(),
+			panelUrl: z.url(),
+		}),
+		subject: () => "Learnix: a payout run failed",
+		criticality: "CRITICAL",
+	},
+	"admin.payout-stale": {
+		component: PayoutStaleEmail,
+		payload: z.object({
+			lastSuccessAt: z.string().nullable(),
+			panelUrl: z.url(),
+		}),
+		subject: () => "Learnix: payouts have not run for 48 hours",
+		criticality: "CRITICAL",
+	},
+	"admin.refund-overdue": {
+		component: RefundOverdueEmail,
+		payload: z.object({
+			requestId: z.string(),
+			approvedAt: z.string(),
+			panelUrl: z.url(),
+		}),
+		subject: () => "Learnix: a refund is still processing after 3 days",
+		criticality: "CRITICAL",
+	},
+	"refund.still-processing": {
+		component: RefundStillProcessingEmail,
+		// strict: the student's email can never carry Stripe's or any error text (C23).
+		payload: z.strictObject({ name: z.string(), courseTitle: z.string() }),
+		subject: (p) => `Your refund for ${p.courseTitle} is still being processed`,
+		criticality: "CRITICAL",
 	},
 	// biome-ignore lint/suspicious/noExplicitAny: registry requires any for generic constraint
 } as const satisfies Record<string, TemplateEntry<any>>;

@@ -51,6 +51,14 @@ export default class UserRepository extends BaseRepository<
 > {
 	protected readonly modelName = "user" as const;
 
+	/** FR-A10 / M4: the people who receive payout alerts. */
+	findAdmins(): Promise<{ id: string; email: string; name: string }[]> {
+		return this.db.user.findMany({
+			where: { role: "ADMIN" },
+			select: { id: true, email: true, name: true },
+		});
+	}
+
 	/**
 	 * Irreversibly anonymises an account in place.
 	 *

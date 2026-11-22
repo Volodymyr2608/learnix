@@ -171,6 +171,30 @@ class RefundRequestRepository extends BaseRepository<
 		});
 	}
 
+	/** FR-A11: what the day-3 reminders need — no error text is selected for the student. */
+	findForReminder(requestId: string) {
+		return this.db.refundRequest.findUnique({
+			where: { id: requestId },
+			select: {
+				id: true,
+				refundState: true,
+				createdAt: true,
+				student: { select: { id: true, email: true, name: true } },
+				course: { select: { title: true } },
+			},
+		});
+	}
+
+	/** FR-A11 (M7): requests still processing since before `since`. */
+	async findOverdueIds(since: Date): Promise<string[]> {
+		const rows = await this.db.refundRequest.findMany({
+			where: { refundState: "processing", createdAt: { lte: since } },
+			select: { id: true },
+			orderBy: { createdAt: "asc" },
+		});
+		return rows.map((r) => r.id);
+	}
+
 	async hasStripeRefundForPayment(paymentId: string): Promise<boolean> {
 		const row = await this.db.refundRequest.findFirst({
 			where: { paymentId, stripeRefundId: { not: null } },

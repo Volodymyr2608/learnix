@@ -94,6 +94,13 @@ class PayoutRepository extends BaseRepository<
 		return rows.flatMap((r) => byId.get(r.id) ?? []);
 	}
 
+	/** M3: is any instructor money held at all (a never-run job matters only then)? */
+	async countHeld(): Promise<number> {
+		return this.db.payment.count({
+			where: { status: "succeeded", transferStatus: "pending" },
+		});
+	}
+
 	/** account.updated: the instructor's held sales; the claim decides which may go. */
 	findPendingForInstructor(instructorId: string): Promise<Payment[]> {
 		return this.db.payment.findMany({
