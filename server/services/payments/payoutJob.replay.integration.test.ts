@@ -134,7 +134,6 @@ describe("the daily job retries refunds and replays missed refund events (FR-P15
 		expect(second).toMatchObject({ eventsReplayed: 1 }); // same second, replayed again: a no-op
 		expect(stripeMock.eventsList).toHaveBeenLastCalledWith(
 			expect.objectContaining({
-				type: "charge.refunded",
 				created: { gte: EVENT_CREATED },
 			}),
 		);
@@ -259,6 +258,46 @@ describe("the daily job retries refunds and replays missed refund events (FR-P15
 
 		expect(stripeMock.createReversal).not.toHaveBeenCalled();
 		expect((await statusOf(payment.id)).transferStatus).toBe("transferred");
+	});
+
+	it("applies a lost dispute that never arrived by webhook, once (AC-F26 dispute part)", async () => {
+		const payment = await seedPayment();
+		const closed = {
+			id: "evt_dispute_lost",
+			type: "charge.dispute.closed",
+			created: EVENT_CREATED,
+			data: {
+				object: {
+					id: "dp_1",
+					status: "lost",
+					payment_intent: payment.stripePaymentIntentId,
+					charge: "ch",
+				},
+			},
+		} as unknown as Stripe.Event;
+		stripeMock.eventsList.mockResolvedValue({
+			data: [closed],
+			has_more: false,
+		});
+
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		expect(await statusOf(payment.id)).toMatchObject({
+			status: "refunded",
+			disputeState: "lost",
+			refundSource: "lost_dispute",
+		});
+		expect(stripeMock.eventsList).toHaveBeenCalledWith(
+			expect.objectContaining({
+				types: [
+					"charge.refunded",
+					"charge.dispute.created",
+					"charge.dispute.updated",
+					"charge.dispute.closed",
+				],
+			}),
+		);
 	});
 
 	it("records the refund counts on the run", async () => {

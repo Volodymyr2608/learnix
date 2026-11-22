@@ -24,7 +24,14 @@ export const PAYOUT_LOCK_TTL_MS = 15 * 60 * 1000;
 const LOCK_NAME = "payouts";
 /** R7: processing refunds retried per run. */
 export const REFUND_RETRY_BATCH = 20;
-const REPLAYED_EVENT = "charge.refunded";
+/** D8: the events the daily job replays, under one cursor. */
+const REPLAY_CURSOR = "stripe_events";
+const REPLAYED_EVENTS = [
+	"charge.refunded",
+	"charge.dispute.created",
+	"charge.dispute.updated",
+	"charge.dispute.closed",
+] as const;
 /** R6: Stripe keeps events for 30 days; the first replay starts there. */
 const REPLAY_START_SECONDS = 30 * 24 * 60 * 60;
 
@@ -80,19 +87,19 @@ const retryReversals = async (): Promise<void> => {
 };
 
 /**
- * FR-P15 / S7: replays `charge.refunded` events since the cursor through the webhook's handler,
+ * FR-P15 / S7 / FR-P18a: replays refund and dispute events since the cursor through the webhook's handler,
  * oldest first. `gte` re-reads the last second, so events sharing it are never skipped; a
  * duplicate is harmless (C8). The cursor stops at the last event handled before an error.
  */
 const replayRefundEvents = async (now: Date): Promise<number> => {
 	const since =
-		(await stripeReplayCursorRepository.get(REPLAYED_EVENT)) ??
+		(await stripeReplayCursorRepository.get(REPLAY_CURSOR)) ??
 		Math.floor(now.getTime() / 1000) - REPLAY_START_SECONDS;
 	const events: Stripe.Event[] = [];
 	let startingAfter: string | undefined;
 	for (;;) {
 		const page = await stripe.events.list({
-			type: REPLAYED_EVENT,
+			types: [...REPLAYED_EVENTS],
 			created: { gte: since },
 			limit: 100,
 			...(startingAfter ? { starting_after: startingAfter } : {}),
@@ -116,7 +123,7 @@ const replayRefundEvents = async (now: Date): Promise<number> => {
 		cursor = Math.max(cursor, event.created);
 		replayed++;
 	}
-	await stripeReplayCursorRepository.save(REPLAYED_EVENT, cursor);
+	await stripeReplayCursorRepository.save(REPLAY_CURSOR, cursor);
 	return replayed;
 };
 
