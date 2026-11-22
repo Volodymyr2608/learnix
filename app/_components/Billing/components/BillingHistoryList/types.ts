@@ -7,11 +7,3 @@ export type BillingListItem = StudentPurchase & {
 export type BillingHistoryListProps = {
 	items: BillingListItem[];
 };
-
-export type PurchaseRowProps = {
-	item: BillingListItem;
-};
-
-export type StatusBadgeProps = {
-	status: BillingListItem["status"];
-};
