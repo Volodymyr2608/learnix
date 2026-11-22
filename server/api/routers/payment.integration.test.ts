@@ -9,6 +9,8 @@ const { mockSessionsRetrieve } = vi.hoisted(() => ({
 }));
 vi.mock("@/server/services/payments/stripe.client", () => ({
 	stripe: {
+		// Slice 3: the job replays refund events first; none here.
+		events: { list: async () => ({ data: [], has_more: false }) },
 		transfers: { create: vi.fn(), list: vi.fn() },
 		checkout: { sessions: { retrieve: mockSessionsRetrieve } },
 	},

@@ -15,7 +15,13 @@ export type PayoutRunCounts = {
 	failed: number;
 };
 
+/** Slice 3: the refund work a scheduled run does before releasing. */
+export type RefundRunCounts = {
+	refundsRetried: number;
+	eventsReplayed: number;
+};
+
 /** What one job run did; ids stay in the PayoutRun row, never in a response (C15). */
 export type PayoutRunSummary =
-	| ({ status: "completed"; runId: string } & PayoutRunCounts)
+	| ({ status: "completed"; runId: string } & PayoutRunCounts & RefundRunCounts)
 	| { status: "already_running" };

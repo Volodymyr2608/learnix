@@ -15,6 +15,8 @@ const mockTransfersCreate = vi.fn();
 
 vi.mock("@/server/services/payments/stripe.client", () => ({
 	stripe: {
+		// Slice 3: the job replays refund events first; none here.
+		events: { list: async () => ({ data: [], has_more: false }) },
 		accounts: { retrieve: mockAccountsRetrieve },
 		paymentIntents: { retrieve: mockPaymentIntentsRetrieve },
 		transfers: { list: mockTransfersList, create: mockTransfersCreate },

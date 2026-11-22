@@ -22,6 +22,8 @@ class PayoutRunRepository extends BaseRepository<
 		released: number;
 		failures: { paymentId: string; error: string }[];
 		paymentIds: string[];
+		refundsRetried?: number;
+		eventsReplayed?: number;
 	}): Promise<PayoutRun> {
 		return this.db.payoutRun.create({ data: run });
 	}

@@ -19,6 +19,8 @@ const stripeMock = vi.hoisted(() => ({
 
 vi.mock("@/server/services/payments/stripe.client", () => ({
 	stripe: {
+		// Slice 3: the job replays refund events first; none here.
+		events: { list: async () => ({ data: [], has_more: false }) },
 		checkout: { sessions: { retrieve: stripeMock.sessionsRetrieve } },
 		accounts: { retrieve: stripeMock.accountsRetrieve },
 		paymentIntents: { retrieve: stripeMock.paymentIntentsRetrieve },

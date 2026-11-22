@@ -118,6 +118,15 @@ class PayoutRepository extends BaseRepository<
 		return count === 1;
 	}
 
+	/** FR-P7 retry: refunded payments whose released share was not reversed yet. */
+	findRefundedTransferred(limit: number): Promise<Payment[]> {
+		return this.db.payment.findMany({
+			where: { status: "refunded", transferStatus: "transferred" },
+			orderBy: { refundedAt: "asc" },
+			take: limit,
+		});
+	}
+
 	/** ADR-037 §2: `transferred → reversed`; false if another path already recorded it. */
 	async markReversed(paymentId: string): Promise<boolean> {
 		const { count } = await this.db.payment.updateMany({
