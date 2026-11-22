@@ -5,7 +5,7 @@ can be followed without reading the implementation, and — where possible — n
 when it is violated. Section numbers follow the review brief (`S1`–`S13`).
 
 **Figures:** the eval numbers quoted in S13 were last reconciled with
-`evals/baselines/lessonAI-tutor.json` on 2026-09-02; `docFigures.contract.test.ts` fails this file if
+`evals/baselines/lessonAI-tutor.json` on 2026-11-22; `docFigures.contract.test.ts` fails this file if
 the baseline moves and that date does not.
 
 Companion documents: [`threat-model.md`](./threat-model.md) (entry points, STRIDE, risk register),
@@ -696,7 +696,7 @@ numbers because §11–§29 are cross-referenced from other documents)
     silently: `promptFidelity.contract.test.ts` fails any eval declaring its own system prompt,
     matching on the literal's *content* rather than its declaration — the declaration-shaped first
     version was tested against six ways of reintroducing the defect and waved five of them through.
-    The dataset is 54 rows across 15 categories, every dataset in the repo now carries a ≥5-row floor
+    The dataset is 58 rows across 16 categories, every dataset in the repo now carries a ≥5-row floor
     (`datasets.contract.test.ts`), each row runs three times at production's `temperature: 0.4`, and
     the numbers are committed to `evals/baselines/lessonAI-tutor.json` so a prompt change prints what
     moved. See [`../ai-evaluation-harness/spec.md`](../ai-evaluation-harness/spec.md).
@@ -868,6 +868,8 @@ The rest are named here as accepted or open.
     course-wide retrieval became a way to consume a course without opening it and keep the automatic
     refund. Closed there by restricting this tool to opened lessons
     (`refund-self-service/security.md`, AI-C2).
+    **Closed 2026-11-22:** `searchCourseChunks` joins `opened_lessons` for the calling student, whose
+    id the tool takes from its closure, not from the model (`searchAcrossCourse.canary.integration.test.ts`).
 26. **Same-origin output URLs are unconditionally permitted** (F6). `inAppUrlTransform` allows any
     relative or same-origin destination. A markdown image to a same-origin endpoint that logs query
     parameters would be a residual zero-click exfiltration channel. No such endpoint is known; the

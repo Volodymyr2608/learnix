@@ -1,7 +1,7 @@
 # AI eval strategy — how this system's AI is measured
 
 **Status:** living document · **Last reviewed:** 2026-08-31 ·
-**Figures:** last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-09-02 —
+**Figures:** last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-11-22 —
 `evals/_shared/docFigures.contract.test.ts` turns this document red when the baseline is re-recorded
 and this line is not. ·
 **Scope:** `lessonAI` (tutor), `courseAI`, `quizAI`, `lessonInsightsAI`, `learningPathAI`, plus the two
@@ -44,8 +44,8 @@ The corollary matters as much as the rule:
 > the measurement with a guess — and the guess then reads, six months later, as a standard somebody
 > derived.
 
-That is why `aiGuard:redteam`, `aiGuard:indirect`, both `aiOutput` evals, twelve of the tutor's
-fifteen categories and **every judge score in the repo** return a number and cannot turn a run red. It is not
+That is why `aiGuard:redteam`, `aiGuard:indirect`, both `aiOutput` evals, thirteen of the tutor's
+sixteen categories and **every judge score in the repo** return a number and cannot turn a run red. It is not
 timidity; it is the refusal to encode an unmeasured bar.
 
 ## 2. The three levels
@@ -90,7 +90,7 @@ one class that needs a human.
 
 | Eval | Surface | Dataset rows | Measures | Gate |
 |---|---|---|---|---|
-| `lessonAI:tutor` | tutor | 54, 15 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` / `check-question` at 0.85; 12 other categories **measured only** |
+| `lessonAI:tutor` | tutor | 58, 16 categories | tool selection, refusals, check-authoring abuse, and 4 judge axes | `categoryGate` — `valid` / `valid-reworded` / `check-question` at 0.85; 13 other categories **measured only** |
 | `courseAI:classifyIntent` | course builder | 20 | intent enum against the real graph node | `accuracyGate` 0.85 |
 | `courseAI:extractStepData` | course builder | 40 | structured extraction | `accuracyGate` 0.9 |
 | `courseAI:assessCompletion` | course builder | 25 | proceed / hold / clarify on the latest turn | `categoryGate` (model rows 0.85, guard rows 1.0) + `precisionGate` 0.9 — a false "done" costs more than a false "not yet" |
@@ -107,7 +107,7 @@ one class that needs a human.
 **Two things this table is honest about.** The tutor is the only surface with categories, sampling, a
 judge, a committed baseline and a cost report 🟡 — eight of the other twelve are single-sample, pooled
 into one accuracy number. And three golden sets sit at 6, 6 and 8 rows: above the enforced floor of
-five, far below the tutor's 54, so a single row moving swings them by 12–17 points. 🚧
+five, far below the tutor's 58, so a single row moving swings them by 12–17 points. 🚧
 
 **A third unit, alongside pass rates and judge scores.** The `check-question` rows also produce three
 rates that no category can carry, because a category is pass/fail per *attempt* while these are rates
@@ -369,7 +369,7 @@ Ordered by how much they would mislead a reader who did not know them.
    its `ambiguous` rows assert on `answer_contains: ["?"]` — "did it ask for clarification" measured
    by a question mark. They were red for months; the 2026-08-29 prompt turned both green, and that is
    the weakest green available, because the assertion cannot tell *asked for the missing detail* from
-   *asked anything at all*. The judge now reads those same rows at 1.3 relevance and 1.3 completeness
+   *asked anything at all*. The judge now reads those same rows at 1.7 relevance and 1.3 completeness
    — consistent with its anchors, which score a reply that asks rather than answers as incomplete. So
    the two instruments still disagree about these rows, in the opposite direction from before, and
    the dimension itself is still not being measured. The fix remains a better dimension, not a looser

@@ -117,14 +117,15 @@ inconsistently:
 
 **What the runs so far showed.** Current figures live in `evals/baselines/lessonAI-tutor.json`, per
 category, so they can be checked rather than taken from prose — read the file rather than this
-paragraph, which was last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-09-02.
+paragraph, which was last reconciled with `evals/baselines/lessonAI-tutor.json` on 2026-11-22.
 Re-recording the baseline without moving that date fails
 [`docFigures.contract.test.ts`](../../evals/_shared/docFigures.contract.test.ts), which is the only
 way prose like this stays true.
 
 The rows worth reading are where the two kinds of measurement disagree. `low-confidence` satisfies
-every deterministic assertion (6/6) while scoring 2.5 on faithfulness and groundedness. And
-`missing-info` now passes every assertion (9/9) while scoring 1.3 on relevance and 1.3 on
+every deterministic assertion (6/6) while scoring 4.0 on faithfulness and groundedness (2.5 and 3.0
+on earlier baselines — two judged samples move run to run). And
+`missing-info` now passes every assertion (9/9) while scoring 1.7 on relevance and 1.3 on
 completeness — a reversal, and the more instructive row of the two. Those rows failed every assertion
 for months because the tutor answered a question it had not been given the code for; the 2026-08-29
 prompt made it ask instead, the assertion went green, and the judge moved to the bottom of the scale,

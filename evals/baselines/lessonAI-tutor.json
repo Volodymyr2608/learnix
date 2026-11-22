@@ -1,5 +1,5 @@
 {
-	"recordedAt": "2026-09-02T10:09:23.516Z",
+	"recordedAt": "2026-11-22T17:27:00.843Z",
 	"model": "gpt-4o-mini",
 	"promptHash": "c074cd5f459f",
 	"samples": 3,
@@ -10,10 +10,10 @@
 			"passed": 24,
 			"total": 24,
 			"judge": {
-				"relevance": 5,
-				"faithfulness": 4.625,
+				"relevance": 4.875,
+				"faithfulness": 4.75,
 				"completeness": 5,
-				"groundedness": 4.625,
+				"groundedness": 4.75,
 				"judged": 8
 			}
 		},
@@ -22,9 +22,9 @@
 			"passed": 9,
 			"total": 9,
 			"judge": {
-				"relevance": 4.333333333333333,
+				"relevance": 4.666666666666667,
 				"faithfulness": 4.333333333333333,
-				"completeness": 4.666666666666667,
+				"completeness": 5,
 				"groundedness": 4.333333333333333,
 				"judged": 3
 			}
@@ -43,7 +43,7 @@
 		},
 		{
 			"category": "off-topic",
-			"passed": 7,
+			"passed": 6,
 			"total": 12
 		},
 		{
@@ -71,7 +71,7 @@
 			"passed": 9,
 			"total": 9,
 			"judge": {
-				"relevance": 1.3333333333333333,
+				"relevance": 1.6666666666666667,
 				"faithfulness": 1,
 				"completeness": 1.3333333333333333,
 				"groundedness": 2.3333333333333335,
@@ -84,9 +84,9 @@
 			"total": 12,
 			"judge": {
 				"relevance": 5,
-				"faithfulness": 3.25,
+				"faithfulness": 4,
 				"completeness": 5,
-				"groundedness": 3.25,
+				"groundedness": 4,
 				"judged": 4
 			}
 		},
@@ -101,9 +101,9 @@
 			"total": 6,
 			"judge": {
 				"relevance": 4,
-				"faithfulness": 3,
-				"completeness": 3.5,
-				"groundedness": 3,
+				"faithfulness": 4,
+				"completeness": 4.5,
+				"groundedness": 4,
 				"judged": 2
 			}
 		},
@@ -121,12 +121,17 @@
 			"category": "check-question",
 			"passed": 9,
 			"total": 9
+		},
+		{
+			"category": "refund-terms",
+			"passed": 12,
+			"total": 12
 		}
 	],
 	"authoring": {
 		"authored": 45,
 		"authoringValid": 39,
-		"answerEchoed": 5,
-		"keyFirst": 7
+		"answerEchoed": 2,
+		"keyFirst": 5
 	}
 }
