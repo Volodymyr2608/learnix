@@ -14,6 +14,21 @@ enum TransferStatus {
   reversed
 }
 
+/// FR-P18a (D1): a payment's dispute, from Stripe's dispute events. Null = never disputed.
+enum DisputeState {
+  open
+  won
+  lost
+}
+
+/// FR-P18b (D3): which path refunded the payment.
+enum RefundSource {
+  refund_request
+  dashboard_refund
+  admin_exception
+  lost_dispute
+}
+
 enum PayoutRunTrigger {
   cron
   manual
@@ -43,6 +58,10 @@ model Payment {
   stripePaymentIntentId   String? @unique @map("stripe_payment_intent_id")
 
   paidAt     DateTime? @map("paid_at")
+  disputeState     DisputeState? @map("dispute_state")
+  /// D2: Stripe `created` (seconds) of the last dispute event applied; older events are ignored.
+  disputeUpdatedAt Int?          @map("dispute_updated_at")
+  refundSource     RefundSource? @map("refund_source")
   refundedAt DateTime? @map("refunded_at")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt       @map("updated_at")

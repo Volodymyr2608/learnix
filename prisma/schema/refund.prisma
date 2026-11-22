@@ -14,6 +14,8 @@ enum RefundDecision {
 enum RefundState {
   processing
   refunded
+  /// D5: the bank returned the money (a lost dispute); no Stripe refund is made.
+  refunded_by_bank
 }
 
 // A student's refund request (FR-S5). One per payment (FR-S7); the snapshot
