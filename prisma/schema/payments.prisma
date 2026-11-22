@@ -8,8 +8,16 @@ enum PaymentStatus {
 enum TransferStatus {
   none
   pending
+  transferring
   transferred
+  cancelled
   reversed
+}
+
+enum PayoutRunTrigger {
+  cron
+  manual
+  account_updated
 }
 
 model Payment {
@@ -44,6 +52,7 @@ model Payment {
   @@index([instructorId])
   @@index([studentId])
   @@index([courseId])
+  @@index([transferStatus, paidAt])
   @@map("payments")
 }
 
@@ -53,4 +62,21 @@ model ProcessedStripeEvent {
   processedAt DateTime @default(now()) @map("processed_at")
 
   @@map("processed_stripe_events")
+}
+
+/// One run of the payout release job (ADR-037 §3, FR-P5). Hobby keeps logs for one hour, so the
+/// outcome lives here.
+model PayoutRun {
+  id         String           @id @default(cuid())
+  trigger    PayoutRunTrigger
+  startedAt  DateTime         @default(now()) @map("started_at")
+  finishedAt DateTime?        @map("finished_at")
+  processed  Int              @default(0)
+  released   Int              @default(0)
+  /// [{ paymentId, error }]
+  failures   Json             @default("[]")
+  paymentIds String[]         @map("payment_ids")
+
+  @@index([startedAt])
+  @@map("payout_runs")
 }
