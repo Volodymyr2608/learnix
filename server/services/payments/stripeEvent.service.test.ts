@@ -8,6 +8,22 @@ const mocks = vi.hoisted(() => ({
 	finalizeCheckout: vi.fn(),
 	hasProcessingForPayment: vi.fn(),
 	hasStripeRefundForPayment: vi.fn(),
+	dashboardRefund: vi.fn(),
+	adminDisputeLost: vi.fn(),
+	studentDisputeLost: vi.fn(),
+	hasException: vi.fn(),
+}));
+vi.mock("./adminAlert.service", () => ({
+	adminAlertService: {
+		dashboardRefund: mocks.dashboardRefund,
+		disputeLost: mocks.adminDisputeLost,
+	},
+}));
+vi.mock("@/server/services/refund/refundNotifications.service", () => ({
+	refundNotificationsService: { disputeLost: mocks.studentDisputeLost },
+}));
+vi.mock("@/server/repositories/refundAudit.repository", () => ({
+	refundAuditRepository: { hasException: mocks.hasException },
 }));
 vi.mock("@/server/repositories/refundRequest.repository", () => ({
 	refundRequestRepository: {
@@ -53,6 +69,7 @@ describe("stripeEventService.handle", () => {
 		mocks.apply.mockResolvedValue(true);
 		mocks.hasProcessingForPayment.mockResolvedValue(false);
 		mocks.hasStripeRefundForPayment.mockResolvedValue(false);
+		mocks.hasException.mockResolvedValue(false);
 	});
 
 	it("labels the refund as the student's own when a request is processing (qa #4, R4)", async () => {
@@ -76,10 +93,22 @@ describe("stripeEventService.handle", () => {
 		});
 	});
 
-	it("applies nothing for a partial refund (R2, FR-P16 later)", async () => {
+	it("applies nothing for a partial refund but reports it (R2, FR-A7)", async () => {
 		await stripeEventService.handle(refunded(4999, 1000), NOW);
 
 		expect(mocks.apply).not.toHaveBeenCalled();
+		expect(mocks.dashboardRefund).toHaveBeenCalledWith("pay_1", 1000, NOW);
+	});
+
+	it("keeps an admin exception's own webhook on the exception path (V14)", async () => {
+		mocks.hasException.mockResolvedValue(true);
+
+		await stripeEventService.handle(refunded(4999, 4999), NOW);
+
+		expect(mocks.apply).toHaveBeenCalledWith(
+			expect.objectContaining({ path: "admin_exception" }),
+		);
+		expect(mocks.dashboardRefund).not.toHaveBeenCalled();
 	});
 
 	it("ignores a refund for a payment Learnix does not know", async () => {
