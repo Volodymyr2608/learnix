@@ -1343,3 +1343,29 @@ The IDP review needs 2–3 vivid examples:
   2500/2500)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 2 final review and /qa: what the reviews and the audits changed
+- **Stage:** validation
+- **Context the AI had:** the slice-2 diff (4f13627..), `build/plan-slice-2.md`, `spec.md`,
+  `security.md`, ADR-037; one fresh code reviewer (Opus) and two auditors (`security-auditor`,
+  `llm-security-auditor`), each in its own context
+- **AI found:**
+  - review, Critical — sales that cannot be paid (no account, a disputed charge) headed every batch
+    of 50, so payouts could stop for everyone with no failure reported → fixed: candidates leave out
+    unpayable instructors and are taken least recently touched first (54e3f6b);
+  - review, Important — recovery checked the charge before looking for a transfer Stripe had already
+    made, so a disputed charge could send a paid row back to `pending` → fixed: existing transfer
+    first (54e3f6b);
+  - review, Important — a pre-slice-2 transfer has no `transfer_group`, so a legacy sale whose DB
+    write was lost could be paid twice → fixed: lookup by source charge (54e3f6b); the audit then
+    found that lookup read only one page of 100 → fixed: all pages;
+  - audit, Low — a refund on a `transferring` row was counted as "released" → now reported as a
+    failure that needs a reversal; rows that keep failing headed the batch again → touched on failure;
+  - audit — all seven controls (C5, C6, C7, C14, C15, C16, C28) implemented; no Critical/High;
+  - LLM audit — no AI surface touched, no path from payout data to a model
+- **Accepted for slice 2 only:** refunded held sales stay `pending` until slice 3; the
+  `account.updated` path is unbounded and noisy; two count-only issues; the contract test is a
+  tripwire; a missing `CRON_SECRET` fails closed silently (all in `security.md`)
+- **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

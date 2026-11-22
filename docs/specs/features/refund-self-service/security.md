@@ -141,11 +141,36 @@ is off, because the flag check runs before any database work (C24); each is a Re
 |---|---|---|
 | C5 | Implemented: one conditional update with the full predicate, 1 h margin. Remainder → slice 3: a refund committed between claim and transfer ends in one reversal | `payout.repository.ts` `claimForRelease` |
 | C6 | Implemented: an `auto_approved` request (no refund yet, H2) and an `auto_denied` one inside its appeal deadline (H3) block every path | same predicate fragment |
-| C7 | Implemented for transfers: `transfer_group = payment.id`, idempotency key, list before create. Refunds and reversals → slice 3 | `connect.service.ts` `releasePayment` |
+| C7 | Implemented for transfers: `transfer_group = payment.id`, idempotency key, list before create; a pre-slice-2 transfer (no group) is found by its source charge across every page of the destination's transfers. Refunds and reversals → slice 3 | `connect.service.ts` `releasePayment`, `findLegacyTransfer` |
 | C14 | Implemented: `transfers.create` only in `releasePayment` (contract test); Sweep and the transfer at sale removed | `transfers.contract.test.ts` |
 | C15 | Implemented: constant-time Bearer compare, empty 401, counts only; `CRON_SECRET` ≥ 32 chars, re-checked in the route; missing secret refuses every caller | `app/api/cron/release-payouts/route.ts` |
 | C16 | Implemented: Redis `SET NX PX` with a token, compare-and-delete release, 15 min TTL; per-process fallback only in development and test | `runLock.ts` |
 | C28 | Implemented: the status procedure finalizes only the caller's own session | `finalizeCheckoutForStudent` |
+
+### Accepted for slice 2 only — close in the named slice
+
+Found by the slice-2 final review and `/qa` audit (2026-11-22). Money is never paid wrongly by any
+of them; each is a count, a display or a load issue.
+
+- **Refunded held sales stay `pending` (audit Low-3, review #8).** `handleRefund` does not yet move a
+  held transfer to `cancelled` (FR-P7), so `getOwedBalance` counts an in-window refund in the
+  instructor's pending earnings. The release predicate excludes it, so it is never paid. Closes in
+  slice 3 (refund effects).
+- **A refund on a `transferring` row is not reversed (C5 remainder).** Slice 2 records the transfer
+  and reports the run as failed ("needs a reversal") instead of counting it as released; the
+  reversal is slice 3.
+- **`account.updated` path is unbounded and noisy (audit Low-4, review #4).** `releaseForInstructor`
+  records a `PayoutRun` on every event with payouts enabled, even with nothing to pay, and has no
+  batch limit inside the webhook. Rows left `transferring` by a webhook timeout are recovered by the
+  daily run. Close with the Payouts panel (slice 5): skip empty runs, cap the batch.
+- **Counts only (review #5, #6).** `released` can be over-counted when another path finished the row
+  (`markTransferred` returning false is ignored); a `lock.release` error after a good run surfaces as
+  a 500 and hides the summary (the run row is written, the lock expires by TTL). Slice 5.
+- **The transfers contract test is a tripwire (review #7).** Bracket access, aliasing or
+  `transfer_data` on a checkout session would slip past it; review of any new Stripe call remains
+  the control.
+- **Missing `CRON_SECRET` in production fails closed** — no payouts, no error until slice 5's 48 h
+  alert ships. Release checklist: set it before the deploy that ships the hold.
 
 ## Open
 
