@@ -2,10 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Role } from "@/generated/prisma";
 import { createCaller } from "@/server/api/root";
 import { testDb, truncateAll } from "@/test/db";
-import { makeUser } from "@/test/factories";
+import { makeCourse, makePayment, makeUser } from "@/test/factories";
 
+const { mockSessionsRetrieve } = vi.hoisted(() => ({
+	mockSessionsRetrieve: vi.fn(),
+}));
 vi.mock("@/server/services/payments/stripe.client", () => ({
-	stripe: { transfers: { create: vi.fn(), list: vi.fn() } },
+	stripe: {
+		transfers: { create: vi.fn(), list: vi.fn() },
+		checkout: { sessions: { retrieve: mockSessionsRetrieve } },
+	},
 }));
 
 const lock = {
@@ -78,5 +84,34 @@ describe("payment.runPayoutJobNow (FR-P24, AC-C16)", () => {
 		await expect(
 			caller.payment.sweepAllPendingTransfers(),
 		).rejects.toMatchObject({ code: "NOT_FOUND" });
+	});
+});
+
+describe("payment.getSessionStatus (AC-C28)", () => {
+	beforeEach(async () => {
+		await truncateAll();
+		vi.clearAllMocks();
+	});
+
+	it("binds the session to the caller: another student gets not_found", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const owner = await makeUser();
+		const other = await makeUser();
+		const course = await makeCourse({ instructorId: instructor.id });
+		await makePayment({
+			studentId: owner.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			status: "pending",
+			stripeCheckoutSessionId: "cs_owned",
+		});
+
+		const result = await callerFor(
+			other.id,
+			Role.STUDENT,
+		).payment.getSessionStatus({ sessionId: "cs_owned" });
+
+		expect(result).toEqual({ status: "not_found" });
+		expect(mockSessionsRetrieve).not.toHaveBeenCalled();
 	});
 });

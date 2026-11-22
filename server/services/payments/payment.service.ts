@@ -123,6 +123,23 @@ class PaymentService {
 		return { url: session.url };
 	}
 
+	/**
+	 * FR-P26 / C28 — the status a student polls after checkout. Only the student who owns the
+	 * session may finalize it; anyone else gets "not_found" and nothing changes. The signed
+	 * webhook calls finalizeCheckout directly.
+	 */
+	async finalizeCheckoutForStudent(
+		sessionId: string,
+		studentId: string,
+	): Promise<{ status: string }> {
+		const owned = await paymentRepository.findBySessionIdForStudent(
+			sessionId,
+			studentId,
+		);
+		if (!owned) return { status: "not_found" };
+		return this.finalizeCheckout(sessionId);
+	}
+
 	async finalizeCheckout(sessionId: string): Promise<{ status: string }> {
 		// 1. Find payment by sessionId
 		const payment = await paymentRepository.findBySessionId(sessionId);

@@ -42,6 +42,14 @@ class PaymentRepository extends BaseRepository<
 		return this.findFirst({ where: { stripeCheckoutSessionId } });
 	}
 
+	/** C28: the session is looked up by id AND its student in one query. */
+	findBySessionIdForStudent(
+		stripeCheckoutSessionId: string,
+		studentId: string,
+	) {
+		return this.findFirst({ where: { stripeCheckoutSessionId, studentId } });
+	}
+
 	findByPaymentIntentId(stripePaymentIntentId: string) {
 		return this.findFirst({ where: { stripePaymentIntentId } });
 	}

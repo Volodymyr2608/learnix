@@ -83,6 +83,73 @@ async function makePaymentRecord(overrides: {
 	});
 }
 
+describe("PaymentService.finalizeCheckoutForStudent — ownership (AC-C28, FR-P26)", () => {
+	it("returns not_found for another student's session and changes nothing", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const owner = await makeUser({ role: Role.STUDENT });
+		const other = await makeUser({ role: Role.STUDENT });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+			priceCents: 4999,
+		});
+		const sessionId = "cs_test_owned_by_owner";
+		const payment = await makePaymentRecord({
+			studentId: owner.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			stripeCheckoutSessionId: sessionId,
+		});
+		mockCheckoutSessionsRetrieve.mockResolvedValue({
+			payment_status: "paid",
+			payment_intent: "pi_owned",
+		});
+
+		const result = await paymentService.finalizeCheckoutForStudent(
+			sessionId,
+			other.id,
+		);
+
+		expect(result).toEqual({ status: "not_found" });
+		expect(mockCheckoutSessionsRetrieve).not.toHaveBeenCalled();
+		const unchanged = await testDb.payment.findUniqueOrThrow({
+			where: { id: payment.id },
+		});
+		expect(unchanged.status).toBe("pending");
+		expect(
+			await testDb.enrollment.count({ where: { courseId: course.id } }),
+		).toBe(0);
+	});
+
+	it("finalizes the owner's own session", async () => {
+		const instructor = await makeUser({ role: Role.INSTRUCTOR });
+		const owner = await makeUser({ role: Role.STUDENT });
+		const course = await makeCourse({
+			instructorId: instructor.id,
+			status: "published",
+			priceCents: 4999,
+		});
+		const sessionId = "cs_test_owner_finalizes";
+		await makePaymentRecord({
+			studentId: owner.id,
+			instructorId: instructor.id,
+			courseId: course.id,
+			stripeCheckoutSessionId: sessionId,
+		});
+		mockCheckoutSessionsRetrieve.mockResolvedValue({
+			payment_status: "paid",
+			payment_intent: "pi_owner",
+		});
+
+		const result = await paymentService.finalizeCheckoutForStudent(
+			sessionId,
+			owner.id,
+		);
+
+		expect(result).toEqual({ status: "succeeded" });
+	});
+});
+
 describe("PaymentService.finalizeCheckout — integration", () => {
 	it("creates exactly one enrollment even when called twice (idempotency)", async () => {
 		const instructor = await makeUser({ role: Role.INSTRUCTOR });

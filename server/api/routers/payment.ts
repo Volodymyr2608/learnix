@@ -34,9 +34,12 @@ export const paymentRouter = createTRPCRouter({
 
 	getSessionStatus: studentProcedure
 		.input(z.object({ sessionId: z.string() }))
-		.query(async ({ input }) => {
+		.query(async ({ ctx, input }) => {
 			try {
-				return await paymentService.finalizeCheckout(input.sessionId);
+				return await paymentService.finalizeCheckoutForStudent(
+					input.sessionId,
+					ctx.session.user.id,
+				);
 			} catch (error) {
 				throw handleServiceError(error);
 			}
