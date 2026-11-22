@@ -949,6 +949,11 @@ named; several were wrong or missing in an AI's first answer (`discovery/ai-deci
   `balance_transaction`; no extra Stripe call. A failure here must not fail the checkout (FS-15).
 - **Evidence files go to the private Blob store** via the dedicated handler; do not reuse
   `VercelService.uploadFileToVercelStorage` (public access, user-supplied extension).
+- **There is no certificate table.** A certificate is rendered from an enrollment with
+  `completedAt` set (`certificate.service.ts:12-43`); "no certificate" means no such enrollment for
+  the student and course (P6, `build/plan.md`).
+- **Sections are soft-deleted too.** L and the opened count include a lesson only when both the
+  lesson and its section have `deletedAt` null (P3).
 - **Instructor-facing queries never select refund tables** (A6, OQ-4); the held amounts come from
   `Payment` columns only.
 - **Where `decisions.md` is older, this file wins:** D2's cleanup on the webhook → synchronous

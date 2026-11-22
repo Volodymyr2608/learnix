@@ -1110,3 +1110,36 @@ The IDP review needs 2–3 vivid examples:
   once the files existed)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 1 plan: six decisions the spec did not make (P1–P6)
+- **Stage:** implementation (planning)
+- **Context the AI had:** the approved `spec.md`, `security.md`, the constitution, and codebase
+  anchors gathered by a code-explorer agent (`build/plan.md` → Codebase anchors)
+- **Raised by me:** cut the slice to the automatic decision only (no Stripe, hold, cron, UI) for the
+  IDP review
+- **AI proposed:** P1 stop at `auto_approved` (no money moves); P2 `hasOpenDispute` always false until
+  the disputes slice; P3 a lesson in a soft-deleted section counts as deleted; P4 `paidAt` null →
+  outside the window, no backfill from `createdAt`; P5 free text capped at 2000 characters; P6 a
+  certificate = an enrollment with `completedAt` set
+- **How I verified:** P3 and P6 came from the code, not the spec — there is no certificate table
+  (`certificate.service.ts:12-43` renders from completed enrollments) and sections have their own
+  `deletedAt` (`course.prisma:72-86`). *The rest not verified by me.*
+- **My decisions:** accepted all six (2026-11-22)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 1 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - `BaseRepository.transaction` wraps every error into a plain `Error`, so `NOT_FOUND`/`CONFLICT`
+    were lost (5 tests red) → the service uses `db.$transaction` directly;
+  - under `SKIP_ENV_VALIDATION` (all tests) `lib/env.js` returns raw strings, so a boolean flag
+    check was always off → the flag compares as a string;
+  - the dev database has drift (`concept_mastery_archive_le2`, 5 rows) that `prisma migrate dev`
+    would drop → the migration was generated with `prisma migrate diff` from the committed schema;
+  - break-it check: with the per-student lock removed, AC-C4 (three concurrent requests at the
+    account limit) fails; AC-C3 still passes on the unique key alone
+- **How I verified:** *Not verified by me* (the tests named in `build/plan.md` ran red, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
