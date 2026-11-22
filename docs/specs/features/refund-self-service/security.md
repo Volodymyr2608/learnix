@@ -189,6 +189,28 @@ is off, because the flag check runs before any database work (C24); each is a Re
 closing an open appeal and erasing refund text and files (FR-P23, C29), the instructor view and its
 isolation contract (C19).
 
+**Fixed at slice-8 `/qa`:** a late denial that also failed the threshold or the account limit was
+filed under `window` and approved on day 14 (audit H-1, blocking C11) — the day-14 rule now reads every
+failed condition; the overdue approval skipped the certificate/dispute re-check (audit M-1, EC-10);
+undecided direct appeals could crowd due ones out of the batch (L-1); the deadline re-check used the
+request's start time (L-3); evidence reads could fall back to the public store's token (I-3).
+
+**Accepted for slice 8 only (from `/qa`):**
+- **The exception's audit row stays when its Stripe call fails** (audit L-2, review M5): it records the
+  intent and the first admin; a later full refund of that payment in the Stripe Dashboard is then
+  classified as the exception (no needs-review flag, no admin email). Needs a prior failed exception.
+  Close by matching the Stripe refund id instead of "an exception row exists".
+- **The multipart body cap reads `Content-Length` only** (audit I-1): a chunked body is buffered by
+  `formData()`; Vercel caps function bodies at 4.5 MB, which bounds it there.
+- **CSRF on the multipart routes relies on Better Auth's default `SameSite=Lax` cookie** (audit I-2);
+  there is no Origin check in the route handlers.
+- **The app's database role can TRUNCATE `refund_audit`** (audit I-4): the trigger is row-level.
+  Release checklist: `REVOKE TRUNCATE ON refund_audit` from the application role in production.
+- **"Mark reviewed" writes no audit row** (audit I-5): admin-only; no control requires one.
+- **Open question for the author (audit I-8):** an appeal after a denial for `earlier_refund` alone is
+  approved on day 14 by FR-A5's wording; if a second refund of a course must always need an admin,
+  `earlier_refund` belongs with the threshold and the account limit in `NEVER_AUTO`.
+
 ### Slice 7 (student UI and `/pricing`, 2026-11-22) — control status
 
 | C | Status | Where |

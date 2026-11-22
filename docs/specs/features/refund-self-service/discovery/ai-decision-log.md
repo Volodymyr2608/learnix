@@ -1734,3 +1734,25 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
 
+### 2026-11-22 — Slice 8 /qa: what the review and the audit changed
+- **Stage:** validation
+- **Context the AI had:** the slice-8 diff (41140d5..82c3919), `build/plan-slice-8.md`, `spec.md`,
+  `security.md`; one fresh code reviewer (Opus) and `security-auditor` (no AI surface)
+- **AI found:**
+  - audit (High H-1, blocking C11) + review (I4) — an appeal after a late denial was filed under its
+    first failed condition, always `window`, so a student over the threshold or the account limit got
+    an automatic approval on day 14 by asking after day 14 → the rule reads every failed condition and
+    the label prefers threshold / account limit;
+  - audit (Medium M-1) + review (Critical) — the day-14 approval skipped the certificate and dispute
+    re-check the spec requires (EC-10) → re-checked inside the transaction; a blocked appeal stays open;
+  - review (Important) — the day-3 reminders counted from the original filing, not the approval
+    → `approved_at`; an appeal stayed open after a Dashboard refund, a lost dispute or an exception
+    → closed as `closed_refunded`, never counted; the page showed "not approved" and an appeal form
+    after such a refund → shows refunded; "days left" counted to the filing deadline → to day 14;
+    the forms got stuck on a network error → recover;
+  - audit (Low L-1, L-3, I-3) → fixed; L-2, I-1, I-2, I-4, I-5 → recorded as accepted in `security.md`;
+    I-8 (should `earlier_refund` never be approved on time alone?) → an open question for me
+- **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): decide I-8*
+
