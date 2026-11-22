@@ -75,6 +75,9 @@ class EnrollmentService {
 					status: EnrollmentStatus.active,
 					enrolledAt: new Date(),
 					completedAt: null,
+					// R5: a repurchase starts clean — a new certificate must not stay hidden.
+					certificateRevokedAt: null,
+					certificateRevokedReason: null,
 				});
 			}
 

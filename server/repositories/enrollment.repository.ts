@@ -96,7 +96,12 @@ class EnrollmentRepository extends BaseRepository<
 
 	findCompletedByStudent(studentId: string) {
 		return this.findMany({
-			where: { studentId, completedAt: { not: null } },
+			// C25: a certificate revoked by a refund is not listed (FR-P10).
+			where: {
+				studentId,
+				completedAt: { not: null },
+				certificateRevokedAt: null,
+			},
 			orderBy: { completedAt: "desc" },
 			select: {
 				id: true,

@@ -11,7 +11,8 @@ import {
 class CertificateService {
 	async renderPdf(enrollmentId: string): Promise<Buffer> {
 		const enr = await enrollmentRepository.findByIdWithRelations(enrollmentId);
-		if (!enr) throw new CertificateNotFoundError();
+		// C25: a revoked certificate is gone, even for a still-valid 30-day token.
+		if (!enr || enr.certificateRevokedAt) throw new CertificateNotFoundError();
 		if (!enr.completedAt) throw new CertificateNotCompleteError();
 
 		const element = createElement(CertificateDocument, {

@@ -245,7 +245,8 @@ class LessonService {
 			const enrollment = await enrollmentRepository.findFirst({
 				where: { studentId, courseId },
 			});
-			if (!enrollment) return;
+			// R9: this runs unawaited; a refund may have cancelled the enrollment meanwhile.
+			if (!enrollment || enrollment.status === "cancelled") return;
 
 			if (progressPct === 100) {
 				await enrollmentRepository.update(enrollment.id, {
