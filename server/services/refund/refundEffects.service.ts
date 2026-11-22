@@ -13,6 +13,7 @@ const REVOCATION_REASON: Record<RefundEffectPath, CertificateRevocationReason> =
 		dashboard_refund: "dashboard_refund",
 		admin_exception: "admin_exception",
 		lost_dispute: "lost_dispute",
+		duplicate_charge: "duplicate_charge",
 	};
 
 class RefundEffectsService {

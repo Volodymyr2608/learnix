@@ -32,6 +32,8 @@ enum AppealStatus {
   /// Review I2 / EC-16, AC-F22: the payment was refunded another way (Dashboard, lost dispute,
   /// exception) while the appeal waited; nothing left to decide.
   closed_refunded
+  /// W11 / EC-12: the student deleted their account while the appeal waited.
+  closed_account_deleted
 }
 
 enum EvidenceUploader {
@@ -45,6 +47,9 @@ enum RefundAuditKind {
   appeal_denied
   appeal_overdue
   exception
+  /// W6 / FR-P27: the admin's two outcomes for a refund that failed at the bank.
+  bank_failure_refunded_elsewhere
+  bank_failure_sale_stands
 }
 
 /// R1: where an approved request's Stripe refund stands. Null for a denial.

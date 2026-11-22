@@ -63,7 +63,8 @@ export type RefundEffectPath =
 	| "refund_request"
 	| "dashboard_refund"
 	| "admin_exception"
-	| "lost_dispute";
+	| "lost_dispute"
+	| "duplicate_charge";
 
 /** FR-S15 (V8): an appeal's closed-list reason and mandatory text; files travel beside it. */
 export const refundAppealInput = z

@@ -27,6 +27,8 @@ enum RefundSource {
   dashboard_refund
   admin_exception
   lost_dispute
+  /// W4 / FR-P17: the second charge of a course already paid for, refunded at once.
+  duplicate_charge
 }
 
 enum PayoutRunTrigger {
@@ -70,6 +72,12 @@ model Payment {
   refundAudits  RefundAudit[]
   /// V15 / FR-A7: a Dashboard refund (full or partial) waiting for an admin to look at it.
   needsReviewAt DateTime?      @map("needs_review_at")
+  /// W2 / FR-P28: the Stripe processing fee from the balance transaction (USD cents); NULL until read.
+  stripeFeeCents      Int?      @map("stripe_fee_cents")
+  /// W3 / FR-P16: what Stripe reports refunded so far (partial or full).
+  refundedAmountCents Int?      @map("refunded_amount_cents")
+  /// W5 / FR-P27: the refund failed at the bank; set until an admin closes it.
+  bankFailureAt       DateTime? @map("bank_failure_at")
 
   @@index([instructorId])
   @@index([studentId])

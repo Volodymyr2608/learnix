@@ -10,6 +10,7 @@ enum CertificateRevocationReason {
   dashboard_refund
   admin_exception
   lost_dispute
+  duplicate_charge
 }
 
 model Enrollment {
