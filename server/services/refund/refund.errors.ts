@@ -65,3 +65,21 @@ export class EvidenceStorageMissingError extends DomainError {
 		super("Files cannot be accepted right now.", "PRECONDITION_FAILED");
 	}
 }
+
+export class RefundAppealNotFoundError extends DomainError {
+	constructor() {
+		super("Appeal not found", "NOT_FOUND");
+	}
+}
+
+/** FR-A2 (V13): "Approve" is unavailable while a certificate or a dispute exists. */
+export class AppealApproveBlockedError extends DomainError {
+	constructor(readonly blocker: "certificate" | "dispute") {
+		super(
+			blocker === "certificate"
+				? "The student has a certificate for this course, so it cannot be refunded."
+				: "A dispute about this payment is open with the bank.",
+			"PRECONDITION_FAILED",
+		);
+	}
+}

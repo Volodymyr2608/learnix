@@ -127,9 +127,9 @@ describe("refundAppealService.fileAppeal (FR-S13–S16, AC-F6, AC-F8)", () => {
 				threshold: 3,
 			});
 			expect(appeal.deadlineAt.getTime()).toBe(
-				(
+				((
 					await testDb.payment.findUniqueOrThrow({ where: { id: paymentId } })
-				).paidAt!.getTime() +
+				).paidAt?.getTime() ?? 0) +
 					14 * DAY,
 			);
 		});

@@ -227,13 +227,26 @@ class RefundRequestRepository extends BaseRepository<
 			         (r.decision = 'auto_denied' AND r.created_at >= ${since}::timestamp
 			          AND NOT EXISTS (SELECT 1 FROM notification_logs n
 			                           WHERE n."dedupKey" = r.student_id || ':refund_denied:' || r.id))
-			      OR (r.approval IS NOT NULL AND r.refund_state = 'refunded'
+			      OR (r.approval = 'automatic' AND r.refund_state = 'refunded'
 			          AND r.refunded_at >= ${since}::timestamp
 			          AND NOT EXISTS (SELECT 1 FROM notification_logs n
 			                           WHERE n."dedupKey" = r.student_id || ':refund_done:' || r.payment_id))
 			       )
 			 ORDER BY r.created_at
 			 LIMIT ${limit}`;
+	}
+
+	/** V1: an appeal's approval puts its request on the refund path, approved by appeal or overdue. */
+	approveInTx(
+		tx: Prisma.TransactionClient,
+		requestId: string,
+		approval: "appeal" | "overdue",
+	) {
+		return tx.refundRequest.update({
+			where: { id: requestId },
+			data: { approval, refundState: "processing", refundError: null },
+			select: { id: true },
+		});
 	}
 
 	/** FR-S20: the request and the payment fields the Stripe refund needs. */

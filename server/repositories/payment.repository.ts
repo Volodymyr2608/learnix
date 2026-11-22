@@ -98,6 +98,7 @@ class PaymentRepository extends BaseRepository<
 				currency: true,
 				student: { select: { id: true, email: true, name: true } },
 				course: { select: { title: true } },
+				refundRequest: { select: { approval: true } },
 			},
 		});
 	}

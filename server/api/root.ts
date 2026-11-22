@@ -13,6 +13,7 @@ import { notificationsRouter } from "@/server/api/routers/notifications";
 import { paymentRouter } from "@/server/api/routers/payment";
 import { quizRouter } from "@/server/api/routers/quiz";
 import { refundRouter } from "@/server/api/routers/refund";
+import { refundAdminRouter } from "@/server/api/routers/refundAdmin";
 import { reviewRouter } from "@/server/api/routers/review";
 import { searchRouter } from "@/server/api/routers/search";
 import { skillRouter } from "@/server/api/routers/skill";
@@ -41,6 +42,7 @@ export const appRouter = createTRPCRouter({
 	payment: paymentRouter,
 	quiz: quizRouter,
 	refund: refundRouter,
+	refundAdmin: refundAdminRouter,
 	review: reviewRouter,
 	search: searchRouter,
 	skill: skillRouter,

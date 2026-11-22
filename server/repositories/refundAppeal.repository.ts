@@ -50,6 +50,109 @@ class RefundAppealRepository extends BaseRepository<
 			: tx.refundEvidenceFile.createMany({ data: files });
 	}
 
+	/** FR-A1: the open appeals, oldest first, with what the queue shows (never Stripe text). */
+	listOpen() {
+		return this.db.refundAppeal.findMany({
+			where: { status: "open" },
+			orderBy: { createdAt: "asc" },
+			select: {
+				id: true,
+				kind: true,
+				exceededCondition: true,
+				reason: true,
+				text: true,
+				deadlineAt: true,
+				createdAt: true,
+				files: {
+					where: { deletedAt: null },
+					select: { id: true, fileName: true, uploadedBy: true },
+				},
+				request: {
+					select: {
+						studentId: true,
+						courseId: true,
+						paymentId: true,
+						snapshot: true,
+						student: { select: { name: true } },
+						course: { select: { title: true } },
+						payment: { select: { disputeState: true, paidAt: true } },
+					},
+				},
+			},
+		});
+	}
+
+	/** FR-A2: the appeal and the facts a decision re-checks, inside the deciding transaction. */
+	findForDecision(tx: Prisma.TransactionClient, appealId: string) {
+		return tx.refundAppeal.findUnique({
+			where: { id: appealId },
+			select: {
+				id: true,
+				status: true,
+				request: {
+					select: {
+						id: true,
+						studentId: true,
+						courseId: true,
+						paymentId: true,
+						payment: { select: { disputeState: true } },
+					},
+				},
+			},
+		});
+	}
+
+	/** FR-A3: open → decided, exactly once; false when someone else decided first. */
+	async closeInTx(
+		tx: Prisma.TransactionClient,
+		appealId: string,
+		data: {
+			status: "approved" | "denied" | "overdue_approved";
+			decidedBy: string | null;
+			decidedAt: Date;
+			denialReason?: string;
+		},
+	): Promise<boolean> {
+		const { count } = await tx.refundAppeal.updateMany({
+			where: { id: appealId, status: "open" },
+			data,
+		});
+		return count === 1;
+	}
+
+	/** V16: what the student's decision email needs. */
+	findForDecisionEmail(appealId: string) {
+		return this.db.refundAppeal.findUnique({
+			where: { id: appealId },
+			select: {
+				id: true,
+				status: true,
+				denialReason: true,
+				request: {
+					select: {
+						student: { select: { id: true, email: true, name: true } },
+						course: { select: { title: true } },
+						payment: { select: { amountCents: true, currency: true } },
+					},
+				},
+			},
+		});
+	}
+
+	/** Review I2 pattern: decided appeals since `since` whose student email has no log row. */
+	findUndecidedEmails(since: Date, limit: number) {
+		return this.db.$queryRaw<{ id: string }[]>`
+			SELECT a.id
+			  FROM refund_appeals a
+			  JOIN refund_requests r ON r.id = a.request_id
+			 WHERE a.status <> 'open'
+			   AND a.decided_at >= ${since}::timestamp
+			   AND NOT EXISTS (SELECT 1 FROM notification_logs n
+			                    WHERE n."dedupKey" = r.student_id || ':appeal_decided:' || a.id)
+			 ORDER BY a.decided_at
+			 LIMIT ${limit}`;
+	}
+
 	/** V12: what the admin notices name — the course and the deadline; never the student's text. */
 	findForAdminNotice(appealId: string) {
 		return this.db.refundAppeal.findUnique({

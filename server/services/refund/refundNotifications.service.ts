@@ -1,6 +1,7 @@
 import type { RefundCondition } from "@/server/entities/refund/refund.dto";
 import { DENIAL_CONDITION_LABEL } from "@/server/entities/refund/refundLabels";
 import { paymentRepository } from "@/server/repositories/payment.repository";
+import { refundAppealRepository } from "@/server/repositories/refundAppeal.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { ANONYMISED_EMAIL_DOMAIN } from "@/server/repositories/user.repository";
 import { sendOnce } from "@/server/services/email/sendOnce";
@@ -22,6 +23,8 @@ class RefundNotificationsService {
 	async refundDone(paymentId: string): Promise<void> {
 		const payment = await paymentRepository.findForRefundEmail(paymentId);
 		if (!payment || !reachable(payment.student.email)) return;
+		// An appeal or overdue approval was already announced by the appeal-decided email.
+		if (payment.refundRequest?.approval !== "automatic") return;
 		await sendOnce({
 			dedupKey: `${payment.student.id}:refund_done:${payment.id}`,
 			userId: payment.student.id,
@@ -45,6 +48,11 @@ class RefundNotificationsService {
 			new Date(now.getTime() - RESEND_WINDOW_MS),
 			RESEND_BATCH,
 		);
+		const decided = await refundAppealRepository.findUndecidedEmails(
+			new Date(now.getTime() - RESEND_WINDOW_MS),
+			RESEND_BATCH,
+		);
+		for (const row of decided) await this.appealDecided(row.id);
 		for (const row of missing) {
 			if (row.decision === "auto_denied")
 				await this.refundDenied(
@@ -53,7 +61,7 @@ class RefundNotificationsService {
 				);
 			else await this.refundDone(row.payment_id);
 		}
-		return missing.length;
+		return missing.length + decided.length;
 	}
 
 	/** U10: an automatic denial — once per request, naming the first failed condition. */
@@ -75,6 +83,32 @@ class RefundNotificationsService {
 				name: request.student.name,
 				courseTitle: request.course.title,
 				condition: DENIAL_CONDITION_LABEL[condition],
+			},
+		});
+	}
+
+	/** V16 / FR-S18: the appeal's outcome, once per appeal; a denial carries the admin's reason. */
+	async appealDecided(appealId: string): Promise<void> {
+		const appeal = await refundAppealRepository.findForDecisionEmail(appealId);
+		if (!appeal || appeal.status === "open") return;
+		const { student, course, payment } = appeal.request;
+		if (!reachable(student.email)) return;
+		const amount = formatRefundAmount(payment.amountCents, payment.currency);
+		const denied = appeal.status === "denied";
+		await sendOnce({
+			dedupKey: `${student.id}:appeal_decided:${appeal.id}`,
+			userId: student.id,
+			automation: "appeal_decided",
+			templateKey: "refund.appeal-decided",
+			toEmail: student.email,
+			payload: {
+				name: student.name,
+				title: denied
+					? `Your refund appeal for ${course.title} was not approved`
+					: `Your refund appeal for ${course.title} was approved`,
+				body: denied
+					? `An admin reviewed your appeal and did not approve it. The reason:\n\n${appeal.denialReason ?? ""}\n\nYou can see the decision and any attached files on your Purchases page.`
+					: `${appeal.status === "overdue_approved" ? "Your appeal was not decided in time, so it was approved." : "An admin approved your appeal."} We are refunding ${amount}; the money usually reaches your card in about 5–10 business days. Your access to the course and its progress will be closed.`,
 			},
 		});
 	}
