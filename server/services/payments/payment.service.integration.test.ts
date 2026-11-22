@@ -49,7 +49,6 @@ const { paymentRepository } = await import(
 
 const SESSION_ID = "cs_test_integration_1";
 const PAYMENT_INTENT_ID = "pi_test_integration_1";
-const TRANSFER_ID = "tr_test_integration_1";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -239,96 +238,6 @@ describe("PaymentService.finalizeCheckout — integration", () => {
 			where: { studentId: student.id, courseId: course.id },
 		});
 		expect(enrollments).toHaveLength(0);
-	});
-});
-
-describe("PaymentService.handleRefund — integration", () => {
-	it("marks payment refunded and cancels enrollment", async () => {
-		const instructor = await makeUser({ role: Role.INSTRUCTOR });
-		const student = await makeUser({ role: Role.STUDENT });
-		const course = await makeCourse({
-			instructorId: instructor.id,
-			status: "published",
-			priceCents: 4999,
-		});
-
-		await makePaymentRecord({
-			studentId: student.id,
-			instructorId: instructor.id,
-			courseId: course.id,
-			stripePaymentIntentId: PAYMENT_INTENT_ID,
-			status: "succeeded",
-			transferStatus: "pending",
-		});
-
-		// Create active enrollment
-		await testDb.enrollment.create({
-			data: {
-				studentId: student.id,
-				courseId: course.id,
-				status: EnrollmentStatus.active,
-			},
-		});
-
-		await paymentService.handleRefund(PAYMENT_INTENT_ID);
-
-		// Payment should be refunded
-		const payment =
-			await paymentRepository.findByPaymentIntentId(PAYMENT_INTENT_ID);
-		expect(payment?.status).toBe("refunded");
-		expect(payment?.refundedAt).not.toBeNull();
-
-		// Enrollment should be cancelled
-		const enrollment = await testDb.enrollment.findFirst({
-			where: { studentId: student.id, courseId: course.id },
-		});
-		expect(enrollment?.status).toBe(EnrollmentStatus.cancelled);
-
-		// No Stripe reversal since transfer was pending (not yet sent)
-		expect(mockTransfersCreateReversal).not.toHaveBeenCalled();
-	});
-
-	it("calls reverseTransfer when payment transferStatus is transferred", async () => {
-		const instructor = await makeUser({ role: Role.INSTRUCTOR });
-		const student = await makeUser({ role: Role.STUDENT });
-		const course = await makeCourse({
-			instructorId: instructor.id,
-			status: "published",
-			priceCents: 4999,
-		});
-
-		await makePaymentRecord({
-			studentId: student.id,
-			instructorId: instructor.id,
-			courseId: course.id,
-			stripePaymentIntentId: PAYMENT_INTENT_ID,
-			stripeTransferId: TRANSFER_ID,
-			status: "succeeded",
-			transferStatus: "transferred",
-		});
-
-		await testDb.enrollment.create({
-			data: {
-				studentId: student.id,
-				courseId: course.id,
-				status: EnrollmentStatus.active,
-			},
-		});
-
-		mockTransfersCreateReversal.mockResolvedValue({ id: "trr_test" });
-
-		await paymentService.handleRefund(PAYMENT_INTENT_ID);
-
-		expect(mockTransfersCreateReversal).toHaveBeenCalledWith(
-			TRANSFER_ID,
-			expect.objectContaining({ refund_application_fee: false }),
-			{ idempotencyKey: expect.stringMatching(/^reversal:/) },
-		);
-
-		const enrollment = await testDb.enrollment.findFirst({
-			where: { studentId: student.id, courseId: course.id },
-		});
-		expect(enrollment?.status).toBe(EnrollmentStatus.cancelled);
 	});
 });
 

@@ -22,7 +22,6 @@ import {
 	CourseIsFreeError,
 	CourseNotPurchasableError,
 } from "@/server/services/payments/payment.errors";
-import { connectService } from "./connect.service";
 import { stripe } from "./stripe.client";
 
 /**
@@ -193,37 +192,6 @@ class PaymentService {
 		});
 
 		return { status: "succeeded" };
-	}
-
-	async handleRefund(paymentIntentId: string): Promise<void> {
-		// 1. Find payment by paymentIntentId
-		const payment =
-			await paymentRepository.findByPaymentIntentId(paymentIntentId);
-
-		if (!payment) return;
-
-		// 2. Mark refunded + set refundedAt
-		await paymentRepository.update(payment.id, {
-			status: "refunded",
-			refundedAt: new Date(),
-		});
-
-		// 3. Cancel enrollment
-		const enrollment = await enrollmentRepository.findFirst({
-			where: { studentId: payment.studentId, courseId: payment.courseId },
-			select: { id: true },
-		});
-
-		if (enrollment) {
-			await enrollmentRepository.update(enrollment.id, {
-				status: EnrollmentStatus.cancelled,
-			});
-		}
-
-		// 4. Reverse transfer if already transferred
-		if (payment.transferStatus === "transferred") {
-			await connectService.reverseTransfer(payment);
-		}
 	}
 
 	async getInstructorEarnings(instructorId: string) {
