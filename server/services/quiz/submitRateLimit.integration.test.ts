@@ -20,6 +20,7 @@ import {
 	makeCourse,
 	makeEnrollment,
 	makeLesson,
+	makeOpenedLesson,
 	makeQuiz,
 	makeSection,
 	makeUser,
@@ -51,6 +52,8 @@ describe("quiz.submit rate limit", () => {
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		// G10: normal use opens the lesson before its quizzes.
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		const quiz = await makeQuiz({
 			lessonId: lesson.id,
 			options: ["A", "B", "C", "D"],
