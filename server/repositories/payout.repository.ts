@@ -17,7 +17,8 @@ const windowStart = Prisma.sql`COALESCE(p.paid_at, p.created_at + ${ms(CHECKOUT_
  * FR-P2a / ADR-037 §1 — the one release predicate, as SQL over `payments p`. Every path that
  * claims or selects a payment for release uses this fragment, so they cannot drift apart:
  * succeeded and not refunded; the window closed + 1 h (C5); no approved request still waiting
- * for its refund (H2); no denied request whose appeal deadline has not passed (H3, FR-S16).
+ * for its refund (H2); no denied request whose appeal deadline has not passed (H3, FR-S16); no open
+ * appeal (V10).
  */
 const eligible = (now: Date) => Prisma.sql`
 	p.status = 'succeeded'
@@ -28,7 +29,13 @@ const eligible = (now: Date) => Prisma.sql`
 		SELECT 1 FROM refund_requests r
 		WHERE r.payment_id = p.id
 		  AND (
-			r.decision = 'auto_approved'
+			-- V1/V2: an approved request (automatic, appeal, overdue) waiting for or past its refund.
+			r.approval IS NOT NULL
+			-- V10: an appeal the admin has not decided holds the share (A3, FR-A5).
+			OR EXISTS (
+				SELECT 1 FROM refund_appeals a
+				WHERE a.request_id = r.id AND a.status = 'open'
+			)
 			OR (
 				r.decision = 'auto_denied'
 				AND ${now}::timestamp < GREATEST(

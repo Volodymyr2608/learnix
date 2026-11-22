@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { testDb, truncateAll } from "@/test/db";
 import {
+	makeAppeal,
 	makeCourse,
 	makeInstructorProfile,
 	makePayment,
@@ -151,6 +152,55 @@ describe("payoutRepository", () => {
 			expect(
 				await payoutRepository.claimForRelease(payment.id, new Date(deadline)),
 			).toBe(true);
+		});
+
+		it.each([
+			["a direct appeal", "direct_appeal", "direct"],
+			["an appeal after denial", "auto_denied", "after_denial"],
+		] as const)("does not claim while %s is open (V10)", async (_label, decision, kind) => {
+			const payment = await seedPayment();
+			const request = await makeRefundRequest({
+				paymentId: payment.id,
+				studentId: ids.studentId,
+				courseId: ids.courseId,
+				decision,
+				createdAt: at(DAY),
+			});
+			const appeal = await makeAppeal({ requestId: request.id, kind });
+			const late = at(40 * DAY);
+
+			expect(await payoutRepository.claimForRelease(payment.id, late)).toBe(
+				false,
+			);
+			expect(
+				(await payoutRepository.findReleaseCandidates(late, 10)).map(
+					(p) => p.id,
+				),
+			).not.toContain(payment.id);
+
+			await testDb.refundAppeal.update({
+				where: { id: appeal.id },
+				data: { status: "denied", decidedAt: late },
+			});
+			expect(await payoutRepository.claimForRelease(payment.id, late)).toBe(
+				true,
+			);
+		});
+
+		it("does not claim an appeal-approved request waiting for its refund", async () => {
+			const payment = await seedPayment();
+			await makeRefundRequest({
+				paymentId: payment.id,
+				studentId: ids.studentId,
+				courseId: ids.courseId,
+				decision: "direct_appeal",
+				approval: "appeal",
+				refundState: "processing",
+				createdAt: at(DAY),
+			});
+			expect(
+				await payoutRepository.claimForRelease(payment.id, at(40 * DAY)),
+			).toBe(false);
 		});
 
 		it("claims after an early denial once the window has closed", async () => {
