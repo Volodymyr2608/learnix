@@ -80,6 +80,14 @@ class PayoutRepository extends BaseRepository<
 		return rows.flatMap((r) => byId.get(r.id) ?? []);
 	}
 
+	/** account.updated: the instructor's held sales; the claim decides which may go. */
+	findPendingForInstructor(instructorId: string): Promise<Payment[]> {
+		return this.db.payment.findMany({
+			where: { instructorId, transferStatus: "pending" },
+			orderBy: { createdAt: "asc" },
+		});
+	}
+
 	/** ADR-037 §2: `transferring → transferred`; false if another process already finished it. */
 	async markTransferred(
 		paymentId: string,
