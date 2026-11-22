@@ -95,11 +95,23 @@ class PaymentRepository extends BaseRepository<
 			select: {
 				id: true,
 				amountCents: true,
+				refundedAmountCents: true,
 				currency: true,
 				student: { select: { id: true, email: true, name: true } },
 				course: { select: { title: true } },
 				refundRequest: { select: { approval: true } },
 			},
+		});
+	}
+
+	/**
+	 * W3 / FR-P16: a partial Dashboard refund's total so far. Only partial refunds are recorded, so
+	 * `amount − refunded_amount` stays what a later refund returns (EC-19).
+	 */
+	recordPartialRefund(paymentId: string, refundedCents: number) {
+		return this.db.payment.updateMany({
+			where: { id: paymentId, status: "succeeded" },
+			data: { refundedAmountCents: refundedCents },
 		});
 	}
 

@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 	adminDisputeLost: vi.fn(),
 	studentDisputeLost: vi.fn(),
 	hasException: vi.fn(),
+	recordPartialRefund: vi.fn(),
 }));
 vi.mock("./adminAlert.service", () => ({
 	adminAlertService: {
@@ -38,6 +39,7 @@ vi.mock("@/server/repositories/payment.repository", () => ({
 	paymentRepository: {
 		findByPaymentIntentId: mocks.findByPaymentIntentId,
 		recordDisputeState: mocks.recordDisputeState,
+		recordPartialRefund: mocks.recordPartialRefund,
 	},
 }));
 vi.mock("./payment.service", () => ({
@@ -98,6 +100,7 @@ describe("stripeEventService.handle", () => {
 
 		expect(mocks.apply).not.toHaveBeenCalled();
 		expect(mocks.dashboardRefund).toHaveBeenCalledWith("pay_1", 1000, NOW);
+		expect(mocks.recordPartialRefund).toHaveBeenCalledWith("pay_1", 1000);
 	});
 
 	it("keeps an admin exception's own webhook on the exception path (V14)", async () => {

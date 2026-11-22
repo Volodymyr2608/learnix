@@ -40,7 +40,11 @@ class RefundNotificationsService {
 			payload: {
 				name: payment.student.name,
 				courseTitle: payment.course.title,
-				amount: formatRefundAmount(payment.amountCents, payment.currency),
+				// W3 / EC-19: what this refund returned — the remainder after a partial refund.
+				amount: formatRefundAmount(
+					payment.amountCents - (payment.refundedAmountCents ?? 0),
+					payment.currency,
+				),
 			},
 		});
 	}

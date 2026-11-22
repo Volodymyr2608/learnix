@@ -135,7 +135,12 @@ class StripeEventService {
 			await paymentRepository.findByPaymentIntentId(paymentIntentId);
 		if (!payment) return;
 		if (charge.amount_refunded < charge.amount) {
-			// FR-A7 / FR-P16 (V15): a partial Dashboard refund changes nothing but is reported.
+			// FR-A7 / FR-P16 (V15, W3): a partial Dashboard refund is recorded and reported; access,
+			// records and the share are unchanged.
+			await paymentRepository.recordPartialRefund(
+				payment.id,
+				charge.amount_refunded,
+			);
 			await adminAlertService.dashboardRefund(
 				payment.id,
 				charge.amount_refunded,

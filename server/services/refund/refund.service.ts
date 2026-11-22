@@ -82,7 +82,8 @@ class RefundService {
 				courseTitle: payment.course.title,
 				...facts,
 				paymentRefunded: payment.status === "refunded",
-				amountCents: payment.amountCents,
+				// W3 / EC-19: after a partial Dashboard refund, only the remainder is left to refund.
+				amountCents: payment.amountCents - (payment.refundedAmountCents ?? 0),
 				currency: payment.currency,
 				request: request
 					? {
