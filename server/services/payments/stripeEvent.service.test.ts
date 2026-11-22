@@ -7,10 +7,12 @@ const mocks = vi.hoisted(() => ({
 	recordDisputeState: vi.fn(),
 	finalizeCheckout: vi.fn(),
 	hasProcessingForPayment: vi.fn(),
+	hasStripeRefundForPayment: vi.fn(),
 }));
 vi.mock("@/server/repositories/refundRequest.repository", () => ({
 	refundRequestRepository: {
 		hasProcessingForPayment: mocks.hasProcessingForPayment,
+		hasStripeRefundForPayment: mocks.hasStripeRefundForPayment,
 	},
 }));
 vi.mock("@/server/services/refund/refundEffects.service", () => ({
@@ -50,6 +52,7 @@ describe("stripeEventService.handle", () => {
 		mocks.findByPaymentIntentId.mockResolvedValue({ id: "pay_1" });
 		mocks.apply.mockResolvedValue(true);
 		mocks.hasProcessingForPayment.mockResolvedValue(false);
+		mocks.hasStripeRefundForPayment.mockResolvedValue(false);
 	});
 
 	it("labels the refund as the student's own when a request is processing (qa #4, R4)", async () => {
@@ -126,6 +129,10 @@ describe("stripeEventService.handle", () => {
 			["charge.dispute.closed", "won", "won"],
 			["charge.dispute.closed", "warning_closed", "won"],
 			["charge.dispute.closed", "lost", "lost"],
+			["charge.dispute.closed", "prevented", "won"],
+			["charge.dispute.created", "warning_needs_response", "open"],
+			["charge.dispute.updated", "warning_under_review", "open"],
+			["charge.dispute.updated", "lost", "lost"],
 		])("%s with status %s stores %s", async (type, status, state) => {
 			await stripeEventService.handle(dispute(type, status), NOW);
 

@@ -119,7 +119,6 @@ class PayoutRepository extends BaseRepository<
 		return count === 1;
 	}
 
-	/** C5 remainder: has a refund's compare-and-set already flipped this payment? */
 	/**
 	 * C5 remainder: has a refund's compare-and-set flipped this payment — by a path whose share is
 	 * reversed? After a lost dispute the platform bears the chargeback (DL), so no reversal.

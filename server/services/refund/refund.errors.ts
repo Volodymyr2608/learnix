@@ -16,3 +16,6 @@ export class RefundAlreadyRequestedError extends DomainError {
 		);
 	}
 }
+
+/** FR-P18: Stripe refused the refund because the charge is disputed (internal; never reaches a router). */
+export class ChargeDisputedError extends Error {}

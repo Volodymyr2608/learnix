@@ -73,7 +73,6 @@ class RefundRequestRepository extends BaseRepository<
 		return count > 0;
 	}
 
-	/** D3 — in this slice a counting refund is an automatic refund. */
 	/**
 	 * D3: an earlier counting refund of this course — an approved request, or a bank dispute the
 	 * platform lost (DL: the student took the money back themselves).
@@ -170,6 +169,14 @@ class RefundRequestRepository extends BaseRepository<
 			where: { id: requestId },
 			data: { refundError },
 		});
+	}
+
+	async hasStripeRefundForPayment(paymentId: string): Promise<boolean> {
+		const row = await this.db.refundRequest.findFirst({
+			where: { paymentId, stripeRefundId: { not: null } },
+			select: { id: true },
+		});
+		return row !== null;
 	}
 
 	async hasProcessingForPayment(paymentId: string): Promise<boolean> {

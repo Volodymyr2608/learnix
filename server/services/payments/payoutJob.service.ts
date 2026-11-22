@@ -109,6 +109,9 @@ const replayRefundEvents = async (now: Date): Promise<number> => {
 		if (!page.has_more || !last) break;
 		startingAfter = last.id;
 	}
+	// Stripe lists newest first; reversing before the stable sort replays same-second events
+	// oldest first too (qa #1).
+	events.reverse();
 	events.sort((a, b) => a.created - b.created);
 
 	let cursor = since;

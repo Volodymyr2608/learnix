@@ -91,9 +91,13 @@ class StripeEventService {
 			eventCreated,
 		);
 		if (paymentId && state === "lost") {
+			// Audit L2: if Learnix's own Stripe refund already went through, the refund — not the
+			// bank — returned the money first; the share is then reversed like any refund.
+			const refunded =
+				await refundRequestRepository.hasStripeRefundForPayment(paymentId);
 			await refundEffectsService.apply({
 				paymentId,
-				path: "lost_dispute",
+				path: refunded ? "refund_request" : "lost_dispute",
 				now,
 			});
 		}

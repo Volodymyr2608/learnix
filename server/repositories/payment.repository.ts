@@ -68,7 +68,14 @@ class PaymentRepository extends BaseRepository<
 			UPDATE payments
 			   SET dispute_state = ${state}::"DisputeState", dispute_updated_at = ${eventCreated}
 			 WHERE stripe_payment_intent_id = ${stripePaymentIntentId}
-			   AND (dispute_updated_at IS NULL OR dispute_updated_at <= ${eventCreated})
+			   AND (
+			     dispute_updated_at IS NULL
+			     OR dispute_updated_at < ${eventCreated}
+			     -- qa #1: in the same second a closed state is never replaced by open; an equal
+			     -- event is still re-applied, so a lost dispute whose effects failed is retried.
+			     OR (dispute_updated_at = ${eventCreated}
+			         AND (dispute_state = 'open' OR ${state}::"DisputeState" <> 'open'))
+			   )
 			RETURNING id`;
 		return rows[0]?.id ?? null;
 	}

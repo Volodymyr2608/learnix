@@ -288,6 +288,18 @@ describe("refundService.requestRefund", () => {
 		expect(stripeMock.refundsCreate).not.toHaveBeenCalled();
 	});
 
+	it("denies while a stored lost dispute has not applied its effects yet (qa #2)", async () => {
+		const { studentId, paymentId } = await seedPurchase({});
+		await testDb.payment.update({
+			where: { id: paymentId },
+			data: { disputeState: "lost" },
+		});
+
+		expect((await request(studentId, paymentId)).failedConditions).toEqual([
+			"dispute",
+		]);
+	});
+
 	it("refunds after a won dispute even though Stripe's disputed flag stays true (D6, D7)", async () => {
 		const { studentId, paymentId } = await seedPurchase({});
 		await testDb.payment.update({

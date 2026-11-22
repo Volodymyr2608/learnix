@@ -10,6 +10,7 @@ import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { stripe } from "@/server/services/payments/stripe.client";
 import {
+	ChargeDisputedError,
 	RefundAlreadyRequestedError,
 	RefundNotFoundError,
 } from "./refund.errors";
@@ -31,9 +32,6 @@ export type RefundRequestResult = {
 const isUniqueViolation = (error: unknown): boolean =>
 	error instanceof Prisma.PrismaClientKnownRequestError &&
 	error.code === "P2002";
-
-/** FR-P18: Stripe refused the refund because the charge is disputed. */
-class ChargeDisputedError extends Error {}
 
 /** The admin-only text stored on the request (C23). */
 const refundErrorText = (error: unknown): string => {
@@ -111,7 +109,9 @@ class RefundService {
 						hasEarlierCountingRefund,
 						accountLimitRefunds12m,
 						// FR-S2 / FR-P18a: the stored dispute state, never a Stripe call.
-						hasOpenDispute: payment.disputeState === "open",
+						// qa #2: a stored lost dispute whose effects have not run yet blocks too.
+						hasOpenDispute:
+							payment.disputeState !== null && payment.disputeState !== "won",
 					},
 					now,
 				);
