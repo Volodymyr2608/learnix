@@ -20,6 +20,7 @@ vi.mock("./stripe.client", () => ({
 const mockPaymentRepo = {
 	findBySessionId: vi.fn(),
 	claimCheckout: vi.fn(),
+	hasOpenDispute: vi.fn().mockResolvedValue(false),
 	findByPaymentIntentId: vi.fn(),
 	create: vi.fn(),
 	update: vi.fn(),

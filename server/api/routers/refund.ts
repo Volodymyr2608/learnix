@@ -5,6 +5,22 @@ import { handleServiceError } from "@/server/utils/handleServiceError";
 import { createTRPCRouter, studentProcedure } from "../trpc";
 
 export const refundRouter = createTRPCRouter({
+	/** FR-S23 (W9): whether a repurchase of this course could be refunded again. */
+	repurchaseWarning: studentProcedure
+		.input(z.object({ courseId: z.string().min(1).max(64) }).strict())
+		.query(async ({ ctx, input }) => {
+			try {
+				return {
+					notRefundable: await refundService.repurchaseWarning(
+						ctx.session.user.id,
+						input.courseId,
+					),
+				};
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
 	/** U5: the refund page's state for the session's own payment (C1, C23, C24). */
 	getForPayment: studentProcedure
 		.input(z.object({ paymentId: z.string().min(1).max(64) }).strict())

@@ -58,6 +58,23 @@ const refundErrorText = (error: unknown): string => {
 
 class RefundService {
 	/**
+	 * FR-S23 / AC-F7 (W9): a repurchase of a course the student already refunded in a counting way
+	 * (an approved refund or a lost dispute) cannot be refunded again — the checkout says so. An
+	 * exception or a Dashboard refund does not count, so it does not warn. Nothing with the flag off.
+	 */
+	async repurchaseWarning(
+		studentId: string,
+		courseId: string,
+	): Promise<boolean> {
+		if (!isStudentRefundEnabled()) return false;
+		const counted = await refundRequestRepository.findCountingRefundCourseIds(
+			studentId,
+			[courseId],
+		);
+		return counted.has(courseId);
+	}
+
+	/**
 	 * U5: what the refund page shows for the session's own payment. Flag off, another student's
 	 * payment, or one that was never paid → the same NOT_FOUND (C1, C24). Read-only.
 	 */

@@ -222,6 +222,15 @@ class PaymentRepository extends BaseRepository<
 		return count === 1;
 	}
 
+	/** EC-17 (W9): an earlier payment of this course with a dispute still open at the bank. */
+	async hasOpenDispute(studentId: string, courseId: string): Promise<boolean> {
+		return (
+			(await this.db.payment.count({
+				where: { studentId, courseId, disputeState: "open" },
+			})) > 0
+		);
+	}
+
 	/** W2 / FR-P28: recent succeeded payments saved without their Stripe fee. */
 	async findMissingFees(paidSince: Date, limit: number) {
 		const rows = await this.db.payment.findMany({

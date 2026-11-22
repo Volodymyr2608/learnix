@@ -37,7 +37,9 @@ describe("instructor-facing code carries no refund request data (C19, AC-C19)", 
 	});
 
 	it("references no refund request, appeal, evidence or reason", () => {
-		const offenders = files.filter((f) => REFUND_DATA.test(readFileSync(f, "utf-8")));
+		const offenders = files.filter((f) =>
+			REFUND_DATA.test(readFileSync(f, "utf-8")),
+		);
 		expect(offenders, offenders.join("\n")).toEqual([]);
 	});
 });

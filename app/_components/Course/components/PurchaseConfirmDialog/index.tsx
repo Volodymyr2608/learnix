@@ -15,6 +15,7 @@ import { useStudentRefundEnabled } from "@/app/_components/Billing/RefundFlagPro
 import type { PurchaseConfirmDialogProps } from "@/app/_components/Course/components/PurchaseConfirmDialog/types";
 import { formatPrice } from "@/lib/formatPrice";
 import { api } from "@/trpc/client";
+import { REPURCHASE_NOT_REFUNDABLE_TEXT } from "./utils";
 
 const PurchaseConfirmDialog = ({
 	open,
@@ -23,6 +24,11 @@ const PurchaseConfirmDialog = ({
 }: PurchaseConfirmDialogProps) => {
 	// UI-1 / U11: no refund promise in the purchase dialog once self-service refunds are on.
 	const refundsEnabled = useStudentRefundEnabled();
+	// FR-S23 (W9): the server decides with the counting-refund definition; asked when the dialog opens.
+	const repurchase = api.refund.repurchaseWarning.useQuery(
+		{ courseId: course.id },
+		{ enabled: open && refundsEnabled, retry: false },
+	);
 	const checkout = api.payment.createCheckoutSession.useMutation({
 		onSuccess: ({ url }) => {
 			window.location.href = url;
@@ -87,6 +93,12 @@ const PurchaseConfirmDialog = ({
 						</div>
 					)}
 				</div>
+
+				{repurchase.data?.notRefundable && (
+					<p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-amber-800 text-sm dark:text-amber-300">
+						{REPURCHASE_NOT_REFUNDABLE_TEXT}
+					</p>
+				)}
 
 				<div className="flex gap-3 pt-4">
 					<Button

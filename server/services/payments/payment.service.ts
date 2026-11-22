@@ -22,6 +22,7 @@ import {
 	AlreadyEnrolledError,
 	CourseIsFreeError,
 	CourseNotPurchasableError,
+	RepurchaseDisputedError,
 } from "@/server/services/payments/payment.errors";
 import { refundService } from "@/server/services/refund/refund.service";
 import { refundEffectsService } from "@/server/services/refund/refundEffects.service";
@@ -137,6 +138,11 @@ class PaymentService {
 
 		if (existingEnrollment) {
 			throw new AlreadyEnrolledError({ courseId, studentId });
+		}
+
+		// EC-17 (W9): no repurchase while a dispute on an earlier payment of the course is open.
+		if (await paymentRepository.hasOpenDispute(studentId, courseId)) {
+			throw new RepurchaseDisputedError({ courseId, studentId });
 		}
 
 		// 5. Create a pending Payment record
