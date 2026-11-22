@@ -16,6 +16,7 @@ import type {
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
+import { payoutRepository } from "@/server/repositories/payout.repository";
 import { enrollmentService } from "@/server/services/enrollment/enrollment.service";
 import {
 	AlreadyEnrolledError,
@@ -330,14 +331,17 @@ class PaymentService {
 	}
 
 	async getRevenueSummary(instructorId: string): Promise<RevenueSummary> {
-		const [earnings, monthStats] = await Promise.all([
+		const [earnings, monthStats, held] = await Promise.all([
 			this.getInstructorEarnings(instructorId),
 			paymentRepository.getInstructorRevenueStats(instructorId),
+			payoutRepository.heldForInstructor(instructorId, new Date()),
 		]);
 		return {
 			totalGrossCents: earnings.lifetimeGrossCents,
 			paidOutCents: earnings.availableCents,
-			pendingCents: earnings.owedCents,
+			// FR-I1 (W7): the two held amounts, from the release predicate.
+			onHoldCents: held.onHoldCents,
+			waitingForStripeCents: held.waitingForStripeCents,
 			thisMonth: {
 				grossCents: monthStats.thisMonthGrossCents,
 				delta: computeDelta(

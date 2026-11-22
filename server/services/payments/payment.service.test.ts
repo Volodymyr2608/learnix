@@ -39,6 +39,10 @@ const mockCourseRepo = {
 	findFirst: vi.fn(),
 	findMany: vi.fn(),
 };
+const mockHeldForInstructor = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/payout.repository", () => ({
+	payoutRepository: { heldForInstructor: mockHeldForInstructor },
+}));
 vi.mock("@/server/repositories/course.repository", () => ({
 	courseRepository: mockCourseRepo,
 }));
@@ -450,11 +454,17 @@ describe("paymentService.getRevenueSummary", () => {
 			lastMonthGrossCents: 11500,
 		});
 
+		mockHeldForInstructor.mockResolvedValue({
+			onHoldCents: 1500,
+			waitingForStripeCents: 680,
+		});
+
 		const summary = await paymentService.getRevenueSummary("inst_1");
 
 		expect(summary.totalGrossCents).toBe(95150);
 		expect(summary.paidOutCents).toBe(8420);
-		expect(summary.pendingCents).toBe(2180);
+		expect(summary.onHoldCents).toBe(1500);
+		expect(summary.waitingForStripeCents).toBe(680);
 		expect(summary.thisMonth.grossCents).toBe(12450);
 		expect(summary.thisMonth.delta).toEqual({
 			kind: "percent",

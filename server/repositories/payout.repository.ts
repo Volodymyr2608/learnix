@@ -103,6 +103,39 @@ class PayoutRepository extends BaseRepository<
 		return rows.flatMap((r) => byId.get(r.id) ?? []);
 	}
 
+	/**
+	 * FR-I1 (W7): one instructor's held shares, split by the release predicate itself — never a
+	 * second copy of it. "Waiting for Stripe connection": eligible except that the instructor cannot
+	 * receive payouts. Everything else still held (the window, an open request or appeal, a bank
+	 * failure, or eligible and due in the next run) is "on hold".
+	 */
+	async heldForInstructor(
+		instructorId: string,
+		now: Date,
+	): Promise<{ onHoldCents: number; waitingForStripeCents: number }> {
+		const [row] = await this.db.$queryRaw<
+			{ waiting: bigint | number | null; total: bigint | number | null }[]
+		>`
+			SELECT
+			  COALESCE(SUM(p.instructor_net_cents), 0) AS total,
+			  COALESCE(SUM(p.instructor_net_cents) FILTER (
+			    WHERE ${eligible(now)}
+			      AND NOT EXISTS (SELECT 1 FROM instructor_profiles ip
+			                       WHERE ip."userId" = p."instructorId"
+			                         AND ip.stripe_account_id IS NOT NULL
+			                         AND ip.stripe_payouts_enabled = true)
+			  ), 0) AS waiting
+			FROM payments p
+			WHERE p."instructorId" = ${instructorId}
+			  AND p.transfer_status = 'pending'`;
+		const total = Number(row?.total ?? 0);
+		const waitingForStripeCents = Number(row?.waiting ?? 0);
+		return {
+			onHoldCents: total - waitingForStripeCents,
+			waitingForStripeCents,
+		};
+	}
+
 	findPayment(paymentId: string): Promise<Payment | null> {
 		return this.db.payment.findUnique({ where: { id: paymentId } });
 	}

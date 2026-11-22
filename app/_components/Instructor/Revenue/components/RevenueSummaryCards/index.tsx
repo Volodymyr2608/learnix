@@ -8,7 +8,7 @@ export default function RevenueSummaryCards({
 	summary,
 }: RevenueSummaryCardsProps) {
 	return (
-		<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+		<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
 			<StatCard
 				icon={<DollarSign className="h-6 w-6 text-green-600" />}
 				iconWrapperClassName="bg-green-500/10"
@@ -31,8 +31,14 @@ export default function RevenueSummaryCards({
 			<StatCard
 				icon={<Clock className="h-6 w-6 text-yellow-600" />}
 				iconWrapperClassName="bg-yellow-500/10"
-				label="Pending Payout"
-				value={formatUsd(summary.pendingCents)}
+				label="On hold until the refund window closes"
+				value={formatUsd(summary.onHoldCents)}
+			/>
+			<StatCard
+				icon={<Clock className="h-6 w-6 text-orange-600" />}
+				iconWrapperClassName="bg-orange-500/10"
+				label="Waiting for Stripe connection"
+				value={formatUsd(summary.waitingForStripeCents)}
 			/>
 		</div>
 	);
