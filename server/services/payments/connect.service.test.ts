@@ -309,6 +309,51 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 		);
 	});
 
+	it("records a transfer Stripe already made even when the charge is now disputed (review #2)", async () => {
+		mockTransfersList.mockResolvedValue({ data: [{ id: "tr_made" }] });
+		charge({ disputed: true });
+
+		const outcome = await connectService.releasePayment(
+			makePayment({ transferStatus: "transferring" }),
+			NOW,
+		);
+
+		expect(outcome.kind).toBe("already_transferred");
+		expect(mockPayoutRepo.markTransferred).toHaveBeenCalledWith(
+			"pay_1",
+			"tr_made",
+			NOW,
+		);
+		expect(mockPayoutRepo.releaseClaim).not.toHaveBeenCalled();
+	});
+
+	it("finds a legacy transfer made without a transfer_group by its source charge (review #3)", async () => {
+		mockTransfersList.mockImplementation(
+			async (params: Record<string, unknown>) =>
+				params.destination
+					? {
+							data: [
+								{ id: "tr_other", source_transaction: "ch_other" },
+								{ id: "tr_legacy", source_transaction: "ch_test_abc" },
+							],
+						}
+					: { data: [] },
+		);
+
+		const outcome = await connectService.releasePayment(makePayment(), NOW);
+
+		expect(outcome.kind).toBe("already_transferred");
+		expect(mockTransfersList).toHaveBeenCalledWith(
+			expect.objectContaining({ destination: STRIPE_ACCOUNT_ID }),
+		);
+		expect(mockTransfersCreate).not.toHaveBeenCalled();
+		expect(mockPayoutRepo.markTransferred).toHaveBeenCalledWith(
+			"pay_1",
+			"tr_legacy",
+			NOW,
+		);
+	});
+
 	it("recovers a transferring payment without claiming it again", async () => {
 		mockTransfersCreate.mockResolvedValue({ id: "tr_new" });
 

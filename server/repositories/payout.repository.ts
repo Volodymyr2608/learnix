@@ -64,13 +64,26 @@ class PayoutRepository extends BaseRepository<
 		return changed === 1;
 	}
 
-	/** FR-P3: eligible `pending` payments plus every stuck `transferring` one, oldest first. */
+	/**
+	 * FR-P3: eligible `pending` payments plus every stuck `transferring` one.
+	 * Review #1 — a batch must always make progress:
+	 *   - a `pending` sale whose instructor cannot be paid (no account, payouts off by the last
+	 *     account.updated) is not a candidate; account.updated releases it when that changes;
+	 *   - rows are taken least recently touched first, so a payment that bounced (charge refunded or
+	 *     disputed, payouts switched off, a Stripe error) goes behind fresh ones instead of heading
+	 *     every batch.
+	 */
 	async findReleaseCandidates(now: Date, limit: number): Promise<Payment[]> {
 		const rows = await this.db.$queryRaw<{ id: string }[]>`
 			SELECT p.id FROM payments p
 			 WHERE p.transfer_status = 'transferring'
-			    OR (p.transfer_status = 'pending' AND ${eligible(now)})
-			 ORDER BY ${windowStart} ASC, p.id ASC
+			    OR (p.transfer_status = 'pending'
+			        AND EXISTS (SELECT 1 FROM instructor_profiles ip
+			                     WHERE ip."userId" = p."instructorId"
+			                       AND ip.stripe_account_id IS NOT NULL
+			                       AND ip.stripe_payouts_enabled = true)
+			        AND ${eligible(now)})
+			 ORDER BY p.updated_at ASC, p.id ASC
 			 LIMIT ${limit}`;
 		if (rows.length === 0) return [];
 		const payments = await this.db.payment.findMany({

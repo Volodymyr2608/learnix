@@ -65,6 +65,7 @@ describe("payoutJobService", () => {
 		await makeInstructorProfile({
 			userId: instructor.id,
 			stripeAccountId: "acct_1",
+			stripePayoutsEnabled: true,
 		});
 		const student = await makeUser();
 		const course = await makeCourse({ instructorId: instructor.id });
@@ -151,6 +152,59 @@ describe("payoutJobService", () => {
 
 		expect(lock.release).toHaveBeenCalledWith("payouts", "token-1");
 		spy.mockRestore();
+	});
+
+	describe("a batch always makes progress (review #1)", () => {
+		it("skips sales of instructors who cannot be paid, so they never fill the batch", async () => {
+			const unpaid = await makeUser({ role: "INSTRUCTOR" });
+			await makeInstructorProfile({
+				userId: unpaid.id,
+				stripePayoutsEnabled: false,
+			});
+			await seed(50, {
+				instructorId: unpaid.id,
+				paidAt: new Date(PAID_LONG_AGO.getTime() - DAY),
+			});
+			const [payable] = await seed(1);
+
+			const summary = await payoutJobService.run({ trigger: "cron", now: NOW });
+
+			expect(summary).toMatchObject({ processed: 1, released: 1 });
+			expect(
+				(await testDb.payment.findUniqueOrThrow({ where: { id: payable?.id } }))
+					.transferStatus,
+			).toBe("transferred");
+		});
+
+		it("moves a bounced payment behind fresh ones, so 50 unpayable charges cannot block a payable sale", async () => {
+			await seed(50, {
+				paidAt: new Date(PAID_LONG_AGO.getTime() - DAY),
+				stripePaymentIntentId: undefined,
+			});
+			const disputed = await testDb.payment.findMany({ select: { id: true } });
+			for (const [i, p] of disputed.entries()) {
+				await testDb.payment.update({
+					where: { id: p.id },
+					data: { stripePaymentIntentId: `pi_disputed_${i}` },
+				});
+			}
+			const [payable] = await seed(1);
+			mockPaymentIntentsRetrieve.mockImplementation(async (id: string) => ({
+				latest_charge: {
+					id: `ch_${id}`,
+					refunded: false,
+					disputed: id.startsWith("pi_disputed_"),
+				},
+			}));
+
+			await payoutJobService.run({ trigger: "cron", now: NOW });
+			await payoutJobService.run({ trigger: "cron", now: NOW });
+
+			expect(
+				(await testDb.payment.findUniqueOrThrow({ where: { id: payable?.id } }))
+					.transferStatus,
+			).toBe("transferred");
+		});
 	});
 
 	describe("releaseForInstructor (account.updated, FR-P2)", () => {

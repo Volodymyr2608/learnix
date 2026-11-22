@@ -135,6 +135,22 @@ class ConnectService {
 		}
 
 		try {
+			// Review #2: a transfer Stripe already made is recorded before any eligibility check, so a
+			// later refund sees `transferred` (and can reverse) instead of a row back at `pending`.
+			const grouped = await stripe.transfers.list({
+				transfer_group: paymentId,
+				limit: 1,
+			});
+			const groupedTransfer = grouped.data[0];
+			if (groupedTransfer) {
+				await payoutRepository.markTransferred(
+					paymentId,
+					groupedTransfer.id,
+					now,
+				);
+				return { kind: "already_transferred", paymentId };
+			}
+
 			const profile = await instructorRepository.findFirst({
 				where: { userId: payment.instructorId },
 			});
@@ -154,13 +170,22 @@ class ConnectService {
 				return { kind: "charge_not_payable", paymentId };
 			}
 
-			const existing = await stripe.transfers.list({
-				transfer_group: paymentId,
-				limit: 1,
+			// Review #3: transfers made before slice 2 carry no transfer_group; find one by its source
+			// charge so a legacy sale whose DB update was lost is not paid twice.
+			const legacy = await stripe.transfers.list({
+				destination: profile.stripeAccountId,
+				created: { gte: charge.created },
+				limit: 100,
 			});
-			const found = existing.data[0];
-			if (found) {
-				await payoutRepository.markTransferred(paymentId, found.id, now);
+			const legacyTransfer = legacy.data.find(
+				(t) => t.source_transaction === charge.id,
+			);
+			if (legacyTransfer) {
+				await payoutRepository.markTransferred(
+					paymentId,
+					legacyTransfer.id,
+					now,
+				);
 				return { kind: "already_transferred", paymentId };
 			}
 

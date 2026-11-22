@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { testDb, truncateAll } from "@/test/db";
 import {
 	makeCourse,
+	makeInstructorProfile,
 	makePayment,
 	makeRefundRequest,
 	makeUser,
@@ -167,7 +168,12 @@ describe("payoutRepository", () => {
 	});
 
 	describe("findReleaseCandidates", () => {
-		it("returns eligible pending and every transferring payment, oldest first, up to the limit", async () => {
+		it("returns eligible pending and every transferring payment, least recently touched first, up to the limit", async () => {
+			await makeInstructorProfile({
+				userId: ids.instructorId,
+				stripeAccountId: "acct_1",
+				stripePayoutsEnabled: true,
+			});
 			const old = await seedPayment({ paidAt: at(-2 * DAY) });
 			const eligible = await seedPayment();
 			const stuck = await seedPayment({ transferStatus: "transferring" });
@@ -181,6 +187,18 @@ describe("payoutRepository", () => {
 
 			const limited = await payoutRepository.findReleaseCandidates(ELIGIBLE, 1);
 			expect(limited.map((p) => p.id)).toEqual([old.id]);
+		});
+
+		it("leaves out pending sales of an instructor who cannot be paid", async () => {
+			await makeInstructorProfile({
+				userId: ids.instructorId,
+				stripeAccountId: null,
+			});
+			await seedPayment();
+
+			expect(
+				await payoutRepository.findReleaseCandidates(ELIGIBLE, 10),
+			).toEqual([]);
 		});
 	});
 

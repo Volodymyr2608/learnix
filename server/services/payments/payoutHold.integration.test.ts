@@ -60,6 +60,7 @@ describe("a sale is held, then paid exactly once (AC-F13)", () => {
 		await makeInstructorProfile({
 			userId: instructor.id,
 			stripeAccountId: "acct_1",
+			stripePayoutsEnabled: true,
 		});
 		const student = await makeUser();
 		const course = await makeCourse({
