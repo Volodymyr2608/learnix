@@ -2,13 +2,17 @@ import { z } from "zod";
 import type { Prisma } from "@/generated/prisma";
 import { db } from "@/server/db";
 import type { RefundCondition } from "@/server/entities/refund/refund.dto";
+import type {
+	ApproveBlocker,
+	OpenAppealView,
+} from "@/server/entities/refund/refundAppeal.dto";
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundAppealRepository } from "@/server/repositories/refundAppeal.repository";
 import { refundAuditRepository } from "@/server/repositories/refundAudit.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { withPayoutRunLock } from "@/server/services/payments/payoutRunLock";
 import { logger } from "@/server/utils/logger";
-import { isAutoApprovable } from "./appealRules";
+import { daysUntilDay14, isAutoApprovable } from "./appealRules";
 import { type AcceptedEvidence, validateEvidence } from "./evidenceFiles";
 import {
 	AppealApproveBlockedError,
@@ -25,8 +29,6 @@ import { isDisputeBlocking } from "./refundFacts";
 import { refundNotificationsService } from "./refundNotifications.service";
 import { REFUND_WINDOW_MS } from "./refundRules";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /** V11: a bounded batch per daily run; the rest follows the next day. */
 const OVERDUE_BATCH = 50;
 
@@ -36,25 +38,6 @@ const denialReason = z
 	.min(1, "A denial needs a reason")
 	.max(2000)
 	.refine((v) => !v.includes("\u0000"), "Invalid character");
-
-export type ApproveBlocker = "certificate" | "dispute" | null;
-
-export type OpenAppealView = {
-	appealId: string;
-	paymentId: string;
-	courseTitle: string;
-	studentName: string;
-	kind: "direct" | "after_denial";
-	exceededCondition: RefundCondition;
-	reason: string;
-	text: string;
-	filedAt: Date;
-	deadlineAt: Date;
-	daysLeft: number;
-	snapshot: Record<string, unknown>;
-	files: { id: string; fileName: string; uploadedBy: "student" | "admin" }[];
-	approveBlockedBy: ApproveBlocker;
-};
 
 const blockerOf = async (
 	tx: Prisma.TransactionClient,
@@ -92,10 +75,8 @@ class RefundAppealAdminService {
 				text: a.text,
 				filedAt: a.createdAt,
 				deadlineAt: a.deadlineAt,
-				daysLeft: Math.max(
-					0,
-					Math.ceil((a.deadlineAt.getTime() - now.getTime()) / DAY_MS),
-				),
+				// Review I5 / FR-A1: days left until day 14 of the payment — when FR-A5 can act.
+				daysLeft: daysUntilDay14(a.request.payment.paidAt, a.deadlineAt, now),
 				snapshot: (a.request.snapshot ?? {}) as Record<string, unknown>,
 				files: a.files,
 				approveBlockedBy: await blockerOf(db, a.request),
@@ -246,35 +227,51 @@ class RefundAppealAdminService {
 				now,
 			);
 			if (!due) continue;
-			const closed = await db.$transaction(async (tx) => {
-				// Audit M-1 / EC-10: the same re-check as a manual approval; a blocked appeal stays
-				// open for the admin (the queue shows why) and keeps being reminded.
-				if (await blockerOf(tx, appeal.request)) return false;
-				const won = await refundAppealRepository.closeInTx(tx, appeal.id, {
-					status: "overdue_approved",
-					decidedBy: null,
-					decidedAt: now,
-				});
-				if (!won) return false;
-				await refundRequestRepository.approveInTx(
-					tx,
-					appeal.request.id,
-					"overdue",
-					now,
-				);
-				await refundAuditRepository.createInTx(tx, {
-					kind: "appeal_overdue",
-					paymentId: appeal.request.paymentId,
+			// Review M3: one failing appeal must not stop the rest of the batch.
+			approved += await this.approveOneOverdue(appeal, now).catch((error) => {
+				logger.error("Overdue appeal approval failed", {
 					appealId: appeal.id,
+					error,
 				});
-				return true;
+				return 0;
 			});
-			if (!closed) continue;
-			approved++;
-			await this.tellStudent(appeal.id);
-			await refundService.executeRefund(appeal.request.id, now);
 		}
 		return approved;
+	}
+
+	private async approveOneOverdue(
+		appeal: Awaited<
+			ReturnType<typeof refundAppealRepository.findOverdueCandidates>
+		>[number],
+		now: Date,
+	): Promise<number> {
+		const closed = await db.$transaction(async (tx) => {
+			// Audit M-1 / EC-10: the same re-check as a manual approval; a blocked appeal stays
+			// open for the admin (the queue shows why) and keeps being reminded.
+			if (await blockerOf(tx, appeal.request)) return false;
+			const won = await refundAppealRepository.closeInTx(tx, appeal.id, {
+				status: "overdue_approved",
+				decidedBy: null,
+				decidedAt: now,
+			});
+			if (!won) return false;
+			await refundRequestRepository.approveInTx(
+				tx,
+				appeal.request.id,
+				"overdue",
+				now,
+			);
+			await refundAuditRepository.createInTx(tx, {
+				kind: "appeal_overdue",
+				paymentId: appeal.request.paymentId,
+				appealId: appeal.id,
+			});
+			return true;
+		});
+		if (!closed) return 0;
+		await this.tellStudent(appeal.id);
+		await refundService.executeRefund(appeal.request.id, now);
+		return 1;
 	}
 
 	/**

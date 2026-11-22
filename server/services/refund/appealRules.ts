@@ -76,3 +76,15 @@ export const appealReminderDue = (paidAt: Date | null, now: Date): boolean => {
 	const day = Math.floor((now.getTime() - paidAt.getTime()) / DAY_MS);
 	return day === 10 || day === 13 || day >= 14;
 };
+
+/** FR-A1 (review I5): days until payment-day 14 (the filing deadline when the payment time is unknown). */
+export const daysUntilDay14 = (
+	paidAt: Date | null,
+	fallback: Date,
+	now: Date,
+): number => {
+	const day14 = paidAt
+		? paidAt.getTime() + REFUND_WINDOW_MS
+		: fallback.getTime();
+	return Math.max(0, Math.ceil((day14 - now.getTime()) / DAY_MS));
+};

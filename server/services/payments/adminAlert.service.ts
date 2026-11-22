@@ -10,15 +10,16 @@ import {
 	userRepository,
 } from "@/server/repositories/user.repository";
 import { sendOnce } from "@/server/services/email/sendOnce";
-import { appealReminderDue } from "@/server/services/refund/appealRules";
+import {
+	appealReminderDue,
+	daysUntilDay14,
+} from "@/server/services/refund/appealRules";
 import { logger } from "@/server/utils/logger";
 import { isStale } from "./payoutMonitorRules";
 
 const panelUrl = () => `${env.BASE_URL}/admin/payouts`;
 const refundsUrl = () => `${env.BASE_URL}/admin/refunds`;
-const DAY_MS = 24 * 60 * 60 * 1000;
-const daysLeft = (deadline: Date, now: Date) =>
-	Math.max(0, Math.ceil((deadline.getTime() - now.getTime()) / DAY_MS));
+
 const utcDay = (now: Date) => now.toISOString().slice(0, 10);
 
 /** Review M4: with no ADMIN user an alert has nobody to reach — say so in the logs. */
@@ -129,7 +130,7 @@ class AdminAlertService {
 				toEmail: admin.email,
 				payload: {
 					title: "A refund appeal was filed",
-					summary: `A ${appeal.kind === "direct" ? "direct appeal" : "appeal after an automatic denial"} for ${appeal.request.course.title} is waiting for a decision (${daysLeft(appeal.deadlineAt, now)} days until its deadline).`,
+					summary: `A ${appeal.kind === "direct" ? "direct appeal" : "appeal after an automatic denial"} for ${appeal.request.course.title} is waiting for a decision (${daysUntilDay14(appeal.request.payment.paidAt, appeal.deadlineAt, now)} days until day 14 of the payment).`,
 					panelUrl: refundsUrl(),
 				},
 			});
@@ -157,7 +158,7 @@ class AdminAlertService {
 					toEmail: admin.email,
 					payload: {
 						title: "A refund appeal is waiting for a decision",
-						summary: `An appeal for ${appeal.request.course.title} is still undecided (${daysLeft(appeal.deadlineAt, now)} days until its deadline). The instructor's share stays held until it is decided.`,
+						summary: `An appeal for ${appeal.request.course.title} is still undecided (${daysUntilDay14(appeal.request.payment.paidAt, appeal.deadlineAt, now)} days until day 14 of the payment). The instructor's share stays held until it is decided.`,
 						panelUrl: refundsUrl(),
 					},
 				});

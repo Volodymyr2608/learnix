@@ -16,6 +16,12 @@ export const formatRefundAmount = (amountCents: number, currency: string) =>
 const RESEND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const RESEND_BATCH = 50;
 
+/** Review M8: the first sentence of an approval email, without nesting ternaries. */
+const approvalOpening = (status: string): string =>
+	status === "overdue_approved"
+		? "Your appeal was not decided in time, so it was approved."
+		: "An admin approved your appeal.";
+
 const reachable = (email: string) => !email.endsWith(ANONYMISED_EMAIL_DOMAIN);
 
 class RefundNotificationsService {
@@ -48,7 +54,7 @@ class RefundNotificationsService {
 			new Date(now.getTime() - RESEND_WINDOW_MS),
 			RESEND_BATCH,
 		);
-		const decided = await refundAppealRepository.findUndecidedEmails(
+		const decided = await refundAppealRepository.findUnnotifiedDecisions(
 			new Date(now.getTime() - RESEND_WINDOW_MS),
 			RESEND_BATCH,
 		);
@@ -108,7 +114,7 @@ class RefundNotificationsService {
 					: `Your refund appeal for ${course.title} was approved`,
 				body: denied
 					? `An admin reviewed your appeal and did not approve it. The reason:\n\n${appeal.denialReason ?? ""}\n\nYou can see the decision and any attached files on your Purchases page.`
-					: `${appeal.status === "overdue_approved" ? "Your appeal was not decided in time, so it was approved." : "An admin approved your appeal."} We are refunding ${amount}; the money usually reaches your card in about 5–10 business days. Your access to the course and its progress will be closed.`,
+					: `${approvalOpening(appeal.status)} We are refunding ${amount}; the money usually reaches your card in about 5–10 business days. Your access to the course and its progress will be closed.`,
 			},
 		});
 	}

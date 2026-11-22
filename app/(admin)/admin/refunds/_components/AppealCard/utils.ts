@@ -1,5 +1,5 @@
 import type { RefundCondition } from "@/server/entities/refund/refund.dto";
-import type { ApproveBlocker } from "@/server/services/refund/refundAppealAdmin.service";
+import type { ApproveBlocker } from "@/server/entities/refund/refundAppeal.dto";
 
 const CONDITION: Record<RefundCondition, string> = {
 	window: "refund period ended",

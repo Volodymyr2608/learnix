@@ -336,4 +336,18 @@ describe("admin appeal decisions (FR-A1–A3, AC-F8, AC-C17, AC-C18)", () => {
 			).approval,
 		).toBeNull();
 	});
+
+	it("counts days left to day 14 of the payment, not to the filing deadline (review I5)", async () => {
+		await testDb.refundAppeal.update({
+			where: { id: appealId },
+			data: { deadlineAt: new Date(Date.now() + 20 * DAY) },
+		});
+
+		const queue = await callerFor(
+			adminId,
+			Role.ADMIN,
+		).refundAdmin.listOpenAppeals();
+
+		expect(queue[0]?.daysLeft).toBe(12);
+	});
 });

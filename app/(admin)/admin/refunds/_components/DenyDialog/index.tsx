@@ -36,11 +36,19 @@ export const DenyDialog = ({ appealId }: DenyDialogProps) => {
 		body.set("reason", reason.trim());
 		for (const file of files) body.append("files", file);
 		setSending(true);
-		const res = await fetch(`/api/admin/refunds/appeals/${appealId}/deny`, {
-			method: "POST",
-			body,
-		});
-		setSending(false);
+		let res: Response;
+		try {
+			res = await fetch(`/api/admin/refunds/appeals/${appealId}/deny`, {
+				method: "POST",
+				body,
+			});
+		} catch {
+			// Review I6: offline or a reset connection must not leave the button stuck.
+			toast.error("The connection failed. Please try again.");
+			return;
+		} finally {
+			setSending(false);
+		}
 		if (res.ok) {
 			toast.success("Appeal denied.");
 			setOpen(false);

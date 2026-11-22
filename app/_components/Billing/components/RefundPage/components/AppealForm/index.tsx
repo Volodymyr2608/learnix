@@ -39,8 +39,16 @@ export const AppealForm = ({ paymentId, openLabel }: AppealFormProps) => {
 		body.set("text", text.trim());
 		for (const file of files) body.append("files", file);
 		setSending(true);
-		const res = await fetch("/api/refunds/appeals", { method: "POST", body });
-		setSending(false);
+		let res: Response;
+		try {
+			res = await fetch("/api/refunds/appeals", { method: "POST", body });
+		} catch {
+			// Review I6: offline or a reset connection must not leave the button stuck.
+			toast.error("The connection failed. Please try again.");
+			return;
+		} finally {
+			setSending(false);
+		}
 		if (res.ok) {
 			router.refresh();
 			return;

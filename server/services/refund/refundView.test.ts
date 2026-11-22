@@ -318,3 +318,24 @@ describe("appeals on the row and the page (FR-S13–S18, V17)", () => {
 		});
 	});
 });
+
+describe("a payment refunded another way after a denial (review I3)", () => {
+	it("shows refunded and offers no appeal", () => {
+		const req = request({
+			decision: "auto_denied",
+			refundState: null,
+			failedConditions: ["window"],
+			createdAt: at(13 * DAY),
+		});
+		expect(
+			purchaseRefundRowState(row({ request: req, paymentRefunded: true }), NOW),
+		).toEqual({ kind: "status", status: "refunded" });
+		expect(
+			refundPageState(page({ request: req, paymentRefunded: true }), NOW),
+		).toMatchObject({
+			kind: "status",
+			status: "refunded",
+			appealDeadline: null,
+		});
+	});
+});

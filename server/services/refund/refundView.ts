@@ -23,12 +23,17 @@ import {
 export const refundWindowEndsAt = (paidAt: Date | null): Date | null =>
 	paidAt ? new Date(paidAt.getTime() + REFUND_WINDOW_MS) : null;
 
-const requestStatus = (request: {
-	decision: RefundRequestView["decision"];
-	refundState: RefundRequestView["refundState"];
-	appeal: { status: string } | null;
-}): RefundRequestStatus => {
+const requestStatus = (
+	request: {
+		decision: RefundRequestView["decision"];
+		refundState: RefundRequestView["refundState"];
+		appeal: { status: string } | null;
+	},
+	paymentRefunded: boolean,
+): RefundRequestStatus => {
 	if (request.appeal?.status === "open") return "under_review";
+	// Review I3: the money went back another way (exception, Dashboard) after a denial.
+	if (paymentRefunded) return "refunded";
 	if (request.appeal?.status === "denied") return "denied";
 	if (request.decision !== "auto_approved" && request.refundState === null)
 		return "denied";
@@ -46,7 +51,10 @@ export const purchaseRefundRowState = (
 	now: Date,
 ): PurchaseRefundRowState => {
 	if (facts.request)
-		return { kind: "status", status: requestStatus(facts.request) };
+		return {
+			kind: "status",
+			status: requestStatus(facts.request, facts.paymentRefunded),
+		};
 	const windowEndsAt = refundWindowEndsAt(facts.paidAt);
 	if (
 		facts.paymentRefunded ||
@@ -100,7 +108,7 @@ export const refundPageState = (
 ): RefundPageState => {
 	const { request } = facts;
 	if (request) {
-		const status = requestStatus(request);
+		const status = requestStatus(request, facts.paymentRefunded);
 		const appeal = request.appeal;
 		return {
 			kind: "status",
@@ -112,7 +120,9 @@ export const refundPageState = (
 			submittedAt: appeal?.createdAt ?? request.createdAt,
 			refundedAt: request.refundedAt,
 			failedConditions: request.failedConditions,
-			appealDeadline: openAppealDeadline(request, facts.paidAt, now),
+			appealDeadline: facts.paymentRefunded
+				? null
+				: openAppealDeadline(request, facts.paidAt, now),
 			adminDecision:
 				appeal?.status === "denied"
 					? {

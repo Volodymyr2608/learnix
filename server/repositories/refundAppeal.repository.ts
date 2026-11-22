@@ -140,7 +140,7 @@ class RefundAppealRepository extends BaseRepository<
 	}
 
 	/** Review I2 pattern: decided appeals since `since` whose student email has no log row. */
-	findUndecidedEmails(since: Date, limit: number) {
+	findUnnotifiedDecisions(since: Date, limit: number) {
 		return this.db.$queryRaw<{ id: string }[]>`
 			SELECT a.id
 			  FROM refund_appeals a
@@ -224,7 +224,12 @@ class RefundAppealRepository extends BaseRepository<
 				id: true,
 				kind: true,
 				deadlineAt: true,
-				request: { select: { course: { select: { title: true } } } },
+				request: {
+					select: {
+						course: { select: { title: true } },
+						payment: { select: { paidAt: true } },
+					},
+				},
 			},
 		});
 	}
