@@ -1444,3 +1444,37 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 4 plan: nine decisions the spec did not make (D1–D9)
+- **Stage:** plan
+- **Context the AI had:** `spec.md` FR-P18, P18a, P18b, FR-S2, FR-S11, DL, EC-18; `security.md` C12 and
+  the slice-3 risk "two reversers ignore the lost-dispute rule"; ADR-037 §1, §4. No reconnaissance
+  agent: every touched surface was written earlier in the same session
+- **AI proposed:**
+  - D1 — `Payment.disputeState` (open / won / lost) and `disputeUpdatedAt`;
+  - D2 — an event older than the stored one changes nothing (webhook and replay arrive out of order);
+  - D3 — `Payment.refundSource`, written by the effects function;
+  - D4 — D3 and the account limit count distinct payments: approved requests ∪ lost disputes;
+  - D5 — a processing request on a payment lost at the bank becomes `refunded_by_bank`;
+  - D6 — the release blocks on stored open / lost; Stripe's live `disputed` flag blocks only until the
+    stored state is `won` (the flag stays true after a win);
+  - D7 — `executeRefund` reads the stored state; Stripe's `charge_disputed` sets it open;
+  - D8 — the replay covers four event types under one cursor;
+  - D9 — only `lost` returns the money; every other closing status maps to `won`
+- **How I verified:** *Not verified by me* — I read the table and approved D1–D9 as proposed
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why a won dispute must not stay blocked by Stripe's flag
+  (D6), and why a request lost at the bank counts once (D4)*
+
+### 2026-11-22 — Slice 4 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan-slice-4.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - one parameter carries both the revocation reason and the refund source — the two enums have the
+    same four values;
+  - `charge_disputed` only sets the state when none is stored, so it never overwrites a won / lost
+    dispute; a second dispute after a win is seen through its own event;
+  - break-it run: dropping the event-order guard lets a late `dispute.created` reopen a won dispute
+- **How I verified:** *Not verified by me* (each task's test ran red, then green; unit 2537/2537)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

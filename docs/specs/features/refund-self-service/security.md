@@ -162,6 +162,13 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | C26 | Implemented: a closed conversation rejects sends from both sides; history readable | `messaging.service.ts` `send` |
 | AI-L13 | Implemented: concept checks and the learning-path cache are deleted with the course's records | `learningRecords.repository.ts` |
 
+### Slice 4 (disputes, 2026-11-22) — control status
+
+| C | Status | Where |
+|---|---|---|
+| C12 | Implemented except the page text: dispute events (webhook + replay) set `Payment.disputeState` in event order; the refund rules, `executeRefund` and the release read it; Stripe's `charge_disputed` sets it open; a won dispute is not blocked by Stripe's sticky `disputed` flag. The FR-S11 text and the Purchases row (no Stripe call on render) → slice 7 | `stripeEvent.service.ts`, `payment.repository.ts` `recordDisputeState`, `refund.service.ts`, `payout.repository.ts`, `connect.service.ts` |
+| DL | Implemented: a lost dispute applies the effects once (path `lost_dispute`, `refundSource` recorded), closes a processing request as `refunded_by_bank`, counts for D3 and the account limit once per payment, and never reverses a released share | `refundEffects.repository.ts`, `refundRequest.repository.ts`, `connect.service.ts` |
+
 ### Accepted for slice 3 only — close in the named slice
 
 Found by the slice-3 `/qa` review and audits (2026-11-22). The High (free re-activation of a
@@ -176,9 +183,8 @@ refunded paid course through `course.enroll`) and the correctness findings were 
 - **A poison event stalls the replay (review #6).** A `charge.refunded` whose handling keeps failing
   stops the replay at the cursor until Stripe drops it (30 days); the webhook still covers new
   events. Slice 5 (payout monitoring) surfaces it.
-- **Two reversers ignore the lost-dispute rule (review #5, Task 12 ruling).** `recordTransfer` and
-  the reversal retry reverse any refunded + transferred payment; the lost-dispute path (slice 4) must
-  exclude its payments from both.
+- ~~**Two reversers ignore the lost-dispute rule (review #5, Task 12 ruling).**~~ *Closed by slice 4:*
+  `recordTransfer` (`needsReversal`) and the reversal retry skip payments refunded by a lost dispute.
 - **A restored review keeps its first date (review #7).** Ordering and the shown date follow the
   first review. Cosmetic.
 - **The interest-profile recompute is not atomic or retried (LLM audit).** A failure leaves the old
