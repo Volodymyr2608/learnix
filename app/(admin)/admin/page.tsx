@@ -62,6 +62,12 @@ export default async function AdminPage() {
 					>
 						Open the payouts panel
 					</Link>
+					<Link
+						className="text-primary text-sm underline"
+						href="/admin/refunds"
+					>
+						Open refunds and appeals
+					</Link>
 				</div>
 			</div>
 		</div>
