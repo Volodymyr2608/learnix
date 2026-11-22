@@ -1,6 +1,7 @@
 import { CourseStatus, EnrollmentStatus, Prisma } from "@/generated/prisma";
 import { COURSE_PAGE_SIZE } from "@/lib/constants/pagination";
 import { env } from "@/lib/env";
+import { conversationRepository } from "@/server/repositories/conversation.repository";
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { userRepository } from "@/server/repositories/user.repository";
@@ -79,6 +80,11 @@ class EnrollmentService {
 					certificateRevokedAt: null,
 					certificateRevokedReason: null,
 				});
+				// R5: the conversation a refund closed reopens with the new purchase.
+				await conversationRepository.reopenForStudentCourse(
+					studentId,
+					courseId,
+				);
 			}
 
 			void embeddingsService
