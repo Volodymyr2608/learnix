@@ -30,3 +30,6 @@ export class ConnectNotReadyError extends PaymentError {
 		super("Stripe account is not ready", "BAD_REQUEST", undefined, ctx);
 	}
 }
+
+/** AC-F11: an admin "Retry" on a payment that does not exist or is not in a retryable state. */
+export class PayoutRetryError extends DomainError {}

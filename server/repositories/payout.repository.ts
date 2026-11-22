@@ -94,6 +94,10 @@ class PayoutRepository extends BaseRepository<
 		return rows.flatMap((r) => byId.get(r.id) ?? []);
 	}
 
+	findPayment(paymentId: string): Promise<Payment | null> {
+		return this.db.payment.findUnique({ where: { id: paymentId } });
+	}
+
 	/** M9: held sales — what the panel sums. */
 	findHeld() {
 		return this.db.payment.findMany({

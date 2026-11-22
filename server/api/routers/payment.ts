@@ -9,6 +9,8 @@ import { paymentRepository } from "@/server/repositories/payment.repository";
 import { connectService } from "@/server/services/payments/connect.service";
 import { paymentService } from "@/server/services/payments/payment.service";
 import { payoutJobService } from "@/server/services/payments/payoutJob.service";
+import { payoutMonitorService } from "@/server/services/payments/payoutMonitor.service";
+import { refundService } from "@/server/services/refund/refund.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 import {
 	adminProcedure,
@@ -152,4 +154,53 @@ export const paymentRouter = createTRPCRouter({
 		}
 		return summary;
 	}),
+
+	/** FR-A8 / AC-F11: the admin Payouts panel (C17: admin only). */
+	getPayoutStatus: adminProcedure.query(async () => {
+		try {
+			return await payoutMonitorService.getStatus(new Date());
+		} catch (error) {
+			throw handleServiceError(error);
+		}
+	}),
+
+	/** AC-F11 / M8: Retry for an overdue refund — the same executeRefund the job uses. */
+	retryRefund: adminProcedure
+		.input(z.object({ requestId: z.string().min(1).max(64) }))
+		.mutation(async ({ input }) => {
+			try {
+				const status = await refundService.executeRefund(
+					input.requestId,
+					new Date(),
+				);
+				return { status };
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
+
+	retryRelease: adminProcedure
+		.input(z.object({ paymentId: z.string().min(1).max(64) }))
+		.mutation(async ({ input }) => {
+			try {
+				const outcome = await payoutJobService.retryRelease(
+					input.paymentId,
+					new Date(),
+				);
+				return { outcome };
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
+
+	retryReversal: adminProcedure
+		.input(z.object({ paymentId: z.string().min(1).max(64) }))
+		.mutation(async ({ input }) => {
+			try {
+				const outcome = await payoutJobService.retryReversal(input.paymentId);
+				return { outcome };
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
 });

@@ -14,6 +14,7 @@ import { refundService } from "@/server/services/refund/refund.service";
 import { logger } from "@/server/utils/logger";
 import { adminAlertService } from "./adminAlert.service";
 import { connectService } from "./connect.service";
+import { PayoutRetryError } from "./payment.errors";
 import { PAYOUT_BATCH_SIZE, PAYOUT_LOCK_TTL_MS } from "./payoutJob.constants";
 import { getRunLock } from "./runLock";
 import { stripe } from "./stripe.client";
@@ -248,6 +249,37 @@ class PayoutJobService {
 		});
 		const { processed, released, failed } = batch;
 		return { runId: run.id, processed, released, failed };
+	}
+
+	/**
+	 * AC-F11 / M8: the admin's "Retry" for one stuck transfer — the same release function and
+	 * predicate as the job, for this payment only, with no run row.
+	 */
+	async retryRelease(
+		paymentId: string,
+		now: Date,
+	): Promise<ReleaseOutcome["kind"]> {
+		const payment = await payoutRepository.findPayment(paymentId);
+		if (!payment) throw new PayoutRetryError("Payment not found", "NOT_FOUND");
+		const outcome = await connectService.releasePayment(payment, now);
+		return outcome.kind;
+	}
+
+	/** AC-F11 / M8: the admin's "Retry" for a refunded payment whose share was not reversed. */
+	async retryReversal(paymentId: string): Promise<"reversed"> {
+		const payment = await payoutRepository.findPayment(paymentId);
+		if (!payment) throw new PayoutRetryError("Payment not found", "NOT_FOUND");
+		const reversible =
+			payment.transferStatus === "transferred" &&
+			(await payoutRepository.needsReversal(paymentId));
+		if (!reversible) {
+			throw new PayoutRetryError(
+				"This payment needs no reversal",
+				"BAD_REQUEST",
+			);
+		}
+		await connectService.reverseTransfer(payment);
+		return "reversed";
 	}
 }
 
