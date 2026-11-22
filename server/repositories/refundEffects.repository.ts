@@ -35,15 +35,25 @@ export const refundEffectsRepository = {
 	): Promise<void> {
 		const { id, studentId, courseId } = payment;
 
+		// FR-P18b (D3): the payment records which path refunded it.
+		await tx.payment.update({
+			where: { id },
+			data: { refundSource: reason },
+		});
 		// FR-P7: a held share is cancelled; a released one is reversed after commit.
 		await tx.payment.updateMany({
 			where: { id, transferStatus: "pending" },
 			data: { transferStatus: "cancelled" },
 		});
-		// FR-S20 → refunded: a processing request on this payment is done.
+		// FR-S20 → refunded: a processing request on this payment is done — by the bank after a
+		// lost dispute, so no Stripe refund is ever retried for it (D5).
 		await tx.refundRequest.updateMany({
 			where: { paymentId: id, refundState: "processing" },
-			data: { refundState: "refunded", refundedAt: now },
+			data: {
+				refundState:
+					reason === "lost_dispute" ? "refunded_by_bank" : "refunded",
+				refundedAt: now,
+			},
 		});
 
 		// FR-P8 (DC): while another paid purchase of the course stands, the student keeps the

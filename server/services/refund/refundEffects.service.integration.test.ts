@@ -231,4 +231,45 @@ describe("refundEffectsService.apply (FR-P6–P13, C8)", () => {
 		).toBe(false);
 		expect((await reload(payment.id)).enrollment.status).toBe("completed");
 	});
+
+	it.each([
+		"refund_request",
+		"dashboard_refund",
+		"admin_exception",
+		"lost_dispute",
+	] as const)("records the refund source %s on the payment (D3)", async (path) => {
+		const payment = await seedPayment();
+
+		await refundEffectsService.apply({ paymentId: payment.id, path, now: NOW });
+
+		expect((await reload(payment.id)).payment.refundSource).toBe(path);
+	});
+
+	it("closes a processing request as refunded by the bank after a lost dispute (D5, FR-P18b)", async () => {
+		const payment = await seedPayment();
+		const request = await makeRefundRequest({
+			paymentId: payment.id,
+			studentId: ids.studentId,
+			courseId: ids.courseId,
+			refundState: "processing",
+		});
+
+		await refundEffectsService.apply({
+			paymentId: payment.id,
+			path: "lost_dispute",
+			now: NOW,
+		});
+
+		const after = await reload(payment.id);
+		expect(
+			await testDb.refundRequest.findUniqueOrThrow({
+				where: { id: request.id },
+			}),
+		).toMatchObject({ refundState: "refunded_by_bank", refundedAt: NOW });
+		expect(after.payment.transferStatus).toBe("cancelled");
+		expect(after.enrollment).toMatchObject({
+			status: "cancelled",
+			certificateRevokedReason: "lost_dispute",
+		});
+	});
 });
