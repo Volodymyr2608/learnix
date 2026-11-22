@@ -121,7 +121,10 @@ where an unopened lesson would have ranked in the top-k (the usefulness cost). R
 Found by the `/qa` audit of slice 1 (2026-11-22). Each is unreachable while `REFUND_STUDENT_ENABLED`
 is off, because the flag check runs before any database work (C24); each is a Release checklist item.
 
-- **Lock wait holds pool connections (Medium before flag-on).** `refund.request` opens an
+- ~~**Lock wait holds pool connections (Medium before flag-on).**~~ *Closed by slice 7 (U9):* 5
+  requests per student per minute before any transaction, and `lock_timeout` 2 s on the student
+  lock, both a typed `TOO_MANY_REQUESTS` with nothing written (`refundLimiter.integration.test.ts`).
+  The original note: `refund.request` opens an
   interactive transaction and then waits on the per-student advisory lock (C4); the lock is taken
   before the payment is checked and there is no rate limit. One student keeping ~20 requests in
   flight can hold most of the Prisma pool; other users' queries time out (P2024) and the refund
@@ -168,6 +171,17 @@ is off, because the flag check runs before any database work (C24); each is a Re
 |---|---|---|
 | C12 | Implemented except the page text: dispute events (webhook + replay) set `Payment.disputeState` in event order; the refund rules, `executeRefund` and the release read it; Stripe's `charge_disputed` sets it open; a won dispute is not blocked by Stripe's sticky `disputed` flag. The FR-S11 text and the Purchases row (no Stripe call on render) → slice 7 | `stripeEvent.service.ts`, `payment.repository.ts` `recordDisputeState`, `refund.service.ts`, `payout.repository.ts`, `connect.service.ts` |
 | DL | Implemented: a lost dispute applies the effects once (path `lost_dispute`, `refundSource` recorded), closes a processing request as `refunded_by_bank`, counts for D3 and the account limit once per payment, and never reverses a released share | `refundEffects.repository.ts`, `refundRequest.repository.ts`, `connect.service.ts` |
+
+### Slice 7 (student UI and `/pricing`, 2026-11-22) — control status
+
+| C | Status | Where |
+|---|---|---|
+| C1 | Implemented for the new read and the page: `refund.getForPayment` loads the payment where `id` **and** the session's student; another student's id → NOT_FOUND, and the page renders a plain 404 | `refundRequest.repository.ts` `findForStudentView`, `app/dashboard/billing/[paymentId]/refund/page.tsx` |
+| C22 | Student half: the refund page shows the student's reason text as React text; `noRawHtml.contract.test.ts` forbids `dangerouslySetInnerHTML` under `app/_components/Billing/`. The admin queue half → slice 8 | `RefundStatusView` |
+| C23 | Implemented for the read and the emails: the page state carries no `refundError` or Stripe id (key-path test); the page shows the fixed FR-S20 text; `refund.done` / `refund.denied` payloads are strict, with fixed labels | `refundView.dto.ts`, `refund.getForPayment.integration.test.ts`, `email.templates.ts` |
+| C24 | Implemented for the read: flag off → NOT_FOUND before any query; the Purchases list carries no refund state; `/pricing` and the course page keep today's text | `refund.service.ts` `getRefundPage`, `billing.service.ts` |
+
+The slice-1 accepted item "Lock wait holds pool connections" is closed (above). `/qa` audit: `security-auditor` only — no AI surface in this slice.
 
 ### Slice 6 (content gate, 2026-11-22) — control status
 

@@ -1627,3 +1627,44 @@ The IDP review needs 2–3 vivid examples:
 - **Why:** *TODO (me): in my own words — whether ADR-038 is worth a separate ADR or belongs in
   ADR-037*
 
+### 2026-11-22 — Slice 7 plan: thirteen decisions the spec did not make (U1–U13)
+- **Stage:** plan
+- **Context the AI had:** `spec.md` FR-S1–S12, S19–S21, FR-P21, User flow → Student; `security.md`
+  C1, C22–C24 and the slice-1 accepted items; codebase anchors from one `feature-dev:code-explorer` pass
+- **AI found while planning:** no student read of a refund existed; the Purchases rows carried no
+  `paidAt`, dispute or request state; `/pricing`, the course card and the purchase dialog still promise
+  "30-day money-back"; only one of the seven student emails existed
+- **AI proposed:**
+  - U1 — two pure state functions (row, page) decide everything; the UI switches on `kind`;
+  - U2/U3 — precedence: the request's status first; the row never counts lessons or the account limit;
+  - U4 — the over-limit page names the condition and numbers, with no appeal button until slice 8;
+  - U5/U6 — `refund.getForPayment`, the same NOT_FOUND for flag off / not yours; a DTO with no Stripe text;
+  - U7 — the list carries the row state with two batched reads; U8 — local form state, re-read after submit;
+  - U9 — close the slice-1 limiter item now (the page gives the endpoint a button);
+  - U10 — "refund done" once behind the refund CAS, "denied" once after commit; strict payloads;
+  - U11 — `/pricing` and the course page change with the flag; U12 — plain-text rendering + contract test;
+  - U13 — split `BillingHistoryList` per the conventions
+- **How I verified:** *Not verified by me* — I read the table and approved U1–U13 as proposed
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why the over-limit page ships without the appeal button (U4),
+  and why the limiter was pulled forward (U9)*
+
+### 2026-11-22 — Slice 7 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan-slice-7.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - a payment refunded on the Dashboard (no request) needed its own page state, `payment_refunded`;
+  - the read returns the course title with the state, for the page header;
+  - "no N+1" is proven by a fixed count of repository reads for 1 and 5 purchases — the test and app
+    database clients are separate, so a SQL query counter would miss the app's queries;
+  - `sendOnce` moved to `server/services/email/` and is shared with the payout alerts;
+  - condition, reason and policy texts live in pure `server/entities/refund/` modules, used by the
+    client components and the emails alike;
+  - the flag reaches the client course card and purchase dialog through a display-only context in
+    the root layout, instead of a prop threaded through four components;
+  - break-it checks: dropping `studentId` from the read's `where`, removing the limiter call, and adding
+    `dangerouslySetInnerHTML` under Billing each turn a test red
+- **How I verified:** *Not verified by me* (each task's test ran red, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
