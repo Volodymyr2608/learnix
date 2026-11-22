@@ -11,6 +11,10 @@ export const formatRefundAmount = (amountCents: number, currency: string) =>
 		currency: currency.toUpperCase(),
 	}).format(amountCents / 100);
 
+/** Review I2: how far back the daily sweep re-sends, and how many per run. */
+const RESEND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const RESEND_BATCH = 50;
+
 const reachable = (email: string) => !email.endsWith(ANONYMISED_EMAIL_DOMAIN);
 
 class RefundNotificationsService {
@@ -30,6 +34,26 @@ class RefundNotificationsService {
 				amount: formatRefundAmount(payment.amountCents, payment.currency),
 			},
 		});
+	}
+
+	/**
+	 * Review I2: re-sends a refund-done or denial email whose send failed (no log row). Runs from
+	 * the daily watchdog; every send is de-duplicated, so a second run sends nothing.
+	 */
+	async resendMissing(now: Date): Promise<number> {
+		const missing = await refundRequestRepository.findUnnotifiedOutcomes(
+			new Date(now.getTime() - RESEND_WINDOW_MS),
+			RESEND_BATCH,
+		);
+		for (const row of missing) {
+			if (row.decision === "auto_denied")
+				await this.refundDenied(
+					row.id,
+					row.failed_conditions as RefundCondition[],
+				);
+			else await this.refundDone(row.payment_id);
+		}
+		return missing.length;
 	}
 
 	/** U10: an automatic denial — once per request, naming the first failed condition. */

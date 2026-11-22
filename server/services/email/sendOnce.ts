@@ -5,7 +5,8 @@ import { logger } from "@/server/utils/logger";
 
 /**
  * M5: one email per de-dup key. The key is logged first, so concurrent callers send once; a failed
- * send deletes it again, so the next attempt retries instead of staying silent.
+ * send deletes it again, so a later call can retry. Callers that run once must be re-driven by a
+ * sweep (the payout watchdog re-sends refund emails, review I2).
  */
 export const sendOnce = async (input: {
 	dedupKey: string;

@@ -84,6 +84,9 @@ const faqs = [
 	},
 ];
 
+/** Review I4: the refund policy follows the flag at request time, never the build-time value. */
+export const dynamic = "force-dynamic";
+
 export default function PricingPage() {
 	// U11: the policy changes with the student flag; until then today's promise stands.
 	const refundsEnabled = isStudentRefundEnabled();

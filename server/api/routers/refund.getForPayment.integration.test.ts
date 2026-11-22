@@ -144,7 +144,10 @@ describe("refund.getForPayment", () => {
 			paymentId: payment.id,
 		});
 
-		expect(state?.state).toMatchObject({ kind: "status", status: "processing" });
+		expect(state?.state).toMatchObject({
+			kind: "status",
+			status: "processing",
+		});
 		for (const key of [
 			"refundError",
 			"stripeRefundId",

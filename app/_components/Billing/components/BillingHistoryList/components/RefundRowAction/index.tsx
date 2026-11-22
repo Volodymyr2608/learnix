@@ -1,47 +1,45 @@
-"use client";
-
 import Link from "next/link";
-import { Badge } from "@/app/_components/_shared/ui/badge";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@/app/_components/_shared/ui/tooltip";
 import type { RefundRowActionProps } from "./types";
 import {
 	REFUND_POLICY_HREF,
+	refundDeadlineText,
 	refundPageHref,
 	refundStatusLabel,
-	refundTooltipText,
 } from "./utils";
 
-/** FR-S1, S8–S12: the row's refund action, its status, or nothing — decided on the server. */
+const LINK_CLASS =
+	"text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline";
+
+/**
+ * FR-S1, S8–S12: the row's refund action, or its status as a link to the details, or nothing —
+ * decided on the server. The deadline and the policy link are visible text, not a tooltip, so
+ * keyboard and touch users reach them too (review I3).
+ */
 export const RefundRowAction = ({
 	paymentId,
 	refund,
 }: RefundRowActionProps) => {
 	if (!refund || refund.kind === "none") return null;
 	if (refund.kind === "status")
-		return <Badge variant="outline">{refundStatusLabel(refund.status)}</Badge>;
+		return (
+			<Link className={LINK_CLASS} href={refundPageHref(paymentId)}>
+				{refundStatusLabel(refund.status)}
+			</Link>
+		);
 	return (
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Link
-						className="text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline"
-						href={refundPageHref(paymentId)}
-					>
-						Request a refund
-					</Link>
-				</TooltipTrigger>
-				<TooltipContent className="space-y-1">
-					<p>{refundTooltipText(refund.windowEndsAt)}</p>
-					<Link className="underline" href={REFUND_POLICY_HREF}>
-						Refund policy
-					</Link>
-				</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
+		<div className="flex flex-col items-end gap-0.5">
+			<Link className={LINK_CLASS} href={refundPageHref(paymentId)}>
+				Request a refund
+			</Link>
+			<span className="text-muted-foreground text-xs">
+				{refundDeadlineText(refund.windowEndsAt)} ·{" "}
+				<Link
+					className="underline underline-offset-2"
+					href={REFUND_POLICY_HREF}
+				>
+					Refund policy
+				</Link>
+			</span>
+		</div>
 	);
 };

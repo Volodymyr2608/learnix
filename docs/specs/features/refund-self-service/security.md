@@ -183,6 +183,17 @@ is off, because the flag check runs before any database work (C24); each is a Re
 
 The slice-1 accepted item "Lock wait holds pool connections" is closed (above). `/qa` audit: `security-auditor` only — no AI surface in this slice.
 
+**Accepted for slice 7 only (from `/qa`):**
+- **The status read has no rate limit** (audit I-1): `refund.getForPayment` is an authenticated
+  read (1 + 4 queries, no lock, nothing written). Add the request limiter's pattern on its own key if
+  read volume becomes a pool concern.
+- **Client components outside `/pricing` read the flag through the root layout** (audit I-2, review
+  I4): `/pricing` now renders per request (`force-dynamic`, pinned by a contract test); a prerendered
+  page's course-card text would still hold the build-time value. Release checklist: flipping
+  `REFUND_STUDENT_ENABLED` is done by a redeploy (Vercel rebuilds on an env change).
+- **`isLockTimeout` matches the message text** (audit I-3): a Prisma upgrade that changes it turns a
+  busy lock into a generic 500 — nothing written, no detail leaked; the limiter test pins today's form.
+
 ### Slice 6 (content gate, 2026-11-22) — control status
 
 | C | Status | Where |

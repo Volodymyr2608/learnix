@@ -1,4 +1,5 @@
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
+import { refundNotificationsService } from "@/server/services/refund/refundNotifications.service";
 import { adminAlertService } from "./adminAlert.service";
 import { REFUND_OVERDUE_MS } from "./payoutMonitorRules";
 
@@ -10,7 +11,9 @@ class PayoutWatchdogService {
 	 * M3: runs on its own daily cron, so a dead or failing release run is still noticed. Every
 	 * email it sends is de-duplicated (M6), so running it again sends nothing new.
 	 */
-	async check(now: Date): Promise<{ stale: boolean; overdueRefunds: number }> {
+	async check(
+		now: Date,
+	): Promise<{ stale: boolean; overdueRefunds: number; resentEmails: number }> {
 		const stale = await adminAlertService.checkStale(now);
 		const overdue = await refundRequestRepository.findOverdueIds(
 			new Date(now.getTime() - REFUND_OVERDUE_MS),
@@ -19,7 +22,9 @@ class PayoutWatchdogService {
 		for (const requestId of overdue) {
 			await adminAlertService.refundOverdue(requestId);
 		}
-		return { stale, overdueRefunds: overdue.length };
+		// Review I2: a student refund email whose send failed is retried here, once a day.
+		const resentEmails = await refundNotificationsService.resendMissing(now);
+		return { stale, overdueRefunds: overdue.length, resentEmails };
 	}
 }
 

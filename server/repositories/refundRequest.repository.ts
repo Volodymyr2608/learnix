@@ -206,6 +206,35 @@ class RefundRequestRepository extends BaseRepository<
 		return new Set([...requests, ...lostDisputes].map((r) => r.courseId));
 	}
 
+	/**
+	 * Review I2: refund outcomes since `since` whose student email has no notification-log row —
+	 * a send that failed (the key is deleted on failure). The keys match
+	 * `refundNotificationsService`.
+	 */
+	findUnnotifiedOutcomes(since: Date, limit: number) {
+		return this.db.$queryRaw<
+			{
+				id: string;
+				payment_id: string;
+				decision: "auto_approved" | "auto_denied";
+				failed_conditions: string[];
+			}[]
+		>`
+			SELECT r.id, r.payment_id, r.decision, r.failed_conditions
+			  FROM refund_requests r
+			 WHERE (
+			         (r.decision = 'auto_denied' AND r.created_at >= ${since}::timestamp
+			          AND NOT EXISTS (SELECT 1 FROM notification_logs n
+			                           WHERE n."dedupKey" = r.student_id || ':refund_denied:' || r.id))
+			      OR (r.decision = 'auto_approved' AND r.refund_state = 'refunded'
+			          AND r.refunded_at >= ${since}::timestamp
+			          AND NOT EXISTS (SELECT 1 FROM notification_logs n
+			                           WHERE n."dedupKey" = r.student_id || ':refund_done:' || r.payment_id))
+			       )
+			 ORDER BY r.created_at
+			 LIMIT ${limit}`;
+	}
+
 	/** FR-S20: the request and the payment fields the Stripe refund needs. */
 	findForRefund(requestId: string) {
 		return this.db.refundRequest.findUnique({

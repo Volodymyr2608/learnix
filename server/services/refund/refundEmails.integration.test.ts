@@ -28,6 +28,9 @@ vi.mock("@/server/services/payments/stripe.client", () => ({
 }));
 
 const { refundService } = await import("./refund.service");
+const { refundNotificationsService } = await import(
+	"./refundNotifications.service"
+);
 const { refundEffectsService } = await import("./refundEffects.service");
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -165,5 +168,52 @@ describe("student refund emails (U10, AC-F21)", () => {
 				text: "x",
 			}).success,
 		).toBe(false);
+	});
+
+	describe("a failed send is retried by the next daily sweep (review I2)", () => {
+		it("re-sends a denial whose first send failed, once", async () => {
+			await seed(new Date(Date.now() - 15 * DAY));
+			send.mockRejectedValueOnce(new Error("resend down"));
+
+			await refundService.requestRefund(student.id, {
+				paymentId,
+				reason: "other",
+			});
+			expect(sentWith("refund.denied")).toHaveLength(1); // the failed attempt
+
+			await refundNotificationsService.resendMissing(new Date());
+			await refundNotificationsService.resendMissing(new Date());
+
+			expect(sentWith("refund.denied")).toHaveLength(2); // + one retry, no more
+		});
+
+		it("re-sends 'refund done' whose first send failed, once", async () => {
+			await seed();
+			send.mockRejectedValueOnce(new Error("resend down"));
+
+			await refundService.requestRefund(student.id, {
+				paymentId,
+				reason: "too_easy",
+			});
+			expect(sentWith("refund.done")).toHaveLength(1);
+
+			await refundNotificationsService.resendMissing(new Date());
+			await refundNotificationsService.resendMissing(new Date());
+
+			expect(sentWith("refund.done")).toHaveLength(2);
+		});
+
+		it("sends nothing when every email already went out", async () => {
+			await seed();
+			await refundService.requestRefund(student.id, {
+				paymentId,
+				reason: "too_easy",
+			});
+			send.mockClear();
+
+			await refundNotificationsService.resendMissing(new Date());
+
+			expect(send).not.toHaveBeenCalled();
+		});
 	});
 });

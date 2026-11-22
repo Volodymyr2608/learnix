@@ -1668,3 +1668,24 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
 
+### 2026-11-22 — Slice 7 /qa: what the review and the audit changed
+- **Stage:** validation
+- **Context the AI had:** the slice-7 diff (975c801..a2f2b1c), `build/plan-slice-7.md`, `spec.md`,
+  `security.md`; one fresh code reviewer (Opus) and `security-auditor` (no AI surface, so no LLM audit)
+- **AI found:**
+  - review (Important) — the row's status was a plain badge, so the refund page (denied conditions,
+    FR-S20 text) was unreachable though the denial email points there → the status is a link to the
+    details ("Refund details" for a refunded row, so "Refunded" no longer shows twice);
+  - review (Important) — a failed `refund.done` / `refund.denied` send was never retried (each is sent
+    once) → the daily payout watchdog re-sends any refund outcome of the last 7 days with no log row;
+  - review (Important) — the deadline and the policy link sat in a hover tooltip, unreachable by
+    keyboard and touch → visible text next to the action;
+  - review (Important) + audit (I-2) — `/pricing` was prerendered with the build-time flag →
+    `force-dynamic`, pinned by a contract test, and a Release-checklist note;
+  - audit (Low L-1) — a malformed id in the refund URL showed the error page → a plain 404;
+  - every slice-7 control implemented (C1, C2, C22 student half, C23, C24; the slice-1 lock-wait item
+    closed); audit I-1, I-3 and review minors recorded
+- **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+
