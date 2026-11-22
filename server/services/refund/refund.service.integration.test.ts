@@ -272,6 +272,45 @@ describe("refundService.requestRefund", () => {
 		]);
 	});
 
+	it("denies a refund while a dispute is open, naming it (FR-S2, AC-C12)", async () => {
+		const { studentId, paymentId } = await seedPurchase({});
+		await testDb.payment.update({
+			where: { id: paymentId },
+			data: { disputeState: "open" },
+		});
+
+		const result = await request(studentId, paymentId);
+
+		expect(result).toMatchObject({
+			decision: "auto_denied",
+			failedConditions: ["dispute"],
+		});
+		expect(stripeMock.refundsCreate).not.toHaveBeenCalled();
+	});
+
+	it("refunds after a won dispute even though Stripe's disputed flag stays true (D6, D7)", async () => {
+		const { studentId, paymentId } = await seedPurchase({});
+		await testDb.payment.update({
+			where: { id: paymentId },
+			data: { disputeState: "won" },
+		});
+		stripeMock.piRetrieve.mockResolvedValue({
+			latest_charge: {
+				id: "ch_1",
+				amount: 4999,
+				disputed: true,
+				refunded: false,
+			},
+		});
+
+		const result = await request(studentId, paymentId);
+
+		expect(result).toMatchObject({
+			decision: "auto_approved",
+			refundStatus: "refunded",
+		});
+	});
+
 	it("counts a lost dispute toward the account limit (DL, AC-F22)", async () => {
 		const { studentId, paymentId } = await seedPurchase({});
 		await seedAccountLimitRefunds(studentId, 2);

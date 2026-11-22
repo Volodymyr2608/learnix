@@ -24,6 +24,10 @@ vi.mock("@/server/repositories/refundRequest.repository", () => ({
 }));
 const effects = vi.hoisted(() => ({ apply: vi.fn() }));
 vi.mock("./refundEffects.service", () => ({ refundEffectsService: effects }));
+const payments = vi.hoisted(() => ({ markDisputeOpen: vi.fn() }));
+vi.mock("@/server/repositories/payment.repository", () => ({
+	paymentRepository: payments,
+}));
 
 const { refundService } = await import("./refund.service");
 
@@ -39,7 +43,11 @@ describe("refundService.executeRefund (FR-S6, FR-S20, C2, C3, C12)", () => {
 		repo.findForRefund.mockResolvedValue({
 			id: "req_1",
 			refundState: "processing",
-			payment: { id: "pay_1", stripePaymentIntentId: "pi_1" },
+			payment: {
+				id: "pay_1",
+				stripePaymentIntentId: "pi_1",
+				disputeState: null,
+			},
 		});
 		stripeMock.refundsList.mockResolvedValue({ data: [] });
 		stripeMock.refundsCreate.mockResolvedValue({
@@ -86,6 +94,38 @@ describe("refundService.executeRefund (FR-S6, FR-S20, C2, C3, C12)", () => {
 			{ idempotencyKey: "refund:pay_1" },
 		);
 		expect(repo.recordStripeRefund).toHaveBeenCalledWith("req_1", "re_1");
+	});
+
+	it("records Stripe's charge_disputed as the dispute state, not a failure (FR-P18, D7)", async () => {
+		stripeMock.refundsCreate.mockRejectedValue(
+			new Stripe.errors.StripeInvalidRequestError({
+				type: "invalid_request_error",
+				code: "charge_disputed",
+				message: "Charge ch_1 has been charged back.",
+			}),
+		);
+
+		expect(await refundService.executeRefund("req_1", NOW)).toBe("processing");
+		expect(payments.markDisputeOpen).toHaveBeenCalledWith("pay_1");
+		expect(repo.recordRefundError).toHaveBeenCalledWith(
+			"req_1",
+			"charge disputed",
+		);
+	});
+
+	it("refuses on a stored open dispute without calling Stripe for a refund (D7)", async () => {
+		repo.findForRefund.mockResolvedValue({
+			id: "req_1",
+			refundState: "processing",
+			payment: {
+				id: "pay_1",
+				stripePaymentIntentId: "pi_1",
+				disputeState: "open",
+			},
+		});
+
+		expect(await refundService.executeRefund("req_1", NOW)).toBe("processing");
+		expect(stripeMock.refundsCreate).not.toHaveBeenCalled();
 	});
 
 	it("treats charge_already_refunded as success (AC-C3)", async () => {

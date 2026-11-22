@@ -73,6 +73,14 @@ class PaymentRepository extends BaseRepository<
 		return rows[0]?.id ?? null;
 	}
 
+	/** FR-P18: Stripe says the charge is disputed before its dispute event arrived. */
+	async markDisputeOpen(paymentId: string): Promise<void> {
+		await this.db.payment.updateMany({
+			where: { id: paymentId, disputeState: null },
+			data: { disputeState: "open" },
+		});
+	}
+
 	findByPaymentIntentId(stripePaymentIntentId: string) {
 		return this.findFirst({ where: { stripePaymentIntentId } });
 	}

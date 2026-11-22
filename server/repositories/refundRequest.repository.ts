@@ -44,7 +44,13 @@ class RefundRequestRepository extends BaseRepository<
 				studentId,
 				status: { in: ["succeeded", "refunded"] },
 			},
-			select: { id: true, courseId: true, paidAt: true, status: true },
+			select: {
+				id: true,
+				courseId: true,
+				paidAt: true,
+				status: true,
+				disputeState: true,
+			},
 		});
 	}
 
@@ -128,7 +134,9 @@ class RefundRequestRepository extends BaseRepository<
 			select: {
 				id: true,
 				refundState: true,
-				payment: { select: { id: true, stripePaymentIntentId: true } },
+				payment: {
+					select: { id: true, stripePaymentIntentId: true, disputeState: true },
+				},
 			},
 		});
 	}

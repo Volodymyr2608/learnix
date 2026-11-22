@@ -6,6 +6,7 @@ import type {
 	RefundRequestInput,
 } from "@/server/entities/refund/refund.dto";
 import { openedLessonRepository } from "@/server/repositories/openedLesson.repository";
+import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { stripe } from "@/server/services/payments/stripe.client";
 import {
@@ -30,6 +31,15 @@ export type RefundRequestResult = {
 const isUniqueViolation = (error: unknown): boolean =>
 	error instanceof Prisma.PrismaClientKnownRequestError &&
 	error.code === "P2002";
+
+/** FR-P18: Stripe refused the refund because the charge is disputed. */
+class ChargeDisputedError extends Error {}
+
+/** The admin-only text stored on the request (C23). */
+const refundErrorText = (error: unknown): string => {
+	if (error instanceof ChargeDisputedError) return "charge disputed";
+	return error instanceof Error ? error.message : String(error);
+};
 
 class RefundService {
 	/**
@@ -100,8 +110,8 @@ class RefundService {
 						hasCertificate,
 						hasEarlierCountingRefund,
 						accountLimitRefunds12m,
-						// P2: no dispute state is stored until the disputes slice.
-						hasOpenDispute: false,
+						// FR-S2 / FR-P18a: the stored dispute state, never a Stripe call.
+						hasOpenDispute: payment.disputeState === "open",
 					},
 					now,
 				);
@@ -152,7 +162,11 @@ class RefundService {
 		const request = await refundRequestRepository.findForRefund(requestId);
 		if (!request || request.refundState !== "processing") return "refunded";
 		await refundRequestRepository.markAttempt(requestId, now);
-		const { id: paymentId, stripePaymentIntentId } = request.payment;
+		const {
+			id: paymentId,
+			stripePaymentIntentId,
+			disputeState,
+		} = request.payment;
 		if (!stripePaymentIntentId) {
 			await refundRequestRepository.recordRefundError(
 				requestId,
@@ -167,7 +181,12 @@ class RefundService {
 			});
 			const charge =
 				typeof pi.latest_charge === "object" ? pi.latest_charge : null;
-			if (charge?.disputed) {
+			// D7 / C12: the stored state decides; Stripe's flag stays true after a won dispute, so
+			// it only refuses while the stored state has not seen the dispute won.
+			const disputed =
+				disputeState === "open" ||
+				(charge?.disputed === true && disputeState !== "won");
+			if (disputed) {
 				await refundRequestRepository.recordRefundError(
 					requestId,
 					"charge disputed",
@@ -193,7 +212,7 @@ class RefundService {
 		} catch (error) {
 			await refundRequestRepository.recordRefundError(
 				requestId,
-				error instanceof Error ? error.message : String(error),
+				refundErrorText(error),
 			);
 			return "processing";
 		}
@@ -236,6 +255,14 @@ class RefundService {
 				error.code === "charge_already_refunded"
 			) {
 				return null;
+			}
+			// FR-P18: a charge disputed meanwhile is the dispute state, not a failure.
+			if (
+				error instanceof Stripe.errors.StripeError &&
+				error.code === "charge_disputed"
+			) {
+				await paymentRepository.markDisputeOpen(paymentId);
+				throw new ChargeDisputedError();
 			}
 			throw error;
 		}
