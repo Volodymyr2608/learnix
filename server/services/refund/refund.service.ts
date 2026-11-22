@@ -5,6 +5,7 @@ import type {
 	RefundCondition,
 	RefundRequestInput,
 } from "@/server/entities/refund/refund.dto";
+import type { RefundPageState } from "@/server/entities/refund/refundView.dto";
 import { openedLessonRepository } from "@/server/repositories/openedLesson.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
@@ -17,6 +18,7 @@ import {
 import { refundEffectsService } from "./refundEffects.service";
 import { isStudentRefundEnabled } from "./refundFlag";
 import { accountLimitSince, decideRefund } from "./refundRules";
+import { refundPageState } from "./refundView";
 
 /** FR-S20: what the student is told about an approved refund — never Stripe's text. */
 export type RefundStatus = "refunded" | "processing";
@@ -29,6 +31,10 @@ export type RefundRequestResult = {
 	refundStatus?: RefundStatus;
 };
 
+/** FR-S2 / FR-P18a: a stored dispute blocks unless it was won (qa #2: lost-but-not-applied too). */
+const isDisputeBlocking = (disputeState: string | null): boolean =>
+	disputeState !== null && disputeState !== "won";
+
 const isUniqueViolation = (error: unknown): boolean =>
 	error instanceof Prisma.PrismaClientKnownRequestError &&
 	error.code === "P2002";
@@ -40,6 +46,70 @@ const refundErrorText = (error: unknown): string => {
 };
 
 class RefundService {
+	/**
+	 * U5: what the refund page shows for the session's own payment. Flag off, another student's
+	 * payment, or one that was never paid → the same NOT_FOUND (C1, C24). Read-only.
+	 */
+	async getRefundPage(
+		studentId: string,
+		paymentId: string,
+		now: Date = new Date(),
+	): Promise<RefundPageState> {
+		if (!isStudentRefundEnabled()) throw new RefundNotFoundError();
+
+		const facts = await db.$transaction(async (tx) => {
+			const payment = await refundRequestRepository.findForStudentView(
+				tx,
+				paymentId,
+				studentId,
+			);
+			if (!payment) throw new RefundNotFoundError();
+
+			const [
+				counts,
+				hasCertificate,
+				hasEarlierCountingRefund,
+				accountLimitRefunds12m,
+			] = await Promise.all([
+				openedLessonRepository.countCourseLessons(
+					tx,
+					studentId,
+					payment.courseId,
+				),
+				refundRequestRepository.hasCertificate(tx, studentId, payment.courseId),
+				refundRequestRepository.hasCountingRefund(
+					tx,
+					studentId,
+					payment.courseId,
+				),
+				refundRequestRepository.countAccountLimitRefunds(
+					tx,
+					studentId,
+					accountLimitSince(now),
+				),
+			]);
+			const request = payment.refundRequest;
+			return {
+				paidAt: payment.paidAt,
+				paymentRefunded: payment.status === "refunded",
+				hasCertificate,
+				hasEarlierCountingRefund,
+				hasOpenDispute: isDisputeBlocking(payment.disputeState),
+				...counts,
+				accountLimitRefunds12m,
+				amountCents: payment.amountCents,
+				currency: payment.currency,
+				request: request
+					? {
+							...request,
+							failedConditions: request.failedConditions as RefundCondition[],
+						}
+					: null,
+			};
+		});
+		return refundPageState(facts, now);
+	}
+
 	/**
 	 * FR-S5/S6/S14: re-checks every FR-S2 condition at submission and stores the
 	 * request with its snapshot. An approved request is refunded at once, after the
@@ -110,8 +180,7 @@ class RefundService {
 						accountLimitRefunds12m,
 						// FR-S2 / FR-P18a: the stored dispute state, never a Stripe call.
 						// qa #2: a stored lost dispute whose effects have not run yet blocks too.
-						hasOpenDispute:
-							payment.disputeState !== null && payment.disputeState !== "won",
+						hasOpenDispute: isDisputeBlocking(payment.disputeState),
 					},
 					now,
 				);

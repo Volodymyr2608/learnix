@@ -54,6 +54,43 @@ class RefundRequestRepository extends BaseRepository<
 		});
 	}
 
+	/**
+	 * C1 / U5: the student's own payment and the parts of its request the student may see, in one
+	 * query authorised by id AND the session's student. Never `refundError` or Stripe ids (C23).
+	 */
+	findForStudentView(
+		tx: Prisma.TransactionClient,
+		paymentId: string,
+		studentId: string,
+	) {
+		return tx.payment.findFirst({
+			where: {
+				id: paymentId,
+				studentId,
+				status: { in: ["succeeded", "refunded"] },
+			},
+			select: {
+				courseId: true,
+				paidAt: true,
+				status: true,
+				disputeState: true,
+				amountCents: true,
+				currency: true,
+				refundRequest: {
+					select: {
+						decision: true,
+						refundState: true,
+						failedConditions: true,
+						reason: true,
+						text: true,
+						createdAt: true,
+						refundedAt: true,
+					},
+				},
+			},
+		});
+	}
+
 	async existsForPayment(
 		tx: Prisma.TransactionClient,
 		paymentId: string,
