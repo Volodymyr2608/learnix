@@ -1689,3 +1689,48 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
 
+### 2026-11-22 — Slice 8 plan: eighteen decisions the spec did not make (V1–V18)
+- **Stage:** plan
+- **Context the AI had:** `spec.md` FR-S13–S18, FR-A1–A7, the notification matrix, the counting terms;
+  `security.md` C11, C17, C18, C20–C22; codebase anchors from one `feature-dev:code-explorer` pass
+- **AI found while planning:** `refund_requests` is one row per payment, so an appeal cannot be a
+  second request; counting read `decision = 'auto_approved'`, which could not tell an appeal approval
+  from an automatic one; there was no audit table, no private file store and no needs-review flag
+- **AI proposed:**
+  - V1/V2 — the request row stays the anchor (a direct appeal creates it as `direct_appeal`); an
+    `approval` column (automatic / appeal / overdue) decides counting: D3 counts any approval, the
+    account limit only automatic ones; an exception creates no row and counts for neither;
+  - V3/V4 — `refund_appeals` (one per payment) and an append-only `refund_audit` with a trigger;
+  - V5–V7 — a private Blob store, files checked by magic bytes, an authorizing download route;
+  - V8/V9 — appeal text and files in one multipart request; direct appeal only from `over_limit`;
+  - V10 — an open appeal holds the instructor's share;
+  - V11/V12 — day-14 overdue approval in the payout job; reminders on days 10, 13, then daily;
+  - V13/V14 — approve refused with a certificate or a dispute; the exception refund under the run
+    lock, refused while an appeal is open;
+  - V15/V16 — "needs review" on Dashboard refunds; the remaining emails;
+  - V17/V18 — the student and admin pages
+- **How I verified:** *Not verified by me* — I read the table and approved V1–V18 as proposed
+- **Verdict:** `accepted`
+- **Why:** *TODO (me): in my own words — why an appeal approval counts for D3 but not for the account
+  limit (V2), and why a direct appeal is never approved on time alone (V11)*
+
+### 2026-11-22 — Slice 8 implementation: where the code disagreed with the plan
+- **Stage:** implementation
+- **Context the AI had:** `build/plan-slice-8.md`, executed task by task with TDD
+- **AI found while implementing:**
+  - the request, the refund page and the appeal each gathered the same facts; one `gatherRefundFacts`
+    now serves all three (and the purchases list reuses the shared dispute check);
+  - Stripe's webhook for an admin exception can arrive before the exception applies its effects, and
+    was then filed as a Dashboard refund — so the exception writes its audit row before the Stripe
+    call, and the webhook reads it to keep the `admin_exception` path;
+  - the payout lock moved to its own module (the job now calls the appeal service, which the
+    exception also lives in — otherwise an import cycle);
+  - an appeal or overdue approval is announced by the appeal-decided email, so the "refund done" email
+    stays for automatic approvals only;
+  - the admin and student notices share two email layouts under separate template keys;
+  - break-it checks: dropping the audit trigger, the ownership filter of the download route, and the
+    limiter each turn a test red
+- **How I verified:** *Not verified by me* (each task's test ran red, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
+

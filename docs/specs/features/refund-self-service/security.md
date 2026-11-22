@@ -172,6 +172,23 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | C12 | Implemented except the page text: dispute events (webhook + replay) set `Payment.disputeState` in event order; the refund rules, `executeRefund` and the release read it; Stripe's `charge_disputed` sets it open; a won dispute is not blocked by Stripe's sticky `disputed` flag. The FR-S11 text and the Purchases row (no Stripe call on render) → slice 7 | `stripeEvent.service.ts`, `payment.repository.ts` `recordDisputeState`, `refund.service.ts`, `payout.repository.ts`, `connect.service.ts` |
 | DL | Implemented: a lost dispute applies the effects once (path `lost_dispute`, `refundSource` recorded), closes a processing request as `refunded_by_bank`, counts for D3 and the account limit once per payment, and never reverses a released share | `refundEffects.repository.ts`, `refundRequest.repository.ts`, `connect.service.ts` |
 
+### Slice 8 (appeals and the admin exception, 2026-11-22) — control status
+
+| C | Status | Where |
+|---|---|---|
+| C11 | Implemented: the daily payout job approves only open appeals after an automatic denial whose stored exceeded condition is not `threshold` / `account_limit`, on day 14, audited `appeal_overdue`; direct appeals never | `appealRules.ts` `isAutoApprovable`, `refundAppealAdmin.service.ts` `approveOverdueAppeals`, `appealOverdue.integration.test.ts` |
+| C17 | Implemented: `refundAdmin.*` are `adminProcedure`s (STUDENT / INSTRUCTOR FORBIDDEN tests); the multipart deny route answers 404 to non-admins; a denial or an exception without a reason is rejected | `server/api/routers/refundAdmin.ts`, `app/api/admin/refunds/appeals/[id]/deny/route.ts` |
+| C18 | Implemented: `refund_audit` is append-only — the repository only inserts and a Postgres trigger rejects UPDATE and DELETE (break-it checked); approve, deny, overdue and exception each write exactly one row in the transaction of the change (the exception writes it before its Stripe call, once) | migration `20261127120000_refund_appeals`, `refundAudit.repository.ts` |
+| C20 | Implemented: evidence bytes live in a separate private Blob store (`REFUND_EVIDENCE_BLOB_TOKEN`), random pathnames; `GET /api/refunds/evidence/[fileId]` serves only the payment's student or an admin in one query, everyone else 404 (break-it checked) | `refundEvidenceStorage.ts`, `refundAppeal.repository.ts` `findFileForViewer`, the route |
+| C21 | Implemented: PNG / JPEG / PDF by magic bytes, ≤ 3 files, ≤ 4 MB, the declared type ignored; downloads with `attachment`, `nosniff`, `sandbox` CSP, `no-store`; a 5 MB body cap before parsing | `evidenceFiles.ts`, `refundHttp.ts` |
+| C22 | Admin half implemented: appeal reason, text, denial reason and file names render as text on the admin page (no-raw-HTML contract test); admin emails carry fixed text only | `app/(admin)/admin/refunds/**`, `adminAlert.service.ts` |
+| C1, C24 | Extended to the appeal endpoint: ownership in the authorizing query; flag off → NOT_FOUND | `refundAppeal.service.ts` |
+| AC-C6 | Extended: an open appeal, or an approved request waiting for its refund, holds the share on every release path | `payout.repository.ts` |
+
+**Not in this slice (slice 9):** evidence deletion 30 days after the decision (FR-P22), account deletion
+closing an open appeal and erasing refund text and files (FR-P23, C29), the instructor view and its
+isolation contract (C19).
+
 ### Slice 7 (student UI and `/pricing`, 2026-11-22) — control status
 
 | C | Status | Where |
