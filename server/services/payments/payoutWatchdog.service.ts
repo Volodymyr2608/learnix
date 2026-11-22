@@ -11,9 +11,12 @@ class PayoutWatchdogService {
 	 * M3: runs on its own daily cron, so a dead or failing release run is still noticed. Every
 	 * email it sends is de-duplicated (M6), so running it again sends nothing new.
 	 */
-	async check(
-		now: Date,
-	): Promise<{ stale: boolean; overdueRefunds: number; resentEmails: number }> {
+	async check(now: Date): Promise<{
+		stale: boolean;
+		overdueRefunds: number;
+		resentEmails: number;
+		appealReminders: number;
+	}> {
 		const stale = await adminAlertService.checkStale(now);
 		const overdue = await refundRequestRepository.findOverdueIds(
 			new Date(now.getTime() - REFUND_OVERDUE_MS),
@@ -24,7 +27,14 @@ class PayoutWatchdogService {
 		}
 		// Review I2: a student refund email whose send failed is retried here, once a day.
 		const resentEmails = await refundNotificationsService.resendMissing(now);
-		return { stale, overdueRefunds: overdue.length, resentEmails };
+		// V12 / FR-A4: undecided appeals remind the admins on days 10 and 13, then daily.
+		const appealReminders = await adminAlertService.appealUndecided(now);
+		return {
+			stale,
+			overdueRefunds: overdue.length,
+			resentEmails,
+			appealReminders,
+		};
 	}
 }
 

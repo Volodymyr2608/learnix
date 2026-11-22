@@ -9,6 +9,7 @@ import {
 	userRepository,
 } from "@/server/repositories/user.repository";
 import { sendOnce } from "@/server/services/email/sendOnce";
+import { appealReminderDue } from "@/server/services/refund/appealRules";
 import { logger } from "@/server/utils/logger";
 import { isStale } from "./payoutMonitorRules";
 
@@ -132,6 +133,36 @@ class AdminAlertService {
 				},
 			});
 		}
+	}
+
+	/**
+	 * FR-A4 (V12): an undecided appeal reminds every admin on payment-day 10 and 13, then daily —
+	 * once per admin, appeal and UTC day. Called by the daily watchdog.
+	 */
+	async appealUndecided(now: Date): Promise<number> {
+		const open = await refundAppealRepository.findOpenForJobs(200);
+		const due = open.filter((a) =>
+			appealReminderDue(a.request.payment.paidAt, now),
+		);
+		if (due.length === 0) return 0;
+		const admins = await adminsOrWarn("appeal_undecided");
+		for (const appeal of due) {
+			for (const admin of admins) {
+				await sendOnce({
+					dedupKey: `admin:${admin.id}:appeal_undecided:${appeal.id}:${utcDay(now)}`,
+					userId: admin.id,
+					automation: "appeal_undecided",
+					templateKey: "admin.appeal-undecided",
+					toEmail: admin.email,
+					payload: {
+						title: "A refund appeal is waiting for a decision",
+						summary: `An appeal for ${appeal.request.course.title} is still undecided (${daysLeft(appeal.deadlineAt, now)} days until its deadline). The instructor's share stays held until it is decided.`,
+						panelUrl: refundsUrl(),
+					},
+				});
+			}
+		}
+		return due.length;
 	}
 }
 

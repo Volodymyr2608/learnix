@@ -6,6 +6,7 @@ import { refundAppealRepository } from "@/server/repositories/refundAppeal.repos
 import { refundAuditRepository } from "@/server/repositories/refundAudit.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { logger } from "@/server/utils/logger";
+import { isAutoApprovable } from "./appealRules";
 import { type AcceptedEvidence, validateEvidence } from "./evidenceFiles";
 import {
 	AppealApproveBlockedError,
@@ -20,6 +21,9 @@ import { isDisputeBlocking } from "./refundFacts";
 import { refundNotificationsService } from "./refundNotifications.service";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** V11: a bounded batch per daily run; the rest follows the next day. */
+const OVERDUE_BATCH = 50;
 
 const denialReason = z
 	.string()
@@ -210,6 +214,53 @@ class RefundAppealAdminService {
 			throw error;
 		}
 		await this.tellStudent(appealId);
+	}
+
+	/**
+	 * FR-A5 / AC-C11 (V11): on day 14 an open appeal that followed an automatic denial for a
+	 * condition other than the threshold or the account limit is approved — no admin, audited
+	 * `appeal_overdue` — and refunded. Called by the daily payout job under its run lock, before the
+	 * release. Returns how many it approved.
+	 */
+	async approveOverdueAppeals(now: Date): Promise<number> {
+		const open = await refundAppealRepository.findOpenForJobs(OVERDUE_BATCH);
+		let approved = 0;
+		for (const appeal of open) {
+			const due = isAutoApprovable(
+				{
+					status: appeal.status,
+					kind: appeal.kind,
+					exceededCondition: appeal.exceededCondition,
+					paidAt: appeal.request.payment.paidAt,
+				},
+				now,
+			);
+			if (!due) continue;
+			const closed = await db.$transaction(async (tx) => {
+				const won = await refundAppealRepository.closeInTx(tx, appeal.id, {
+					status: "overdue_approved",
+					decidedBy: null,
+					decidedAt: now,
+				});
+				if (!won) return false;
+				await refundRequestRepository.approveInTx(
+					tx,
+					appeal.request.id,
+					"overdue",
+				);
+				await refundAuditRepository.createInTx(tx, {
+					kind: "appeal_overdue",
+					paymentId: appeal.request.paymentId,
+					appealId: appeal.id,
+				});
+				return true;
+			});
+			if (!closed) continue;
+			approved++;
+			await this.tellStudent(appeal.id);
+			await refundService.executeRefund(appeal.request.id, now);
+		}
+		return approved;
 	}
 
 	private async tellStudent(appealId: string): Promise<void> {

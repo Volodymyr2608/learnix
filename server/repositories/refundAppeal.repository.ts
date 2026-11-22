@@ -153,6 +153,30 @@ class RefundAppealRepository extends BaseRepository<
 			 LIMIT ${limit}`;
 	}
 
+	/** V11, V12: every open appeal with what the day-14 rule and the reminders read. */
+	findOpenForJobs(limit: number) {
+		return this.db.refundAppeal.findMany({
+			where: { status: "open" },
+			orderBy: { createdAt: "asc" },
+			take: limit,
+			select: {
+				id: true,
+				kind: true,
+				status: true,
+				exceededCondition: true,
+				deadlineAt: true,
+				request: {
+					select: {
+						id: true,
+						paymentId: true,
+						course: { select: { title: true } },
+						payment: { select: { paidAt: true } },
+					},
+				},
+			},
+		});
+	}
+
 	/** V12: what the admin notices name — the course and the deadline; never the student's text. */
 	findForAdminNotice(appealId: string) {
 		return this.db.refundAppeal.findUnique({

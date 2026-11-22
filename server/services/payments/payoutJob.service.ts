@@ -11,6 +11,7 @@ import { payoutRunRepository } from "@/server/repositories/payoutRun.repository"
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { stripeReplayCursorRepository } from "@/server/repositories/stripeReplayCursor.repository";
 import { refundService } from "@/server/services/refund/refund.service";
+import { refundAppealAdminService } from "@/server/services/refund/refundAppealAdmin.service";
 import { logger } from "@/server/utils/logger";
 import { adminAlertService } from "./adminAlert.service";
 import { connectService } from "./connect.service";
@@ -180,6 +181,10 @@ class PayoutJobService {
 						return 0;
 					}),
 				};
+				// V11 / FR-A5: day-14 appeals are approved and refunded before anything is released.
+				await refundAppealAdminService
+					.approveOverdueAppeals(input.now)
+					.catch((error) => logger.error("Overdue appeals failed", { error }));
 				await retryReversals();
 				const candidates = await payoutRepository.findReleaseCandidates(
 					input.now,
