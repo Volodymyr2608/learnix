@@ -17,13 +17,14 @@ import { adminAlertService } from "./adminAlert.service";
 import { connectService } from "./connect.service";
 import { PayoutRetryError } from "./payment.errors";
 import { PAYOUT_BATCH_SIZE, PAYOUT_LOCK_TTL_MS } from "./payoutJob.constants";
+import { PAYOUT_LOCK_NAME, withPayoutRunLock } from "./payoutRunLock";
 import { getRunLock } from "./runLock";
 import { stripe } from "./stripe.client";
 import { stripeEventService } from "./stripeEvent.service";
 
 export { PAYOUT_BATCH_SIZE, PAYOUT_LOCK_TTL_MS } from "./payoutJob.constants";
 
-const LOCK_NAME = "payouts";
+const LOCK_NAME = PAYOUT_LOCK_NAME;
 /** R7: processing refunds retried per run. */
 export const REFUND_RETRY_BATCH = 20;
 /** D8: the events the daily job replays, under one cursor. */
@@ -273,21 +274,9 @@ class PayoutJobService {
 		});
 	}
 
-	/** Audit L1: a Retry never races the payout run on the same row; it waits for the run. */
-	private async underRunLock<T>(work: () => Promise<T>): Promise<T> {
-		const lock = getRunLock();
-		const token = await lock.acquire(LOCK_NAME, PAYOUT_LOCK_TTL_MS);
-		if (!token) {
-			throw new PayoutRetryError(
-				"The payout job is running; retry when it has finished",
-				"CONFLICT",
-			);
-		}
-		try {
-			return await work();
-		} finally {
-			await lock.release(LOCK_NAME, token);
-		}
+	/** Audit L1: a Retry never races the payout run on the same row. */
+	private underRunLock<T>(work: () => Promise<T>): Promise<T> {
+		return withPayoutRunLock(work);
 	}
 
 	/** AC-F11 / M8: the admin's "Retry" for a refunded payment whose share was not reversed. */

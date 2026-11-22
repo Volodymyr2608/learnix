@@ -25,4 +25,25 @@ export const refundAdminRouter = createTRPCRouter({
 				handleServiceError(error);
 			}
 		}),
+
+	/** FR-A6 (V14): refund any succeeded payment as an exception, with a reason. */
+	refundException: adminProcedure
+		.input(
+			z
+				.object({
+					paymentId: z.string().min(1).max(64),
+					reason: z.string().max(2000),
+				})
+				.strict(),
+		)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				return await refundAppealAdminService.refundException(
+					ctx.session.user.id,
+					input,
+				);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
 });

@@ -2,9 +2,11 @@ import { z } from "zod";
 import type { Prisma } from "@/generated/prisma";
 import { db } from "@/server/db";
 import type { RefundCondition } from "@/server/entities/refund/refund.dto";
+import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundAppealRepository } from "@/server/repositories/refundAppeal.repository";
 import { refundAuditRepository } from "@/server/repositories/refundAudit.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
+import { withPayoutRunLock } from "@/server/services/payments/payoutRunLock";
 import { logger } from "@/server/utils/logger";
 import { isAutoApprovable } from "./appealRules";
 import { type AcceptedEvidence, validateEvidence } from "./evidenceFiles";
@@ -14,8 +16,10 @@ import {
 	RefundAppealConflictError,
 	RefundAppealInputError,
 	RefundAppealNotFoundError,
+	RefundExceptionError,
 } from "./refund.errors";
 import { type RefundStatus, refundService } from "./refund.service";
+import { refundEffectsService } from "./refundEffects.service";
 import { refundEvidenceStorage } from "./refundEvidenceStorage";
 import { isDisputeBlocking } from "./refundFacts";
 import { refundNotificationsService } from "./refundNotifications.service";
@@ -261,6 +265,76 @@ class RefundAppealAdminService {
 			await refundService.executeRefund(appeal.request.id, now);
 		}
 		return approved;
+	}
+
+	/**
+	 * FR-A6 / AC-F10 (V14): refunds any succeeded payment with a written reason, under the payout
+	 * run lock. Refused while an appeal is open or a refund is processing on it. The audit row is
+	 * written first — it is the record that Stripe's own webhook for this refund belongs to the
+	 * exception — and only once, so a retry after a Stripe failure does not add another. No
+	 * `refund_requests` row: an exception counts for neither D3 nor the account limit.
+	 */
+	async refundException(
+		adminId: string,
+		input: { paymentId: string; reason: string },
+		now: Date = new Date(),
+	): Promise<{ status: "refunded" | "already_refunded" }> {
+		const reason = denialReason.safeParse(input.reason);
+		if (!reason.success)
+			throw new RefundExceptionError(
+				"An exception needs a reason",
+				"BAD_REQUEST",
+			);
+
+		return withPayoutRunLock(async () => {
+			const payment = await paymentRepository.findForException(input.paymentId);
+			if (
+				!payment ||
+				(payment.status !== "succeeded" && payment.status !== "refunded")
+			)
+				throw new RefundExceptionError("Payment not found", "NOT_FOUND");
+			if (payment.status === "refunded")
+				return { status: "already_refunded" as const };
+			if (payment.refundRequest?.appeal?.status === "open")
+				throw new RefundExceptionError(
+					"An appeal is open on this payment; decide the appeal instead.",
+					"CONFLICT",
+				);
+			if (payment.refundRequest?.refundState === "processing")
+				throw new RefundExceptionError(
+					"A refund is already processing for this payment.",
+					"CONFLICT",
+				);
+			if (isDisputeBlocking(payment.disputeState))
+				throw new RefundExceptionError(
+					"A dispute about this payment is open with the bank.",
+					"PRECONDITION_FAILED",
+				);
+			if (!payment.stripePaymentIntentId)
+				throw new RefundExceptionError(
+					"This payment has no Stripe charge.",
+					"PRECONDITION_FAILED",
+				);
+
+			if (!(await refundAuditRepository.hasException(db, payment.id)))
+				await refundAuditRepository.createInTx(db, {
+					kind: "exception",
+					paymentId: payment.id,
+					adminId,
+					reason: reason.data,
+				});
+			await refundService.refundAtStripe({
+				paymentId: payment.id,
+				stripePaymentIntentId: payment.stripePaymentIntentId,
+				disputeState: payment.disputeState,
+			});
+			await refundEffectsService.apply({
+				paymentId: payment.id,
+				path: "admin_exception",
+				now,
+			});
+			return { status: "refunded" as const };
+		});
 	}
 
 	private async tellStudent(appealId: string): Promise<void> {

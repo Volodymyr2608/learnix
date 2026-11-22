@@ -103,6 +103,22 @@ class PaymentRepository extends BaseRepository<
 		});
 	}
 
+	/** V14: what the exception refund checks before it touches Stripe. */
+	findForException(paymentId: string) {
+		return this.db.payment.findUnique({
+			where: { id: paymentId },
+			select: {
+				id: true,
+				status: true,
+				stripePaymentIntentId: true,
+				disputeState: true,
+				refundRequest: {
+					select: { refundState: true, appeal: { select: { status: true } } },
+				},
+			},
+		});
+	}
+
 	findByPaymentIntentId(stripePaymentIntentId: string) {
 		return this.findFirst({ where: { stripePaymentIntentId } });
 	}

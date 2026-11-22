@@ -83,3 +83,13 @@ export class AppealApproveBlockedError extends DomainError {
 		);
 	}
 }
+
+/** V14: the exception refund cannot run on this payment now. */
+export class RefundExceptionError extends DomainError {
+	constructor(
+		message: string,
+		code: "CONFLICT" | "PRECONDITION_FAILED" | "NOT_FOUND" | "BAD_REQUEST",
+	) {
+		super(message, code);
+	}
+}

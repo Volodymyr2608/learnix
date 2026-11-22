@@ -10,4 +10,13 @@ export const refundAuditRepository = {
 		tx: Prisma.TransactionClient,
 		data: Prisma.RefundAuditUncheckedCreateInput,
 	) => tx.refundAudit.create({ data, select: { id: true } }),
+
+	/** V14: an exception was recorded for this payment (written before its Stripe call). */
+	hasException: async (
+		client: Prisma.TransactionClient,
+		paymentId: string,
+	): Promise<boolean> =>
+		(await client.refundAudit.count({
+			where: { paymentId, kind: "exception" },
+		})) > 0,
 };

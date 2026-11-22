@@ -1,7 +1,9 @@
 import type Stripe from "stripe";
 import type { DisputeState } from "@/generated/prisma";
+import { db } from "@/server/db";
 import { instructorRepository } from "@/server/repositories/instructor.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
+import { refundAuditRepository } from "@/server/repositories/refundAudit.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { refundEffectsService } from "@/server/services/refund/refundEffects.service";
 import { connectService } from "./connect.service";
@@ -23,6 +25,15 @@ const disputeStateOf = (status: Stripe.Dispute.Status): DisputeState => {
 		return "won";
 	}
 	return "open";
+};
+
+const refundPathOf = (
+	ownRequest: boolean,
+	exception: boolean,
+): "refund_request" | "admin_exception" | "dashboard_refund" => {
+	if (ownRequest) return "refund_request";
+	if (exception) return "admin_exception";
+	return "dashboard_refund";
 };
 
 class StripeEventService {
@@ -123,9 +134,11 @@ class StripeEventService {
 		const ownRequest = await refundRequestRepository.hasProcessingForPayment(
 			payment.id,
 		);
+		// V14: an admin exception's own webhook keeps its path (the audit row is written first).
+		const exception = await refundAuditRepository.hasException(db, payment.id);
 		await refundEffectsService.apply({
 			paymentId: payment.id,
-			path: ownRequest ? "refund_request" : "dashboard_refund",
+			path: refundPathOf(ownRequest, exception),
 			now,
 		});
 	}

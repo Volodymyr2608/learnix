@@ -1,5 +1,9 @@
 import Stripe from "stripe";
-import { Prisma, type RefundDecision } from "@/generated/prisma";
+import {
+	type DisputeState,
+	Prisma,
+	type RefundDecision,
+} from "@/generated/prisma";
 import { db } from "@/server/db";
 import type {
 	RefundCondition,
@@ -214,38 +218,11 @@ class RefundService {
 		}
 
 		try {
-			const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId, {
-				expand: ["latest_charge"],
+			const refundId = await this.refundAtStripe({
+				paymentId,
+				stripePaymentIntentId,
+				disputeState,
 			});
-			const charge =
-				typeof pi.latest_charge === "object" ? pi.latest_charge : null;
-			// D7 / C12: the stored state decides; Stripe's flag stays true after a won dispute, so
-			// it only refuses while the stored state has not seen the dispute won.
-			const disputed =
-				disputeState === "open" ||
-				(charge?.disputed === true && disputeState !== "won");
-			if (disputed) {
-				await refundRequestRepository.recordRefundError(
-					requestId,
-					"charge disputed",
-				);
-				return "processing";
-			}
-
-			const existing = await stripe.refunds.list({
-				payment_intent: stripePaymentIntentId,
-				limit: 100,
-			});
-			const made = existing.data.filter(
-				(r) => r.status === "succeeded" || r.status === "pending",
-			);
-			// qa #2: only refunds covering the whole charge count as done; after a partial
-			// Dashboard refund, refunds.create({ payment_intent }) refunds the remainder.
-			const refundedAmount = made.reduce((sum, r) => sum + r.amount, 0);
-			const coversCharge = charge !== null && refundedAmount >= charge.amount;
-			const refundId = coversCharge
-				? (made[0]?.id ?? null)
-				: await this.createStripeRefund(paymentId, stripePaymentIntentId);
 			await refundRequestRepository.recordStripeRefund(requestId, refundId);
 		} catch (error) {
 			await refundRequestRepository.recordRefundError(
@@ -274,6 +251,46 @@ class RefundService {
 		// Another path (the webhook, the replay) already applied them; the request is done.
 		if (!applied) await refundRequestRepository.markRefunded(requestId, now);
 		return "refunded";
+	}
+
+	/**
+	 * C2, C3, C7, C12: makes sure Stripe refunded the whole charge — never on a disputed charge
+	 * (throws `ChargeDisputedError`), listing existing refunds first (idempotency keys expire), then
+	 * `refunds.create({ payment_intent })` with key `refund:<paymentId>`. Shared by a student's
+	 * refund and the admin exception (V14). Returns the refund id, or null if already refunded.
+	 */
+	async refundAtStripe(payment: {
+		paymentId: string;
+		stripePaymentIntentId: string;
+		disputeState: DisputeState | null;
+	}): Promise<string | null> {
+		const { paymentId, stripePaymentIntentId, disputeState } = payment;
+		const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId, {
+			expand: ["latest_charge"],
+		});
+		const charge =
+			typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+		// D7 / C12: the stored state decides; Stripe's flag stays true after a won dispute, so
+		// it only refuses while the stored state has not seen the dispute won.
+		const disputed =
+			disputeState === "open" ||
+			(charge?.disputed === true && disputeState !== "won");
+		if (disputed) throw new ChargeDisputedError();
+
+		const existing = await stripe.refunds.list({
+			payment_intent: stripePaymentIntentId,
+			limit: 100,
+		});
+		const made = existing.data.filter(
+			(r) => r.status === "succeeded" || r.status === "pending",
+		);
+		// qa #2: only refunds covering the whole charge count as done; after a partial
+		// Dashboard refund, refunds.create({ payment_intent }) refunds the remainder.
+		const refundedAmount = made.reduce((sum, r) => sum + r.amount, 0);
+		const coversCharge = charge !== null && refundedAmount >= charge.amount;
+		return coversCharge
+			? (made[0]?.id ?? null)
+			: this.createStripeRefund(paymentId, stripePaymentIntentId);
 	}
 
 	/** C2 + C3: returns the Stripe refund id, or null when Stripe says it was already refunded. */
