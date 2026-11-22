@@ -112,6 +112,19 @@ class LessonService {
 	}
 
 	async getStudentLesson(lessonId: string, studentId: string) {
+		return this.loadStudentLesson(lessonId, studentId, { recordOpen: true });
+	}
+
+	/**
+	 * The student's access check + read. `recordOpen` is false for the mark
+	 * complete/incomplete callers, which return no content: FR-P19 leaves marking
+	 * unchanged, so it must not count toward the refund threshold.
+	 */
+	private async loadStudentLesson(
+		lessonId: string,
+		studentId: string,
+		{ recordOpen }: { recordOpen: boolean },
+	) {
 		try {
 			const lesson = await lessonRepository.findFirst({
 				where: {
@@ -152,7 +165,9 @@ class LessonService {
 			// FR-P19: the refund threshold counts opened lessons, so the record is
 			// written before the content is returned and is NOT tolerated like the
 			// touch below — if it fails, the student gets no content (fail closed).
-			await openedLessonRepository.record(studentId, lesson.id);
+			if (recordOpen) {
+				await openedLessonRepository.record(studentId, lesson.id);
+			}
 
 			// Opening a lesson is the student's "last active" signal, powering the
 			// instructor Students table and its Active Learners count. Tolerate a
@@ -181,7 +196,7 @@ class LessonService {
 
 	async markLessonComplete(lessonId: string, studentId: string) {
 		try {
-			await this.getStudentLesson(lessonId, studentId);
+			await this.loadStudentLesson(lessonId, studentId, { recordOpen: false });
 			await db.lessonProgress.upsert({
 				where: { lessonId_studentId: { lessonId, studentId } },
 				create: {
@@ -281,7 +296,7 @@ class LessonService {
 
 	async markLessonIncomplete(lessonId: string, studentId: string) {
 		try {
-			await this.getStudentLesson(lessonId, studentId);
+			await this.loadStudentLesson(lessonId, studentId, { recordOpen: false });
 			await db.lessonProgress.upsert({
 				where: { lessonId_studentId: { lessonId, studentId } },
 				create: { lessonId, studentId, isCompleted: false },

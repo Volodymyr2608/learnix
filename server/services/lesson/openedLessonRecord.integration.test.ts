@@ -37,6 +37,17 @@ describe("lessonService.getStudentLesson — opened-lesson record (FR-P19)", () 
 		).toBe(1);
 	});
 
+	it.each([
+		"markLessonComplete",
+		"markLessonIncomplete",
+	] as const)("%s does not record the lesson as opened (FR-P19: marking is unchanged)", async (method) => {
+		await lessonService[method](lessonId, studentId);
+
+		expect(
+			await testDb.openedLesson.count({ where: { studentId, lessonId } }),
+		).toBe(0);
+	});
+
 	it("returns no content when the record cannot be written (fail closed)", async () => {
 		vi.spyOn(openedLessonRepository, "record").mockRejectedValue(
 			new Error("db down"),
