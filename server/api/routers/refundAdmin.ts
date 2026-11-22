@@ -26,6 +26,26 @@ export const refundAdminRouter = createTRPCRouter({
 			}
 		}),
 
+	/** FR-A7 (V15): payments refunded in the Stripe Dashboard, waiting for a look. */
+	listNeedsReview: adminProcedure.query(async () => {
+		try {
+			return await refundAppealAdminService.listNeedsReview();
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+
+	markReviewed: adminProcedure
+		.input(z.object({ paymentId: z.string().min(1).max(64) }).strict())
+		.mutation(async ({ input }) => {
+			try {
+				await refundAppealAdminService.markReviewed(input.paymentId);
+				return { ok: true };
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
 	/** FR-A6 (V14): refund any succeeded payment as an exception, with a reason. */
 	refundException: adminProcedure
 		.input(

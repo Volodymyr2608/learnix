@@ -1,5 +1,6 @@
 import type { PayoutRun } from "@/generated/prisma";
 import { env } from "@/lib/env";
+import { paymentRepository } from "@/server/repositories/payment.repository";
 import { payoutRepository } from "@/server/repositories/payout.repository";
 import { payoutRunRepository } from "@/server/repositories/payoutRun.repository";
 import { refundAppealRepository } from "@/server/repositories/refundAppeal.repository";
@@ -163,6 +164,59 @@ class AdminAlertService {
 			}
 		}
 		return due.length;
+	}
+
+	/**
+	 * FR-A7 (V15): a refund made in the Stripe Dashboard — full or partial — flags the payment
+	 * "needs review" and emails every admin, once per payment and refunded amount.
+	 */
+	async dashboardRefund(
+		paymentId: string,
+		refundedCents: number,
+		now: Date = new Date(),
+	): Promise<void> {
+		await paymentRepository.markNeedsReview(paymentId, now);
+		const payment = await paymentRepository.findForNotice(paymentId);
+		if (!payment) return;
+		const partial = refundedCents < payment.amountCents;
+		const admins = await adminsOrWarn("dashboard_refund");
+		for (const admin of admins) {
+			await sendOnce({
+				dedupKey: `admin:${admin.id}:dashboard_refund:${payment.id}:${refundedCents}`,
+				userId: admin.id,
+				automation: "dashboard_refund",
+				templateKey: "admin.dashboard-refund",
+				toEmail: admin.email,
+				payload: {
+					title: partial
+						? "A partial refund was made in the Stripe Dashboard"
+						: "A refund was made in the Stripe Dashboard",
+					summary: `Payment ${payment.id} for ${payment.course.title} was ${partial ? `partly refunded (${(refundedCents / 100).toFixed(2)} of ${(payment.amountCents / 100).toFixed(2)} ${payment.currency.toUpperCase()}); access and the instructor's share are unchanged` : "refunded in full; its effects were applied"}. It is flagged "needs review".`,
+					panelUrl: refundsUrl(),
+				},
+			});
+		}
+	}
+
+	/** DL / matrix "Dispute closed lost": every admin, once per payment. */
+	async disputeLost(paymentId: string): Promise<void> {
+		const payment = await paymentRepository.findForNotice(paymentId);
+		if (!payment) return;
+		const admins = await adminsOrWarn("dispute_lost");
+		for (const admin of admins) {
+			await sendOnce({
+				dedupKey: `admin:${admin.id}:dispute_lost:${payment.id}`,
+				userId: admin.id,
+				automation: "dispute_lost",
+				templateKey: "admin.dispute-lost",
+				toEmail: admin.email,
+				payload: {
+					title: "A bank dispute was lost",
+					summary: `The bank dispute on payment ${payment.id} for ${payment.course.title} was lost. The refund effects were applied automatically.`,
+					panelUrl: refundsUrl(),
+				},
+			});
+		}
 	}
 }
 

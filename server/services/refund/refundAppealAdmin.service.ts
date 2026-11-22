@@ -337,6 +337,24 @@ class RefundAppealAdminService {
 		});
 	}
 
+	/** FR-A7 (V15): the "needs review" list. */
+	async listNeedsReview() {
+		const rows = await paymentRepository.findNeedsReview();
+		return rows.map((p) => ({
+			paymentId: p.id,
+			courseTitle: p.course.title,
+			studentName: p.student.name,
+			amountCents: p.amountCents,
+			currency: p.currency,
+			fullyRefunded: p.status === "refunded",
+			flaggedAt: p.needsReviewAt,
+		}));
+	}
+
+	async markReviewed(paymentId: string): Promise<void> {
+		await paymentRepository.clearNeedsReview(paymentId);
+	}
+
 	private async tellStudent(appealId: string): Promise<void> {
 		await refundNotificationsService
 			.appealDecided(appealId)

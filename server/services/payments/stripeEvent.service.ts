@@ -6,6 +6,8 @@ import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundAuditRepository } from "@/server/repositories/refundAudit.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { refundEffectsService } from "@/server/services/refund/refundEffects.service";
+import { refundNotificationsService } from "@/server/services/refund/refundNotifications.service";
+import { adminAlertService } from "./adminAlert.service";
 import { connectService } from "./connect.service";
 import { paymentService } from "./payment.service";
 
@@ -111,6 +113,10 @@ class StripeEventService {
 				path: refunded ? "refund_request" : "lost_dispute",
 				now,
 			});
+			// Matrix "Dispute closed lost" (V16): the admins always; the student unless Learnix's
+			// own refund already told them. Both de-duplicated per payment.
+			await adminAlertService.disputeLost(paymentId);
+			if (!refunded) await refundNotificationsService.disputeLost(paymentId);
 		}
 	}
 
@@ -123,12 +129,20 @@ class StripeEventService {
 		charge: Stripe.Charge,
 		now: Date,
 	): Promise<void> {
-		if (charge.amount_refunded < charge.amount) return;
 		const paymentIntentId = paymentIntentOf(charge);
 		if (!paymentIntentId) return;
 		const payment =
 			await paymentRepository.findByPaymentIntentId(paymentIntentId);
 		if (!payment) return;
+		if (charge.amount_refunded < charge.amount) {
+			// FR-A7 / FR-P16 (V15): a partial Dashboard refund changes nothing but is reported.
+			await adminAlertService.dashboardRefund(
+				payment.id,
+				charge.amount_refunded,
+				now,
+			);
+			return;
+		}
 		// qa #4: the webhook for Learnix's own refund can beat executeRefund's apply; the
 		// certificate is then revoked for the student's request, not "via the Dashboard" (R4).
 		const ownRequest = await refundRequestRepository.hasProcessingForPayment(
@@ -136,11 +150,19 @@ class StripeEventService {
 		);
 		// V14: an admin exception's own webhook keeps its path (the audit row is written first).
 		const exception = await refundAuditRepository.hasException(db, payment.id);
-		await refundEffectsService.apply({
+		const path = refundPathOf(ownRequest, exception);
+		const applied = await refundEffectsService.apply({
 			paymentId: payment.id,
-			path: refundPathOf(ownRequest, exception),
+			path,
 			now,
 		});
+		// FR-A7 (V15): a full Dashboard refund is flagged and reported, once.
+		if (applied && path === "dashboard_refund")
+			await adminAlertService.dashboardRefund(
+				payment.id,
+				charge.amount_refunded,
+				now,
+			);
 	}
 }
 

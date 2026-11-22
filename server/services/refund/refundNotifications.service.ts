@@ -112,6 +112,24 @@ class RefundNotificationsService {
 			},
 		});
 	}
+
+	/** DL / matrix "Dispute closed lost": the student is told their access was closed, once. */
+	async disputeLost(paymentId: string): Promise<void> {
+		const payment = await paymentRepository.findForNotice(paymentId);
+		if (!payment || !reachable(payment.student.email)) return;
+		await sendOnce({
+			dedupKey: `${payment.student.id}:dispute_lost:${payment.id}`,
+			userId: payment.student.id,
+			automation: "dispute_lost",
+			templateKey: "refund.dispute-lost",
+			toEmail: payment.student.email,
+			payload: {
+				name: payment.student.name,
+				title: `Your bank dispute for ${payment.course.title} was closed`,
+				body: `Your bank returned ${formatRefundAmount(payment.amountCents, payment.currency)} for ${payment.course.title}. Because the payment was taken back, your access to the course and its progress have been closed. You can buy the course again at any time.`,
+			},
+		});
+	}
 }
 
 export const refundNotificationsService = new RefundNotificationsService();

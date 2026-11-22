@@ -103,6 +103,53 @@ class PaymentRepository extends BaseRepository<
 		});
 	}
 
+	/** V15 / FR-A7: flag a payment refunded in the Stripe Dashboard for an admin to look at. */
+	markNeedsReview(paymentId: string, now: Date) {
+		return this.db.payment.updateMany({
+			where: { id: paymentId, needsReviewAt: null },
+			data: { needsReviewAt: now },
+		});
+	}
+
+	clearNeedsReview(paymentId: string) {
+		return this.db.payment.updateMany({
+			where: { id: paymentId },
+			data: { needsReviewAt: null },
+		});
+	}
+
+	/** V15: flagged payments, oldest flag first — what the admin list shows. */
+	findNeedsReview() {
+		return this.db.payment.findMany({
+			where: { needsReviewAt: { not: null } },
+			orderBy: { needsReviewAt: "asc" },
+			select: {
+				id: true,
+				status: true,
+				amountCents: true,
+				currency: true,
+				needsReviewAt: true,
+				refundedAt: true,
+				course: { select: { title: true } },
+				student: { select: { name: true } },
+			},
+		});
+	}
+
+	/** V16: what a payment notice names — the course, the amount and the student's contact. */
+	findForNotice(paymentId: string) {
+		return this.db.payment.findUnique({
+			where: { id: paymentId },
+			select: {
+				id: true,
+				amountCents: true,
+				currency: true,
+				course: { select: { title: true } },
+				student: { select: { id: true, email: true, name: true } },
+			},
+		});
+	}
+
 	/** V14: what the exception refund checks before it touches Stripe. */
 	findForException(paymentId: string) {
 		return this.db.payment.findUnique({
