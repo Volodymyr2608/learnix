@@ -126,6 +126,9 @@ export default class UserRepository extends BaseRepository<
 				DELETE FROM user_interest_embeddings WHERE "userId" = ${userId}
 			`;
 				await tx.learningPathCache.deleteMany({ where: { studentId: userId } });
+				// FR-P9: minutes a refund moved out of a course's records, kept per day for the
+				// student's own statistics — deleted with the account (ADR-025).
+				await tx.studyArchive.deleteMany({ where: { studentId: userId } });
 				await tx.notificationLog.deleteMany({ where: { userId } });
 
 				// The instructor profile is scrubbed rather than destroyed: it carries
