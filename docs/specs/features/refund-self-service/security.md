@@ -174,9 +174,19 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | C | Status | Where |
 |---|---|---|
 | C15 | Reused: the watchdog route goes through the same `isCronRequest` (constant-time, ≥ 32 chars, empty 401) as the release route, each with its own route test | `server/services/payments/cronAuth.ts`, `app/api/cron/payout-watchdog/route.ts` |
-| C16 | Unchanged; "Run job now" now also lives on the payouts page, through the same procedure | `payoutJob.service.ts` |
+| C16 | Extended: the admin Retry for a transfer or a reversal takes the same run lock (CONFLICT while the job runs); "Run job now" on the payouts page uses the same procedure | `payoutJob.service.ts` `underRunLock` |
 | C17 | Implemented for the new procedures: `getPayoutStatus`, `retryRefund`, `retryRelease`, `retryReversal` are `adminProcedure`, each with a STUDENT / INSTRUCTOR denial test | `server/api/routers/payment.ts` |
 | C23 | Implemented for the day-3 notice: fixed text, a strict payload with no error field; Stripe's text appears only on the admin panel and admin emails | `refund.still-processing` template |
+
+**Accepted for slice 5 only (from `/qa`):**
+- **A failed-run email lost to a Resend outage is not re-sent** (review M3): `runFailed` is called
+  once per run; the 48 h alert covers it.
+- **A throw from `start()` leaves no run row** (review M5): no alert for that run; the 48 h alert is
+  the signal.
+- **History includes `account.updated` runs while "last run" does not** (review M6) — deliberate: the
+  history shows everything that moved money; the status card is about the job.
+- Cosmetic: a sibling helper import between panel components, `PayoutRetryError` not extending
+  `PaymentError`, raw ISO timestamps in admin emails (review M7, M8, M9).
 
 **Residual risk (M3):** the 48 h alert runs on a second Vercel cron. If Vercel Cron itself stops,
 both routes stop and no email is sent; the warning on `/admin/payouts` is the only signal then.

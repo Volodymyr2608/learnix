@@ -1535,3 +1535,22 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me* (each task's test ran red, then green; unit 2564/2564)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 5 /qa: what the review and the audits changed
+- **Stage:** validation
+- **Context the AI had:** the slice-5 diff (a637b2c..df1a931), `build/plan-slice-5.md`, `spec.md`,
+  `security.md`; one fresh code reviewer (Opus), `security-auditor`, a narrow `llm-security-auditor`
+- **AI found:**
+  - review (Important) — the last run's per-payment failures were computed but never shown, though M2
+    relies on the panel for them; Retry always said "Retried." even when nothing changed; Run job now
+    did not refresh the panel → all fixed;
+  - audit (Low) — Retry ran outside the run lock (Stripe idempotency held, but a race could leave the
+    DB out of step with Stripe) → retries take the lock; alerts went to anonymised admins and the
+    day-3 notice to anonymised students → filtered; the watchdog loop had no bound → capped;
+  - review (Minor) — the stale rule written twice, constants imported from services, no warning when
+    no admin exists, a test that would pass without its filter → fixed; three more recorded as
+    accepted in `security.md`;
+  - C15, C16 (extended), C17, C23 implemented; LLM audit — nothing
+- **How I verified:** *Not verified by me* (each fix: a test that failed first, then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
