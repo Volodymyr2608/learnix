@@ -14,14 +14,13 @@ import { refundService } from "@/server/services/refund/refund.service";
 import { logger } from "@/server/utils/logger";
 import { adminAlertService } from "./adminAlert.service";
 import { connectService } from "./connect.service";
+import { PAYOUT_BATCH_SIZE, PAYOUT_LOCK_TTL_MS } from "./payoutJob.constants";
 import { getRunLock } from "./runLock";
 import { stripe } from "./stripe.client";
 import { stripeEventService } from "./stripeEvent.service";
 
-/** FR-P3: ~1.5 s per payment keeps a run near 75 s of the 300 s Hobby limit (decision BATCH). */
-export const PAYOUT_BATCH_SIZE = 50;
-/** H7: longer than one Hobby run, so a crashed run cannot block the next day. */
-export const PAYOUT_LOCK_TTL_MS = 15 * 60 * 1000;
+export { PAYOUT_BATCH_SIZE, PAYOUT_LOCK_TTL_MS } from "./payoutJob.constants";
+
 const LOCK_NAME = "payouts";
 /** R7: processing refunds retried per run. */
 export const REFUND_RETRY_BATCH = 20;

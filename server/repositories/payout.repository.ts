@@ -94,6 +94,28 @@ class PayoutRepository extends BaseRepository<
 		return rows.flatMap((r) => byId.get(r.id) ?? []);
 	}
 
+	/** M9: held sales — what the panel sums. */
+	findHeld() {
+		return this.db.payment.findMany({
+			where: { status: "succeeded", transferStatus: "pending" },
+			select: {
+				id: true,
+				instructorNetCents: true,
+				paidAt: true,
+				createdAt: true,
+			},
+		});
+	}
+
+	/** M8: transfers left `transferring` longer than one run could take. */
+	findStuckTransferring(before: Date) {
+		return this.db.payment.findMany({
+			where: { transferStatus: "transferring", updatedAt: { lte: before } },
+			select: { id: true, instructorNetCents: true, updatedAt: true },
+			orderBy: { updatedAt: "asc" },
+		});
+	}
+
 	/** M3: is any instructor money held at all (a never-run job matters only then)? */
 	async countHeld(): Promise<number> {
 		return this.db.payment.count({

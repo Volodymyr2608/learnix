@@ -185,6 +185,28 @@ class RefundRequestRepository extends BaseRepository<
 		});
 	}
 
+	/** M8: overdue refunds as the admin panel lists them, with Stripe's text (admin-only). */
+	async findOverdueForPanel(since: Date) {
+		const rows = await this.db.refundRequest.findMany({
+			where: { refundState: "processing", createdAt: { lte: since } },
+			orderBy: { createdAt: "asc" },
+			select: {
+				id: true,
+				paymentId: true,
+				createdAt: true,
+				refundError: true,
+				payment: { select: { amountCents: true } },
+			},
+		});
+		return rows.map((r) => ({
+			requestId: r.id,
+			paymentId: r.paymentId,
+			amountCents: r.payment.amountCents,
+			approvedAt: r.createdAt,
+			error: r.refundError,
+		}));
+	}
+
 	/** FR-A11 (M7): requests still processing since before `since`. */
 	async findOverdueIds(since: Date): Promise<string[]> {
 		const rows = await this.db.refundRequest.findMany({

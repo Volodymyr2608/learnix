@@ -27,3 +27,43 @@ export type RefundRunCounts = {
 export type PayoutRunSummary =
 	| ({ status: "completed"; runId: string } & PayoutRunCounts & RefundRunCounts)
 	| { status: "already_running" };
+
+/** FR-A8: one run as the Payouts panel shows it (M1, M2). */
+export type PayoutRunView = {
+	id: string;
+	trigger: "cron" | "manual" | "account_updated";
+	startedAt: Date;
+	finishedAt: Date | null;
+	outcome: "succeeded" | "failed" | "running" | "crashed";
+	processed: number;
+	released: number;
+	failed: number;
+	/** Admin-only. */
+	error: string | null;
+};
+
+/** FR-A8 / AC-F11: everything on the admin Payouts panel. */
+export type PayoutPanel = {
+	lastRun: PayoutRunView | null;
+	lastRunFailures: { paymentId: string; error: string }[];
+	lastSuccessAt: Date | null;
+	stale: boolean;
+	history: PayoutRunView[];
+	heldFunds: { count: number; totalCents: number; dueSoonCents: number };
+	problems: {
+		overdueRefunds: {
+			requestId: string;
+			paymentId: string;
+			amountCents: number;
+			approvedAt: Date;
+			/** Stripe's text, admin-only (C23). */
+			error: string | null;
+		}[];
+		stuckTransfers: { paymentId: string; amountCents: number; since: Date }[];
+		pendingReversals: {
+			paymentId: string;
+			amountCents: number;
+			refundedAt: Date | null;
+		}[];
+	};
+};
