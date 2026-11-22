@@ -22,6 +22,28 @@ const statusFilterForTab = (
 };
 
 class EnrollmentService {
+	/**
+	 * Audit High (slice 3): the student-facing enrol action is for free courses only. A paid
+	 * course is entered only through a finalized checkout (`enrollInCourse` from
+	 * `finalizeCheckout`); otherwise a refunded student could re-activate the course — and
+	 * un-revoke its certificate — for free.
+	 */
+	async enrollInFreeCourse(studentId: string, courseId: string) {
+		const course = await courseRepository.findFirst({
+			where: { id: courseId, status: "published", deletedAt: null },
+			select: { priceCents: true },
+		});
+		if (course && course.priceCents > 0) {
+			throw new EnrollmentError(
+				"This course must be purchased",
+				"FORBIDDEN",
+				undefined,
+				{ courseId, studentId },
+			);
+		}
+		return this.enrollInCourse(studentId, courseId);
+	}
+
 	async enrollInCourse(studentId: string, courseId: string) {
 		try {
 			const course = await courseRepository.findFirst({

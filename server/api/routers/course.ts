@@ -169,7 +169,7 @@ export const courseRouter = createTRPCRouter({
 		.input(CourseSchema.shape.id)
 		.mutation(async ({ ctx, input }) => {
 			try {
-				return await enrollmentService.enrollInCourse(
+				return await enrollmentService.enrollInFreeCourse(
 					ctx.session.user.id,
 					input,
 				);
