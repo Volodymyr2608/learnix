@@ -98,6 +98,8 @@ model PayoutRun {
   /// [{ paymentId, error }]
   failures   Json             @default("[]")
   paymentIds String[]         @map("payment_ids")
+  /// M1: the message of a run that threw; a run with no finishedAt 15 min after start crashed.
+  error      String?
 
   @@index([startedAt])
   @@map("payout_runs")
