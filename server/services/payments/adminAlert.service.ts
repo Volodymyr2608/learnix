@@ -95,7 +95,7 @@ class AdminAlertService {
 				toEmail: admin.email,
 				payload: {
 					requestId: request.id,
-					approvedAt: request.createdAt.toISOString(),
+					approvedAt: (request.approvedAt ?? request.createdAt).toISOString(),
 					panelUrl: panelUrl(),
 				},
 			});

@@ -233,6 +233,10 @@ export function makeRefundRequest(
 			snapshot: {},
 			// V2: an automatic approval carries approval = automatic, as the request path writes it.
 			approval: decision === "auto_approved" ? "automatic" : null,
+			approvedAt:
+				decision === "auto_approved"
+					? (overrides.createdAt ?? new Date())
+					: null,
 			...overrides,
 			decision,
 		},

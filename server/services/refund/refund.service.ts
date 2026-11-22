@@ -153,6 +153,7 @@ class RefundService {
 						result.decision === "auto_approved" ? "processing" : null,
 					// V2: counts for D3 and the account limit.
 					approval: result.decision === "auto_approved" ? "automatic" : null,
+					approvedAt: result.decision === "auto_approved" ? now : null,
 				});
 
 				return {

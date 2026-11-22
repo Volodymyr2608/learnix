@@ -55,6 +55,13 @@ export const refundEffectsRepository = {
 				refundedAt: now,
 			},
 		});
+		// Review I2 / EC-16, AC-F22: an appeal still waiting when the money went back another way
+		// (Dashboard, lost dispute, exception) has nothing left to decide; it never counts as an
+		// approval (D3), so the request keeps approval = null.
+		await tx.refundAppeal.updateMany({
+			where: { request: { paymentId: id }, status: "open" },
+			data: { status: "closed_refunded", decidedAt: now },
+		});
 
 		// FR-P8 (DC): while another paid purchase of the course stands, the student keeps the
 		// course — and with it the records, certificate, conversation and review.

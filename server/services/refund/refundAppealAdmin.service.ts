@@ -131,6 +131,7 @@ class RefundAppealAdminService {
 				tx,
 				appeal.request.id,
 				"appeal",
+				now,
 			);
 			await refundAuditRepository.createInTx(tx, {
 				kind: "appeal_approved",
@@ -259,6 +260,7 @@ class RefundAppealAdminService {
 					tx,
 					appeal.request.id,
 					"overdue",
+					now,
 				);
 				await refundAuditRepository.createInTx(tx, {
 					kind: "appeal_overdue",

@@ -274,4 +274,66 @@ describe("admin appeal decisions (FR-A1–A3, AC-F8, AC-C17, AC-C18)", () => {
 
 		expect(decidedEmails()).toHaveLength(2);
 	});
+
+	it("starts the 3-day clock at the approval, not at the original filing (review I1)", async () => {
+		stripeMock.refundsCreate.mockRejectedValueOnce(new Error("Stripe 500"));
+		await testDb.refundRequest.updateMany({
+			data: { createdAt: new Date(Date.now() - 10 * DAY) },
+		});
+
+		await callerFor(adminId, Role.ADMIN).refundAdmin.approveAppeal({
+			appealId,
+		});
+
+		const request = await testDb.refundRequest.findFirstOrThrow({
+			where: { paymentId: ids.paymentId },
+		});
+		expect(request.refundState).toBe("processing");
+		expect(Date.now() - (request.approvedAt?.getTime() ?? 0)).toBeLessThan(
+			60_000,
+		);
+		const { refundRequestRepository } = await import(
+			"@/server/repositories/refundRequest.repository"
+		);
+		expect(
+			await refundRequestRepository.findOverdueIds(
+				new Date(Date.now() - 3 * DAY),
+				10,
+			),
+		).toEqual([]);
+	});
+
+	it.each([
+		"dashboard_refund",
+		"lost_dispute",
+		"admin_exception",
+	] as const)("closes an open appeal when the payment is refunded by %s, with nothing left to decide (review I2)", async (path) => {
+		const { refundEffectsService } = await import(
+			"@/server/services/refund/refundEffects.service"
+		);
+
+		await refundEffectsService.apply({
+			paymentId: ids.paymentId,
+			path,
+			now: new Date(),
+		});
+
+		expect(
+			(await testDb.refundAppeal.findUniqueOrThrow({ where: { id: appealId } }))
+				.status,
+		).toBe("closed_refunded");
+		expect(
+			await callerFor(adminId, Role.ADMIN).refundAdmin.listOpenAppeals(),
+		).toEqual([]);
+		await expect(
+			callerFor(adminId, Role.ADMIN).refundAdmin.approveAppeal({ appealId }),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		expect(
+			(
+				await testDb.refundRequest.findFirstOrThrow({
+					where: { paymentId: ids.paymentId },
+				})
+			).approval,
+		).toBeNull();
+	});
 });

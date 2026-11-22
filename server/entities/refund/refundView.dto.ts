@@ -14,7 +14,12 @@ export type EvidenceFileView = {
 
 /** The parts of a stored appeal the student may see (FR-S17, FR-S18). */
 export type RefundAppealView = {
-	status: "open" | "approved" | "denied" | "overdue_approved";
+	status:
+		| "open"
+		| "approved"
+		| "denied"
+		| "overdue_approved"
+		| "closed_refunded";
 	createdAt: Date;
 	denialReason: string | null;
 	files: EvidenceFileView[];

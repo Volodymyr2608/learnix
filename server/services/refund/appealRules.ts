@@ -6,7 +6,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const APPEAL_AFTER_DENIAL_MS = 3 * DAY_MS;
 
 export type AppealKind = "direct" | "after_denial";
-export type AppealStatus = "open" | "approved" | "denied" | "overdue_approved";
+export type AppealStatus =
+	| "open"
+	| "approved"
+	| "denied"
+	| "overdue_approved"
+	| "closed_refunded";
 
 /**
  * FR-S16 / AC-F6: a direct appeal until the window ends; after an automatic denial, until the later

@@ -29,6 +29,9 @@ enum AppealStatus {
   approved
   denied
   overdue_approved
+  /// Review I2 / EC-16, AC-F22: the payment was refunded another way (Dashboard, lost dispute,
+  /// exception) while the appeal waited; nothing left to decide.
+  closed_refunded
 }
 
 enum EvidenceUploader {
@@ -79,6 +82,8 @@ model RefundRequest {
   createdAt         DateTime        @default(now()) @map("created_at")
   /// V2: set when the refund is approved — automatically, on appeal, or overdue (FR-A5).
   approval          RefundApproval?
+  /// Review I1 / FR-A11: when the refund was approved — the "3 days after approval" clock.
+  approvedAt        DateTime?       @map("approved_at")
   appeal            RefundAppeal?
 
   @@index([studentId, decision, createdAt])

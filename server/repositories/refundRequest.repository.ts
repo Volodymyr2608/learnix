@@ -254,10 +254,16 @@ class RefundRequestRepository extends BaseRepository<
 		tx: Prisma.TransactionClient,
 		requestId: string,
 		approval: "appeal" | "overdue",
+		now: Date,
 	) {
 		return tx.refundRequest.update({
 			where: { id: requestId },
-			data: { approval, refundState: "processing", refundError: null },
+			data: {
+				approval,
+				approvedAt: now,
+				refundState: "processing",
+				refundError: null,
+			},
 			select: { id: true },
 		});
 	}
@@ -315,6 +321,7 @@ class RefundRequestRepository extends BaseRepository<
 				id: true,
 				refundState: true,
 				createdAt: true,
+				approvedAt: true,
 				student: { select: { id: true, email: true, name: true } },
 				course: { select: { title: true } },
 			},
@@ -324,12 +331,14 @@ class RefundRequestRepository extends BaseRepository<
 	/** M8: overdue refunds as the admin panel lists them, with Stripe's text (admin-only). */
 	async findOverdueForPanel(since: Date) {
 		const rows = await this.db.refundRequest.findMany({
-			where: { refundState: "processing", createdAt: { lte: since } },
-			orderBy: { createdAt: "asc" },
+			// Review I1 / FR-A11: 3 days after the approval, not after the filing.
+			where: { refundState: "processing", approvedAt: { lte: since } },
+			orderBy: { approvedAt: "asc" },
 			select: {
 				id: true,
 				paymentId: true,
 				createdAt: true,
+				approvedAt: true,
 				refundError: true,
 				payment: { select: { amountCents: true } },
 			},
@@ -338,7 +347,7 @@ class RefundRequestRepository extends BaseRepository<
 			requestId: r.id,
 			paymentId: r.paymentId,
 			amountCents: r.payment.amountCents,
-			approvedAt: r.createdAt,
+			approvedAt: r.approvedAt ?? r.createdAt,
 			error: r.refundError,
 		}));
 	}
@@ -346,9 +355,10 @@ class RefundRequestRepository extends BaseRepository<
 	/** FR-A11 (M7): requests still processing since before `since`. */
 	async findOverdueIds(since: Date, limit: number): Promise<string[]> {
 		const rows = await this.db.refundRequest.findMany({
-			where: { refundState: "processing", createdAt: { lte: since } },
+			// Review I1: measured from the approval.
+			where: { refundState: "processing", approvedAt: { lte: since } },
 			select: { id: true },
-			orderBy: { createdAt: "asc" },
+			orderBy: { approvedAt: "asc" },
 			take: limit,
 		});
 		return rows.map((r) => r.id);
