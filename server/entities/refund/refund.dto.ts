@@ -1,4 +1,5 @@
-import type { RefundDecision } from "@/generated/prisma";
+import { z } from "zod";
+import { type RefundDecision, RefundReason } from "@/generated/prisma";
 
 /** FR-S2 conditions, in the order a denial names them. */
 export const REFUND_CONDITIONS = [
@@ -39,3 +40,14 @@ export type RefundDecisionResult = {
 	failedConditions: RefundCondition[];
 	snapshot: RefundSnapshot;
 };
+
+/** FR-S3: closed reason list + optional text; strict — no amount, no student id, no files (C1, C2). */
+export const refundRequestInput = z
+	.object({
+		paymentId: z.string().min(1),
+		reason: z.nativeEnum(RefundReason),
+		text: z.string().trim().max(2000).optional(),
+	})
+	.strict();
+
+export type RefundRequestInput = z.infer<typeof refundRequestInput>;
