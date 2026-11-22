@@ -1,3 +1,4 @@
+import type Stripe from "stripe";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { computeSplit } from "@/lib/platformFee";
@@ -23,6 +24,19 @@ import {
 } from "@/server/services/payments/payment.errors";
 import { connectService } from "./connect.service";
 import { stripe } from "./stripe.client";
+
+/**
+ * The Stripe charge's creation time, or null when the charge is not expanded on
+ * the session. A null paidAt is outside the refund window (P4, fail closed).
+ */
+const chargeCreatedAt = (
+	paymentIntent: Stripe.Checkout.Session["payment_intent"],
+): Date | null => {
+	if (!paymentIntent || typeof paymentIntent === "string") return null;
+	const charge = paymentIntent.latest_charge;
+	if (!charge || typeof charge === "string") return null;
+	return new Date(charge.created * 1000);
+};
 
 class PaymentService {
 	async createCheckoutSession(
@@ -127,20 +141,25 @@ class PaymentService {
 		}
 
 		// 2. Retrieve session from Stripe
-		const session = await stripe.checkout.sessions.retrieve(sessionId);
+		// The charge is expanded so paidAt (the refund window start, FR "window")
+		// comes from the same call.
+		const session = await stripe.checkout.sessions.retrieve(sessionId, {
+			expand: ["payment_intent.latest_charge"],
+		});
 
 		// 4. Not paid yet
 		if (session.payment_status !== "paid") {
 			return { status: "pending" };
 		}
 
-		// 5. Mark payment succeeded + store stripePaymentIntentId
+		// 5. Mark payment succeeded + store stripePaymentIntentId and paidAt
 		const updatedPayment = await paymentRepository.update(payment.id, {
 			status: "succeeded",
 			stripePaymentIntentId:
 				typeof session.payment_intent === "string"
 					? session.payment_intent
 					: (session.payment_intent?.id ?? null),
+			paidAt: chargeCreatedAt(session.payment_intent),
 		});
 
 		// 6. Enroll the student

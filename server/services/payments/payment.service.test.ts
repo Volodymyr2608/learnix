@@ -372,6 +372,69 @@ describe("PaymentService.handleRefund", () => {
 // Transfer decision
 // -----------------------------------------------------------------------
 
+describe("PaymentService.finalizeCheckout — paidAt (refund window start)", () => {
+	const CHARGE_CREATED = 1_763_800_000;
+
+	beforeEach(() => {
+		mockPaymentRepo.findBySessionId.mockResolvedValue(
+			makePayment({ status: "pending" }),
+		);
+		mockPaymentRepo.update.mockResolvedValue(
+			makePayment({ status: "succeeded" }),
+		);
+		mockEnrollmentService.enrollInCourse.mockResolvedValue(undefined);
+		mockConnectService.transferToInstructor.mockResolvedValue(undefined);
+	});
+
+	it("stores paidAt from the Stripe charge's created time", async () => {
+		mockCheckoutSessionsRetrieve.mockResolvedValue({
+			payment_status: "paid",
+			payment_intent: {
+				id: PAYMENT_INTENT_ID,
+				latest_charge: { id: "ch_1", created: CHARGE_CREATED },
+			},
+		});
+
+		await paymentService.finalizeCheckout(SESSION_ID);
+
+		expect(mockPaymentRepo.update).toHaveBeenCalledWith(PAYMENT_ID, {
+			status: "succeeded",
+			stripePaymentIntentId: PAYMENT_INTENT_ID,
+			paidAt: new Date(CHARGE_CREATED * 1000),
+		});
+	});
+
+	it("reads the charge in the same single Stripe call, by expanding it", async () => {
+		mockCheckoutSessionsRetrieve.mockResolvedValue({
+			payment_status: "paid",
+			payment_intent: PAYMENT_INTENT_ID,
+		});
+
+		await paymentService.finalizeCheckout(SESSION_ID);
+
+		expect(mockCheckoutSessionsRetrieve).toHaveBeenCalledTimes(1);
+		expect(mockCheckoutSessionsRetrieve).toHaveBeenCalledWith(SESSION_ID, {
+			expand: ["payment_intent.latest_charge"],
+		});
+	});
+
+	it("leaves paidAt null and still succeeds when the charge is not on the session", async () => {
+		mockCheckoutSessionsRetrieve.mockResolvedValue({
+			payment_status: "paid",
+			payment_intent: PAYMENT_INTENT_ID,
+		});
+
+		const result = await paymentService.finalizeCheckout(SESSION_ID);
+
+		expect(result).toEqual({ status: "succeeded" });
+		expect(mockPaymentRepo.update).toHaveBeenCalledWith(PAYMENT_ID, {
+			status: "succeeded",
+			stripePaymentIntentId: PAYMENT_INTENT_ID,
+			paidAt: null,
+		});
+	});
+});
+
 describe("PaymentService.finalizeCheckout — transfer decision", () => {
 	it("calls transferToInstructor (which handles onboarding check internally)", async () => {
 		const pendingPayment = makePayment({ status: "pending" });
