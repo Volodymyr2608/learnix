@@ -256,20 +256,29 @@ class ConnectService {
 		return typeof pi.latest_charge === "object" ? pi.latest_charge : null;
 	}
 
+	/**
+	 * C7 / ADR-037 §2: at most one reversal per transfer. Lists the transfer's reversals first
+	 * (idempotency keys expire after 24 h), creates one with a key derived from the payment, and
+	 * moves `transferred → reversed` by compare-and-set.
+	 */
 	async reverseTransfer(payment: Payment): Promise<void> {
-		if (!payment.stripeTransferId) {
+		const transferId = payment.stripeTransferId;
+		if (!transferId) {
 			throw new Error(
 				`Payment ${payment.id} has no stripeTransferId to reverse`,
 			);
 		}
-
-		await stripe.transfers.createReversal(payment.stripeTransferId, {
-			refund_application_fee: false,
+		const existing = await stripe.transfers.listReversals(transferId, {
+			limit: 1,
 		});
-
-		await paymentRepository.update(payment.id, {
-			transferStatus: "reversed",
-		});
+		if (!existing.data[0]) {
+			await stripe.transfers.createReversal(
+				transferId,
+				{ refund_application_fee: false },
+				{ idempotencyKey: `reversal:${payment.id}` },
+			);
+		}
+		await payoutRepository.markReversed(payment.id);
 	}
 }
 

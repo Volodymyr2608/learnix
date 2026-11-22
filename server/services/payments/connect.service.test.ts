@@ -9,6 +9,7 @@ const mockAccountLinksCreate = vi.fn();
 const mockTransfersCreate = vi.fn();
 const mockTransfersCreateReversal = vi.fn();
 const mockTransfersList = vi.fn();
+const mockTransfersListReversals = vi.fn();
 const mockPaymentIntentsRetrieve = vi.fn();
 
 // Mock stripe client
@@ -26,6 +27,7 @@ vi.mock("./stripe.client", () => ({
 			create: mockTransfersCreate,
 			createReversal: mockTransfersCreateReversal,
 			list: mockTransfersList,
+			listReversals: mockTransfersListReversals,
 		},
 		paymentIntents: {
 			retrieve: mockPaymentIntentsRetrieve,
@@ -58,6 +60,7 @@ vi.mock("@/server/repositories/payout.repository", () => ({
 		markTransferred: vi.fn(),
 		releaseClaim: vi.fn(),
 		touch: vi.fn(),
+		markReversed: vi.fn(),
 	},
 }));
 
@@ -129,6 +132,7 @@ beforeEach(() => {
 	mockTransfersCreate.mockReset();
 	mockTransfersCreateReversal.mockReset();
 	mockTransfersList.mockReset();
+	mockTransfersListReversals.mockReset();
 	mockPaymentIntentsRetrieve.mockReset();
 });
 
@@ -449,25 +453,56 @@ describe("ConnectService.releasePayment (FR-P4, C7, ADR-037 §2)", () => {
 	});
 });
 
-describe("ConnectService.reverseTransfer", () => {
-	it("calls transfers.createReversal with the correct transfer id and marks payment reversed", async () => {
-		const payment = makePayment({
+describe("ConnectService.reverseTransfer (C7, ADR-037 §2)", () => {
+	const transferred = () =>
+		makePayment({
 			stripeTransferId: "tr_to_reverse",
 			transferStatus: "transferred",
 		});
 
-		mockTransfersCreateReversal.mockResolvedValue({ id: "trr_test" });
-		mockPaymentRepo.update.mockResolvedValue(payment as never);
+	beforeEach(() => {
+		mockTransfersListReversals.mockResolvedValue({ data: [] });
+		mockPayoutRepo.markReversed.mockResolvedValue(true);
+	});
 
-		await connectService.reverseTransfer(payment);
+	it("creates one reversal with an idempotency key and marks the payment reversed", async () => {
+		mockTransfersCreateReversal.mockResolvedValue({ id: "trr_new" });
 
-		expect(mockTransfersCreateReversal).toHaveBeenCalledWith("tr_to_reverse", {
-			refund_application_fee: false,
+		await connectService.reverseTransfer(transferred());
+
+		expect(mockTransfersListReversals).toHaveBeenCalledWith("tr_to_reverse", {
+			limit: 1,
 		});
-		expect(mockPaymentRepo.update).toHaveBeenCalledWith(
-			payment.id,
-			expect.objectContaining({ transferStatus: "reversed" }),
+		expect(mockTransfersCreateReversal).toHaveBeenCalledWith(
+			"tr_to_reverse",
+			{ refund_application_fee: false },
+			{ idempotencyKey: "reversal:pay_1" },
 		);
+		expect(mockPayoutRepo.markReversed).toHaveBeenCalledWith("pay_1");
+	});
+
+	it("records an existing reversal instead of creating a second one", async () => {
+		mockTransfersListReversals.mockResolvedValue({ data: [{ id: "trr_old" }] });
+
+		await connectService.reverseTransfer(transferred());
+
+		expect(mockTransfersCreateReversal).not.toHaveBeenCalled();
+		expect(mockPayoutRepo.markReversed).toHaveBeenCalledWith("pay_1");
+	});
+
+	it("does not throw when another path already marked it reversed", async () => {
+		mockTransfersCreateReversal.mockResolvedValue({ id: "trr_new" });
+		mockPayoutRepo.markReversed.mockResolvedValue(false);
+
+		await expect(
+			connectService.reverseTransfer(transferred()),
+		).resolves.toBeUndefined();
+	});
+
+	it("refuses a payment without a transfer id", async () => {
+		await expect(
+			connectService.reverseTransfer(makePayment({ stripeTransferId: null })),
+		).rejects.toThrow(/no stripeTransferId/);
 	});
 });
 

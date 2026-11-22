@@ -118,6 +118,15 @@ class PayoutRepository extends BaseRepository<
 		return count === 1;
 	}
 
+	/** ADR-037 §2: `transferred → reversed`; false if another path already recorded it. */
+	async markReversed(paymentId: string): Promise<boolean> {
+		const { count } = await this.db.payment.updateMany({
+			where: { id: paymentId, transferStatus: "transferred" },
+			data: { transferStatus: "reversed" },
+		});
+		return count === 1;
+	}
+
 	/** Audit Low-2: mark a row as just tried, so candidate order puts it behind fresh sales. */
 	async touch(paymentId: string): Promise<void> {
 		await this.db.payment.updateMany({

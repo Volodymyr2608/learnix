@@ -8,6 +8,7 @@ const mockCheckoutSessionsCreate = vi.fn();
 const mockCheckoutSessionsRetrieve = vi.fn();
 const mockTransfersCreate = vi.fn();
 const mockTransfersCreateReversal = vi.fn();
+const mockTransfersListReversals = vi.fn().mockResolvedValue({ data: [] });
 const mockAccountsRetrieve = vi.fn();
 
 vi.mock("@/server/services/payments/stripe.client", () => ({
@@ -21,6 +22,7 @@ vi.mock("@/server/services/payments/stripe.client", () => ({
 		transfers: {
 			create: mockTransfersCreate,
 			createReversal: mockTransfersCreateReversal,
+			listReversals: mockTransfersListReversals,
 		},
 		accounts: {
 			retrieve: mockAccountsRetrieve,
@@ -320,6 +322,7 @@ describe("PaymentService.handleRefund — integration", () => {
 		expect(mockTransfersCreateReversal).toHaveBeenCalledWith(
 			TRANSFER_ID,
 			expect.objectContaining({ refund_application_fee: false }),
+			{ idempotencyKey: expect.stringMatching(/^reversal:/) },
 		);
 
 		const enrollment = await testDb.enrollment.findFirst({
