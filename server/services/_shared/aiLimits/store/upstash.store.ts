@@ -66,7 +66,8 @@ export type RedisLike = {
 	del: (...keys: string[]) => Promise<number>;
 };
 
-export const createRedisClient = (url: string, token: string): RedisLike =>
+/** The full client, for callers that need commands RedisLike leaves out (the payout run lock). */
+export const createRawRedisClient = (url: string, token: string): Redis =>
 	new Redis({
 		url,
 		token,
@@ -75,6 +76,9 @@ export const createRedisClient = (url: string, token: string): RedisLike =>
 		// chance at a call that failing closed already handles. Budget over blip.
 		retry: { retries: 0 },
 	});
+
+export const createRedisClient = (url: string, token: string): RedisLike =>
+	createRawRedisClient(url, token);
 
 export const createUpstashStore = (
 	url: string,
