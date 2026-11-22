@@ -158,6 +158,24 @@ class RefundNotificationsService {
 			},
 		});
 	}
+
+	/** FR-P27 (W5): the refund failed at the bank; access is restored — once per payment. */
+	async bankFailed(paymentId: string): Promise<void> {
+		const payment = await paymentRepository.findForNotice(paymentId);
+		if (!payment || !reachable(payment.student.email)) return;
+		await sendOnce({
+			dedupKey: `${payment.student.id}:bank_failed:${payment.id}`,
+			userId: payment.student.id,
+			automation: "bank_failed",
+			templateKey: "refund.bank-failed",
+			toEmail: payment.student.email,
+			payload: {
+				name: payment.student.name,
+				title: `Your refund for ${payment.course.title} could not be completed`,
+				body: `Your bank could not accept the refund for ${payment.course.title}. Your access to the course has been restored while we return the money another way; we will contact you. Progress cleared at the refund could not be restored.`,
+			},
+		});
+	}
 }
 
 export const refundNotificationsService = new RefundNotificationsService();

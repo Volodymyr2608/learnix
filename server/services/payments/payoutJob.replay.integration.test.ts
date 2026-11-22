@@ -292,6 +292,8 @@ describe("the daily job retries refunds and replays missed refund events (FR-P15
 			expect.objectContaining({
 				types: [
 					"charge.refunded",
+					// W5 / FR-P27: a refund that failed at the bank is replayed too.
+					"charge.refund.updated",
 					"charge.dispute.created",
 					"charge.dispute.updated",
 					"charge.dispute.closed",

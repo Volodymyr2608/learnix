@@ -162,6 +162,25 @@ class PaymentRepository extends BaseRepository<
 		});
 	}
 
+	/**
+	 * FR-P27 (W5): marks a refunded payment's bank failure once; a cancelled share goes back to
+	 * held. False when the payment is not refunded or the failure was already recorded.
+	 */
+	async markBankFailure(paymentId: string, now: Date): Promise<boolean> {
+		return this.db.$transaction(async (tx) => {
+			const { count } = await tx.payment.updateMany({
+				where: { id: paymentId, status: "refunded", bankFailureAt: null },
+				data: { bankFailureAt: now },
+			});
+			if (count === 0) return false;
+			await tx.payment.updateMany({
+				where: { id: paymentId, transferStatus: "cancelled" },
+				data: { transferStatus: "pending" },
+			});
+			return true;
+		});
+	}
+
 	/** W2 / FR-P28: recent succeeded payments saved without their Stripe fee. */
 	async findMissingFees(paidSince: Date, limit: number) {
 		const rows = await this.db.payment.findMany({

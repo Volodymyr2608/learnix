@@ -238,9 +238,13 @@ export const emailTemplates = {
 		() => "Learnix: a refund was made in the Stripe Dashboard",
 	),
 	"admin.dispute-lost": adminNotice(() => "Learnix: a bank dispute was lost"),
+	"admin.bank-failure": adminNotice(
+		() => "Learnix: a refund failed at the bank",
+	),
 	"refund.appeal-decided": studentNotice((p) => p.title),
 	"refund.dispute-lost": studentNotice((p) => p.title),
 	"refund.duplicate-charge": studentNotice((p) => p.title),
+	"refund.bank-failed": studentNotice((p) => p.title),
 	// biome-ignore lint/suspicious/noExplicitAny: registry requires any for generic constraint
 } as const satisfies Record<string, TemplateEntry<any>>;
 

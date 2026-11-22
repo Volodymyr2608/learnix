@@ -44,6 +44,39 @@ class EnrollmentService {
 		return this.enrollInCourse(studentId, courseId);
 	}
 
+	/**
+	 * R5 / FR-P27: a cancelled enrollment becomes active again and the conversation a refund closed
+	 * reopens. Shared by a repurchase and a refund that failed at the bank (W5); cleared learning
+	 * records are not restored (FS-3).
+	 */
+	private async reactivate(
+		enrollmentId: string,
+		studentId: string,
+		courseId: string,
+	): Promise<void> {
+		await enrollmentRepository.update(enrollmentId, {
+			status: EnrollmentStatus.active,
+			enrolledAt: new Date(),
+			completedAt: null,
+			// R5: a repurchase starts clean — a new certificate must not stay hidden.
+			certificateRevokedAt: null,
+			certificateRevokedReason: null,
+		});
+		await conversationRepository.reopenForStudentCourse(studentId, courseId);
+	}
+
+	/** FR-P27 (W5): restores access after a refund failed at the bank — no purchase checks. */
+	async reactivateAfterFailedRefund(
+		studentId: string,
+		courseId: string,
+	): Promise<void> {
+		const enrollment = await enrollmentRepository.findFirst({
+			where: { studentId, courseId, status: EnrollmentStatus.cancelled },
+			select: { id: true },
+		});
+		if (enrollment) await this.reactivate(enrollment.id, studentId, courseId);
+	}
+
 	async enrollInCourse(studentId: string, courseId: string) {
 		try {
 			const course = await courseRepository.findFirst({
@@ -94,19 +127,7 @@ class EnrollmentService {
 				});
 				alreadyEnrolled = false;
 			} else if (existingEnrollment.status === EnrollmentStatus.cancelled) {
-				await enrollmentRepository.update(existingEnrollment.id, {
-					status: EnrollmentStatus.active,
-					enrolledAt: new Date(),
-					completedAt: null,
-					// R5: a repurchase starts clean — a new certificate must not stay hidden.
-					certificateRevokedAt: null,
-					certificateRevokedReason: null,
-				});
-				// R5: the conversation a refund closed reopens with the new purchase.
-				await conversationRepository.reopenForStudentCourse(
-					studentId,
-					courseId,
-				);
+				await this.reactivate(existingEnrollment.id, studentId, courseId);
 			}
 
 			void embeddingsService

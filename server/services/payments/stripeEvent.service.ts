@@ -5,6 +5,7 @@ import { instructorRepository } from "@/server/repositories/instructor.repositor
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundAuditRepository } from "@/server/repositories/refundAudit.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
+import { bankFailureService } from "@/server/services/refund/bankFailure.service";
 import { refundEffectsService } from "@/server/services/refund/refundEffects.service";
 import { refundNotificationsService } from "@/server/services/refund/refundNotifications.service";
 import { adminAlertService } from "./adminAlert.service";
@@ -53,6 +54,17 @@ class StripeEventService {
 			}
 			case "charge.refunded": {
 				await this.chargeRefunded(event.data.object as Stripe.Charge, now);
+				return;
+			}
+			case "charge.refund.updated": {
+				// FR-P27 (W5): a refund that later failed at the bank.
+				const refund = event.data.object as Stripe.Refund;
+				const paymentIntentId =
+					typeof refund.payment_intent === "string"
+						? refund.payment_intent
+						: refund.payment_intent?.id;
+				if (refund.status === "failed" && paymentIntentId)
+					await bankFailureService.refundFailed(paymentIntentId, now);
 				return;
 			}
 			case "charge.dispute.created":

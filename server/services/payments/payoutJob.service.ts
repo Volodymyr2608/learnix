@@ -32,6 +32,7 @@ export const REFUND_RETRY_BATCH = 20;
 const REPLAY_CURSOR = "stripe_events";
 const REPLAYED_EVENTS = [
 	"charge.refunded",
+	"charge.refund.updated",
 	"charge.dispute.created",
 	"charge.dispute.updated",
 	"charge.dispute.closed",

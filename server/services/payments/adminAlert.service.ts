@@ -219,6 +219,27 @@ class AdminAlertService {
 			});
 		}
 	}
+
+	/** FR-P27 (W5): a refund failed at the bank — every admin, once per payment. */
+	async bankFailure(paymentId: string): Promise<void> {
+		const payment = await paymentRepository.findForNotice(paymentId);
+		if (!payment) return;
+		const admins = await adminsOrWarn("bank_failure");
+		for (const admin of admins) {
+			await sendOnce({
+				dedupKey: `admin:${admin.id}:bank_failure:${payment.id}`,
+				userId: admin.id,
+				automation: "bank_failure",
+				templateKey: "admin.bank-failure",
+				toEmail: admin.email,
+				payload: {
+					title: "A refund failed at the bank",
+					summary: `The refund of payment ${payment.id} for ${payment.course.title} failed at the student's bank. Access was restored and the instructor's share is held. Return the money another way, then close it on the refunds page.`,
+					panelUrl: refundsUrl(),
+				},
+			});
+		}
+	}
 }
 
 export const adminAlertService = new AdminAlertService();
