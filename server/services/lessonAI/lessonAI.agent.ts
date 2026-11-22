@@ -111,7 +111,7 @@ export function createLessonAgent(params: {
 		model: llm,
 		tools: [
 			buildRetrieveLessonContextTool(params.lessonId, params.turn),
-			buildSearchAcrossCourseTool(params.courseId),
+			buildSearchAcrossCourseTool(params.courseId, params.studentId),
 			buildGetStudentProgressTool(params.studentId, params.courseId),
 			buildAskConceptCheckTool(
 				params.studentId,

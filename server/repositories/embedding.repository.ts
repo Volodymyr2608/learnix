@@ -146,7 +146,16 @@ class EmbeddingRepository {
 		`;
 	}
 
-	async searchCourseChunks(courseId: string, queryVector: number[], k: number) {
+	/**
+	 * AI-C2 / FR-P19a: the tutor's course-wide search reads only lessons this student has opened —
+	 * the gate is in the query, so no model-chosen query can widen it (security.md §AI controls).
+	 */
+	async searchCourseChunks(
+		courseId: string,
+		studentId: string,
+		queryVector: number[],
+		k: number,
+	) {
 		const literal = `[${queryVector.join(",")}]`;
 		return db.$queryRaw<
 			Array<{ content: string; lessonTitle: string; distance: number }>
@@ -155,6 +164,7 @@ class EmbeddingRepository {
 			FROM lesson_chunk_embeddings lce
 			JOIN lessons l ON l.id = lce."lessonId"
 			JOIN sections s ON s.id = l."sectionId"
+			JOIN opened_lessons ol ON ol.lesson_id = l.id AND ol.student_id = ${studentId}
 			WHERE s."courseId" = ${courseId}
 				AND l.deleted_at IS NULL
 			ORDER BY distance ASC

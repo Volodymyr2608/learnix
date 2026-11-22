@@ -23,7 +23,9 @@ describe("search_across_course", () => {
 	});
 
 	const invoke = () =>
-		buildSearchAcrossCourseTool("course-1").invoke({ query: "recursion" });
+		buildSearchAcrossCourseTool("course-1", "student-1").invoke({
+			query: "recursion",
+		});
 
 	it("wraps course chunks as untrusted data", async () => {
 		mockSearchCourseChunks.mockResolvedValue([
@@ -59,5 +61,22 @@ describe("search_across_course", () => {
 		expect(await invoke()).toBe(
 			"No relevant content found across this course.",
 		);
+	});
+
+	it("binds the student by closure, never as a tool argument (AC-L2, G6)", async () => {
+		mockSearchCourseChunks.mockResolvedValue([]);
+
+		await invoke();
+
+		expect(mockSearchCourseChunks).toHaveBeenCalledWith(
+			"course-1",
+			"student-1",
+			[0.1, 0.2],
+			4,
+		);
+		const schema = buildSearchAcrossCourseTool("c", "s").schema as {
+			shape: Record<string, unknown>;
+		};
+		expect(Object.keys(schema.shape).sort()).toEqual(["k", "query"]);
 	});
 });

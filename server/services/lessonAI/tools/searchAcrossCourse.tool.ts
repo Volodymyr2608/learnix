@@ -4,12 +4,20 @@ import { embeddingRepository } from "@/server/repositories/embedding.repository"
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 
-export const buildSearchAcrossCourseTool = (courseId: string) =>
+/**
+ * AI-C2 (G6): the student is bound by closure — the model never sees or chooses it — and the
+ * search returns only lessons that student opened.
+ */
+export const buildSearchAcrossCourseTool = (
+	courseId: string,
+	studentId: string,
+) =>
 	tool(
 		async ({ query, k = 4 }: { query: string; k?: number }) => {
 			const vector = await embeddingsService.embedQuery(query);
 			const chunks = await embeddingRepository.searchCourseChunks(
 				courseId,
+				studentId,
 				vector,
 				k,
 			);
