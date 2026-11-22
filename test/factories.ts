@@ -244,3 +244,55 @@ export function makeOpenedLesson(
 ) {
 	return testDb.openedLesson.create({ data: { ...overrides } });
 }
+
+export function makeConceptCheck(
+	overrides: Partial<Prisma.ConceptCheckUncheckedCreateInput> & {
+		studentId: string;
+		lessonId: string;
+		courseId: string;
+	},
+) {
+	return testDb.conceptCheck.create({
+		data: {
+			concept: "Recursion",
+			conceptKey: "recursion",
+			question: "What stops a recursion?",
+			questionKey: "what stops a recursion",
+			options: ["A base case", "A loop"],
+			correct: "A base case",
+			expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+			...overrides,
+		},
+	});
+}
+
+export function makeLearningPathCache(
+	overrides: Partial<Prisma.LearningPathCacheUncheckedCreateInput> & {
+		studentId: string;
+		courseId: string;
+	},
+) {
+	return testDb.learningPathCache.create({
+		data: {
+			steps: [],
+			summary: "Keep going",
+			weakConcepts: [],
+			model: "test-model",
+			...overrides,
+		},
+	});
+}
+
+export function makeLessonAssistantConversation(
+	overrides: Partial<Prisma.LessonAssistantConversationUncheckedCreateInput> & {
+		lessonId: string;
+		studentId: string;
+	},
+) {
+	return testDb.lessonAssistantConversation.create({
+		data: {
+			...overrides,
+			messages: { create: [{ role: "user", content: "Why?" }] },
+		},
+	});
+}
