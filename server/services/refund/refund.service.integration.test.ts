@@ -272,6 +272,70 @@ describe("refundService.requestRefund", () => {
 		]);
 	});
 
+	it("counts a lost dispute toward the account limit (DL, AC-F22)", async () => {
+		const { studentId, paymentId } = await seedPurchase({});
+		await seedAccountLimitRefunds(studentId, 2);
+		const lost = await seedPurchase({ studentId });
+		await testDb.payment.update({
+			where: { id: lost.paymentId },
+			data: {
+				status: "refunded",
+				refundedAt: daysAgo(10),
+				refundSource: "lost_dispute",
+			},
+		});
+
+		expect((await request(studentId, paymentId)).failedConditions).toEqual([
+			"account_limit",
+		]);
+	});
+
+	it("counts an approved request later lost at the bank once (D4)", async () => {
+		const { studentId, paymentId } = await seedPurchase({});
+		await seedAccountLimitRefunds(studentId, 1);
+		const both = await seedPurchase({ studentId });
+		await makeRefundRequest({
+			paymentId: both.paymentId,
+			studentId,
+			courseId: both.courseId,
+			createdAt: daysAgo(20),
+		});
+		await testDb.payment.update({
+			where: { id: both.paymentId },
+			data: {
+				status: "refunded",
+				refundedAt: daysAgo(19),
+				refundSource: "lost_dispute",
+			},
+		});
+
+		expect((await request(studentId, paymentId)).decision).toBe(
+			"auto_approved",
+		);
+	});
+
+	it("treats a lost dispute on the same course as an earlier refund (D3)", async () => {
+		const first = await seedPurchase({});
+		await testDb.payment.update({
+			where: { id: first.paymentId },
+			data: {
+				status: "refunded",
+				refundedAt: daysAgo(10),
+				refundSource: "lost_dispute",
+			},
+		});
+		const again = await makePayment({
+			studentId: first.studentId,
+			instructorId: first.instructorId,
+			courseId: first.courseId,
+			paidAt: daysAgo(1),
+		});
+
+		expect(
+			(await request(first.studentId, again.id)).failedConditions,
+		).toContain("earlier_refund");
+	});
+
 	it("ignores account-limit refunds older than 12 months", async () => {
 		const { studentId, paymentId } = await seedPurchase({});
 		await seedAccountLimitRefunds(studentId, 3, 13 * 30);

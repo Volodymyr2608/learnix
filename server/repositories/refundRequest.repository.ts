@@ -68,30 +68,50 @@ class RefundRequestRepository extends BaseRepository<
 	}
 
 	/** D3 — in this slice a counting refund is an automatic refund. */
+	/**
+	 * D3: an earlier counting refund of this course — an approved request, or a bank dispute the
+	 * platform lost (DL: the student took the money back themselves).
+	 */
 	async hasCountingRefund(
 		tx: Prisma.TransactionClient,
 		studentId: string,
 		courseId: string,
 	): Promise<boolean> {
-		const count = await tx.refundRequest.count({
-			where: { studentId, courseId, decision: "auto_approved" },
-		});
-		return count > 0;
+		const [requests, lostDisputes] = await Promise.all([
+			tx.refundRequest.count({
+				where: { studentId, courseId, decision: "auto_approved" },
+			}),
+			tx.payment.count({
+				where: { studentId, courseId, refundSource: "lost_dispute" },
+			}),
+		]);
+		return requests + lostDisputes > 0;
 	}
 
-	/** OQ-2 — in this slice an account-limit refund is an automatic refund. */
-	countAccountLimitRefunds(
+	/**
+	 * OQ-2 as amended by DL: account-limit refunds in the window — approved requests and lost
+	 * disputes, counted once per payment (D4), so a request later lost at the bank is not double.
+	 */
+	async countAccountLimitRefunds(
 		tx: Prisma.TransactionClient,
 		studentId: string,
 		since: Date,
 	): Promise<number> {
-		return tx.refundRequest.count({
-			where: {
-				studentId,
-				decision: "auto_approved",
-				createdAt: { gte: since },
-			},
-		});
+		const rows = await tx.$queryRaw<[{ count: number }]>`
+			SELECT COUNT(DISTINCT payment_id)::int AS count FROM (
+				SELECT r.payment_id
+				  FROM refund_requests r
+				 WHERE r.student_id = ${studentId}
+				   AND r.decision = 'auto_approved'
+				   AND r.created_at >= ${since}::timestamp
+				UNION ALL
+				SELECT p.id
+				  FROM payments p
+				 WHERE p."studentId" = ${studentId}
+				   AND p.refund_source = 'lost_dispute'
+				   AND p.refunded_at >= ${since}::timestamp
+			) AS counted`;
+		return Number(rows[0]?.count ?? 0);
 	}
 
 	createInTx(
