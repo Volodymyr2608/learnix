@@ -19,3 +19,14 @@ export class RefundAlreadyRequestedError extends DomainError {
 
 /** FR-P18: Stripe refused the refund because the charge is disputed (internal; never reaches a router). */
 export class ChargeDisputedError extends Error {}
+
+/** U9: too many requests in a minute, or the student lock was busy — nothing was written. */
+export class RefundBusyError extends DomainError {
+	constructor(cause?: unknown) {
+		super(
+			"Too many refund requests right now. Please try again in a minute.",
+			"TOO_MANY_REQUESTS",
+			cause,
+		);
+	}
+}

@@ -9,10 +9,12 @@ import type { RefundPageState } from "@/server/entities/refund/refundView.dto";
 import { openedLessonRepository } from "@/server/repositories/openedLesson.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
+import { checkRefundRequestRateLimit } from "@/server/services/_shared/aiLimits/checkRefundRequestRateLimit";
 import { stripe } from "@/server/services/payments/stripe.client";
 import {
 	ChargeDisputedError,
 	RefundAlreadyRequestedError,
+	RefundBusyError,
 	RefundNotFoundError,
 } from "./refund.errors";
 import { refundEffectsService } from "./refundEffects.service";
@@ -34,6 +36,13 @@ export type RefundRequestResult = {
 /** FR-S2 / FR-P18a: a stored dispute blocks unless it was won (qa #2: lost-but-not-applied too). */
 const isDisputeBlocking = (disputeState: string | null): boolean =>
 	disputeState !== null && disputeState !== "won";
+
+/** U9: Postgres `lock_not_available` (55P03) — the student lock stayed busy past `lock_timeout`. */
+const isLockTimeout = (error: unknown): boolean =>
+	/55P03|lock timeout/i.test(String((error as Error)?.message ?? error));
+
+/** U9: how long a request waits for the student's refund lock before "try again". */
+const LOCK_TIMEOUT = "2s";
 
 const isUniqueViolation = (error: unknown): boolean =>
 	error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -120,11 +129,17 @@ class RefundService {
 		input: RefundRequestInput,
 	): Promise<RefundRequestResult> {
 		if (!isStudentRefundEnabled()) throw new RefundNotFoundError();
+		// U9: before any transaction, so a flood never reaches the connection pool.
+		if (!(await checkRefundRequestRateLimit(studentId)))
+			throw new RefundBusyError();
 
 		try {
 			// db.$transaction, not BaseRepository.transaction: the latter wraps every
 			// error into a plain Error, losing the NOT_FOUND / CONFLICT codes.
 			const created = await db.$transaction(async (tx) => {
+				await tx.$executeRawUnsafe(
+					`SET LOCAL lock_timeout = '${LOCK_TIMEOUT}'`,
+				);
 				await refundRequestRepository.lockStudent(tx, studentId);
 
 				const payment = await refundRequestRepository.findRequestablePayment(
@@ -215,6 +230,7 @@ class RefundService {
 			// directly (base-repository methods would have wrapped it).
 			if (isUniqueViolation(error))
 				throw new RefundAlreadyRequestedError(error);
+			if (isLockTimeout(error)) throw new RefundBusyError(error);
 			throw error;
 		}
 	}
