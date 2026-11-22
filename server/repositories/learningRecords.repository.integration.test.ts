@@ -146,13 +146,38 @@ describe("learningRecordsRepository.clearForRefund (FR-P9, AI-L13)", () => {
 		await clear();
 
 		const rows = await testDb.studyArchive.findMany({
-			where: { studentId },
+			where: { studentId, lessons: { gt: 0 } },
 			orderBy: { day: "asc" },
 		});
 		expect(rows).toEqual([
-			{ studentId, day: midnight(DAY1), minutes: 30, lessons: 2 },
-			{ studentId, day: midnight(DAY2), minutes: 30, lessons: 1 },
+			{
+				studentId,
+				day: midnight(DAY1),
+				minutes: 30,
+				lessons: 2,
+				correctAnswers: 0,
+			},
+			{
+				studentId,
+				day: midnight(DAY2),
+				minutes: 30,
+				lessons: 1,
+				correctAnswers: 0,
+			},
 		]);
+	});
+
+	it("archives the refunded course's correct quiz answers on a row that adds no study day", async () => {
+		await clear();
+
+		const answers = await testDb.studyArchive.findFirstOrThrow({
+			where: { studentId, correctAnswers: { gt: 0 } },
+		});
+		expect(answers).toMatchObject({
+			minutes: 0,
+			lessons: 0,
+			correctAnswers: 1,
+		});
 	});
 
 	it("adds to an existing archive day on a second refund", async () => {

@@ -37,6 +37,21 @@ export const learningRecordsRepository = {
 			   SET minutes = study_archive.minutes + EXCLUDED.minutes,
 			       lessons = study_archive.lessons + EXCLUDED.lessons`;
 
+		// The achievement counting correct answers has no date; file them under today.
+		await tx.$executeRaw`
+			INSERT INTO study_archive (student_id, day, minutes, lessons, correct_answers)
+			SELECT qa."studentId", date_trunc('day', now()), 0, 0, COUNT(*)::int
+			  FROM quiz_attempts qa
+			  JOIN quizzes q ON q.id = qa."quizId"
+			  JOIN lessons l ON l.id = q."lessonId"
+			  JOIN sections s ON s.id = l."sectionId"
+			 WHERE qa."studentId" = ${studentId}
+			   AND s."courseId" = ${courseId}
+			   AND qa."isCorrect" = true
+			 GROUP BY qa."studentId"
+			ON CONFLICT (student_id, day) DO UPDATE
+			   SET correct_answers = study_archive.correct_answers + EXCLUDED.correct_answers`;
+
 		const lesson = inCourse(courseId);
 		await tx.lessonProgress.deleteMany({ where: { studentId, lesson } });
 		await tx.openedLesson.deleteMany({ where: { studentId, lesson } });
