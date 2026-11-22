@@ -169,6 +169,24 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | C12 | Implemented except the page text: dispute events (webhook + replay) set `Payment.disputeState` in event order; the refund rules, `executeRefund` and the release read it; Stripe's `charge_disputed` sets it open; a won dispute is not blocked by Stripe's sticky `disputed` flag. The FR-S11 text and the Purchases row (no Stripe call on render) → slice 7 | `stripeEvent.service.ts`, `payment.repository.ts` `recordDisputeState`, `refund.service.ts`, `payout.repository.ts`, `connect.service.ts` |
 | DL | Implemented: a lost dispute applies the effects once (path `lost_dispute`, `refundSource` recorded), closes a processing request as `refunded_by_bank`, counts for D3 and the account limit once per payment, and never reverses a released share | `refundEffects.repository.ts`, `refundRequest.repository.ts`, `connect.service.ts` |
 
+### Accepted for slice 4 only — close in the named slice
+
+Found by the slice-4 `/qa` review and audit (2026-11-22). The same-second ordering defect and the
+lost-dispute-after-refund race were fixed; these remain.
+
+- **Disputes older than the first replay are not backfilled (audit I2).** The first run reads 30
+  days of events; a dispute opened earlier keeps `disputeState = NULL`. Release and refund then fall
+  back to Stripe's live `disputed` flag (fail closed). A dispute lost before that window on a payment
+  never refunded in the database leaves its share blocked. Release checklist: list disputes once
+  before enabling the hold, or accept (no live payments yet). The abandoned cursor row
+  `charge.refunded` is harmless.
+- **A request made while a chargeback is open (audit I1).** If the dispute event has arrived, the
+  request is denied and uses up the student's one request; if it is still in flight, the request is
+  approved, held `processing`, and refunded by the retry after a won dispute. Both are safe (no
+  double refund); which one is intended is a product question — open in `## Open`.
+- **Inquiries block refund and release (review, declined).** `warning_*` statuses map to `open`
+  (D9), although Stripe may allow a refund during an inquiry. Revisit if inquiries occur.
+
 ### Accepted for slice 3 only — close in the named slice
 
 Found by the slice-3 `/qa` review and audits (2026-11-22). The High (free re-activation of a
@@ -180,9 +198,9 @@ refunded paid course through `course.enroll`) and the correctness findings were 
 - **The dashboard counts a revoked certificate (audit Low-4).** `getStudentCompletionStats` counts
   completed enrollments regardless of revocation, as R8 keeps completion counts for A11. Display
   only, the student's own data; revisit with the certificate UI.
-- **A poison event stalls the replay (review #6).** A `charge.refunded` whose handling keeps failing
-  stops the replay at the cursor until Stripe drops it (30 days); the webhook still covers new
-  events. Slice 5 (payout monitoring) surfaces it.
+- **A poison event stalls the replay (review #6; widened by slice 4).** Refund and dispute events
+  share one cursor, so one event whose handling keeps failing stops the replay of both until Stripe
+  drops it (30 days); the webhook still covers new events. Slice 5 (payout monitoring) surfaces it.
 - ~~**Two reversers ignore the lost-dispute rule (review #5, Task 12 ruling).**~~ *Closed by slice 4:*
   `recordTransfer` (`needsReversal`) and the reversal retry skip payments refunded by a lost dispute.
 - **A restored review keeps its first date (review #7).** Ordering and the shown date follow the
@@ -218,6 +236,9 @@ of them; each is a count, a display or a load issue.
   alert ships. Release checklist: set it before the deploy that ships the hold.
 
 ## Open
+
+- **Slice 4, I1:** should a refund request made while a chargeback is open survive the chargeback
+  (today it depends on whether the dispute event arrived first)?
 
 - **Unverified by the passes:** whether a `ConceptMastery` row references a `ConceptCheck` (matters
   for AI-L13 deletion); production tracing values; whether lesson insights or search return lesson content to students;

@@ -1478,3 +1478,25 @@ The IDP review needs 2–3 vivid examples:
 - **How I verified:** *Not verified by me* (each task's test ran red, then green; unit 2537/2537)
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
+
+### 2026-11-22 — Slice 4 /qa: what the review and the audits changed
+- **Stage:** validation
+- **Context the AI had:** the slice-4 diff (28bc29b..fd7fc92), `build/plan-slice-4.md`, `spec.md`,
+  `security.md`; one fresh code reviewer (Opus), `security-auditor`, a narrow `llm-security-auditor`
+- **AI found:**
+  - review + audit (Important / Low) — two dispute events in the same second (e.g. `updated` and
+    `closed won` after submitting evidence) could leave the state `open` forever, and the daily replay
+    re-applied the wrong order each run → a closed state is never replaced by `open` at a tie, and the
+    replay sorts same-second events oldest first;
+  - audit (Low) — a lost dispute arriving after Learnix's own Stripe refund (whose effects had failed)
+    took the `lost_dispute` path, so the released share was not reversed → it now applies as
+    `refund_request`;
+  - review (Minor) — a stored `lost` whose effects had not run yet did not block a request → fixed;
+    stale comments, the error class location and missing mapping tests → fixed;
+  - C12 and DL implemented as claimed; C3, C5, C7, C8, C23 unchanged; LLM audit — nothing
+- **Accepted for slice 4 only:** no backfill of disputes older than the first replay, the open product
+  question about requests made during a chargeback, inquiries mapped to `open` (all in `security.md`)
+- **How I verified:** *Not verified by me* (each fix: a test that failed first — confirmed by reverting
+  the fix — then green)
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*
