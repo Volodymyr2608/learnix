@@ -65,7 +65,7 @@ class RefundService {
 		studentId: string,
 		paymentId: string,
 		now: Date = new Date(),
-	): Promise<RefundPageState> {
+	): Promise<{ courseTitle: string; state: RefundPageState }> {
 		if (!isStudentRefundEnabled()) throw new RefundNotFoundError();
 
 		const facts = await db.$transaction(async (tx) => {
@@ -101,6 +101,7 @@ class RefundService {
 			]);
 			const request = payment.refundRequest;
 			return {
+				courseTitle: payment.course.title,
 				paidAt: payment.paidAt,
 				paymentRefunded: payment.status === "refunded",
 				hasCertificate,
@@ -118,7 +119,8 @@ class RefundService {
 					: null,
 			};
 		});
-		return refundPageState(facts, now);
+		const { courseTitle, ...pageFacts } = facts;
+		return { courseTitle, state: refundPageState(pageFacts, now) };
 	}
 
 	/**

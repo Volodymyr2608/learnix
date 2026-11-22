@@ -1,18 +1,9 @@
 import type { RefundCondition } from "@/server/entities/refund/refund.dto";
+import { DENIAL_CONDITION_LABEL } from "@/server/entities/refund/refundLabels";
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
 import { ANONYMISED_EMAIL_DOMAIN } from "@/server/repositories/user.repository";
 import { sendOnce } from "@/server/services/email/sendOnce";
-
-/** FR-S14: the condition an automatic denial names — fixed labels, never stored text. */
-export const DENIAL_CONDITION_LABEL: Record<RefundCondition, string> = {
-	window: "The 14-day refund period has ended.",
-	threshold: "You opened more lessons than the refund limit for this course.",
-	certificate: "You already received the course certificate.",
-	earlier_refund: "This course was already refunded once.",
-	account_limit: "Your account reached the limit of 3 refunds in 12 months.",
-	dispute: "A dispute about this payment is open with your bank.",
-};
 
 export const formatRefundAmount = (amountCents: number, currency: string) =>
 	new Intl.NumberFormat("en-US", {

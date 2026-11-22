@@ -76,6 +76,7 @@ class RefundRequestRepository extends BaseRepository<
 				disputeState: true,
 				amountCents: true,
 				currency: true,
+				course: { select: { title: true } },
 				refundRequest: {
 					select: {
 						decision: true,

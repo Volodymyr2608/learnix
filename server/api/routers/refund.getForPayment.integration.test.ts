@@ -58,11 +58,12 @@ describe("refund.getForPayment", () => {
 	it("shows the student the form for their own refundable payment", async () => {
 		const { student, payment } = await seed();
 
-		const state = await callerFor(student.id).refund.getForPayment({
+		const result = await callerFor(student.id).refund.getForPayment({
 			paymentId: payment.id,
 		});
 
-		expect(state).toMatchObject({
+		expect(result?.courseTitle).toBeTruthy();
+		expect(result?.state).toMatchObject({
 			kind: "form",
 			amountCents: 4900,
 			currency: "usd",
@@ -74,9 +75,9 @@ describe("refund.getForPayment", () => {
 		for (const lesson of lessons.slice(0, 4))
 			await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 
-		const state = await callerFor(student.id).refund.getForPayment({
+		const { state } = (await callerFor(student.id).refund.getForPayment({
 			paymentId: payment.id,
-		});
+		})) ?? { state: null };
 
 		expect(state).toEqual({
 			kind: "over_limit",
@@ -143,7 +144,7 @@ describe("refund.getForPayment", () => {
 			paymentId: payment.id,
 		});
 
-		expect(state).toMatchObject({ kind: "status", status: "processing" });
+		expect(state?.state).toMatchObject({ kind: "status", status: "processing" });
 		for (const key of [
 			"refundError",
 			"stripeRefundId",
