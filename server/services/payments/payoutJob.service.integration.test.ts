@@ -145,7 +145,7 @@ describe("payoutJobService", () => {
 	it("releases the lock even when recording the run throws", async () => {
 		await seed(1);
 		const spy = vi
-			.spyOn(payoutRunRepository, "record")
+			.spyOn(payoutRunRepository, "finish")
 			.mockRejectedValueOnce(new Error("db down"));
 
 		await payoutJobService
@@ -247,5 +247,72 @@ describe("payoutJobService", () => {
 				trigger: "account_updated",
 			});
 		});
+	});
+});
+
+describe("payout run lifecycle (M1, M2)", () => {
+	beforeEach(async () => {
+		await truncateAll();
+		vi.clearAllMocks();
+		lock.acquire.mockResolvedValue("token-1");
+		lock.release.mockResolvedValue(undefined);
+	});
+
+	it("leaves one finished row for a normal run", async () => {
+		await payoutJobService.run({ trigger: "cron", now: NOW });
+
+		const runs = await testDb.payoutRun.findMany();
+		expect(runs).toHaveLength(1);
+		expect(runs[0]).toMatchObject({ trigger: "cron", error: null });
+		expect(runs[0]?.finishedAt).toBeInstanceOf(Date);
+	});
+
+	it("records the error of a run that throws, and rethrows", async () => {
+		const { payoutRepository } = await import(
+			"@/server/repositories/payout.repository"
+		);
+		const spy = vi
+			.spyOn(payoutRepository, "findReleaseCandidates")
+			.mockRejectedValueOnce(new Error("connection lost"));
+
+		await expect(
+			payoutJobService.run({ trigger: "cron", now: NOW }),
+		).rejects.toThrow("connection lost");
+
+		spy.mockRestore();
+		const run = await testDb.payoutRun.findFirstOrThrow();
+		expect(run).toMatchObject({ error: "connection lost" });
+		expect(run.finishedAt).toBeInstanceOf(Date);
+		expect(lock.release).toHaveBeenCalled();
+	});
+
+	it("finds the last successful run, ignoring account.updated and failed runs", async () => {
+		const at = (h: number) => new Date(NOW.getTime() - h * 3600 * 1000);
+		await testDb.payoutRun.create({
+			data: { trigger: "cron", startedAt: at(50), finishedAt: at(50) },
+		});
+		await testDb.payoutRun.create({
+			data: {
+				trigger: "cron",
+				startedAt: at(30),
+				finishedAt: at(30),
+				error: "boom",
+			},
+		});
+		await testDb.payoutRun.create({
+			data: {
+				trigger: "account_updated",
+				startedAt: at(10),
+				finishedAt: at(10),
+			},
+		});
+		await testDb.payoutRun.create({
+			data: { trigger: "manual", startedAt: at(5) },
+		}); // still running
+
+		const last = await payoutRunRepository.findLastSuccessful();
+		expect(last?.startedAt).toEqual(at(50));
+		expect((await payoutRunRepository.findLatest())?.startedAt).toEqual(at(5));
+		expect(await payoutRunRepository.findHistory(2)).toHaveLength(2);
 	});
 });

@@ -130,35 +130,27 @@ const replayRefundEvents = async (now: Date): Promise<number> => {
 	return replayed;
 };
 
-/** Releases each payment independently, then records the run (FR-P5). */
-const releaseAndRecord = async (
+type ReleaseBatch = PayoutRunCounts & {
+	failures: { paymentId: string; error: string }[];
+	paymentIds: string[];
+};
+
+/** Releases each payment independently and sums the outcome. */
+const releaseAll = async (
 	payments: Payment[],
-	trigger: PayoutRunTrigger,
 	now: Date,
-	refundCounts: RefundRunCounts = { refundsRetried: 0, eventsReplayed: 0 },
-): Promise<{ runId: string } & PayoutRunCounts> => {
-	const startedAt = new Date();
+): Promise<ReleaseBatch> => {
 	const outcomes: ReleaseOutcome[] = [];
 	for (const payment of payments) {
 		outcomes.push(await connectService.releasePayment(payment, now));
 	}
 	const failures = outcomes.flatMap((o) => failureOf(o) ?? []);
-	const released = outcomes.filter((o) => RELEASED.has(o.kind)).length;
-	const run = await payoutRunRepository.record({
-		trigger,
-		startedAt,
-		finishedAt: new Date(),
+	return {
 		processed: payments.length,
-		released,
+		released: outcomes.filter((o) => RELEASED.has(o.kind)).length,
+		failed: failures.length,
 		failures,
 		paymentIds: payments.map((p) => p.id),
-		...refundCounts,
-	});
-	return {
-		runId: run.id,
-		processed: payments.length,
-		released,
-		failed: failures.length,
 	};
 };
 
@@ -175,27 +167,48 @@ class PayoutJobService {
 		const token = await lock.acquire(LOCK_NAME, PAYOUT_LOCK_TTL_MS);
 		if (!token) return { status: "already_running" };
 		try {
-			// R7: refunds first, so the release below never pays out a sale refunded meanwhile.
-			const refundCounts: RefundRunCounts = {
-				refundsRetried: await retryRefunds(input.now),
-				eventsReplayed: await replayRefundEvents(input.now).catch((error) => {
-					// A Stripe outage must not stop the releases below.
-					logger.error("Event replay failed", { error });
-					return 0;
-				}),
-			};
-			await retryReversals();
-			const candidates = await payoutRepository.findReleaseCandidates(
-				input.now,
-				PAYOUT_BATCH_SIZE,
-			);
-			const counts = await releaseAndRecord(
-				candidates,
-				input.trigger,
-				input.now,
-				refundCounts,
-			);
-			return { status: "completed", ...counts, ...refundCounts };
+			// M1: the row exists from the start, so a crash leaves a trace.
+			const row = await payoutRunRepository.start(input.trigger, new Date());
+			try {
+				// R7: refunds first, so the release below never pays out a sale refunded meanwhile.
+				const refundCounts: RefundRunCounts = {
+					refundsRetried: await retryRefunds(input.now),
+					eventsReplayed: await replayRefundEvents(input.now).catch((error) => {
+						// A Stripe outage must not stop the releases below.
+						logger.error("Event replay failed", { error });
+						return 0;
+					}),
+				};
+				await retryReversals();
+				const candidates = await payoutRepository.findReleaseCandidates(
+					input.now,
+					PAYOUT_BATCH_SIZE,
+				);
+				const batch = await releaseAll(candidates, input.now);
+				await payoutRunRepository.finish(row.id, {
+					processed: batch.processed,
+					released: batch.released,
+					failures: batch.failures,
+					paymentIds: batch.paymentIds,
+					...refundCounts,
+				});
+				const { processed, released, failed } = batch;
+				return {
+					status: "completed",
+					runId: row.id,
+					processed,
+					released,
+					failed,
+					...refundCounts,
+				};
+			} catch (error) {
+				await payoutRunRepository
+					.fail(row.id, error instanceof Error ? error.message : String(error))
+					.catch((failError) =>
+						logger.error("Could not record the failed run", { failError }),
+					);
+				throw error;
+			}
 		} finally {
 			await lock.release(LOCK_NAME, token);
 		}
@@ -211,7 +224,19 @@ class PayoutJobService {
 	): Promise<{ runId: string } & PayoutRunCounts> {
 		const pending =
 			await payoutRepository.findPendingForInstructor(instructorId);
-		return releaseAndRecord(pending, "account_updated", now);
+		const startedAt = new Date();
+		const batch = await releaseAll(pending, now);
+		const run = await payoutRunRepository.record({
+			trigger: "account_updated",
+			startedAt,
+			finishedAt: new Date(),
+			processed: batch.processed,
+			released: batch.released,
+			failures: batch.failures,
+			paymentIds: batch.paymentIds,
+		});
+		const { processed, released, failed } = batch;
+		return { runId: run.id, processed, released, failed };
 	}
 }
 
