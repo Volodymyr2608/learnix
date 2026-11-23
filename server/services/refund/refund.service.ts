@@ -59,15 +59,20 @@ const refundErrorText = (error: unknown): string => {
 
 class RefundService {
 	/**
-	 * FR-S23 / AC-F7 (W9): a repurchase of a course the student already refunded in a counting way
-	 * (an approved refund or a lost dispute) cannot be refunded again — the checkout says so. An
-	 * exception or a Dashboard refund does not count, so it does not warn. Nothing with the flag off.
+	 * EC-12 (W12): the courses whose open appeal an account deletion would close — for the
+	 * deletion warning. Students only; nothing with the flag off.
 	 */
 	async openAppealCourses(userId: string, role: string): Promise<string[]> {
 		if (!isStudentRefundEnabled() || role !== "STUDENT") return [];
 		return refundAppealRepository.findOpenAppealCourseTitles(userId);
 	}
 
+	/**
+	 * FR-S23 / AC-F7 (W9): a repurchase of a course the student already refunded in a counting way
+	 * (an approved refund or a lost dispute) cannot be refunded again — the checkout says so. An
+	 * exception, a Dashboard refund or a reversed one does not count, so it does not warn. Nothing
+	 * with the flag off.
+	 */
 	async repurchaseWarning(
 		studentId: string,
 		courseId: string,
@@ -105,6 +110,8 @@ class RefundService {
 				courseTitle: payment.course.title,
 				...facts,
 				paymentRefunded: payment.status === "refunded",
+				// FR-P27 (qa #5): the page agrees with the "refund failed" email.
+				refundFailedAtBank: payment.bankFailureAt !== null,
 				// W3 / EC-19: after a partial Dashboard refund, only the remainder is left to refund.
 				amountCents: payment.amountCents - (payment.refundedAmountCents ?? 0),
 				currency: payment.currency,

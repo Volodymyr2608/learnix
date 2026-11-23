@@ -38,7 +38,9 @@ export type RefundRequestStatus =
 	| "processing"
 	| "refunded"
 	| "denied"
-	| "under_review";
+	| "under_review"
+	/** FR-P27 (qa #5): the bank did not accept the refund — open, or closed as "the sale stands". */
+	| "refund_failed";
 
 /** What the Purchases row needs (U2) — no opened-lesson or account-limit counts. */
 export type PurchaseRowFacts = {
@@ -48,6 +50,8 @@ export type PurchaseRowFacts = {
 	hasCertificate: boolean;
 	hasEarlierCountingRefund: boolean;
 	hasOpenDispute: boolean;
+	/** FR-P27 (qa #5): the refund failed at the bank and the admin has not closed it yet. */
+	refundFailedAtBank: boolean;
 	request:
 		| (Pick<RefundRequestView, "decision" | "refundState"> & {
 				appeal: Pick<RefundAppealView, "status"> | null;
@@ -94,6 +98,7 @@ export type RefundPageState =
 			studentFiles: EvidenceFileView[];
 	  }
 	| { kind: "payment_refunded" }
+	| { kind: "refund_failed" }
 	| { kind: "dispute" }
 	| { kind: "certificate" }
 	| { kind: "already_refunded" }

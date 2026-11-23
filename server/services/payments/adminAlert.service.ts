@@ -240,6 +240,31 @@ class AdminAlertService {
 			});
 		}
 	}
+
+	/**
+	 * FR-P17 (qa #3): a double charge whose refund failed — flagged "needs review" and emailed to
+	 * every admin once per payment. The student's next status check retries the refund.
+	 */
+	async duplicateChargeFailed(paymentId: string, now: Date): Promise<void> {
+		await paymentRepository.markNeedsReview(paymentId, now);
+		const payment = await paymentRepository.findForNotice(paymentId);
+		if (!payment) return;
+		const admins = await adminsOrWarn("duplicate_charge_failed");
+		for (const admin of admins) {
+			await sendOnce({
+				dedupKey: `admin:${admin.id}:duplicate_charge_failed:${payment.id}`,
+				userId: admin.id,
+				automation: "duplicate_charge_failed",
+				templateKey: "admin.duplicate-charge-failed",
+				toEmail: admin.email,
+				payload: {
+					title: "A double charge could not be refunded",
+					summary: `Payment ${payment.id} for ${payment.course.title} is a second charge for a course the student already paid for. Its refund failed at Stripe; it is retried when the student checks the purchase again. If it is still not refunded, refund it in the Stripe Dashboard.`,
+					panelUrl: refundsUrl(),
+				},
+			});
+		}
+	}
 }
 
 export const adminAlertService = new AdminAlertService();

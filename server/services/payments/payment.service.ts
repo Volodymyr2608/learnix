@@ -28,6 +28,7 @@ import { refundService } from "@/server/services/refund/refund.service";
 import { refundEffectsService } from "@/server/services/refund/refundEffects.service";
 import { refundNotificationsService } from "@/server/services/refund/refundNotifications.service";
 import { logger } from "@/server/utils/logger";
+import { adminAlertService } from "./adminAlert.service";
 import { stripe } from "./stripe.client";
 
 /**
@@ -209,12 +210,18 @@ class PaymentService {
 		const payment = await paymentRepository.findBySessionId(sessionId);
 		if (!payment) return { status: "not_found" };
 
-		// Idempotency. No transfer here (H9): the release job pays it later. A refunded double
-		// charge keeps telling the student what happened (FR-P17).
-		if (payment.refundSource === "duplicate_charge")
+		// Idempotency. No transfer here (H9): the release job pays it later. A double charge keeps
+		// telling the student what happened (FR-P17); one whose refund has not happened yet is
+		// refunded now — list-then-create and the effects CAS make a repeat harmless (qa F1).
+		if (payment.refundSource === "duplicate_charge") {
+			if (payment.status === "succeeded")
+				await this.refundDuplicate(payment.id, payment.stripePaymentIntentId);
 			return { status: "succeeded", duplicate: true };
+		}
 		if (payment.status === "succeeded" || payment.status === "refunded")
 			return { status: "succeeded" };
+		// qa #8: any other settled status is final — never re-enter the claim.
+		if (payment.status !== "pending") return { status: payment.status };
 
 		// The charge and its balance transaction are expanded, so paidAt (the refund window start)
 		// and the Stripe fee (FR-P28) come from the same call.
@@ -292,7 +299,15 @@ class PaymentService {
 					error,
 				},
 			);
-			await paymentRepository.markNeedsReview(paymentId, now);
+			// qa #3: flagged and emailed as a double charge; the next status check retries it.
+			await adminAlertService
+				.duplicateChargeFailed(paymentId, now)
+				.catch((alertError) =>
+					logger.error("Duplicate-charge admin alert failed", {
+						paymentId,
+						error: alertError,
+					}),
+				);
 		}
 	}
 

@@ -30,8 +30,12 @@ const requestStatus = (
 		appeal: { status: string } | null;
 	},
 	paymentRefunded: boolean,
+	refundFailedAtBank: boolean,
 ): RefundRequestStatus => {
 	if (request.appeal?.status === "open") return "under_review";
+	// FR-P27 (qa #1, #5): the bank sent the money back — the email said so; the page agrees.
+	if (refundFailedAtBank || request.refundState === "reversed")
+		return "refund_failed";
 	// Review I3: the money went back another way (exception, Dashboard) after a denial.
 	if (paymentRefunded) return "refunded";
 	if (request.appeal?.status === "denied") return "denied";
@@ -53,8 +57,14 @@ export const purchaseRefundRowState = (
 	if (facts.request)
 		return {
 			kind: "status",
-			status: requestStatus(facts.request, facts.paymentRefunded),
+			status: requestStatus(
+				facts.request,
+				facts.paymentRefunded,
+				facts.refundFailedAtBank,
+			),
 		};
+	if (facts.refundFailedAtBank)
+		return { kind: "status", status: "refund_failed" };
 	const windowEndsAt = refundWindowEndsAt(facts.paidAt);
 	if (
 		facts.paymentRefunded ||
@@ -108,7 +118,11 @@ export const refundPageState = (
 ): RefundPageState => {
 	const { request } = facts;
 	if (request) {
-		const status = requestStatus(request, facts.paymentRefunded);
+		const status = requestStatus(
+			request,
+			facts.paymentRefunded,
+			facts.refundFailedAtBank,
+		);
 		const appeal = request.appeal;
 		return {
 			kind: "status",
@@ -134,6 +148,7 @@ export const refundPageState = (
 				appeal?.files.filter((f) => f.uploadedBy === "student") ?? [],
 		};
 	}
+	if (facts.refundFailedAtBank) return { kind: "refund_failed" };
 	if (facts.paymentRefunded) return { kind: "payment_refunded" };
 	if (facts.hasOpenDispute) return { kind: "dispute" };
 	if (facts.hasCertificate) return { kind: "certificate" };

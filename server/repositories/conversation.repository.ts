@@ -58,16 +58,6 @@ export default class ConversationRepository extends BaseRepository<
 	}
 
 	/** R5: a repurchase reopens the student's conversations about the course. */
-	async reopenForStudentCourse(
-		studentId: string,
-		courseId: string,
-	): Promise<void> {
-		await this.model.updateMany({
-			where: { studentId, courseId, closedAt: { not: null } },
-			data: { closedAt: null },
-		});
-	}
-
 	async findWithParticipants(
 		id: string,
 	): Promise<ConversationWithParticipants | null> {

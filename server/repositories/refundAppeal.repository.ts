@@ -224,7 +224,11 @@ class RefundAppealRepository extends BaseRepository<
 				deletedAt: null,
 				appeal: { status: { not: "open" }, decidedAt: { lte: decidedBefore } },
 			},
-			orderBy: { createdAt: "asc" },
+			// qa #9: a file whose delete keeps failing cannot starve the rest.
+			orderBy: [
+				{ deleteAttemptedAt: { sort: "asc", nulls: "first" } },
+				{ createdAt: "asc" },
+			],
 			take: limit,
 			select: { id: true, blobPathname: true },
 		});
@@ -246,6 +250,14 @@ class RefundAppealRepository extends BaseRepository<
 			select: { request: { select: { course: { select: { title: true } } } } },
 		});
 		return rows.map((r) => r.request.course.title);
+	}
+
+	/** qa #9: a failed delete goes to the back of the next run's queue. */
+	markEvidenceDeleteAttempted(fileId: string, now: Date) {
+		return this.db.refundEvidenceFile.updateMany({
+			where: { id: fileId, deletedAt: null },
+			data: { deleteAttemptedAt: now },
+		});
 	}
 
 	markEvidenceDeleted(fileIds: string[], now: Date) {

@@ -74,10 +74,12 @@ model Payment {
   needsReviewAt DateTime?      @map("needs_review_at")
   /// W2 / FR-P28: the Stripe processing fee from the balance transaction (USD cents); NULL until read.
   stripeFeeCents      Int?      @map("stripe_fee_cents")
-  /// W3 / FR-P16: what Stripe reports refunded so far (partial or full).
+  /// W3 / FR-P16: the total of partial Dashboard refunds so far; a full refund is not recorded here.
   refundedAmountCents Int?      @map("refunded_amount_cents")
   /// W5 / FR-P27: the refund failed at the bank; set until an admin closes it.
   bankFailureAt       DateTime? @map("bank_failure_at")
+  /// qa F5: the Stripe refund whose failure was recorded; a redelivered event cannot reopen it.
+  bankFailureRefundId String?   @map("bank_failure_refund_id")
 
   @@index([instructorId])
   @@index([studentId])

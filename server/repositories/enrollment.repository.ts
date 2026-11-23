@@ -531,6 +531,37 @@ class EnrollmentRepository extends BaseRepository<
 			completed: Number(r.completed),
 		}));
 	}
+
+	/**
+	 * R5 / FR-P27: a cancelled enrollment becomes active again and the conversation a refund closed
+	 * reopens — for a repurchase and for a refund that failed at the bank (W5). Cleared learning
+	 * records are not restored (FS-3). Runs in the caller's transaction; false when nothing was
+	 * cancelled.
+	 */
+	async reactivateCancelledInTx(
+		tx: Prisma.TransactionClient,
+		studentId: string,
+		courseId: string,
+		now: Date,
+	): Promise<boolean> {
+		const { count } = await tx.enrollment.updateMany({
+			where: { studentId, courseId, status: EnrollmentStatus.cancelled },
+			data: {
+				status: EnrollmentStatus.active,
+				enrolledAt: now,
+				completedAt: null,
+				// R5: a repurchase starts clean — a new certificate must not stay hidden.
+				certificateRevokedAt: null,
+				certificateRevokedReason: null,
+			},
+		});
+		if (count === 0) return false;
+		await tx.conversation.updateMany({
+			where: { studentId, courseId, closedAt: { not: null } },
+			data: { closedAt: null },
+		});
+		return true;
+	}
 }
 
 export const enrollmentRepository = new EnrollmentRepository();

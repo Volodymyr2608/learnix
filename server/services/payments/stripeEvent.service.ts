@@ -31,9 +31,16 @@ const disputeStateOf = (status: Stripe.Dispute.Status): DisputeState => {
 };
 
 const refundPathOf = (
+	duplicate: boolean,
 	ownRequest: boolean,
 	exception: boolean,
-): "refund_request" | "admin_exception" | "dashboard_refund" => {
+):
+	| "duplicate_charge"
+	| "refund_request"
+	| "admin_exception"
+	| "dashboard_refund" => {
+	// qa #2: a double charge is marked at checkout, so its own webhook keeps its path.
+	if (duplicate) return "duplicate_charge";
 	if (ownRequest) return "refund_request";
 	if (exception) return "admin_exception";
 	return "dashboard_refund";
@@ -64,7 +71,11 @@ class StripeEventService {
 						? refund.payment_intent
 						: refund.payment_intent?.id;
 				if (refund.status === "failed" && paymentIntentId)
-					await bankFailureService.refundFailed(paymentIntentId, now);
+					await bankFailureService.refundFailed(
+						paymentIntentId,
+						refund.id,
+						now,
+					);
 				return;
 			}
 			case "charge.dispute.created":
@@ -167,7 +178,11 @@ class StripeEventService {
 		);
 		// V14: an admin exception's own webhook keeps its path (the audit row is written first).
 		const exception = await refundAuditRepository.hasException(db, payment.id);
-		const path = refundPathOf(ownRequest, exception);
+		const path = refundPathOf(
+			payment.refundSource === "duplicate_charge",
+			ownRequest,
+			exception,
+		);
 		const applied = await refundEffectsService.apply({
 			paymentId: payment.id,
 			path,

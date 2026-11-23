@@ -28,6 +28,9 @@ class EvidenceRetentionService {
 					fileId: file.id,
 					error,
 				});
+				await refundAppealRepository
+					.markEvidenceDeleteAttempted(file.id, now)
+					.catch(() => undefined);
 			}
 		}
 		return deleted;

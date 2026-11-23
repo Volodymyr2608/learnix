@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { payoutRepository } from "@/server/repositories/payout.repository";
 import { testDb, truncateAll } from "@/test/db";
 import {
@@ -23,6 +24,9 @@ vi.mock("@/server/services/embeddings/embeddings.service", () => ({
 const { stripeEventService } = await import("./stripeEvent.service");
 const { refundEffectsService } = await import(
 	"@/server/services/refund/refundEffects.service"
+);
+const { bankFailureService } = await import(
+	"@/server/services/refund/bankFailure.service"
 );
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -123,5 +127,50 @@ describe("a refund that failed at the bank (FR-P27, FS-3, AC-F17)", () => {
 				.bankFailureAt,
 		).toBeNull();
 		expect(send).not.toHaveBeenCalled();
+	});
+
+	it("a restore that fails is done by the redelivered event (C8, qa F2)", async () => {
+		const restore = vi
+			.spyOn(enrollmentRepository, "reactivateCancelledInTx")
+			.mockRejectedValueOnce(new Error("pool timeout"));
+
+		await expect(
+			stripeEventService.handle(refundUpdated("failed"), new Date()),
+		).rejects.toThrow("pool timeout");
+		await stripeEventService.handle(
+			refundUpdated("failed", "evt_redelivered"),
+			new Date(),
+		);
+		restore.mockRestore();
+
+		expect(
+			(
+				await testDb.enrollment.findFirstOrThrow({
+					where: { studentId, courseId },
+				})
+			).status,
+		).toBe("active");
+		expect(sent("refund.bank-failed")).toHaveLength(1);
+	});
+
+	it("a redelivered failure of the same refund does not reopen a closed case (qa F5)", async () => {
+		await stripeEventService.handle(refundUpdated("failed"), new Date());
+		const admin = await testDb.user.findFirstOrThrow({
+			where: { role: "ADMIN" },
+		});
+		await bankFailureService.resolve(admin.id, {
+			paymentId,
+			outcome: "refunded_elsewhere",
+			note: "Bank transfer sent",
+		});
+
+		await stripeEventService.handle(
+			refundUpdated("failed", "evt_retry"),
+			new Date(),
+		);
+
+		expect(
+			await testDb.payment.findUniqueOrThrow({ where: { id: paymentId } }),
+		).toMatchObject({ bankFailureAt: null, transferStatus: "cancelled" });
 	});
 });

@@ -23,6 +23,7 @@ const row = (overrides: Partial<PurchaseRowFacts> = {}): PurchaseRowFacts => ({
 	hasCertificate: false,
 	hasEarlierCountingRefund: false,
 	hasOpenDispute: false,
+	refundFailedAtBank: false,
 	request: null,
 	...overrides,
 });
@@ -336,6 +337,38 @@ describe("a payment refunded another way after a denial (review I3)", () => {
 			kind: "status",
 			status: "refunded",
 			appealDeadline: null,
+		});
+	});
+});
+
+describe("a refund the bank failed (FR-P27, qa #1, #5)", () => {
+	it("an open bank failure shows 'refund failed', not 'refunded', on the row and the page", () => {
+		const req = request({ refundState: "refunded", refundedAt: at(DAY) });
+		const facts = { paymentRefunded: true, refundFailedAtBank: true };
+		expect(
+			purchaseRefundRowState(row({ request: req, ...facts }), NOW),
+		).toEqual({ kind: "status", status: "refund_failed" });
+		expect(
+			refundPageState(page({ request: req, ...facts }), NOW),
+		).toMatchObject({ kind: "status", status: "refund_failed" });
+	});
+
+	it("a request the admin let stand keeps saying the refund failed", () => {
+		const req = request({ refundState: "reversed", refundedAt: at(DAY) });
+		expect(purchaseRefundRowState(row({ request: req }), NOW)).toEqual({
+			kind: "status",
+			status: "refund_failed",
+		});
+	});
+
+	it("a failed Dashboard refund with no request shows the failure, not the form", () => {
+		const facts = { paymentRefunded: true, refundFailedAtBank: true };
+		expect(purchaseRefundRowState(row(facts), NOW)).toEqual({
+			kind: "status",
+			status: "refund_failed",
+		});
+		expect(refundPageState(page(facts), NOW)).toEqual({
+			kind: "refund_failed",
 		});
 	});
 });

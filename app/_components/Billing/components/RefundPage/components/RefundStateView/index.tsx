@@ -3,6 +3,7 @@ import {
 	CERTIFICATE_TEXT,
 	DISPUTE_TEXT,
 	PAYMENT_REFUNDED_TEXT,
+	REFUND_FAILED_TEXT,
 	windowClosedText,
 } from "../../utils";
 import { RefundOverLimit } from "../RefundOverLimit";
@@ -43,6 +44,8 @@ export const RefundStateView = ({ paymentId, state }: RefundStateViewProps) => {
 			return <RefundUnavailable message={ALREADY_REFUNDED_TEXT} />;
 		case "payment_refunded":
 			return <RefundUnavailable message={PAYMENT_REFUNDED_TEXT} />;
+		case "refund_failed":
+			return <RefundUnavailable message={REFUND_FAILED_TEXT} />;
 		default: {
 			const unhandled: never = state;
 			return unhandled;

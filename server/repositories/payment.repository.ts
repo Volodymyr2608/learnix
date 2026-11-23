@@ -110,7 +110,15 @@ class PaymentRepository extends BaseRepository<
 	 */
 	recordPartialRefund(paymentId: string, refundedCents: number) {
 		return this.db.payment.updateMany({
-			where: { id: paymentId, status: "succeeded" },
+			// qa F6: Stripe does not order events — the recorded total only grows.
+			where: {
+				id: paymentId,
+				status: "succeeded",
+				OR: [
+					{ refundedAmountCents: null },
+					{ refundedAmountCents: { lt: refundedCents } },
+				],
+			},
 			data: { refundedAmountCents: refundedCents },
 		});
 	}
@@ -156,6 +164,9 @@ class PaymentRepository extends BaseRepository<
 					status: "succeeded",
 					// FR-P1, ADR-037 §1: held until the window closes; a duplicate is never held.
 					transferStatus: duplicate ? "none" : "pending",
+					// qa F1 (C13): the duplicate is marked before its refund, so a crash, a retry or
+					// its own charge.refunded webhook cannot lose or mislabel it.
+					...(duplicate ? { refundSource: "duplicate_charge" as const } : {}),
 				},
 			});
 			return duplicate ? "duplicate" : "paid";
@@ -163,22 +174,35 @@ class PaymentRepository extends BaseRepository<
 	}
 
 	/**
-	 * FR-P27 (W5): marks a refunded payment's bank failure once; a cancelled share goes back to
-	 * held. False when the payment is not refunded or the failure was already recorded.
+	 * FR-P27 (W5): marks a refunded payment's bank failure once per failed Stripe refund; a
+	 * cancelled share goes back to held. False when the payment is not refunded, the failure is
+	 * already open, or this refund's failure was already recorded (qa F5: a redelivered event
+	 * cannot reopen a case the admin closed).
 	 */
-	async markBankFailure(paymentId: string, now: Date): Promise<boolean> {
-		return this.db.$transaction(async (tx) => {
-			const { count } = await tx.payment.updateMany({
-				where: { id: paymentId, status: "refunded", bankFailureAt: null },
-				data: { bankFailureAt: now },
-			});
-			if (count === 0) return false;
-			await tx.payment.updateMany({
-				where: { id: paymentId, transferStatus: "cancelled" },
-				data: { transferStatus: "pending" },
-			});
-			return true;
+	async markBankFailureInTx(
+		tx: Prisma.TransactionClient,
+		paymentId: string,
+		stripeRefundId: string,
+		now: Date,
+	): Promise<boolean> {
+		const { count } = await tx.payment.updateMany({
+			where: {
+				id: paymentId,
+				status: "refunded",
+				bankFailureAt: null,
+				OR: [
+					{ bankFailureRefundId: null },
+					{ bankFailureRefundId: { not: stripeRefundId } },
+				],
+			},
+			data: { bankFailureAt: now, bankFailureRefundId: stripeRefundId },
 		});
+		if (count === 0) return false;
+		await tx.payment.updateMany({
+			where: { id: paymentId, transferStatus: "cancelled" },
+			data: { transferStatus: "pending" },
+		});
+		return true;
 	}
 
 	/** FR-P27 (W6): payments whose refund failed at the bank and is not closed yet. */
@@ -199,27 +223,40 @@ class PaymentRepository extends BaseRepository<
 
 	/**
 	 * FR-P27 (W6): closes an open bank failure exactly once, in the transaction of its audit row.
-	 * "refunded_elsewhere": the share is cancelled; "sale_stands": the payment counts as paid again.
+	 * Returns the payment as it was, or null when it was not open. The share is not touched here
+	 * (qa F3): "sale_stands" leaves a held share to the normal release rule and a transferred or
+	 * reversed one to the admin; "refunded_elsewhere" cancels a held one through the effects.
 	 */
 	async resolveBankFailureInTx(
 		tx: Prisma.TransactionClient,
 		paymentId: string,
 		outcome: "refunded_elsewhere" | "sale_stands",
-	): Promise<boolean> {
+	): Promise<Payment | null> {
+		const payment = await tx.payment.findFirst({
+			where: { id: paymentId, bankFailureAt: { not: null } },
+		});
+		if (!payment) return null;
 		const { count } = await tx.payment.updateMany({
 			where: { id: paymentId, bankFailureAt: { not: null } },
 			data:
 				outcome === "refunded_elsewhere"
-					? { bankFailureAt: null, transferStatus: "cancelled" }
+					? { bankFailureAt: null }
 					: {
 							bankFailureAt: null,
 							status: "succeeded",
 							refundedAt: null,
 							refundSource: null,
-							transferStatus: "pending",
 						},
 		});
-		return count === 1;
+		if (count !== 1) return null;
+		// qa #1: the student's refund did not happen — the request stops holding the share and
+		// stops counting (D3). "refunded_elsewhere" re-applies the refund's effects in the service.
+		if (outcome === "sale_stands")
+			await tx.refundRequest.updateMany({
+				where: { paymentId, refundState: "refunded" },
+				data: { refundState: "reversed" },
+			});
+		return payment;
 	}
 
 	/** EC-17 (W9): an earlier payment of this course with a dispute still open at the bank. */
@@ -231,11 +268,14 @@ class PaymentRepository extends BaseRepository<
 		);
 	}
 
-	/** W2 / FR-P28: recent succeeded payments saved without their Stripe fee. */
+	/**
+	 * W2 / FR-P28: recent paid payments saved without their Stripe fee — refunded ones too, since
+	 * Stripe keeps the fee (qa #6).
+	 */
 	async findMissingFees(paidSince: Date, limit: number) {
 		const rows = await this.db.payment.findMany({
 			where: {
-				status: "succeeded",
+				status: { in: ["succeeded", "refunded"] },
 				stripeFeeCents: null,
 				stripePaymentIntentId: { not: null },
 				paidAt: { gte: paidSince },

@@ -10,6 +10,7 @@ const STATUS_LABEL: Record<RefundRequestStatus, string> = {
 	refunded: "Refund details",
 	denied: "Refund denied",
 	under_review: "Under review",
+	refund_failed: "Refund failed",
 };
 
 /** FR-S12: the status a row shows instead of the action — a link to its details (review I1). */

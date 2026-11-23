@@ -1,3 +1,4 @@
+import type Stripe from "stripe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/server/db";
 import { refundRequestRepository } from "@/server/repositories/refundRequest.repository";
@@ -29,6 +30,7 @@ vi.mock("@/server/services/embeddings/embeddings.service", () => ({
 }));
 
 const { paymentService } = await import("./payment.service");
+const { stripeEventService } = await import("./stripeEvent.service");
 
 const session = (pi: string) => ({
 	payment_status: "paid",
@@ -176,5 +178,79 @@ describe("a double charge is refunded at once (FR-P17, AC-F16, AC-C13)", () => {
 		expect(rows.find((r) => r.status === "refunded")?.transferStatus).toBe(
 			"none",
 		);
+	});
+
+	it("a duplicate whose refund failed is reported to the admins and refunded on the next status check (qa F1, #3)", async () => {
+		await makeUser({ role: "ADMIN" });
+		await checkout("cs_a");
+		const second = await checkout("cs_b");
+		stripeMock.refundsCreate.mockRejectedValueOnce(new Error("stripe down"));
+		await paymentService.finalizeCheckout("cs_a");
+
+		expect(await paymentService.finalizeCheckout("cs_b")).toEqual({
+			status: "succeeded",
+			duplicate: true,
+		});
+		expect(
+			await testDb.payment.findUniqueOrThrow({ where: { id: second.id } }),
+		).toMatchObject({
+			status: "succeeded",
+			refundSource: "duplicate_charge",
+			transferStatus: "none",
+		});
+		expect(
+			send.mock.calls.filter(
+				([a]) => a.templateKey === "admin.duplicate-charge-failed",
+			),
+		).toHaveLength(1);
+
+		await paymentService.finalizeCheckout("cs_b");
+		expect(
+			(await testDb.payment.findUniqueOrThrow({ where: { id: second.id } }))
+				.status,
+		).toBe("refunded");
+	});
+
+	it("the charge.refunded webhook beating the effects keeps the duplicate's path (qa #2)", async () => {
+		await makeUser({ role: "ADMIN" });
+		await checkout("cs_a");
+		const second = await checkout("cs_b");
+		stripeMock.refundsCreate.mockImplementationOnce(async () => {
+			await stripeEventService.handle(
+				{
+					id: "evt_dup_refunded",
+					type: "charge.refunded",
+					data: {
+						object: {
+							id: "ch_dup",
+							object: "charge",
+							payment_intent: "pi_cs_b",
+							amount: 4999,
+							amount_refunded: 4999,
+						},
+					},
+				} as unknown as Stripe.Event,
+				new Date(),
+			);
+			return { id: "re_dup", status: "succeeded" };
+		});
+		await paymentService.finalizeCheckout("cs_a");
+
+		expect(await paymentService.finalizeCheckout("cs_b")).toEqual({
+			status: "succeeded",
+			duplicate: true,
+		});
+		expect(
+			await testDb.payment.findUniqueOrThrow({ where: { id: second.id } }),
+		).toMatchObject({
+			status: "refunded",
+			refundSource: "duplicate_charge",
+			needsReviewAt: null,
+		});
+		expect(
+			send.mock.calls.filter(
+				([a]) => a.templateKey === "admin.dashboard-refund",
+			),
+		).toHaveLength(0);
 	});
 });

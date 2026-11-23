@@ -138,4 +138,14 @@ describe("a partial Dashboard refund, then a request (FR-P16, EC-19, AC-F15)", (
 				.transferStatus,
 		).toBe("cancelled");
 	});
+
+	it("keeps the larger total when Stripe's events arrive out of order (qa F6)", async () => {
+		await stripeEventService.handle(partial(2500), new Date());
+		await stripeEventService.handle(partial(1000), new Date());
+
+		expect(
+			(await testDb.payment.findUniqueOrThrow({ where: { id: paymentId } }))
+				.refundedAmountCents,
+		).toBe(2500);
+	});
 });

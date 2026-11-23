@@ -58,6 +58,9 @@ enum RefundState {
   refunded
   /// D5: the bank returned the money (a lost dispute); no Stripe refund is made.
   refunded_by_bank
+  /// qa #1 / FR-P27: the refund failed at the bank and the admin decided the sale stands; the
+  /// request no longer holds the share and no longer counts (D3).
+  reversed
 }
 
 // A student's refund request (FR-S5). One per payment (FR-S7); the snapshot
@@ -132,6 +135,8 @@ model RefundEvidenceFile {
   sizeBytes    Int              @map("size_bytes")
   createdAt    DateTime         @default(now()) @map("created_at")
   deletedAt    DateTime?        @map("deleted_at")
+  /// qa #9: the last failed delete; the retention job takes the least recently tried first.
+  deleteAttemptedAt DateTime?   @map("delete_attempted_at")
 
   @@index([appealId])
   @@map("refund_evidence_files")

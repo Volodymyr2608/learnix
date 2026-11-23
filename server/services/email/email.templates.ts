@@ -241,6 +241,9 @@ export const emailTemplates = {
 	"admin.bank-failure": adminNotice(
 		() => "Learnix: a refund failed at the bank",
 	),
+	"admin.duplicate-charge-failed": adminNotice(
+		() => "Learnix: a double charge could not be refunded",
+	),
 	"refund.appeal-decided": studentNotice((p) => p.title),
 	"refund.dispute-lost": studentNotice((p) => p.title),
 	"refund.duplicate-charge": studentNotice((p) => p.title),

@@ -3,6 +3,7 @@ import {
 	appealDeadlineText,
 	deniedConditions,
 	PROCESSING_TEXT,
+	REFUND_FAILED_TEXT,
 	refundedText,
 	submittedText,
 	underReviewText,
@@ -36,6 +37,9 @@ export const RefundStatusView = ({
 		)}
 		{state.status === "processing" && (
 			<p className="text-sm">{PROCESSING_TEXT}</p>
+		)}
+		{state.status === "refund_failed" && (
+			<p className="text-sm">{REFUND_FAILED_TEXT}</p>
 		)}
 		{state.status === "refunded" && (
 			<p className="text-sm">

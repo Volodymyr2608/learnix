@@ -124,6 +124,7 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
 		stripeFeeCents: null,
 		refundedAmountCents: null,
 		bankFailureAt: null,
+		bankFailureRefundId: null,
 		refundedAt: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),

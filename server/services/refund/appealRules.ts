@@ -1,4 +1,7 @@
+import type { AppealStatus } from "@/generated/prisma";
 import { REFUND_WINDOW_MS } from "./refundRules";
+
+export type { AppealStatus };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -6,10 +9,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const APPEAL_AFTER_DENIAL_MS = 3 * DAY_MS;
 
 export type AppealKind = "direct" | "after_denial";
-
-import type { AppealStatus } from "@/generated/prisma";
-
-export type { AppealStatus };
 
 /**
  * FR-S16 / AC-F6: a direct appeal until the window ends; after an automatic denial, until the later

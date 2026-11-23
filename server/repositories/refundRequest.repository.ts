@@ -6,6 +6,11 @@ import { BaseRepository } from "./base/base.repository";
  * row is written under one per-student advisory lock (C4), so none of them may
  * run on `this.db`.
  */
+/** qa #1 / FR-P27: a refund the bank failed and the admin let stand never counts (D3). */
+const NOT_REVERSED = {
+	OR: [{ refundState: null }, { refundState: { not: "reversed" as const } }],
+} satisfies Prisma.RefundRequestWhereInput;
+
 class RefundRequestRepository extends BaseRepository<
 	"refundRequest",
 	RefundRequest,
@@ -74,6 +79,7 @@ class RefundRequestRepository extends BaseRepository<
 				paidAt: true,
 				status: true,
 				disputeState: true,
+				bankFailureAt: true,
 				amountCents: true,
 				refundedAmountCents: true,
 				currency: true,
@@ -137,7 +143,12 @@ class RefundRequestRepository extends BaseRepository<
 		const [requests, lostDisputes] = await Promise.all([
 			tx.refundRequest.count({
 				// V2: a refund approved automatically, on appeal, or overdue (D3).
-				where: { studentId, courseId, approval: { not: null } },
+				where: {
+					studentId,
+					courseId,
+					approval: { not: null },
+					...NOT_REVERSED,
+				},
 			}),
 			tx.payment.count({
 				where: { studentId, courseId, refundSource: "lost_dispute" },
@@ -161,6 +172,7 @@ class RefundRequestRepository extends BaseRepository<
 				  FROM refund_requests r
 				 WHERE r.student_id = ${studentId}
 				   AND r.approval = 'automatic'
+				   AND r.refund_state IS DISTINCT FROM 'reversed'
 				   AND r.created_at >= ${since}::timestamp
 				UNION ALL
 				SELECT p.id
@@ -206,6 +218,7 @@ class RefundRequestRepository extends BaseRepository<
 					studentId,
 					courseId: { in: courseIds },
 					approval: { not: null },
+					...NOT_REVERSED,
 				},
 				select: { courseId: true },
 			}),

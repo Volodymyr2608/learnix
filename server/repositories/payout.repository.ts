@@ -31,8 +31,9 @@ const eligible = (now: Date) => Prisma.sql`
 		SELECT 1 FROM refund_requests r
 		WHERE r.payment_id = p.id
 		  AND (
-			-- V1/V2: an approved request (automatic, appeal, overdue) waiting for or past its refund.
-			r.approval IS NOT NULL
+			-- V1/V2: an approved request (automatic, appeal, overdue) waiting for or past its refund;
+			-- not one the bank failed and the admin let stand (qa #1, FR-P27).
+			(r.approval IS NOT NULL AND r.refund_state IS DISTINCT FROM 'reversed')
 			-- V10: an appeal the admin has not decided holds the share (A3, FR-A5).
 			OR EXISTS (
 				SELECT 1 FROM refund_appeals a
@@ -107,7 +108,7 @@ class PayoutRepository extends BaseRepository<
 	 * FR-I1 (W7): one instructor's held shares, split by the release predicate itself — never a
 	 * second copy of it. "Waiting for Stripe connection": eligible except that the instructor cannot
 	 * receive payouts. Everything else still held (the window, an open request or appeal, a bank
-	 * failure, or eligible and due in the next run) is "on hold".
+	 * failure, eligible and due in the next run, or being transferred) is "on hold".
 	 */
 	async heldForInstructor(
 		instructorId: string,
@@ -127,7 +128,8 @@ class PayoutRepository extends BaseRepository<
 			  ), 0) AS waiting
 			FROM payments p
 			WHERE p."instructorId" = ${instructorId}
-			  AND p.transfer_status = 'pending'`;
+			  -- qa #12: a share being transferred right now is not paid out yet either.
+			  AND p.transfer_status IN ('pending', 'transferring')`;
 		const total = Number(row?.total ?? 0);
 		const waitingForStripeCents = Number(row?.waiting ?? 0);
 		return {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { refundAppealRepository } from "@/server/repositories/refundAppeal.repository";
 import { testDb, truncateAll } from "@/test/db";
 import {
 	makeAppeal,
@@ -116,5 +117,23 @@ describe("evidence is deleted 30 days after the decision (FR-P22, AC-F18)", () =
 		await payoutWatchdogService.check(NOW);
 
 		expect(spy).toHaveBeenCalledWith(NOW);
+		spy.mockRestore();
+	});
+
+	it("a file whose delete failed goes behind the others (qa #9)", async () => {
+		await appealWithFile("denied", daysAgo(40));
+		const next = await appealWithFile("denied", daysAgo(35));
+		blob.del.mockRejectedValueOnce(new Error("blob down"));
+		await evidenceRetentionService.deleteExpired(NOW);
+		await testDb.refundEvidenceFile.update({
+			where: { id: next.file.id },
+			data: { deletedAt: null },
+		});
+
+		expect(
+			(await refundAppealRepository.findExpiredEvidence(daysAgo(30), 1)).map(
+				(f) => f.id,
+			),
+		).toEqual([next.file.id]);
 	});
 });

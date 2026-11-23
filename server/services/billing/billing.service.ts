@@ -34,6 +34,7 @@ class BillingService {
 							hasCertificate: refundFacts.certified.has(row.courseId),
 							hasEarlierCountingRefund: refundFacts.counting.has(row.courseId),
 							hasOpenDispute: isDisputeBlocking(row.disputeState),
+							refundFailedAtBank: row.bankFailureAt !== null,
 							request: row.refundRequest,
 						},
 						now,

@@ -29,7 +29,7 @@ this table by hand — edit the relevant `spec.md`'s frontmatter and re-run `pnp
 | payments | stable | auth, course |
 | quiz-answer-key | stable | ai-tutor-guardrails, ai-defence-layers |
 | quiz-generation | stable | ai-defence-layers, ai-input-trust-boundary |
-| refund-self-service | in-progress | payments, billing, certificates, ai-tutor-guardrails, study-guide, quiz-answer-key, learning-path, semantic-search-recommendations, messages, achievements, account-deletion-data-retention |
+| refund-self-service | stable | payments, billing, certificates, ai-tutor-guardrails, study-guide, quiz-answer-key, learning-path, semantic-search-recommendations, messages, achievements, account-deletion-data-retention |
 | semantic-search-recommendations | stable | course, enrollment |
 | skill-progress | stable | progress |
 | study-guide | stable | ai-defence-layers, ai-input-trust-boundary |

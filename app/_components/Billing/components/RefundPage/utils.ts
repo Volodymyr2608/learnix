@@ -21,6 +21,10 @@ export const ALREADY_REFUNDED_TEXT =
 
 export const PAYMENT_REFUNDED_TEXT = "This payment has already been refunded.";
 
+/** FR-P27 / FS-3 (qa #5): the same message the "refund failed" email gives. */
+export const REFUND_FAILED_TEXT =
+	"Your bank could not accept this refund, so your access to the course is restored. We will contact you about the money.";
+
 /** FR-S4. */
 export const REFUND_CONSEQUENCES = [
 	"Your access to the course closes.",
