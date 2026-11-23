@@ -1797,3 +1797,33 @@ The IDP review needs 2–3 vivid examples:
 - **Verdict:** `accepted`
 - **Why:** *TODO (me)*
 
+
+### 2026-11-23 — Slice 9 /qa: what the review and the audit changed
+- **Stage:** validation
+- **Context the AI had:** the slice-9 diff (586a907..f01057f), `build/plan-slice-9.md`, `spec.md`,
+  `security.md`; one fresh code reviewer (Opus) and `security-auditor` (no AI surface, so no
+  `llm-security-auditor`)
+- **AI found:**
+  - review #1 (Critical) = audit F3c — "the sale stands" after a student's request left the share held
+    forever and the refund counting, because the request kept `approval`; the tests built only a
+    Dashboard refund;
+  - audit F3a/b — "the sale stands" forced the share to `pending`: a double charge would pay the
+    instructor twice, a reversed share would be recorded as paid;
+  - audit F1 = review #2/#3 — a double charge was marked only after its refund: a crash left it
+    un-refunded with no flag, its own webhook filed it as a Dashboard refund, a failed refund was
+    flagged silently;
+  - audit F2 — the restore after a bank failure ran outside the transaction that recorded it, so one
+    failed write lost the student's access for good; F5 — a redelivered event reopened a closed case;
+    F6 — the partial-refund total could go backwards;
+  - review #4 = audit F4 — "refunded another way" left the student with the money and the course
+    (FR-P27 silent); review #5 — the refund page said "Refunded" while the email said it failed;
+    minor #6–#13
+- **AI proposed:** for each, a fix and a test; four decisions put to me as questions
+- **My decisions:** all four as the AI recommended — (1) "the sale stands" reverses the request: a new
+  `reversed` state, skipped by release and counting; (2) "refunded another way" removes access again;
+  (3) "the sale stands" refused for a double charge, a transferred or reversed share never changed;
+  (4) fix every finding with a test, nothing left only as accepted risk except three informational ones
+- **How I verified:** *Not verified by me* — the AI ran each test red by removing its fix (break-it),
+  then the full suite green
+- **Verdict:** `accepted`
+- **Why:** *TODO (me)*

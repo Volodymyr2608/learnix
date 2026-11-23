@@ -43,13 +43,13 @@ L×I = likelihood × impact.
 | C9 | Reading lessons without an "opened" record (fail-open write; the tutor route) | M×M | Record written before content is returned, fail-closed, on every content path | FR-P19 |
 | C11 | Overdue auto-approval as an unlimited bypass | M×M | Only appeals after an automatic denial for a condition other than the threshold or the account limit are auto-approved; the failed condition comes from the server snapshot (decision T11, amended 2026-11-21: tab race) | FR-A5 |
 | C12 | Refund of a disputed charge | L×H | Live charge check before every `refunds.create`; stored dispute state from dispute events drives the button | FR-P18, P18a |
-| C13 | Double-charge race: both or neither refunded; a duplicate released | L×M | Lock on the student + course enrollment; keeper = earliest paid; duplicate marked cancelled before its refund | FR-P17 |
+| C13 | Double-charge race: both or neither refunded; a duplicate released | L×M | Advisory lock on the student + course, in the transaction that marks the payment paid; keeper = the first finalized (amended at slice-9 `/qa`: not the earliest paid — equivalent for the money); the duplicate is marked `duplicate_charge` in that transaction, before its refund | FR-P17 |
 | C14 | Old early-payout paths survive | H×H | One release function is the only caller of `transfers.create`; Sweep and the transfer at sale removed | FR-P24 |
 | C15 | Job endpoint called by anyone, or a weak secret | M×H | Constant-time compare of `CRON_SECRET` (≥ 32 chars, validated in `lib/env.js`); empty 401; counts only in the response | FR-P25 |
 | C16 | Overlapping job runs | M×L | Redis lock with TTL > max duration, compare-and-delete release; "Run job now" calls the service, never the URL | FR-A9 |
 | C17 | Admin actions reachable by others | L×H | Admin-only procedures; reasons required where the spec says so | FR-A1, A2, A6, A8, A9 |
 | C18 | Audit edited or deleted | L×M | Append-only audit table; repository without update or delete; Postgres trigger rejects UPDATE and DELETE | FR-A3 |
-| C19 | The instructor learns of a request, appeal or reason | M×M | Instructor queries never select refund tables; held amounts from payment columns only; no refund data in instructor emails | FR-I2 |
+| C19 | The instructor learns of a request, appeal or reason | M×M | Instructor responses never carry refund rows; held amounts are sums split by the release predicate (which reads refund tables server-side — amended at slice-9 `/qa`; the inference it allows is accepted, A6); no refund data in instructor emails | FR-I2 |
 | C20 | Evidence file IDOR or public exposure | M×H | Private Blob store; authorizing route; 404 to everyone but the payment's student and an admin | FR-S15 |
 | C21 | Malicious or oversized file | M×M | PNG, JPEG, PDF by magic bytes; ≤ 3 files, ≤ 4 MB; served as a download with `nosniff` and a sandbox CSP | FR-S15 |
 | C22 | Stored XSS through reason, appeal, denial text or file name | L×M | Rendered as text only; length caps; reminder emails carry no student text | FR-S3, S15, A2 |
@@ -182,6 +182,35 @@ is off, because the flag check runs before any database work (C24); each is a Re
 | AC-C13 | Implemented: `claimCheckout` serialises finalizes of one (student, course) with an advisory lock; the later paid checkout is the duplicate, never held, refunded at once. The concurrency test cannot prove the lock itself (the test pool serialises the transactions) | `payment.repository.ts`, `doubleCharge.integration.test.ts` |
 
 The slice-1 accepted item "Refund free text survives account deletion" is closed (above).
+
+**Fixed at slice-9 `/qa`** (code review + `security-auditor`; no AI surface, so no
+`llm-security-auditor`), each with a test that turned red when its fix was removed:
+- "The sale stands" left a request-path share held forever and the refund counting (review #1 =
+  audit F3c) → the request becomes `reversed`; the release predicate and the counting queries skip it.
+- "The sale stands" forced `transferStatus = pending` (audit F3a/b): a double charge would pay the
+  instructor twice (AC-C13), a reversed share would be recorded as paid → refused for a double charge;
+  neither outcome changes a transferred or reversed share.
+- A double charge was marked only after its refund (C13, audit F1 = review #2): a crash left it
+  un-refunded and unflagged, its own webhook filed it as a Dashboard refund → marked in the claim
+  transaction; the next status check retries; a failed refund emails the admins (review #3).
+- The bank-failure restore ran outside the transaction that recorded the failure (C8, audit F2) → one
+  transaction; a failed restore is redone by the redelivered event.
+- A redelivered failure event reopened a closed case (audit F5) → gated on the failed Stripe refund id.
+- "Refunded another way" left the student with the money and the course (review #4 = audit F4,
+  decided by the author) → the refund's effects apply again.
+- The partial-refund total could go backwards on out-of-order events (audit F6) → only grows.
+- Smaller: the refund page said "Refunded" during a bank failure (review #5); refunded payments got no
+  fee (#6); `finalizeCheckout` could recurse on a non-pending status (#8); a failing evidence delete
+  could starve the batch (#9); a share being transferred showed in no card (#12).
+
+**Accepted at slice-9 `/qa`:**
+- **The fee fill-in looks back 30 days, not to the deploy** (review #6): a payment whose fee read kept
+  failing for 30 days keeps `stripe_fee_cents = NULL`; the fee is a report figure, not a money input.
+- **The webhook accepts `charge.*` events signed with the Connect secret without checking
+  `event.account`** (audit, informational): PaymentIntent ids are global, so a connected account's
+  event cannot match a platform payment.
+- **The interactive transaction's 5 s timeout includes the advisory-lock wait** (audit,
+  informational): under contention a finalize fails and Stripe or the status poll retries it.
 
 ### Slice 8 (appeals and the admin exception, 2026-11-22) — control status
 

@@ -1,6 +1,6 @@
 ---
 feature: refund-self-service
-status: in-progress
+status: stable
 models: [Payment, Enrollment, RefundRequest, PayoutRun]
 depends-on: [payments, billing, certificates, ai-tutor-guardrails, study-guide, quiz-answer-key, learning-path, semantic-search-recommendations, messages, achievements, account-deletion-data-retention]
 ---
@@ -437,14 +437,21 @@ Dashboard webhook, lost bank dispute or daily event replay)
   reactivated automatically and the student is told; the payment is flagged for the admin, who
   returns the money another way. Cleared learning records are not restored (FS-3). The instructor's
   cancelled share returns to held and is not released while the problem is open (FR-P2a). The admin
-  closes the problem with one of two audited outcomes: "refunded another way" (the share is
-  cancelled) or "the sale stands" (the share follows the normal release rule).
+  closes the problem with one of two audited outcomes: "refunded another way" (the refund's effects
+  hold again: a held share is cancelled, access, certificate and conversation are removed) or "the
+  sale stands" (a held share follows the normal release rule; the student's request becomes
+  `reversed` and no longer counts for D3 or the account limit). A double charge cannot stand, and a
+  share already transferred or reversed is not changed by either outcome. A redelivered failure of
+  the same Stripe refund does not reopen a closed problem. While it is open, and after "the sale
+  stands", the Purchases row and the refund page say "Refund failed" (FS-3 text).
 - **FR-P16.** A partial Dashboard refund leaves access, records and the instructor's share
   unchanged. The refunded amount is recorded (OQ-7a). The student's refund right is unchanged; a
   later refund returns the remainder (EC-19).
 - **FR-P17.** When a second payment for a course the student already paid for succeeds,
   `finalizeCheckout` refunds it at once (non-counting), and the student sees "You were charged twice;
-  the second charge was refunded" (DC).
+  the second charge was refunded" (DC). The payment is marked a double charge in the same transaction
+  that marks it paid, so its own refund webhook keeps that path. If the refund fails, every admin is
+  emailed and the next status check retries it.
 - **FR-P18a.** The system knows whether a payment's charge is under dispute without calling Stripe
   on a page view: dispute opened and closed events, delivered by webhook and by the daily replay,
   update the payment (C12).
@@ -740,9 +747,12 @@ Applies: [`docs/constitution.md`](../../../constitution.md), plus the criteria b
   and flagged; the instructor's share is unchanged.
 - **AC-F16** (FR-P17). A second paid checkout for a course already paid for is refunded at once and
   does not count for D3 or the account limit; the student is told.
-- **AC-F17** (FR-P27). A refund that fails at the bank reactivates the enrollment, returns the
-  instructor's share to held, blocks its release, and the admin's two outcomes set it to `cancelled`
-  or release it normally.
+- **AC-F17** (FR-P27). A refund that fails at the bank reactivates the enrollment (in the
+  transaction that records the failure), returns the instructor's share to held, blocks its release,
+  and shows "Refund failed" to the student. "Refunded another way" cancels a held share and removes
+  access again; "the sale stands" releases a held share normally and reverses the student's request,
+  which then counts for nothing. "The sale stands" is refused for a double charge; a transferred or
+  reversed share is left unchanged; a redelivered failure event does not reopen a closed problem.
 - **AC-F18** (FR-P22). Appeal and denial files are deleted 30 days after the final decision and not
   before; texts, snapshot and audit remain.
 - **AC-F19** (FR-P21). `/pricing` states 14 days, the opened-lesson limit, no refund after a
@@ -826,7 +836,9 @@ Applies: [`docs/constitution.md`](../../../constitution.md), plus the criteria b
   sees the dispute state; dispute events set and clear the stored state; rendering the Purchases page
   makes no Stripe call.
 - **AC-C13.** Two concurrent finalizes of two paid sessions for one student and course end with one
-  payment kept and one refunded, and the refunded one was never `pending`.
+  payment kept and one refunded, and the refunded one was never `pending`. The duplicate is marked
+  before its refund: a refund that failed is retried on the next status check and reported to the
+  admins; its own `charge.refunded` webhook never files it as a Dashboard refund.
 - **AC-C14.** The old Sweep procedure no longer exists; checkout makes no transfer; a contract test
   finds `transfers.create` in exactly one function.
 - **AC-C15.** The job endpoint without a header, with a wrong secret, or with a secret of another

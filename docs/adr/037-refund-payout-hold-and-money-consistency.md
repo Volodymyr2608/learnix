@@ -142,6 +142,15 @@ Postgres provides the atomicity. No transaction stays open across the network ca
   `GET /v1/events` since a stored cursor and feeds them through **the same handler** the webhook
   uses. This covers dashboard refunds and refunds that fail later. Event handling therefore moves
   out of the route's `switch` into a service that both callers share.
+- *Amended 2026-11-23 (refund slice 9 and its `/qa`):* `refunded` is no longer terminal. A refund
+  that fails at the bank (`charge.refund.updated`, status `failed`) sets `bank_failure_at`, puts a
+  cancelled share back to held and restores access, all in one transaction gated once per failed
+  Stripe refund; the release predicate holds the share while the failure is open. An admin closes it
+  with one of two audited outcomes: "refunded another way" re-applies the effects; "the sale stands"
+  returns the payment to `succeeded` and marks the student's request `reversed`, which the release
+  predicate and the counting rules skip. A double charge is marked `duplicate_charge` in the
+  transaction that marks it paid (advisory lock per student and course), so its refund and its own
+  webhook cannot disagree about the path, and "the sale stands" is refused for it.
 
 ## Consequences
 
