@@ -59,11 +59,27 @@ export async function POST(req: Request) {
 	// inside the turn's measurement rather than before it.
 	const metrics = aiMetricsHandler({ feature: "courseAI" });
 
+	// When the instructor's turn happened. The user row is written after the
+	// graph, so it is stamped with this rather than with insert time — see the
+	// user save in the stream's `finally`.
+	const turnStartedAt = new Date();
+
 	if (mode === "chat" && userMessage) {
+		// The assistant turn this message answers, so L2 judges "ok" against what
+		// it approves rather than as a subject of its own (ai-input-trust-boundary
+		// item 13). Read before getOrCreateCourseGeneration, so the service scopes
+		// it to this instructor itself; a foreign id or a failed read gives null
+		// and the guard runs exactly as it did before.
+		const priorAssistantTurn = await courseAIService.findPriorAssistantTurn({
+			courseGenerationId: body.courseGenerationId,
+			userId: session.user.id,
+		});
+
 		const guard = await guardUserInput(userMessage, {
 			feature: "courseAI",
 			userId: session.user.id,
 			metrics,
+			...(priorAssistantTurn ? { priorAssistantTurn } : {}),
 			domain: {
 				description:
 					"designing an online course: its title, description, learning objectives, requirements, and curriculum",
@@ -112,6 +128,8 @@ export async function POST(req: Request) {
 			};
 
 			let assistantFullText = "";
+			/** When the reply began streaming — its place in the thread. */
+			let replyStartedAt: Date | undefined;
 			let aborted = false;
 			/** A provider or graph error reached the catch: nothing durable may follow. */
 			let failed = false;
@@ -165,6 +183,7 @@ export async function POST(req: Request) {
 						const chunk = ev.data?.chunk as { content?: unknown } | undefined;
 						const token = chunk?.content?.toString();
 						if (token) {
+							replyStartedAt ??= new Date();
 							assistantFullText += token;
 							send({ type: "token", value: token });
 						}
@@ -279,6 +298,38 @@ export async function POST(req: Request) {
 					send({ type: "retract", message: NEUTRAL_REFUSAL_MESSAGE });
 				}
 
+				// Save user message after the graph so state.history never contains
+				// the current-turn message during this request (avoids duplication in
+				// every node that appends state.userMessage to the history it builds).
+				//
+				// Stamped with when each turn HAPPENED, not when it is written: history
+				// replays by createdAt, and insert order put the reply before the
+				// question (on production every stored turn was reversed —
+				// ai-input-trust-boundary, "Reopened 2026-11-25") and, on a turn that
+				// commits a step, put persist_and_emit's transition row — written
+				// during the graph — before both. Question → reply → transition.
+				if (mode === "chat" && body.userMessage) {
+					await courseAIService
+						.saveMessage(
+							courseGeneration.id,
+							{
+								role: "user",
+								content: body.userMessage,
+								step: courseGeneration.step,
+								// The turn that elicited a retracted reply stays in the thread
+								// and leaves the model's context.
+								contextEligible: !isRejected,
+							},
+							{ createdAt: turnStartedAt },
+						)
+						.catch((err) =>
+							logger.error(
+								{ feature: "courseAI", err },
+								"[courseAI] failed to save the user message",
+							),
+						);
+				}
+
 				// `failed` is not cosmetic: the assistant write used to sit inside the
 				// try, so a mid-stream provider error skipped it. Gating only on
 				// !aborted && !isRejected would persist the TRUNCATED reply, send done
@@ -286,11 +337,15 @@ export async function POST(req: Request) {
 				const persistable = !aborted && !failed && !isRejected;
 				if (persistable && assistantFullText) {
 					await courseAIService
-						.saveMessage(courseGeneration.id, {
-							role: "assistant",
-							content: assistantFullText,
-							step: courseGeneration.step,
-						})
+						.saveMessage(
+							courseGeneration.id,
+							{
+								role: "assistant",
+								content: assistantFullText,
+								step: courseGeneration.step,
+							},
+							{ createdAt: replyStartedAt },
+						)
 						.catch((err) =>
 							logger.error(
 								{ feature: "courseAI", err },
@@ -299,27 +354,6 @@ export async function POST(req: Request) {
 						);
 				}
 				if (persistable) send({ type: "done" });
-
-				// Save user message after the graph so state.history never contains
-				// the current-turn message during this request (avoids duplication in
-				// every node that appends state.userMessage to the history it builds).
-				if (mode === "chat" && body.userMessage) {
-					await courseAIService
-						.saveMessage(courseGeneration.id, {
-							role: "user",
-							content: body.userMessage,
-							step: courseGeneration.step,
-							// The turn that elicited a retracted reply stays in the thread
-							// and leaves the model's context.
-							contextEligible: !isRejected,
-						})
-						.catch((err) =>
-							logger.error(
-								{ feature: "courseAI", err },
-								"[courseAI] failed to save the user message",
-							),
-						);
-				}
 				abortSignal.removeEventListener("abort", onAbort);
 				try {
 					controller.close();

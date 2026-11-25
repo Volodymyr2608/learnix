@@ -589,6 +589,7 @@ describe("which evals draw more than one sample", () => {
 
 	it("finds the sampled evals by the constant they declare", () => {
 		expect(sampledEvals()).toEqual([
+			"evals/aiGuard/priorTurn.eval.ts",
 			"evals/aiGuard/redteam.eval.ts",
 			"evals/aiOutput/falsePositive.eval.ts",
 			"evals/aiOutput/leakRecall.eval.ts",

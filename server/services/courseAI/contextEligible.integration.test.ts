@@ -86,3 +86,96 @@ describe("courseAI contextEligible (AC 20-22)", () => {
 		expect(await hydrate(generation.id)).toEqual(["An ordinary turn."]);
 	});
 });
+
+/**
+ * Item 13 (ai-input-trust-boundary): the turn L2 judges a reply against. Read
+ * before the guard, so it is the only ownership check standing between a
+ * request body's courseGenerationId and another instructor's text.
+ */
+describe("courseAIService.findPriorAssistantTurn", () => {
+	beforeEach(async () => {
+		await testDb.courseGenerationMessage.deleteMany();
+		await testDb.courseGeneration.deleteMany();
+	});
+
+	const seedTurn = (
+		generationId: string,
+		role: "user" | "assistant",
+		content: string,
+		at: number,
+		contextEligible = true,
+	) =>
+		testDb.courseGenerationMessage.create({
+			data: {
+				generationId,
+				role,
+				content,
+				step: DraftStep.basic,
+				contextEligible,
+				createdAt: new Date(at),
+			},
+		});
+
+	it("returns the owner's most recent assistant turn", async () => {
+		const { instructor, generation } = await seedGeneration();
+		await seedTurn(generation.id, "assistant", "first draft", 1_000);
+		await seedTurn(generation.id, "user", "make it shorter", 2_000);
+		await seedTurn(generation.id, "assistant", "second draft", 3_000);
+
+		const turn = await courseAIService.findPriorAssistantTurn({
+			courseGenerationId: generation.id,
+			userId: instructor.id,
+		});
+
+		expect(turn).toBe("second draft");
+	});
+
+	it("returns nothing for another instructor's generation", async () => {
+		const { generation } = await seedGeneration();
+		const intruder = await makeUser({ role: Role.INSTRUCTOR });
+		await seedTurn(generation.id, "assistant", "someone else's draft", 1_000);
+
+		const turn = await courseAIService.findPriorAssistantTurn({
+			courseGenerationId: generation.id,
+			userId: intruder.id,
+		});
+
+		expect(turn).toBeNull();
+	});
+
+	it("skips a retracted reply and falls back to the last eligible one", async () => {
+		const { instructor, generation } = await seedGeneration();
+		await seedTurn(generation.id, "assistant", "eligible draft", 1_000);
+		await seedTurn(generation.id, "assistant", "retracted reply", 2_000, false);
+
+		const turn = await courseAIService.findPriorAssistantTurn({
+			courseGenerationId: generation.id,
+			userId: instructor.id,
+		});
+
+		expect(turn).toBe("eligible draft");
+	});
+
+	it("returns nothing when the generation has no assistant turn", async () => {
+		const { instructor, generation } = await seedGeneration();
+		await seedTurn(generation.id, "user", "Course about oRPC", 1_000);
+
+		const turn = await courseAIService.findPriorAssistantTurn({
+			courseGenerationId: generation.id,
+			userId: instructor.id,
+		});
+
+		expect(turn).toBeNull();
+	});
+
+	it("returns nothing for a first message, which has no generation yet", async () => {
+		const { instructor } = await seedGeneration();
+
+		const turn = await courseAIService.findPriorAssistantTurn({
+			courseGenerationId: undefined,
+			userId: instructor.id,
+		});
+
+		expect(turn).toBeNull();
+	});
+});

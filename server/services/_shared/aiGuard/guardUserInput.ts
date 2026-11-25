@@ -68,6 +68,7 @@ export const guardUserInput = async (
 			text,
 			context.domain,
 			context.metrics,
+			context.priorAssistantTurn,
 		);
 		if (!relevance.onTopic) {
 			logSecurityEvent({

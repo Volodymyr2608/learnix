@@ -5,7 +5,7 @@
 `evals/_shared/docFigures.contract.test.ts` turns this document red when the baseline is re-recorded
 and this line is not. ·
 **Scope:** `lessonAI` (tutor), `courseAI`, `quizAI`, `lessonInsightsAI`, `learningPathAI`, plus the two
-shared defence layers (`aiGuard` input guard, `aiOutput` output boundary) — 13 evals under `evals/`,
+shared defence layers (`aiGuard` input guard, `aiOutput` output boundary) — 14 evals under `evals/`,
 as one system.
 
 This document answers the question individual feature specs cannot: **how much confidence does a
@@ -101,11 +101,12 @@ one class that needs a human.
 | `aiGuard:adversarial` | shared L1/L2 | 106 | block rate across attack techniques, plus false positives on legitimate rows | `accuracyGate` 0.85 **and** `precisionGate` 0.95 |
 | `aiGuard:redteam` | shared L1/L2 | 42 | enforcement recall and detection recall, per technique | **none** — coverage probe |
 | `aiGuard:indirect` | shared L3 | 16 | the same payload raw vs `wrapUntrustedContent`-wrapped | **none** — before/after measurement |
+| `aiGuard:priorTurn` | shared L2, courseAI | 18 rows × 5 samples, + the L2-reaching courseAI attack rows of `adversarial` with/without the turn | a builder reply judged against the turn it answers (ai-input-trust-boundary item 13) | per-row ≥ 4/5 on `reply` (false positive), `control` and `adversarial-prior` (recall); `residual` measured only; no attack row refused less often with the turn |
 | `aiOutput:falsePositive` | shared L5 | 42 × 5 surfaces × 3 samples | how often the output boundary refuses legitimate model text | **none** — deliberate ([`security.md`](features/ai-tutor-guardrails/security.md) S11) |
 | `aiOutput:leak` | shared L5 | in-file payloads × surfaces × 3 samples | recall of the prompt-recital rule | **none** |
 
 **Two things this table is honest about.** The tutor is the only surface with categories, sampling, a
-judge, a committed baseline and a cost report 🟡 — eight of the other twelve are single-sample, pooled
+judge, a committed baseline and a cost report 🟡 — eight of the other thirteen are single-sample, pooled
 into one accuracy number. And three golden sets sit at 6, 6 and 8 rows: above the enforced floor of
 five, far below the tutor's 58, so a single row moving swings them by 12–17 points. 🚧
 
@@ -374,7 +375,7 @@ Ordered by how much they would mislead a reader who did not know them.
    the two instruments still disagree about these rows, in the opposite direction from before, and
    the dimension itself is still not being measured. The fix remains a better dimension, not a looser
    string.
-9. **Eight of thirteen evals are single-sample and pooled.** 🚧 §3. Everything §6 says about
+9. **Eight of fourteen evals are single-sample and pooled.** 🚧 §3. Everything §6 says about
    distributions applies to them too; it just has not been instrumented yet. `courseAI:assessCompletion`
    is the one to watch: 22 gated rows at 0.85 leaves a three-failure margin, and four of its rows sit
    deliberately in the gray zone, so a single draw will report prompt drift and provider drift

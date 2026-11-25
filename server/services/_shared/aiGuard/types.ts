@@ -37,6 +37,13 @@ export type GuardContext = {
 	 * measured latency, where the student experiences it.
 	 */
 	metrics: AiMetricsHandler;
+	/**
+	 * The assistant turn the message answers — courseAI only (item 13), read by the
+	 * route from the caller's own generation. Lets L2 judge "ok" against what it
+	 * approves. Model output steered by the user's earlier turns, so it is wrapped
+	 * as untrusted `model_output`, never trusted. Absent → L2 is unchanged.
+	 */
+	priorAssistantTurn?: string;
 };
 
 export type GuardResult = {

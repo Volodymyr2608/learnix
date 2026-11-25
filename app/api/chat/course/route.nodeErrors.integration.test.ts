@@ -23,6 +23,7 @@ vi.mock("@/server/services/courseAI/courseAI.service", () => ({
 		runChat: mockRunChat,
 		runFinalize: vi.fn(),
 		saveMessage: vi.fn().mockResolvedValue(undefined),
+		findPriorAssistantTurn: vi.fn().mockResolvedValue(null),
 	},
 }));
 

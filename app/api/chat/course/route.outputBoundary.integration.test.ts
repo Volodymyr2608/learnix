@@ -3,13 +3,13 @@ import { DraftStep } from "@/generated/prisma";
 import { testDb } from "@/test/db";
 import { makeUser } from "@/test/factories";
 
-const { mockGetSession, mockRunChat, mockLogSecurityEvent } = vi.hoisted(
-	() => ({
+const { mockGetSession, mockRunChat, mockLogSecurityEvent, mockL2Invoke } =
+	vi.hoisted(() => ({
 		mockGetSession: vi.fn(),
 		mockRunChat: vi.fn(),
 		mockLogSecurityEvent: vi.fn(),
-	}),
-);
+		mockL2Invoke: vi.fn(),
+	}));
 
 vi.mock("@/server/better-auth/server", () => ({ getSession: mockGetSession }));
 
@@ -39,6 +39,7 @@ vi.mock(
 				getOrCreateCourseGeneration:
 					service.getOrCreateCourseGeneration.bind(service),
 				saveMessage: service.saveMessage.bind(service),
+				findPriorAssistantTurn: service.findPriorAssistantTurn.bind(service),
 				runChat: mockRunChat,
 				runFinalize: mockRunChat,
 			},
@@ -55,8 +56,8 @@ vi.mock("@langchain/openai", () => {
 		bindTools() {
 			return this;
 		}
-		invoke() {
-			return Promise.resolve({ onTopic: true, reason: "in scope" });
+		invoke(...args: unknown[]) {
+			return mockL2Invoke(...args);
 		}
 	}
 	class OpenAIEmbeddings {
@@ -110,6 +111,8 @@ describe("POST /api/chat/course — the output boundary", () => {
 	beforeEach(async () => {
 		mockRunChat.mockReset();
 		mockLogSecurityEvent.mockReset();
+		mockL2Invoke.mockReset();
+		mockL2Invoke.mockResolvedValue({ onTopic: true, reason: "in scope" });
 
 		const instructor = await makeUser({ role: "INSTRUCTOR" });
 		instructorId = instructor.id;
@@ -359,5 +362,209 @@ describe("POST /api/chat/course — the output boundary", () => {
 		);
 
 		expect(eventsOf("output_validation_failed")).toEqual([]);
+	});
+});
+
+/**
+ * Item 13 (ai-input-trust-boundary): L2 judges a reply against the assistant
+ * turn it answers. The graph is stubbed; the prior-turn read and the guard are
+ * real, so what reaches L2 is what production would send.
+ */
+describe("POST /api/chat/course — the turn L2 judges a reply against", () => {
+	let instructorId: string;
+	let generationId: string;
+
+	const l2UserContent = () => {
+		const messages = mockL2Invoke.mock.calls[0]?.[0] as
+			| { role: string; content: string }[]
+			| undefined;
+		return messages?.find((m) => m.role === "user")?.content ?? "";
+	};
+
+	beforeEach(async () => {
+		mockRunChat.mockReset();
+		mockRunChat.mockResolvedValue(streamOf(CLEAN));
+		mockL2Invoke.mockReset();
+		mockL2Invoke.mockResolvedValue({ onTopic: true, reason: "in scope" });
+
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		instructorId = instructor.id;
+		mockGetSession.mockResolvedValue({
+			user: { id: instructorId, role: "INSTRUCTOR" },
+		});
+		const generation = await testDb.courseGeneration.create({
+			data: {
+				instructorId,
+				step: DraftStep.basic,
+				content: {},
+				status: "active",
+			},
+		});
+		generationId = generation.id;
+	});
+
+	it("shows L2 the assistant draft the instructor is approving", async () => {
+		await testDb.courseGenerationMessage.create({
+			data: {
+				generationId,
+				role: "assistant",
+				content: "Here's a draft for your course on oRPC",
+				step: DraftStep.basic,
+			},
+		});
+
+		await readSse(
+			await post({
+				courseGenerationId: generationId,
+				userMessage: "ok go ahead",
+			}),
+		);
+
+		expect(l2UserContent()).toContain(
+			'<untrusted_data source="model_output">\nHere\'s a draft for your course on oRPC',
+		);
+	});
+
+	it("shows L2 nothing from another instructor's generation", async () => {
+		const owner = await makeUser({ role: "INSTRUCTOR" });
+		const foreign = await testDb.courseGeneration.create({
+			data: {
+				instructorId: owner.id,
+				step: DraftStep.basic,
+				content: {},
+				status: "active",
+			},
+		});
+		await testDb.courseGenerationMessage.create({
+			data: {
+				generationId: foreign.id,
+				role: "assistant",
+				content: "SECRET draft of another instructor",
+				step: DraftStep.basic,
+			},
+		});
+
+		await readSse(
+			await post({
+				courseGenerationId: foreign.id,
+				userMessage: "ok go ahead",
+			}),
+		);
+
+		expect(l2UserContent()).not.toContain("model_output");
+		expect(l2UserContent()).not.toContain("SECRET");
+	});
+
+	it("shows L2 no prior turn on a first message", async () => {
+		await readSse(await post({ userMessage: "Course about oRPC" }));
+
+		expect(l2UserContent()).toContain("Course about oRPC");
+		expect(l2UserContent()).not.toContain("model_output");
+	});
+});
+
+/**
+ * The next turn replays history ordered by createdAt, so a reply stored before
+ * the message that elicited it is read back as reply-then-question. Seen on
+ * production (ai-input-trust-boundary spec, "Reopened 2026-11-25").
+ */
+describe("POST /api/chat/course — turn order", () => {
+	it("stores the user turn before the reply it elicited", async () => {
+		mockRunChat.mockReset();
+		mockRunChat.mockResolvedValue(streamOf(CLEAN));
+		mockL2Invoke.mockReset();
+		mockL2Invoke.mockResolvedValue({ onTopic: true, reason: "in scope" });
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		mockGetSession.mockResolvedValue({
+			user: { id: instructor.id, role: "INSTRUCTOR" },
+		});
+		const generation = await testDb.courseGeneration.create({
+			data: {
+				instructorId: instructor.id,
+				step: DraftStep.basic,
+				content: {},
+				status: "active",
+			},
+		});
+
+		await readSse(
+			await post({
+				courseGenerationId: generation.id,
+				userMessage: "Course about oRPC",
+			}),
+		);
+
+		const rows = await testDb.courseGenerationMessage.findMany({
+			where: { generationId: generation.id },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(rows.map((r) => r.role)).toEqual(["user", "assistant"]);
+		expect(rows[0]?.createdAt.getTime()).toBeLessThan(
+			rows[1]?.createdAt.getTime() ?? 0,
+		);
+	});
+});
+
+/**
+ * A turn that commits a step also writes the step-transition row, from
+ * persist_and_emit, DURING the graph — before the route's own writes. The
+ * thread must still read question → reply → transition.
+ */
+describe("POST /api/chat/course — turn order on a step-committing turn", () => {
+	it("stores the user turn, then the reply, then the transition", async () => {
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		mockGetSession.mockResolvedValue({
+			user: { id: instructor.id, role: "INSTRUCTOR" },
+		});
+		mockL2Invoke.mockReset();
+		mockL2Invoke.mockResolvedValue({ onTopic: true, reason: "in scope" });
+		const generation = await testDb.courseGeneration.create({
+			data: {
+				instructorId: instructor.id,
+				step: DraftStep.basic,
+				content: {},
+				status: "active",
+			},
+		});
+
+		// The reply streams, then persist_and_emit writes its row — in the same
+		// order the real graph runs chat_response and persist_and_emit.
+		mockRunChat.mockReset();
+		mockRunChat.mockResolvedValue({
+			async *[Symbol.asyncIterator]() {
+				yield* streamOf("Great, finalizing this step!");
+				// The real graph spends four model calls between the two; a few
+				// milliseconds stands in for them, so the order is not a timestamp tie.
+				await new Promise((resolve) => setTimeout(resolve, 5));
+				await testDb.courseGenerationMessage.create({
+					data: {
+						generationId: generation.id,
+						role: "assistant",
+						content: "Now let's define the learning objectives.",
+						step: DraftStep.objectives,
+					},
+				});
+			},
+		});
+
+		await readSse(
+			await post({
+				courseGenerationId: generation.id,
+				userMessage: "ok go ahead",
+			}),
+		);
+
+		const rows = await testDb.courseGenerationMessage.findMany({
+			where: { generationId: generation.id },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(rows.map((r) => r.content.trim())).toEqual([
+			"ok go ahead",
+			"Great, finalizing this step!",
+			"Now let's define the learning objectives.",
+		]);
+		const times = rows.map((r) => r.createdAt.getTime());
+		expect(times[0]).toBeLessThan(times[1] ?? 0);
+		expect(times[1]).toBeLessThan(times[2] ?? 0);
 	});
 });
