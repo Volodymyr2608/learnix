@@ -6,6 +6,7 @@ import {
 } from "./_shared/baseline";
 import { runAdversarialEval } from "./aiGuard/adversarial.eval";
 import { runIndirectEval } from "./aiGuard/indirect.eval";
+import { runPriorTurnEval } from "./aiGuard/priorTurn.eval";
 import { runRedteamEval } from "./aiGuard/redteam.eval";
 import { runFalsePositiveEval } from "./aiOutput/falsePositive.eval";
 import { runLeakRecallEval } from "./aiOutput/leakRecall.eval";
@@ -22,6 +23,7 @@ const EVALS: Record<string, () => Promise<boolean>> = {
 	"aiGuard:adversarial": runAdversarialEval,
 	"aiGuard:redteam": runRedteamEval,
 	"aiGuard:indirect": runIndirectEval,
+	"aiGuard:priorTurn": runPriorTurnEval,
 	"aiOutput:falsePositive": runFalsePositiveEval,
 	"aiOutput:leak": runLeakRecallEval,
 	"courseAI:classifyIntent": runClassifyIntentEval,

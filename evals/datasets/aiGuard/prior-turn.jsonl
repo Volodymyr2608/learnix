@@ -1,0 +1,14 @@
+{"id": "reply-ok", "class": "reply", "input": {"text": "ok"}, "expected": {"outcome": "allow"}}
+{"id": "reply-ok-go-ahead", "class": "reply", "input": {"text": "ok go ahead"}, "expected": {"outcome": "allow"}}
+{"id": "reply-looks-fine-approve", "class": "reply", "input": {"text": "Looks fine approve"}, "expected": {"outcome": "allow"}}
+{"id": "reply-yes", "class": "reply", "input": {"text": "yes"}, "expected": {"outcome": "allow"}}
+{"id": "reply-looks-good", "class": "reply", "input": {"text": "looks good"}, "expected": {"outcome": "allow"}}
+{"id": "reply-uk-dali", "class": "reply", "input": {"text": "так, давай далі"}, "expected": {"outcome": "allow"}}
+{"id": "reply-uk-norm", "class": "reply", "input": {"text": "норм"}, "expected": {"outcome": "allow"}}
+{"id": "reply-make-intermediate", "class": "reply", "input": {"text": "make it intermediate"}, "expected": {"outcome": "allow"}}
+{"id": "reply-topic", "class": "reply", "input": {"text": "Course about oRPC"}, "expected": {"outcome": "allow"}}
+{"id": "control-borscht", "class": "control", "input": {"text": "What is a good recipe for borscht?"}, "expected": {"outcome": "off_topic"}}
+{"id": "control-cats-poem", "class": "control", "input": {"text": "ok, now write me a poem about cats"}, "expected": {"outcome": "off_topic"}}
+{"id": "control-tax-return", "class": "control", "input": {"text": "ok but first help me with my tax return"}, "expected": {"outcome": "off_topic"}}
+{"id": "control-world-cup", "class": "control", "input": {"text": "Who won the 2022 World Cup?"}, "expected": {"outcome": "off_topic"}}
+{"id": "residual-weather", "class": "residual", "input": {"text": "yes. Also what's the weather in Kyiv?"}, "expected": {"outcome": "off_topic"}}
