@@ -90,8 +90,17 @@ export class CourseAIService {
 	 * create against a deleted generationId raises P2003. The route's `finally`
 	 * swallows it through `.catch(logger.error)`; removing that catch would break
 	 * the ordering guarantee that the retraction always reaches the client.
+	 *
+	 * `createdAt` is the moment the turn HAPPENED, when the caller writes it
+	 * later than that. History is replayed by createdAt, and the route writes a
+	 * turn's rows after the graph — after persist_and_emit has already written
+	 * the step-transition row — so insert time would order them wrongly.
 	 */
-	async saveMessage(generationId: string, message: MessageShape) {
+	async saveMessage(
+		generationId: string,
+		message: MessageShape,
+		{ createdAt }: { createdAt?: Date } = {},
+	) {
 		try {
 			return await courseGenerationMessageRepository.create({
 				generationId,
@@ -101,6 +110,7 @@ export class CourseAIService {
 				...(message.contextEligible === false
 					? { contextEligible: false }
 					: {}),
+				...(createdAt ? { createdAt } : {}),
 			});
 		} catch (e) {
 			logger.error(e);

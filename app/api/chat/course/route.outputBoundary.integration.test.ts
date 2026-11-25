@@ -504,3 +504,67 @@ describe("POST /api/chat/course — turn order", () => {
 		);
 	});
 });
+
+/**
+ * A turn that commits a step also writes the step-transition row, from
+ * persist_and_emit, DURING the graph — before the route's own writes. The
+ * thread must still read question → reply → transition.
+ */
+describe("POST /api/chat/course — turn order on a step-committing turn", () => {
+	it("stores the user turn, then the reply, then the transition", async () => {
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		mockGetSession.mockResolvedValue({
+			user: { id: instructor.id, role: "INSTRUCTOR" },
+		});
+		mockL2Invoke.mockReset();
+		mockL2Invoke.mockResolvedValue({ onTopic: true, reason: "in scope" });
+		const generation = await testDb.courseGeneration.create({
+			data: {
+				instructorId: instructor.id,
+				step: DraftStep.basic,
+				content: {},
+				status: "active",
+			},
+		});
+
+		// The reply streams, then persist_and_emit writes its row — in the same
+		// order the real graph runs chat_response and persist_and_emit.
+		mockRunChat.mockReset();
+		mockRunChat.mockResolvedValue({
+			async *[Symbol.asyncIterator]() {
+				yield* streamOf("Great, finalizing this step!");
+				// The real graph spends four model calls between the two; a few
+				// milliseconds stands in for them, so the order is not a timestamp tie.
+				await new Promise((resolve) => setTimeout(resolve, 5));
+				await testDb.courseGenerationMessage.create({
+					data: {
+						generationId: generation.id,
+						role: "assistant",
+						content: "Now let's define the learning objectives.",
+						step: DraftStep.objectives,
+					},
+				});
+			},
+		});
+
+		await readSse(
+			await post({
+				courseGenerationId: generation.id,
+				userMessage: "ok go ahead",
+			}),
+		);
+
+		const rows = await testDb.courseGenerationMessage.findMany({
+			where: { generationId: generation.id },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(rows.map((r) => r.content.trim())).toEqual([
+			"ok go ahead",
+			"Great, finalizing this step!",
+			"Now let's define the learning objectives.",
+		]);
+		const times = rows.map((r) => r.createdAt.getTime());
+		expect(times[0]).toBeLessThan(times[1] ?? 0);
+		expect(times[1]).toBeLessThan(times[2] ?? 0);
+	});
+});
