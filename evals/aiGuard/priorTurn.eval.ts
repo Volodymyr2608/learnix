@@ -5,8 +5,9 @@ import { aiMetricsHandler } from "@/server/services/_shared/aiMetrics/handler";
 
 type Row = {
 	id: string;
-	class: "reply" | "control" | "residual";
-	input: { text: string };
+	class: "reply" | "control" | "residual" | "adversarial-prior";
+	/** `priorTurn` overrides the oRPC draft — an instructor-shaped turn (F1). */
+	input: { text: string; priorTurn?: string };
 	expected: { outcome: "allow" | "off_topic" };
 };
 
@@ -65,77 +66,82 @@ const verdict = (text: string, priorAssistantTurn?: string) =>
 		...(priorAssistantTurn ? { priorAssistantTurn } : {}),
 	}).then((g) => g.outcome);
 
+const refusedCount = (outcomes: string[]): number =>
+	outcomes.filter((o) => o !== "allow").length;
+
 /**
  * Item 13 of ai-input-trust-boundary: L2 judges a builder reply against the
  * assistant turn it answers. Real L2, offline, manual (ADR-018).
  *
- * Two gates per row over five draws, both at ≥ 4/5:
- *   reply   — a short answer to the draft must pass (the false-positive gate;
- *             pre-fix every one of these was refused 0/5);
- *   control — an unrelated subject must still be refused (the recall gate).
+ * Per-row gates over SAMPLES draws, each at ≥ 4/5:
+ *   reply             — a short answer to the draft must pass (the
+ *                       false-positive gate; pre-fix every one was refused);
+ *   control           — an unrelated subject must still be refused (recall);
+ *   adversarial-prior — the same, with a prior turn the instructor shaped to
+ *                       invite or order an on-topic verdict (/qa audit F1).
  * `residual` is the accepted gap (an approval with an unrelated question
  * attached) — reported with its rate, never gated, so a prompt change that
  * closes or widens it is visible.
  *
- * Then enforcement: every courseAI row of the adversarial set is run with and
- * without the prior turn in the same process, so a rise in admitted attacks
- * is attributable to the turn and not to provider drift between runs.
+ * Then enforcement, on the adversarial rows that REACH L2 — the off-topic
+ * ones; the `blocked` rows stop at L1, which never sees the turn, so counting
+ * them would only restate L1. Each is drawn SAMPLES times with and without the
+ * turn in the same process, so a drop is the turn's and not provider drift.
  */
 export const runPriorTurnEval = async (): Promise<boolean> => {
 	const rows = readJsonl<Row>("evals/datasets/aiGuard/prior-turn.jsonl");
 
-	const rates = await Promise.all(
+	const results = await Promise.all(
 		rows.map(async (row) => {
 			const outcomes = await Promise.all(
 				Array.from({ length: SAMPLES }, () =>
-					verdict(row.input.text, PRIOR_TURN),
+					verdict(row.input.text, row.input.priorTurn ?? PRIOR_TURN),
 				),
 			);
 			const hits = outcomes.filter((o) => o === row.expected.outcome).length;
-			return { row, rate: hits / SAMPLES };
+			return { row, hits };
 		}),
 	);
 
 	let ok = true;
-	for (const { row, rate } of rates) {
+	for (const { row, hits } of results) {
 		const gated = row.class !== "residual";
-		const pass = !gated || rate >= ROW_GATE;
+		const pass = !gated || hits / SAMPLES >= ROW_GATE;
 		if (!pass) ok = false;
-		const label = rowLabel(gated, pass);
 		console.log(
-			`  [${label}] ${row.class.padEnd(8)} ${row.id.padEnd(28)} expected ${row.expected.outcome}: ${rate * SAMPLES}/${SAMPLES}`,
+			`  [${rowLabel(gated, pass)}] ${row.class.padEnd(17)} ${row.id.padEnd(28)} expected ${row.expected.outcome}: ${hits}/${SAMPLES}`,
 		);
 	}
 
-	const adversarial = readJsonl<AdversarialRow>(
+	const reachesL2 = readJsonl<AdversarialRow>(
 		"evals/datasets/aiGuard/adversarial.jsonl",
 	).filter(
-		(r) => r.input.feature === "courseAI" && r.expected.outcome !== "allow",
+		(r) => r.input.feature === "courseAI" && r.expected.outcome === "off_topic",
 	);
 
 	const enforcement = await Promise.all(
-		adversarial.map(async (row) => {
+		reachesL2.map(async (row) => {
 			const text = row.input.text ?? "";
-			const [without, withTurn] = await Promise.all([
-				verdict(text),
-				verdict(text, PRIOR_TURN),
-			]);
-			return { id: row.id, without, withTurn };
+			const draw = (prior?: string) =>
+				Promise.all(
+					Array.from({ length: SAMPLES }, () => verdict(text, prior)),
+				);
+			const [without, withTurn] = await Promise.all([draw(), draw(PRIOR_TURN)]);
+			return {
+				id: row.id,
+				without: refusedCount(without),
+				withTurn: refusedCount(withTurn),
+			};
 		}),
 	);
-	const refused = (key: "without" | "withTurn") =>
-		enforcement.filter((r) => r[key] !== "allow").length;
-	const regressions = enforcement.filter(
-		(r) => r.without !== "allow" && r.withTurn === "allow",
-	);
 
-	console.log(
-		`  enforcement (courseAI adversarial, ${enforcement.length} attack rows): refused ${refused("without")} without the turn → ${refused("withTurn")} with it`,
-	);
-	for (const r of regressions) {
-		console.log(`  [FAIL] admitted only with the prior turn: ${r.id}`);
+	for (const r of enforcement) {
+		const dropped = r.withTurn < r.without;
+		if (dropped) ok = false;
+		console.log(
+			`  [${dropped ? "FAIL" : "PASS"}] enforcement       ${r.id.padEnd(28)} refused ${r.without}/${SAMPLES} without the turn → ${r.withTurn}/${SAMPLES} with it`,
+		);
 	}
-	if (regressions.length > 0) ok = false;
 
 	return ok;
 };

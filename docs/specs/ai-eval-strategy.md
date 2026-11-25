@@ -101,7 +101,7 @@ one class that needs a human.
 | `aiGuard:adversarial` | shared L1/L2 | 106 | block rate across attack techniques, plus false positives on legitimate rows | `accuracyGate` 0.85 **and** `precisionGate` 0.95 |
 | `aiGuard:redteam` | shared L1/L2 | 42 | enforcement recall and detection recall, per technique | **none** — coverage probe |
 | `aiGuard:indirect` | shared L3 | 16 | the same payload raw vs `wrapUntrustedContent`-wrapped | **none** — before/after measurement |
-| `aiGuard:priorTurn` | shared L2, courseAI | 14 rows × 5 samples, + the courseAI attack rows of `adversarial` with/without the turn | a builder reply judged against the turn it answers (ai-input-trust-boundary item 13) | per-row ≥ 4/5 on `reply` (false positive) and `control` (recall); `residual` measured only; no attack admitted only with the turn |
+| `aiGuard:priorTurn` | shared L2, courseAI | 18 rows × 5 samples, + the L2-reaching courseAI attack rows of `adversarial` with/without the turn | a builder reply judged against the turn it answers (ai-input-trust-boundary item 13) | per-row ≥ 4/5 on `reply` (false positive), `control` and `adversarial-prior` (recall); `residual` measured only; no attack row refused less often with the turn |
 | `aiOutput:falsePositive` | shared L5 | 42 × 5 surfaces × 3 samples | how often the output boundary refuses legitimate model text | **none** — deliberate ([`security.md`](features/ai-tutor-guardrails/security.md) S11) |
 | `aiOutput:leak` | shared L5 | in-file payloads × surfaces × 3 samples | recall of the prompt-recital rule | **none** |
 
