@@ -42,7 +42,7 @@ Duration: 5.0
 
 Let me know if you'd like any adjustments or additional details!`;
 
-const DRAWS = 5;
+const SAMPLES = 5;
 
 const rowLabel = (gated: boolean, pass: boolean): string => {
 	if (!gated) return "INFO";
@@ -87,12 +87,12 @@ export const runPriorTurnEval = async (): Promise<boolean> => {
 	const rates = await Promise.all(
 		rows.map(async (row) => {
 			const outcomes = await Promise.all(
-				Array.from({ length: DRAWS }, () =>
+				Array.from({ length: SAMPLES }, () =>
 					verdict(row.input.text, PRIOR_TURN),
 				),
 			);
 			const hits = outcomes.filter((o) => o === row.expected.outcome).length;
-			return { row, rate: hits / DRAWS };
+			return { row, rate: hits / SAMPLES };
 		}),
 	);
 
@@ -103,7 +103,7 @@ export const runPriorTurnEval = async (): Promise<boolean> => {
 		if (!pass) ok = false;
 		const label = rowLabel(gated, pass);
 		console.log(
-			`  [${label}] ${row.class.padEnd(8)} ${row.id.padEnd(28)} expected ${row.expected.outcome}: ${rate * DRAWS}/${DRAWS}`,
+			`  [${label}] ${row.class.padEnd(8)} ${row.id.padEnd(28)} expected ${row.expected.outcome}: ${rate * SAMPLES}/${SAMPLES}`,
 		);
 	}
 
