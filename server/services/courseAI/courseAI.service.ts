@@ -108,6 +108,46 @@ export class CourseAIService {
 		}
 	}
 
+	/**
+	 * The assistant turn a new message answers, for the input guard's L2 (item 13,
+	 * ai-input-trust-boundary). Runs BEFORE the guard, so before
+	 * getOrCreateCourseGeneration proves ownership — the `instructorId` filter on
+	 * the relation is therefore this read's own ownership check, in the same
+	 * query, and a foreign id yields nothing. Only context-eligible rows: a reply
+	 * the output boundary retracted must not vouch for the next message.
+	 *
+	 * Never throws. A failed read returns null, which leaves L2 exactly as strict
+	 * as it was before item 13 — the safe direction for a guard input.
+	 */
+	async findPriorAssistantTurn({
+		courseGenerationId,
+		userId,
+	}: {
+		courseGenerationId?: string;
+		userId: string;
+	}): Promise<string | null> {
+		if (!courseGenerationId) return null;
+		try {
+			const row = await courseGenerationMessageRepository.findFirst({
+				where: {
+					generationId: courseGenerationId,
+					generation: { instructorId: userId },
+					role: "assistant",
+					contextEligible: true,
+				},
+				orderBy: { createdAt: "desc" },
+				select: { content: true },
+			});
+			return row?.content ?? null;
+		} catch (error) {
+			logger.error(
+				{ feature: "courseAI", err: error },
+				"[courseAI] failed to read the prior assistant turn",
+			);
+			return null;
+		}
+	}
+
 	private async hydrateState(args: {
 		courseGeneration: CourseGeneration;
 		userMessage: string;
