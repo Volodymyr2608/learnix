@@ -3,7 +3,7 @@
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session — the warm
 > context is the cheapest place to run TDD loops (ADR-030). Steps use checkbox (`- [ ]`) syntax. See
 > [`../spec.md`](../spec.md) for the design and Acceptance criteria. Earlier slices:
-> [`plan.md`](plan.md), [`plan-slice-2.md`](plan-slice-2.md), [`plan-slice-3.md`](plan-slice-3.md).
+> [`slice-1-auto-decision.md`](slice-1-auto-decision.md), [`slice-2-hold-and-release.md`](slice-2-hold-and-release.md), [`slice-3-refund-effects.md`](slice-3-refund-effects.md).
 
 **Goal:** Learnix knows, without calling Stripe, whether a payment's charge is under dispute; an open
 dispute blocks the student's refund and the payout; a dispute closed **lost** is one more refund path
@@ -54,7 +54,7 @@ path will close them).
 | D8 | Replay covers `charge.refunded`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed` under one cursor key `stripe_events` (first run 30 days back again) | One list call, one cursor; a re-read duplicate is a no-op (C8, D2) | Slice-3 R6 extended |
 | D9 | A dispute `closed` with status `won` or `warning_closed` → `won`; `lost` → `lost`; any other status (e.g. `prevented`) → `won` (money stays) | Stripe's closing statuses; only `lost` returns the money to the customer | Status mapping |
 
-Each is logged in `discovery/ai-decision-log.md` in Task 9.
+Each is logged in `journal/ai-decision-log.md` in Task 9.
 
 **Codebase anchors (verified during planning):**
 - Refund rules: `decideRefund` condition `dispute: !facts.hasOpenDispute` (`server/services/refund/refundRules.ts:40`); `requestRefund` hard-codes `hasOpenDispute: false` (`server/services/refund/refund.service.ts:104`).

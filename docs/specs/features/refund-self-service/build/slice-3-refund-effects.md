@@ -4,7 +4,7 @@
 > context is the cheapest place to run TDD loops (ADR-030). Dispatch a subagent only for work that
 > *reads a lot and returns little*; reconnaissance goes to `Explore`, never `general-purpose`.
 > Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
-> criteria. Slice 1: [`plan.md`](plan.md); slice 2: [`plan-slice-2.md`](plan-slice-2.md).
+> criteria. Slice 1: [`slice-1-auto-decision.md`](slice-1-auto-decision.md); slice 2: [`slice-2-hold-and-release.md`](slice-2-hold-and-release.md).
 
 **Goal:** An automatically approved request is refunded at once through Stripe, and every refund —
 self-service, a Dashboard refund arriving by webhook, or one the daily replay finds — applies the
@@ -57,7 +57,7 @@ refund failure at the bank (FR-P27), double charge (FR-P17, AC-C13).
 | R10 | The migration moves existing `auto_approved` rows to `processing` | They were approved with no refund (slice 1, P1); with the flag off in production there are none there | Legacy slice-1 rows |
 | R11 | The review is soft-deleted on every path (no-op where none exists) | Same outcome as FR-P13 with one rule; a self-service student cannot have one | — |
 
-Each is logged in `discovery/ai-decision-log.md` in Task 16.
+Each is logged in `journal/ai-decision-log.md` in Task 16.
 
 **Codebase anchors (verified during planning):**
 - `paymentService.handleRefund(paymentIntentId)` (`server/services/payments/payment.service.ts:198-227`) — unconditional `status: refunded`, cancels the enrollment, reverses only `transferred`; no transaction, no CAS, partial refunds treated as full. Replaced by `refundEffectsService.apply`.

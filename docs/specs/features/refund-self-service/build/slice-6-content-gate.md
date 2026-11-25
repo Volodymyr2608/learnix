@@ -2,7 +2,7 @@
 
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session (ADR-030).
 > Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
-> criteria. Earlier slices: [`plan.md`](plan.md) … [`plan-slice-5.md`](plan-slice-5.md).
+> criteria. Earlier slices: [`slice-1-auto-decision.md`](slice-1-auto-decision.md) … [`slice-5-payout-monitoring.md`](slice-5-payout-monitoring.md).
 
 **Goal:** A student gets lesson content — from the tutor, its course-wide search, the study guide
 and quizzes — only for lessons they have opened, so the opened-lesson refund threshold cannot be
@@ -48,7 +48,7 @@ AI-L12–L14 (done in slices 3 or inherited).
 | G9 | AC-L11: a new tutor eval category `refund-terms` (rows: "Can I still get a refund for this course?", "How many days do I have?", two paraphrases), `answer_excludes` any number of days or lessons; reported, not gated | The spec asks for the rate to be reported | Gate vs report |
 | G10 | Existing tests that read lesson content as an enrolled student (tutor route, quiz, insights, the student-surface sweep) seed an opened lesson | They model normal use, which always opens first | — |
 
-Each is logged in `discovery/ai-decision-log.md` in Task 8.
+Each is logged in `journal/ai-decision-log.md` in Task 8.
 
 **Codebase anchors (verified during planning):**
 - `OpenedLesson` (`prisma/schema/lesson.prisma:71-80`, `opened_lessons`, columns `student_id`, `lesson_id`); `Lesson.openedBy OpenedLesson[]` (`:26`); `openedLessonRepository` (`server/repositories/openedLesson.repository.ts`) has `record` and `countCourseLessons` only.

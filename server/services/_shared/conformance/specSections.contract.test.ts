@@ -133,11 +133,11 @@ const LEGACY_SPECS = [
  * quietly deletes it.
  */
 const SIBLING_SECTIONS: Record<string, string> = {
-	Discovery: "discovery/findings.md",
-	Ambiguities: "discovery/findings.md",
-	Alternatives: "discovery/decision-summary.md",
-	"Trade-offs": "discovery/decision-summary.md",
-	Decision: "discovery/decision-summary.md",
+	Discovery: "design/findings.md",
+	Ambiguities: "design/findings.md",
+	Alternatives: "design/decision-summary.md",
+	"Trade-offs": "design/decision-summary.md",
+	Decision: "design/decision-summary.md",
 };
 
 /**

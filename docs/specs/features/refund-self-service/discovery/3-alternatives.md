@@ -1,6 +1,6 @@
 # Refund — Alternatives and Decision
 
-← [Spec](../spec.md) · Previous stage: [Analysis](analysis.md)
+← [Spec](../spec.md) · Previous stage: [Analysis](2-analysis.md)
 
 **Stage order changed (2026-11-15).** Alternatives comes before Specification: without the A1 and
 Q13 decisions it is impossible to describe even the user flow. We write the specification once, on
@@ -58,16 +58,16 @@ decisions already made.
 *2026-11-15. I deliberately reopened the earlier decision (Q10 "admin approves", C5.1 hybrid),
 because I wrote the criteria already knowing the answer. Platform research and filling in the
 matrix — AI; criteria, weights, veto, choice and score corrections — mine (see
-[AI log](ai-decision-log.md)).*
+[AI log](../journal/ai-decision-log.md)).*
 
 ### Criteria and weights
 
-Criteria are derived from the problem statement and the value table ([`discovery.md` §1](discovery.md)).
+Criteria are derived from the problem statement and the value table ([`1-discovery.md` §1](1-discovery.md)).
 Weights were set **before** scoring the options. Scale: 1 — nice to have, 2 — important, 3 — critical.
 
 | # | Criterion | What it measures | Weight | Why |
 |---|---|---|---|---|
-| K1 | Time to decision | How long the student waits and how long the instructor's money is held (C1.2) | 1 | Covered by the "review within N days" policy (answer to finding V2, SLA, in [the AI analysis review](ai-raw/analysis-review.md)). The instructor waits for the window + review: this is accepted, A3 will shorten the window |
+| K1 | Time to decision | How long the student waits and how long the instructor's money is held (C1.2) | 1 | Covered by the "review within N days" policy (answer to finding V2, SLA, in [the AI analysis review](raw/analysis-review.md)). The instructor waits for the window + review: this is accepted, A3 will shorten the window |
 | K2 | Admin workload | Share of refund requests the admin reviews by hand | 2 | Everything that can be decided without the admin, we decide without them |
 | K3 | Consistency of decisions | Identical requests get the same decision; the student can predict the outcome | 3 | One set of rules for everyone |
 | K4 | Abuse protection | Can one get money back for a course actually completed (Q12), including by bypassing F4 | 3, **veto** | Both the platform and the instructor lose. An option with −− is discarded before scoring: abuse that passes automatically is unacceptable regardless of other advantages |
@@ -1246,7 +1246,7 @@ It is a sales and general-contact page, not a refund channel; the refund channel
 ## T11 — overdue auto-approval as a bypass (security pass)
 
 *2026-11-16. Found by the `security-auditor` design pass
-([`ai-raw/security-design-pass.md`](ai-raw/security-design-pass.md), T11); options and the
+([`raw/security-design-pass.md`](raw/security-design-pass.md), T11); options and the
 recommendation — AI (main session); the choice of V2 — mine. The AI's own OQ-5 recommendation
 caused the gap.*
 
@@ -1426,7 +1426,7 @@ refund failed: **decided 2026-11-16, see "FS-3 follow-up" below**.
 ## AI-C6 — learning path and unopened lessons (LLM security pass)
 
 *2026-11-16. Found by the `llm-security-auditor` pass
-([`ai-raw/llm-security-design-pass.md`](ai-raw/llm-security-design-pass.md)); the options and the
+([`raw/llm-security-design-pass.md`](raw/llm-security-design-pass.md)); the options and the
 recommendation of V1 — AI; the choice of V2 — mine.*
 
 **Fact:** `mergeAndExplain` enriches up to 3 next not-completed lessons, possibly unopened, with
@@ -1735,7 +1735,7 @@ in the sections above; this is the index the spec used to carry.*
 
 ### Other decisions made while writing the spec
 
-**Decisions made while writing this spec** (each with options in `decisions.md`): A6 two held
+**Decisions made while writing this spec** (each with options in `3-alternatives.md`): A6 two held
 amounts · DC double charge (guard access + auto-refund the duplicate) · OQ-1 direct appeal over the
 threshold · OQ-2 3 automatic refunds per 12 months · OQ-3 platform refunds do not use up the
 student's right · OQ-4 no instructor notification · OQ-5 + T11 overdue auto-approval only after an

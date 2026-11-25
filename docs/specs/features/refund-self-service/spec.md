@@ -29,9 +29,9 @@ money back from the instructor.
   metrics are how it gets corrected.
 
 **Where the IDs live:** D-n and A-n are discovery findings and ambiguities
-([`discovery/findings.md`](discovery/findings.md)); decision codes (A1, Q13, OQ-n, DL, UI-1, …) are
-summarised in [`discovery/decision-summary.md`](discovery/decision-summary.md) and argued in
-[`discovery/decisions.md`](discovery/decisions.md); C-n and AI-n controls are in
+([`design/findings.md`](design/findings.md)); decision codes (A1, Q13, OQ-n, DL, UI-1, …) are
+summarised in [`design/decision-summary.md`](design/decision-summary.md) and argued in
+[`discovery/3-alternatives.md`](discovery/3-alternatives.md); C-n and AI-n controls are in
 [`security.md`](security.md).
 
 ## Problem statement
@@ -69,7 +69,7 @@ The platform-side value is verifiable now: all three leaks are confirmed in code
 value and any effect on sales are **assumptions**, because there are no real users (see
 Assumptions).
 
-**Success metrics**, from the revisit triggers in `decisions.md`. The first row is
+**Success metrics**, from the revisit triggers in `3-alternatives.md`. The first row is
 checked before launch by tests; the others need real traffic, so the feature only instruments them.
 "Baseline" = the first 4 weeks after launch; a trigger fires when it holds 4 weeks in a row.
 
@@ -90,7 +90,7 @@ Reported for context, with no trigger: the share of requests decided automatical
 *Each step names the requirement that holds the detail and the exact texts, so the behaviour is
 stated once, in Functional requirements. The questions decided
 while drafting the flow (OQ-1–OQ-7) are indexed at the end of
-[`decisions.md`](discovery/decisions.md#index-of-decisions-made-while-writing-the-spec).*
+[`3-alternatives.md`](discovery/3-alternatives.md#index-of-decisions-made-while-writing-the-spec).*
 
 ```mermaid
 flowchart TD
@@ -601,7 +601,7 @@ alone; form fields have labels; errors are announced next to the field. Checked 
 
 Complex tier (money): threats, controls and accepted risks are in the sibling
 [`security.md`](security.md), from the `security-auditor` design pass on 2026-11-16 (raw output:
-[`discovery/ai-raw/security-design-pass.md`](discovery/ai-raw/security-design-pass.md)). Every
+[`discovery/raw/security-design-pass.md`](discovery/raw/security-design-pass.md)). Every
 control C1–C29 there has an acceptance criterion below.
 
 ## Assumptions
@@ -924,7 +924,7 @@ component or end-to-end tests.
 
 Requirements and context an AI would not know without being told: facts about Stripe, Vercel and
 this codebase that are easy to get wrong from general knowledge. Each was checked against the source
-named; several were wrong or missing in an AI's first answer (`discovery/ai-decision-log.md`).
+named; several were wrong or missing in an AI's first answer (`journal/ai-decision-log.md`).
 
 **External facts**
 - **Stripe cannot hold the instructor's money for this charge model.** `delay_days` applies only to
@@ -968,7 +968,7 @@ named; several were wrong or missing in an AI's first answer (`discovery/ai-deci
   `VercelService.uploadFileToVercelStorage` (public access, user-supplied extension).
 - **There is no certificate table.** A certificate is rendered from an enrollment with
   `completedAt` set (`certificate.service.ts:12-43`); "no certificate" means no such enrollment for
-  the student and course (P6, `build/plan.md`).
+  the student and course (P6, `build/slice-1-auto-decision.md`).
 - **Payments without `paidAt` are outside the window.** Payments made before slice 1 have no
   `paidAt`; there is no backfill from `createdAt` (P4).
 - **Run the request transaction with `db.$transaction`, not `BaseRepository.transaction`**: the
@@ -978,7 +978,7 @@ named; several were wrong or missing in an AI's first answer (`discovery/ai-deci
   lesson and its section have `deletedAt` null (P3).
 - **Instructor-facing queries never select refund tables** (A6, OQ-4); the held amounts come from
   `Payment` columns only.
-- **Where `decisions.md` is older, this file wins:** D2's cleanup on the webhook → synchronous
+- **Where `3-alternatives.md` is older, this file wins:** D2's cleanup on the webhook → synchronous
   (FR-P14); D2's cumulative counter → the study archive (A11); the Q13 and A3 revisit triggers →
   Success metrics; OQ-5's day-14 auto-approval → narrowed by T11 (FR-A5).
 - **Archive before delete (A11).** Every study statistic in `lessonProgress.repository.ts` reads
@@ -996,14 +996,14 @@ named; several were wrong or missing in an AI's first answer (`discovery/ai-deci
   (amended 2026-11-16 and 2026-11-21, before release); payments base:
   [ADR-019](../../../adr/019-payments.md); student evidence uploads:
   [ADR-017](../../../adr/017-owasp-security-rules.md) Rule 4 (amended).
-- Why each rule is what it is: [`discovery/decisions.md`](discovery/decisions.md). Frozen once this
+- Why each rule is what it is: [`discovery/3-alternatives.md`](discovery/3-alternatives.md). Frozen once this
   spec is approved, except the author's own «why» notes (`documentation-process.md` §2).
-- Who proposed what and how it was checked: [`discovery/ai-decision-log.md`](discovery/ai-decision-log.md);
+- Who proposed what and how it was checked: [`journal/ai-decision-log.md`](journal/ai-decision-log.md);
   it keeps growing through implementation and validation.
-- Discovery findings and ambiguities: [`discovery/findings.md`](discovery/findings.md).
-- Alternatives, trade-offs and the decision: [`discovery/decision-summary.md`](discovery/decision-summary.md).
-- Evidence behind Discovery: [`discovery/discovery.md`](discovery/discovery.md),
-  [`discovery/analysis.md`](discovery/analysis.md), [`discovery/ai-raw/`](discovery/ai-raw/).
+- Discovery findings and ambiguities: [`design/findings.md`](design/findings.md).
+- Alternatives, trade-offs and the decision: [`design/decision-summary.md`](design/decision-summary.md).
+- Evidence behind Discovery: [`discovery/1-discovery.md`](discovery/1-discovery.md),
+  [`discovery/2-analysis.md`](discovery/2-analysis.md), [`discovery/raw/`](discovery/raw/).
 - Correctness: the tests named above.
 - Build history (frozen): `build/plan.md`.
 

@@ -22,8 +22,8 @@ Three kinds of section — §4's table is the authoritative list:
   rendering), no exceptions: Inputs, Outputs, Validation, Performance, Security, Observability,
   Edge cases, Failure scenarios, Test & eval scenarios.
 
-A long spec may move Discovery and Ambiguities to `discovery/findings.md`, and Alternatives,
-Trade-offs and Decision to `discovery/decision-summary.md`, keeping the headings there
+A long spec may move Discovery and Ambiguities to `design/findings.md`, and Alternatives,
+Trade-offs and Decision to `design/decision-summary.md`, keeping the headings there
 (`documentation-process.md` §2).
 
 Discovery-first: the first six sections are written BEFORE any solution is chosen. If Problem

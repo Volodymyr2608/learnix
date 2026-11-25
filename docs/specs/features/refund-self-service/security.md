@@ -5,8 +5,8 @@ code exists. It is the complex-tier sibling of [`spec.md`](spec.md) (money is in
 below has a matching acceptance criterion `AC-C<n>` in the spec.
 
 Source: the `security-auditor` design pass of 2026-11-16, raw output in
-[`discovery/ai-raw/security-design-pass.md`](discovery/ai-raw/security-design-pass.md). The decisions
-it raised are in [`discovery/decisions.md`](discovery/decisions.md) (T10, T11, T27, FR-S15).
+[`discovery/raw/security-design-pass.md`](discovery/raw/security-design-pass.md). The decisions
+it raised are in [`discovery/3-alternatives.md`](discovery/3-alternatives.md) (T10, T11, T27, FR-S15).
 Related ADRs: [037](../../../adr/037-refund-payout-hold-and-money-consistency.md) (amended for T6,
 T7, T8, `paidAt`) and [017](../../../adr/017-owasp-security-rules.md) Rule 4 (amended for student
 evidence uploads).
@@ -14,7 +14,7 @@ evidence uploads).
 **No AI surface is added by this feature**, but existing AI and lesson-derived features let a
 student consume lesson content without an "opened" record, which the refund threshold turns into
 money. The `llm-security-auditor` design pass covered this (§AI below; raw output
-[`discovery/ai-raw/llm-security-design-pass.md`](discovery/ai-raw/llm-security-design-pass.md)).
+[`discovery/raw/llm-security-design-pass.md`](discovery/raw/llm-security-design-pass.md)).
 
 ## Assets and actors
 
@@ -81,7 +81,7 @@ C10 and C27 are decisions, not controls (below).
 - **Learning-path reasons drawn from unopened lessons (AI-C6).** The learning path enriches up to 3
   next not-completed lessons, which may be unopened, with their study-guide summary; the model
   writes at most 5 sentences per regeneration, rate-limited. A small, repeatable leak, accepted
-  (decision AI-C6, `discovery/ai-raw/llm-security-design-pass.md`).
+  (decision AI-C6, `discovery/raw/llm-security-design-pass.md`).
 - **A partial Dashboard refund disputed for the full amount.** Stripe-side, rare, the platform bears
   it (OQ-7a).
 

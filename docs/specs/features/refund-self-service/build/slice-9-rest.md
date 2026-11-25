@@ -2,7 +2,7 @@
 
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session (ADR-030).
 > Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
-> criteria. Earlier slices: [`plan.md`](plan.md) … [`plan-slice-8.md`](plan-slice-8.md).
+> criteria. Earlier slices: [`slice-1-auto-decision.md`](slice-1-auto-decision.md) … [`slice-8-appeals.md`](slice-8-appeals.md).
 
 **Goal:** Close the remaining requirements: the instructor sees where held money is and nothing about
 refunds; every payment records its Stripe fee; a partial Dashboard refund is recorded and a later

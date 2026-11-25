@@ -4,7 +4,7 @@
 > context is the cheapest place to run TDD loops (ADR-030). Dispatch a subagent only for work that
 > *reads a lot and returns little*; reconnaissance goes to `Explore`, never `general-purpose`.
 > Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
-> criteria. Slice 1 (automatic decision) is in [`plan.md`](plan.md).
+> criteria. Slice 1 (automatic decision) is in [`slice-1-auto-decision.md`](slice-1-auto-decision.md).
 
 **Goal:** A sale no longer pays the instructor at once. The instructor's net is held on the platform
 and released by one release function, under one eligibility predicate, from a daily cron, the admin
@@ -55,7 +55,7 @@ AC-F28); release to a deleted instructor's retained account (EC-20, AC-F27); eve
 | H8 | `requireBearer` takes the expected secret as a parameter; the cron route passes `CRON_SECRET`, the n8n routes `N8N_API_TOKEN` | One constant-time comparison instead of a copy | — |
 | H9 | The checkout success path makes no transfer at all (FR-P2 lists it; the predicate can never hold at sale) | AC-C14: "checkout makes no transfer" | FR-P2 vs AC-C14 wording |
 
-Each is logged in `discovery/ai-decision-log.md` in Task 12.
+Each is logged in `journal/ai-decision-log.md` in Task 12.
 
 **Codebase anchors (verified during planning):**
 - `stripe.transfers.create` — the **only** caller today (`server/services/payments/connect.service.ts:153`), inside `transferToInstructor` (`:118-165`): no idempotency key, no `transfer_group`, read-then-write with no guard. Live `payouts_enabled` via `stripe.accounts.retrieve` (`:130-138`); charge via `paymentIntents.retrieve(...).latest_charge` (`:142-151`). Stripe client `import { stripe } from "./stripe.client"` (`:6`).
@@ -327,7 +327,7 @@ mocks in the payment unit tests.
 
 ## Task 12 — Record what the slice changed
 
-- **Contract:** `discovery/ai-decision-log.md` gains one entry for H1–H9 (what the AI proposed, how
+- **Contract:** `journal/ai-decision-log.md` gains one entry for H1–H9 (what the AI proposed, how
   checked, `Why: TODO (me)`) and one for where the implementation differed from this plan. ADR-037
   gets an amendment only if H1 (null `paidAt`) or H7 (lock TTL / fallback) are approved — both refine
   §1 and §3.2. `spec.md`: `status` stays `in-progress`; Release checklist unchanged (the hold is Day 0

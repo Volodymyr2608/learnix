@@ -2,7 +2,7 @@
 
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session (ADR-030).
 > Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
-> criteria. Earlier slices: [`plan.md`](plan.md) … [`plan-slice-7.md`](plan-slice-7.md).
+> criteria. Earlier slices: [`slice-1-auto-decision.md`](slice-1-auto-decision.md) … [`slice-7-student-ui.md`](slice-7-student-ui.md).
 
 **Goal:** A student whose refund the rules do not allow can appeal once, with optional evidence
 files; an admin decides from a queue, with a final, audited decision; undecided appeals follow the
@@ -67,7 +67,7 @@ refund amounts (FR-P16), double charge (FR-P17), bank failure (FR-P27), repurcha
 | V17 | Student page: `over_limit` shows "Ask an admin to review" opening the appeal form; a denied request with its appeal right open shows an "Appeal" form; an open appeal shows "Under review" with "Submitted on <date>. We will email you when it is decided."; a denied appeal shows the admin's reason and file downloads (FR-S18). `RefundStateView` becomes an exhaustive `switch` (slice-7 minor M7) | FR-S13–S18, AC-F24 | — |
 | V18 | Admin page `/admin/refunds`: queue (oldest first) with reason, text, evidence downloads, snapshot, days left, approve/deny; the exception form; the needs-review list. All free text rendered as text; the no-raw-HTML contract test is extended to it | FR-A1, A6, A7, AC-C22 admin half | — |
 
-Each is logged in `discovery/ai-decision-log.md` in the last task.
+Each is logged in `journal/ai-decision-log.md` in the last task.
 
 **Codebase anchors (verified during planning):**
 - Schema: `RefundRequest` (`prisma/schema/refund.prisma:24-50`, `paymentId @unique`, enums `:1-19`);
