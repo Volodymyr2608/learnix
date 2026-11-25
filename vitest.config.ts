@@ -26,7 +26,7 @@ export default defineConfig({
 						"**/*.redis.test.ts",
 						"**/node_modules/**",
 					],
-					setupFiles: ["./test/loadEnv.ts"],
+					setupFiles: ["./test/loadUnitEnv.ts"],
 				},
 			}),
 			defineProject({
