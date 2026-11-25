@@ -60,10 +60,21 @@ export async function POST(req: Request) {
 	const metrics = aiMetricsHandler({ feature: "courseAI" });
 
 	if (mode === "chat" && userMessage) {
+		// The assistant turn this message answers, so L2 judges "ok" against what
+		// it approves rather than as a subject of its own (ai-input-trust-boundary
+		// item 13). Read before getOrCreateCourseGeneration, so the service scopes
+		// it to this instructor itself; a foreign id or a failed read gives null
+		// and the guard runs exactly as it did before.
+		const priorAssistantTurn = await courseAIService.findPriorAssistantTurn({
+			courseGenerationId: body.courseGenerationId,
+			userId: session.user.id,
+		});
+
 		const guard = await guardUserInput(userMessage, {
 			feature: "courseAI",
 			userId: session.user.id,
 			metrics,
+			...(priorAssistantTurn ? { priorAssistantTurn } : {}),
 			domain: {
 				description:
 					"designing an online course: its title, description, learning objectives, requirements, and curriculum",
