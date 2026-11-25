@@ -3,12 +3,12 @@
 ← [Spec](../spec.md) · Discovery: [findings.md](findings.md)
 
 The decisions behind the requirements in [`spec.md`](../spec.md): the options considered, how they
-compare, and what was chosen and why. The full analysis per decision is in [`decisions.md`](decisions.md).
+compare, and what was chosen and why. The full analysis per decision is in [`3-alternatives.md`](../discovery/3-alternatives.md).
 
 ## Alternatives
 
 *The full options, weights, matrices and sensitivity checks are in
-[`decisions.md`](decisions.md); the money and consistency decisions are in
+[`3-alternatives.md`](../discovery/3-alternatives.md); the money and consistency decisions are in
 [ADR-037](../../../../adr/037-refund-payout-hold-and-money-consistency.md).*
 
 **Main decisions**
@@ -29,13 +29,13 @@ compare, and what was chosen and why. The full analysis per decision is in [`dec
 
 **Decisions made while writing this spec** (A6, DC, OQ-1–OQ-7, DL, D1, E2-R, T10, T27, FR-S15, FS-3,
 REC, BATCH, C-TEXT, UF-3, UF-6, EC-3, EC-12, EC-19, UI-1 and others) are indexed, each with its options, at
-the end of [`decisions.md`](decisions.md#index-of-decisions-made-while-writing-the-spec).
+the end of [`3-alternatives.md`](../discovery/3-alternatives.md#index-of-decisions-made-while-writing-the-spec).
 
 
 ## Trade-offs
 
 Criteria were named and weighted before scoring; scale ++ = 2 … −− = −2, score × weight. The
-weights and scores are mine, the facts behind them are in `decisions.md`.
+weights and scores are mine, the facts behind them are in `3-alternatives.md`.
 
 **A1: who decides** (K4 is a veto: an option scoring −− is dropped before totalling)
 
@@ -79,7 +79,7 @@ request volume.
 **Without a matrix:** C2.4, T4 and S7 were decided on one dominant criterion each (no transaction
 across a network call; no new service; one handler for webhook and replay), recorded in ADR-037.
 
-**What these decisions make worse** (from the "What I give up" notes in `decisions.md`):
+**What these decisions make worse** (from the "What I give up" notes in `3-alternatives.md`):
 - **Student:** stricter than today's promise: 14 days instead of 30, a lesson limit, no refund after
   a certificate, one refund per course. An honest student who opened more than the threshold must
   appeal and wait for an admin (A1, Q13, A3). A refund erases the course's progress, so a repurchase
@@ -137,5 +137,5 @@ across a network call; no new service; one handler for webhook and replay), reco
 - **Content only from opened lessons (FR-P19a).** The AI tutor and study guides could otherwise
   consume a whole course from one opened lesson, which would make the threshold meaningless.
 
-**Revisit triggers** are recorded per decision in `decisions.md` (e.g. more than 10 appeals a week
+**Revisit triggers** are recorded per decision in `3-alternatives.md` (e.g. more than 10 appeals a week
 for 4 weeks; the share of automatic refunds twice the first-4-weeks baseline).

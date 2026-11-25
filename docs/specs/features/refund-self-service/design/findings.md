@@ -3,16 +3,16 @@
 ← [Spec](../spec.md) · Decisions: [decision-summary.md](decision-summary.md)
 
 What had to be learned before the requirements in [`spec.md`](../spec.md) could be written, and what
-was unclear at the start. "Decision §X" refers to the section X of [`decisions.md`](decisions.md).
+was unclear at the start. "Decision §X" refers to the section X of [`3-alternatives.md`](../discovery/3-alternatives.md).
 
 ## Discovery
 
 Full trail in this folder:
-- [`discovery.md`](discovery.md): Q1–Q25, A1–A8;
-- [`analysis.md`](analysis.md): A2/A4/A5, S1–S7, C1–C5;
-- [`decisions.md`](decisions.md): the weighted alternatives behind every decision in [`decision-summary.md`](decision-summary.md);
-- [`ai-decision-log.md`](ai-decision-log.md): what an AI proposed and how it was checked;
-- [`ai-raw/`](ai-raw/): what an AI without code access produced.
+- [`1-discovery.md`](../discovery/1-discovery.md): Q1–Q25, A1–A8;
+- [`2-analysis.md`](../discovery/2-analysis.md): A2/A4/A5, S1–S7, C1–C5;
+- [`3-alternatives.md`](../discovery/3-alternatives.md): the weighted alternatives behind every decision in [`decision-summary.md`](decision-summary.md);
+- [`ai-decision-log.md`](../journal/ai-decision-log.md): what an AI proposed and how it was checked;
+- [`raw/`](../discovery/raw/): what an AI without code access produced.
 
 **AI** = an AI assistant proposed the finding. Each such row says how it was verified, or that it
 was not.

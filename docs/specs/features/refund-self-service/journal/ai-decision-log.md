@@ -29,13 +29,13 @@ The IDP review needs 2–3 vivid examples:
 ### 2026-11-04 — The AI did not ask about holding the instructor's money
 - **Stage:** discovery (step 2b/2c)
 - **Context the AI had:** the prompt from the SDD guide + the Problem section and the Q1–Q12 table from
-  `discovery.md`; no code and no 2a list of mine
+  `1-discovery.md`; no code and no 2a list of mine
 - **AI proposed:** ~60 questions in 6 categories. On the instructor's money only P3 ("how should a
   pending transfer behave on a refund") and B4 ("who covers the fee"), i.e. questions
   about what to do *after* the money has gone out
 - **How I verified:** compared with my 2a list, written down before the request
-  ([`discovery.md` §2a](discovery.md)); in the AI's answer
-  ([`ai-raw/discovery-questions.md`](ai-raw/discovery-questions.md)) the question
+  ([`1-discovery.md` §2a](../discovery/1-discovery.md)); in the AI's answer
+  ([`raw/discovery-questions.md`](../discovery/raw/discovery-questions.md)) the question
   "should the money be held for the refund window" is absent in any form
 - **Verdict:** `missed-by-ai`
 - **Why:** the AI thought within the current architecture (money goes to the instructor immediately) and asked how to
@@ -49,7 +49,7 @@ The IDP review needs 2–3 vivid examples:
 - **AI proposed:** questions U1–U7 (what the student sees) and E1–E5 (what breaks), plus
   ambiguity #2: "is the goal self-service, or is a working contact channel enough?"
 - **How I verified:** in my 2a list the Integrations and UX categories are empty
-  ([`discovery.md` §2a](discovery.md)); ambiguity #2 really was not
+  ([`1-discovery.md` §2a](../discovery/1-discovery.md)); ambiguity #2 really was not
   resolved in any Q
 - **Verdict:** `accepted`
 - **Why:** this is a gap in my thinking, not an invented requirement. I was thinking about money and rules, not
@@ -57,7 +57,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — The AI did research in the Stripe docs and extended the discovery document
 - **Stage:** discovery (finalization)
-- **Context the AI had:** the whole repository, `discovery.md`, the IDP, the Stripe documentation
+- **Context the AI had:** the whole repository, `1-discovery.md`, the IDP, the Stripe documentation
   via web search
 - **AI proposed:** answers to Q9 and Q17 with links; new questions Q22–Q25 (invoice after a
   refund, instructor, legal constraint, negative-balance liability config); a problem
@@ -85,9 +85,9 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — A2: the AI analyzed how the system computes progress; I chose the unit
 - **Stage:** analysis (A2)
-- **Context the AI had:** the whole repository, the dev DB (`learnix-app-db`), `discovery.md`.
+- **Context the AI had:** the whole repository, the dev DB (`learnix-app-db`), `1-discovery.md`.
   I decided myself to count by number of lessons and asked the AI to do the code analysis for me
-- **AI proposed:** eight facts F1–F8 ([`analysis.md` §A2](analysis.md)):
+- **AI proposed:** eight facts F1–F8 ([`2-analysis.md` §A2](../discovery/2-analysis.md)):
   `CourseProgress` is dead (my reference in Q13 was wrong); "completed" = a pressed button, not
   a view; `markIncomplete` does not update the `Enrollment.progress` cache; the denominator moves with the course;
   `durationMinutes` is filled in on all lessons. Hence the risk of bypassing Q12 (going through the course without "Complete")
@@ -108,10 +108,10 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — A4: the AI inventoried the consequences of a refund; decisions D1–D4 are mine, the AI challenged D2
 - **Stage:** analysis (A4)
-- **Context the AI had:** the whole repository, `discovery.md`, `analysis.md` §A2.
+- **Context the AI had:** the whole repository, `1-discovery.md`, `2-analysis.md` §A2.
   I asked the AI to do the inventory and the code check for me
 - **AI proposed:** a table I1–I9 and repeat-purchase findings R1–R3
-  ([`analysis.md` §A4](analysis.md)). Most important: a refunded student keeps writing
+  ([`2-analysis.md` §A4](../discovery/2-analysis.md)). Most important: a refunded student keeps writing
   to the instructor in an existing conversation (I6); on a repeat purchase progress and the certificate "come back to life"
   (R1, R2); the number of refunds is unlimited (R3). The AI proposed no decisions — it asked me 4 questions
 - **My decisions:** D1 — forbid communication; D2 — start from zero, clean up the data; D3 — one
@@ -125,8 +125,8 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — A5: the AI showed that "only through Learnix" is not technically guaranteed; decisions E1–E4 are mine
 - **Stage:** analysis (A5)
-- **Context the AI had:** the whole repository, `analysis.md` §A2, §A4
-- **AI proposed:** facts M1–M5 ([`analysis.md` §A5](analysis.md)): Learnix
+- **Context the AI had:** the whole repository, `2-analysis.md` §A2, §A4
+- **AI proposed:** facts M1–M5 ([`2-analysis.md` §A5](../discovery/2-analysis.md)): Learnix
   does not initiate a refund itself; the webhook handles any refund; a partial refund in the Dashboard closes
   access (contradicts Q16); disputes are not handled. Reframed A5: not "allow the Dashboard or
   not", but "what the system does with a refund that has no request"
@@ -142,10 +142,10 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — Scenarios S1–S7: the AI carried the SDD guide's scenarios over to Learnix; the decisions are mine
 - **Stage:** analysis (part 1)
-- **Context the AI had:** the whole repository, `analysis.md` §A2–A5, the scenario table
+- **Context the AI had:** the whole repository, `2-analysis.md` §A2–A5, the scenario table
   from the SDD guide
 - **AI proposed:** for each scenario — what it looks like in Learnix, what the code does now, and
-  questions for me ([`analysis.md` §Part 1](analysis.md)). New facts R4
+  questions for me ([`2-analysis.md` §Part 1](../discovery/2-analysis.md)). New facts R4
   (refund without a transaction) and R5 (no refund request entity). Singled out S6(c) — the race between the window closing and
   the refund approval — as the most dangerous
 - **My decisions:** S3 — one active request, a repeat one after rejection; the request is a form with a reason
@@ -161,9 +161,9 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — Contradictions C1: request inside the window, decision after it
 - **Stage:** analysis (part 2)
-- **Context the AI had:** `discovery.md`, `analysis.md` (A2–A5, S1–S7)
+- **Context the AI had:** `1-discovery.md`, `2-analysis.md` (A2–A5, S1–S7)
 - **AI proposed:** the scenario "request on day 29, decision on day 32, window closed on day 31"
-  and three questions ([`analysis.md` §Part 2](analysis.md)); candidates C2–C5
+  and three questions ([`2-analysis.md` §Part 2](../discovery/2-analysis.md)); candidates C2–C5
 - **My decisions:** the window is counted by the moment of submission; the instructor's money is held until the
   admin's decision; the loss on a refund after the payout is borne by the platform
 - **What the AI clarified:** I mixed two scenarios in C1.3 — through a request, a refund after the payout is already
@@ -176,7 +176,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — Contradiction C2 (bug Q8): protection in two places and the atomic transition were proposed by the AI
 - **Stage:** analysis (part 2)
-- **Context the AI had:** the whole repository, `discovery.md` (Q5, Q8, Q18), `analysis.md`
+- **Context the AI had:** the whole repository, `1-discovery.md` (Q5, Q8, Q18), `2-analysis.md`
 - **AI proposed:** the chain of bug Q8 through the code and the conclusion that the hold (Q18) makes Q8 the main
   scenario. At my request "what do you recommend" — protection both on refund and on payout (option c),
   a check of the charge state in Stripe before the payout, and a requirement for an atomic transition of the transfer state
@@ -191,7 +191,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — Contradiction C3: an exception to Q12 only through the admin panel with a reason
 - **Stage:** analysis (part 2)
-- **Context the AI had:** `analysis.md` (A5, E1, E2), `discovery.md` (Q12, Q24)
+- **Context the AI had:** `2-analysis.md` (A5, E1, E2), `1-discovery.md` (Q12, Q24)
 - **AI proposed:** formulated the contradiction (Q12 is mandatory for the student, not for the admin),
   the fact "the webhook carries no refund reason", examples of legitimate exceptions, and three questions. Proposed no decisions
 - **My decisions:** the admin can break Q12 only through the admin panel with a mandatory reason (audit);
@@ -204,7 +204,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-08 — Contradiction C4: at most 2 requests, only inside the window
 - **Stage:** analysis (part 2)
-- **Context the AI had:** `analysis.md` (D3, S3, C1)
+- **Context the AI had:** `2-analysis.md` (D3, S3, C1)
 - **AI proposed:** the contradiction D3 ↔ S3 (a limit on refunds, but not on requests) and the consequence —
   each request delays the instructor's money (C1.2). Three questions, no decisions
 - **My decisions:** at most 2 requests (the first — you may make a mistake, the second — final; the minimum so that people don't
@@ -214,11 +214,11 @@ The IDP review needs 2–3 vivid examples:
   takes away the second attempt — left Open
 - **How I verified:** needs no code — this is a PO decision.
 - **Verdict:** `accepted` — the AI proposed no decisions; the consequence of C4.2 + C1.1 accepted as Open
-- **Why:** *see C4.1 in `analysis.md`*
+- **Why:** *see C4.1 in `2-analysis.md`*
 
 ### 2026-11-08 — Contradiction C5: Q12 is a filter, evidence is the admin's decision
 - **Stage:** analysis (part 2)
-- **Context the AI had:** `analysis.md` (Q12, S3, C3, C4, A9)
+- **Context the AI had:** `2-analysis.md` (Q12, S3, C3, C4, A9)
 - **AI proposed:** three models of how Q12 and evidence relate, with the consequences of each; a question about
   a mandatory rejection reason in connection with the second attempt (C4)
 - **My decisions:** model (b); the admin must write a clear rejection reason with arguments and may
@@ -227,15 +227,15 @@ The IDP review needs 2–3 vivid examples:
   the admin are a second upload surface for the security-auditor
 - **How I verified:** needs no code — this is a PO decision.
 - **Verdict:** `accepted` — I chose model (b) out of the three the AI formulated; the proposal to disable the button instead of an auto-rejection accepted as Open
-- **Why:** *see C5.1–C5.2 in `analysis.md`*
+- **Why:** *see C5.1–C5.2 in `2-analysis.md`*
 
 ### 2026-11-08 — Part 4: the AI without code found logic holes we did not see; with code — the opposite
 - **Stage:** analysis (part 4)
 - **Context the AI had:** a separate agent — only Problem + Q1–Q25 + A1–A8 in their pre-Analysis state,
-  the SDD guide's prompt. No code, repo, web, or `analysis.md`. Answer: [`ai-raw/analysis-review.md`](ai-raw/analysis-review.md).
+  the SDD guide's prompt. No code, repo, web, or `2-analysis.md`. Answer: [`raw/analysis-review.md`](../discovery/raw/analysis-review.md).
   The comparison was done for me by the AI mentor (with the code and all the context)
 - **AI proposed:** 51 findings; 24 matches with our analysis, 14 partial, 11 new, 2 errors
-  ([`analysis.md` §Part 4](analysis.md))
+  ([`2-analysis.md` §Part 4](../discovery/2-analysis.md))
 - **Most valuable new ones:** N4 — in a short course the first lesson = 33%, so a percentage threshold blocks exactly
   the "empty course" (hits my decision A2); S2 — the transition period: old purchases are already
   `transferred`, Q18 does not protect them; E8 — dispute + refund = double refund
@@ -251,7 +251,7 @@ The IDP review needs 2–3 vivid examples:
   possible with the current codebase, and how platforms do it, **without taking my analysis and decisions into account**
 - **AI proposed:** a platform table (Udemy, Coursera, Teachable, Domestika, EU Art. 16(m)), five
   models M1–M5 and which of them can be built on our code
-  ([`decisions.md` §A1](decisions.md))
+  ([`3-alternatives.md` §A1](../discovery/3-alternatives.md))
 - **What changed:** before the research I held to a hybrid (auto-rejection by Q12 + the admin reviews everything that
   passed the filter). After — I chose M3b: automation + account-level limits + tracking of opened
   lessons, the admin only for appeals. The idea of tracking opened lessons is mine
@@ -299,7 +299,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-15 — A3: window length — the breakdown and the matrix were done by the AI, I accepted as is
 - **Stage:** alternatives (A3)
-- **Context the AI had:** `decisions.md` (A1, Q13), `discovery.md`
+- **Context the AI had:** `3-alternatives.md` (A1, Q13), `1-discovery.md`
   (Q14, Q15, Q18), web search; my hypothesis "14 days instead of 30"
 - **AI proposed:** a search for a Stripe limit on refunding an old payment (found no official one) and
   the chargeback deadline (120 days); a breakdown of six candidate criteria — strike three (the promise →
@@ -316,7 +316,7 @@ The IDP review needs 2–3 vivid examples:
 ### 2026-11-15 — A8: the Stripe fee — a deliberate "change nothing"
 - **Stage:** alternatives (A8 / Q17)
 - **Context the AI had:** the whole repository (`lib/platformFee.ts`, `payment.service.ts`),
-  `discovery.md` (Q16, Q17), `decisions.md` (A1, A3)
+  `1-discovery.md` (Q16, Q17), `3-alternatives.md` (A1, A3)
 - **AI proposed:** facts from the code (the split is from the full price, the platform bears the fee); that Q18
   changed the economics of a refund (the instructor's share is cancelled, not clawed back); four options;
   "scope" as a possible veto; a matrix; that for V2 the exact fee is known only from Stripe; a formula for the
@@ -331,8 +331,8 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-15 — S2: the staged launch was proposed by the AI, I accepted
 - **Stage:** alternatives (S2)
-- **Context the AI had:** the whole repository, `decisions.md` (A1, A3, Q15),
-  `analysis.md` (C2, the agent's finding S2)
+- **Context the AI had:** the whole repository, `3-alternatives.md` (A1, A3, Q15),
+  `2-analysis.md` (C2, the agent's finding S2)
 - **AI proposed:** narrowed S2 to purchases in the `transferred` state (`pending` already closes C2);
   four options, including V3 — a staged launch (the hold 14 days before the button), which removes the
   transition period entirely; a V1 / V3 comparison without a full matrix
@@ -344,8 +344,8 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-15 — D2: from zero, like Udemy; what to delete I decided, the conflicts the AI found
 - **Stage:** alternatives (D2)
-- **Context the AI had:** the whole repository, web search, `analysis.md` (A4, D1–D4),
-  `decisions.md`
+- **Context the AI had:** the whole repository, web search, `2-analysis.md` (A4, D1–D4),
+  `3-alternatives.md`
 - **AI proposed:** facts from the code (`LessonProgress` is tied to the student, not to the purchase;
   total learning time is computed live from `LessonProgress`); platform research (Udemy — from
   zero, Teachable — continues); four options. Found three conflicts in my answer:
@@ -363,7 +363,7 @@ The IDP review needs 2–3 vivid examples:
 ### 2026-11-15 — C2.4: the atomicity mechanism was proposed by the AI; a latent double-transfer bug was found
 - **Stage:** alternatives (C2.4)
 - **Context the AI had:** the whole repository (`connect.service.ts`, `payment.service.ts`,
-  `prisma/schema/payments.prisma`, `package.json`), `analysis.md` (C2)
+  `prisma/schema/payments.prisma`, `package.json`), `2-analysis.md` (C2)
 - **AI proposed:** facts T1–T4 — in particular, that there is no idempotency key anywhere and two parallel
   sweeps can already today transfer to the instructor twice (a latent bug unrelated to Refund),
   and that there is no scheduler for the payout after the window (**an AI error, corrected by it the same day:** the app has no scheduler, but there is n8n with a daily cron, ADR-014); five mechanisms; a recommendation of V1 + an idempotency
@@ -399,7 +399,7 @@ The IDP review needs 2–3 vivid examples:
 ### 2026-11-15 — S7: synchronous application + event replay in the same cron
 - **Stage:** alternatives (S7)
 - **Context the AI had:** the whole repository (`app/api/stripe/webhook/route.ts`), `stripe docs`,
-  `decisions.md` (A1, C2.4, D2, T4)
+  `3-alternatives.md` (A1, C2.4, D2, T4)
 - **AI proposed:** facts W1–W5 (in particular 30 days of event retention, 3 days of retries in live and only
   a few hours in sandbox); that after M3b S7 narrows to Dashboard refunds and failed refunds,
   because the `refunds.create` response is synchronous; four options; a recommendation of V1 + synchronous application
@@ -411,7 +411,7 @@ The IDP review needs 2–3 vivid examples:
 ### 2026-11-15 — E2: an explicit revocation field; the verification page moved to a separate feature
 - **Stage:** alternatives (E2)
 - **Context the AI had:** the whole repository (certificates, enrollment, checkout),
-  `decisions.md`
+  `3-alternatives.md`
 - **AI proposed:** facts K1–K5 (the list and the PDF do not check status; there is no public verification page,
   so a downloaded PDF cannot be revoked); three options; a recommendation of V2 (filter by status)
 - **My decisions:** V3 instead of the recommended V2 — because I want to add a certificate view and verification
@@ -426,14 +426,14 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — ADR-037: the "ADR or spec" split and the draft were produced by the AI
 - **Stage:** decision (ADR)
-- **Context the AI had:** `decisions.md`, `analysis.md` (C2), ADR-019,
+- **Context the AI had:** `3-alternatives.md`, `2-analysis.md` (C2), ADR-019,
   ADR-014, `documentation-process.md` §5, the payout code
 - **AI proposed:** ran 10 decisions through the "three-month test": into the ADR — Q18, T4, C2.4, S7, A1
   briefly; into the spec — Q13, A3, A8, S2, D2, E2. One ADR instead of four, because the decisions hold on to one
   another. Wrote the draft `docs/adr/037-refund-payout-hold-and-money-consistency.md` (in English, like
   the rest of the ADRs). **Added on its own:** a single "can be paid out" predicate for all payout paths,
   including the `account.updated` sweep (`app/api/stripe/webhook/route.ts:74`) and the immediate transfer in
-  `finalizeCheckout` (`payment.service.ts:124,162`). In `decisions.md` these two paths are not named explicitly, there is only
+  `finalizeCheckout` (`payment.service.ts:124,162`). In `3-alternatives.md` these two paths are not named explicitly, there is only
   the Sweep button
 - **My decisions:** agreed with the split and with one ADR; agreed that **all payout paths** (cron,
   "Run now", the `account.updated` sweep, `finalizeCheckout`) go through one condition. The draft — *under
@@ -445,7 +445,7 @@ The IDP review needs 2–3 vivid examples:
 ### 2026-11-16 — A6: how the instructor sees held money
 - **Stage:** specification (open question A6)
 - **Context the AI had:** the whole repository (payment repository, instructor Revenue and payout
-  settings UI), ADR-037, `decisions.md`
+  settings UI), ADR-037, `3-alternatives.md`
 - **AI proposed:** facts F1–F4, including that `getOwedBalance` shows a refunded `pending` sale as
   owed (F3); three options; a recommendation of V2. Flagged as unchecked: whether
   `getRecentTransactions` already shows the transfer status
@@ -457,7 +457,7 @@ The IDP review needs 2–3 vivid examples:
 ### 2026-11-16 — DC: double charge for the same course
 - **Stage:** specification (open question from E2)
 - **Context the AI had:** the whole repository (checkout, `finalizeCheckout`, `handleRefund`, Prisma
-  schema), `decisions.md`
+  schema), `3-alternatives.md`
 - **AI proposed:** showed that a double charge is reachable (two tabs, no unique constraint on
   `Payment`) and that `handleRefund` then removes paid access; three options; a recommendation of
   V3 + V2, V1 as optional
@@ -468,7 +468,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — User flow: the draft of all three flows was written by the AI
 - **Stage:** specification (User flow)
-- **Context the AI had:** `decisions.md`, `analysis.md`, `discovery.md`, ADR-037, the spec so far
+- **Context the AI had:** `3-alternatives.md`, `2-analysis.md`, `1-discovery.md`, ADR-037, the spec so far
 - **AI proposed:** student, admin and instructor flows assembled from the recorded decisions; seven
   open questions OQ-1–OQ-7 where the decisions are silent or conflict (notably OQ-1: C5.3 "disable
   the button" vs C4 "auto-denial → appeal"; OQ-2: the M3b account-level limit has no number)
@@ -479,7 +479,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — OQ-1: a direct appeal when the threshold is exceeded
 - **Stage:** specification (User flow, OQ-1)
-- **Context the AI had:** `analysis.md` (C4, C5.3), `decisions.md` (A1, Q13), the User flow draft
+- **Context the AI had:** `2-analysis.md` (C4, C5.3), `3-alternatives.md` (A1, Q13), the User flow draft
 - **AI proposed:** found the conflict between C5.3 (disable the button) and C4 (denial → appeal);
   three options; a recommendation of V3 (a direct appeal instead of the button)
 - **My decisions:** V3
@@ -489,7 +489,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — OQ-2: account-level refund limit
 - **Stage:** specification (User flow, OQ-2)
-- **Context the AI had:** `decisions.md` (A1, Q13, platform research), `analysis.md` (R3, D3)
+- **Context the AI had:** `3-alternatives.md` (A1, Q13, platform research), `2-analysis.md` (R3, D3)
 - **AI proposed:** noticed that M3b names "account-level limits" with no number; the "sampler"
   scenario; three options; a recommendation of V2 with N = 3 and counting only the student's
   automatic refunds (left appeal-approved refunds to me)
@@ -500,7 +500,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — OQ-3: platform-initiated refunds do not use up the student's one refund; E2 revised
 - **Stage:** specification (User flow, OQ-3)
-- **Context the AI had:** `analysis.md` (C3.1, D3, E2), `decisions.md` (OQ-2)
+- **Context the AI had:** `2-analysis.md` (C3.1, D3, E2), `3-alternatives.md` (OQ-2)
 - **AI proposed:** the wrong-price scenario; three options; a recommendation of V1; pointed out that
   V1 conflicts with Analysis E2 (Dashboard refund counts) and offered to revise it
 - **My decisions:** V1; revise E2 so that a Dashboard refund does not count either
@@ -520,7 +520,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — OQ-5: automatic approval of an overdue appeal; Stripe refund age checked
 - **Stage:** specification (User flow, OQ-5)
-- **Context the AI had:** spec (Business value), `analysis.md` (F6, E10), T4; Stripe docs via
+- **Context the AI had:** spec (Business value), `2-analysis.md` (F6, E10), T4; Stripe docs via
   `stripe docs /refunds` and `/error-codes`
 - **AI proposed:** pointed out that "reminders only" breaks the 31-day worst case in the spec; three
   options; a recommendation of V2. Claimed from memory that Stripe allows refunds well beyond 31 days;
@@ -533,7 +533,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — OQ-6: warning on repurchase
 - **Stage:** specification (User flow, OQ-6)
-- **Context the AI had:** `analysis.md` (D3), OQ-3, OQ-5
+- **Context the AI had:** `2-analysis.md` (D3), OQ-3, OQ-5
 - **AI proposed:** two options; a recommendation of V1, shown only when the earlier refund counts
   under D3
 - **My decisions:** V1
@@ -543,7 +543,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — OQ-7a: partial Dashboard refund kept as a goodwill compensation
 - **Stage:** specification (User flow, OQ-7a / Analysis E3)
-- **Context the AI had:** `analysis.md` (E3), `handleRefund`, OQ-3
+- **Context the AI had:** `2-analysis.md` (E3), `handleRefund`, OQ-3
 - **AI proposed:** facts F1–F3; the three options from E3; a recommendation of (c); asked who bears
   the compensation and used "a wrong price by the instructor" as a case for reducing the instructor's share
 - **My decisions:** (c); the platform bears it. **Overruled the AI's example:** the student sees the
@@ -555,7 +555,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — OQ-7b: dispute check before refund; Stripe dispute rules checked
 - **Stage:** specification (User flow, OQ-7b / Analysis E8)
-- **Context the AI had:** `analysis.md` (E4, E8), ADR-037; Stripe docs via `stripe docs /disputes/*`
+- **Context the AI had:** `2-analysis.md` (E4, E8), ADR-037; Stripe docs via `stripe docs /disputes/*`
 - **AI proposed:** split E8 into two orders of events; two options; a recommendation of V1. Said order
   2 (refund, then dispute) was unverified; on my request read the docs and found that a fully
   refunded payment cannot be disputed, while a partially refunded one can — which moves the residual
@@ -567,7 +567,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — Functional requirements: the whole draft was written by the AI
 - **Stage:** specification (Functional requirements)
-- **Context the AI had:** the spec's User flow, `decisions.md`, `analysis.md` (D1–D4, E2, V7), ADR-037
+- **Context the AI had:** the spec's User flow, `3-alternatives.md`, `2-analysis.md` (D1–D4, E2, V7), ADR-037
 - **AI proposed:** 57 requirements in four groups (FR-S student, FR-A admin, FR-I instructor, FR-P
   money and effects), each traced to a decision; marked **[open]** where no decision exists (appeal
   file limits, notification matrix V7, batch size, messaging direction D1, the review after a refund,
@@ -580,7 +580,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — D1: messaging closed both ways, history read-only
 - **Stage:** specification (Functional requirements, FR-P11)
-- **Context the AI had:** `analysis.md` (D1, I6), `messaging.service.ts`, A6, OQ-4
+- **Context the AI had:** `2-analysis.md` (D1, I6), `messaging.service.ts`, A6, OQ-4
 - **AI proposed:** two sub-questions (direction, history), options, a recommendation of V2 + (a), and
   named the trade-off with A6 (the instructor can infer a refund from the closed conversation)
 - **My decisions:** V2 + (a)
@@ -613,7 +613,7 @@ The IDP review needs 2–3 vivid examples:
 - **Stage:** specification (security, §3d)
 - **Context the AI had:** the `security-auditor` agent read the spec, ADR-037, ADR-019, ADR-017 and the
   payment, webhook, messaging, review, certificate and upload code. Raw output:
-  [`ai-raw/security-design-pass.md`](ai-raw/security-design-pass.md)
+  [`raw/security-design-pass.md`](../discovery/raw/security-design-pass.md)
 - **AI proposed:** 29 threats with controls and acceptance-criterion lines; five decisions; ten
   spec/ADR defects. Among them, errors in earlier AI work: T6 (the ADR-037 predicate, drafted by the
   AI, releases during the appeal grace), T11 (the AI's OQ-5 recommendation lets direct appeals bypass
@@ -678,7 +678,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — Edge cases and Failure scenarios drafted by the AI
 - **Stage:** specification (Edge cases, Failure scenarios)
-- **Context the AI had:** `analysis.md` (S4–S7, F1–F8, R4), `decisions.md`, ADR-037, `security.md`
+- **Context the AI had:** `2-analysis.md` (S4–S7, F1–F8, R4), `3-alternatives.md`, ADR-037, `security.md`
 - **AI proposed:** 17 edge cases and 13 failure scenarios, each traced to a decision; four **[open]**
   items with AI suggestions: EC-3 (a deleted opened lesson), EC-12 (account deletion with an open
   request), FS-3 (a refund that fails at the bank after the effects were applied, which D2 cannot
@@ -703,7 +703,7 @@ The IDP review needs 2–3 vivid examples:
 - **Stage:** specification (security, LLM, §3d)
 - **Context the AI had:** the `llm-security-auditor` read the tutor route and tools, the embedding
   repository, study-guide, quiz, learning-path and lesson-assistant code, and
-  `ai-tutor-guardrails/security.md`. Raw output: [`ai-raw/llm-security-design-pass.md`](ai-raw/llm-security-design-pass.md).
+  `ai-tutor-guardrails/security.md`. Raw output: [`raw/llm-security-design-pass.md`](../discovery/raw/llm-security-design-pass.md).
   The main session spot-checked `searchCourseChunks` (course-wide, `embedding.repository.ts:149-163`)
 - **AI proposed:** the tutor's `search_across_course` reads the whole course from one opened lesson,
   so the threshold can be bypassed without any injection; restrict the tutor, study guide and
@@ -779,9 +779,9 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-16 — Alternatives, Trade-offs, Decision, functional AC, tests, Source of truth, Agent notes drafted by the AI
 - **Stage:** specification (closing sections)
-- **Context the AI had:** `decisions.md`, ADR-037, `security.md`, the spec so far
+- **Context the AI had:** `3-alternatives.md`, ADR-037, `security.md`, the spec so far
 - **AI proposed:** summary tables of the main decisions and their matrices (copied from
-  `decisions.md`, not re-scored); a "why in this context" list; AC-F1…F21 traced to FRs; a
+  `3-alternatives.md`, not re-scored); a "why in this context" list; AC-F1…F21 traced to FRs; a
   notification matrix closing FR-S21 with one **[AI]** cell (an admin email when an appeal is filed);
   test levels; source of truth; agent notes with the invariants a change could break
 - **My decisions:** *TODO (me): under review*
@@ -816,7 +816,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-21 — Full spec review; DL: a lost bank dispute
 - **Stage:** specification (whole-spec review before approval)
-- **Context the AI had:** the full `spec.md`, `security.md`, ADR-037 §1/§3, `decisions.md` (OQ-2,
+- **Context the AI had:** the full `spec.md`, `security.md`, ADR-037 §1/§3, `3-alternatives.md` (OQ-2,
   T11), Analysis E4
 - **AI proposed:** a review list: open decisions (lost dispute, FR-P3 batch size, Branch C text, six
   **[AI]** rules), five mechanical inconsistencies, process items; for the lost dispute, three
@@ -907,7 +907,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-21 — Alternatives, Trade-offs and Decision review
 - **Stage:** specification (Alternatives, Trade-offs, Decision)
-- **Context the AI had:** the three sections, `decisions.md` A1/A3/A8
+- **Context the AI had:** the three sections, `3-alternatives.md` A1/A3/A8
 - **AI proposed:** recomputed the A1, A3 and A8 matrices and sensitivity claims (all correct); found
   "~2% of revenue" lost the word "platform" (≈0.35% of total sales); the decisions list missing
   today's decisions; a DL bullet in Decision
@@ -928,15 +928,15 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-21 — Spec condensed and best-practice gaps filled
 - **Stage:** specification (whole spec, after the section-by-section review)
-- **Context the AI had:** the full `spec.md`, `decisions.md`, the `/plan` command, and a web review of
+- **Context the AI had:** the full `spec.md`, `3-alternatives.md`, the `/plan` command, and a web review of
   spec practices (Google design docs, Rust RFC, Amazon PR/FAQ, GitHub Spec Kit, Kiro/EARS,
   ISO/IEC/IEEE 29148)
 - **AI proposed:** first, moving FR and AC into sibling files; I rejected that because `/plan` reads
   only `spec.md` and `security.md`, so the spec must keep everything the plan needs. Instead: condense
   the User flow into a diagram plus steps that cite the FRs (exact UI texts moved into FR-S8, S11,
   S13, S20, S23, FR-P7, P17, FR-A8); move the OQ table and the list of spec-time decisions to
-  `decisions.md`; add a short summary, Success metrics, FR priorities, the Scope/M0 alternative and a
-  "What these decisions make worse" list. It also found two consequences `decisions.md` handed to the
+  `3-alternatives.md`; add a short summary, Success metrics, FR priorities, the Scope/M0 alternative and a
+  "What these decisions make worse" list. It also found two consequences `3-alternatives.md` handed to the
   spec that no section covered: the stored Stripe fee (A8 → FR-P28, AC-F28) and the weekly chart
   after a refund (D2 → A11, left **[open]**)
 - **My decisions:** keep everything the plan needs in `spec.md`; apply the recommended additions
@@ -946,7 +946,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-21 — A11: study statistics after a refund
 - **Stage:** specification (Ambiguities A11, FR-P9)
-- **Context the AI had:** D2 in `decisions.md`, `lessonProgress.repository.ts`, `student.service.ts`
+- **Context the AI had:** D2 in `3-alternatives.md`, `lessonProgress.repository.ts`, `student.service.ts`
 - **AI proposed:** that the open "weekly chart" question is wider: the chart, the weekly delta, the
   streak, study days and the live-computed achievements all read the deleted `LessonProgress`, and
   D2's counter keeps only lifetime minutes. Options V1 live only, V2 per-day archive without the
@@ -958,7 +958,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-21 — In short and Success metrics review
 - **Stage:** specification (Description "In short", Business / user value "Success metrics")
-- **Context the AI had:** both blocks, the revisit triggers in `decisions.md` (A1, Q13, A3, A8,
+- **Context the AI had:** both blocks, the revisit triggers in `3-alternatives.md` (A1, Q13, A3, A8,
   OQ-1, OQ-2), FR-S5, FR-S8, FR-S13, FR-A1, AC-F8, AS-8
 - **AI proposed:** the Q13 and A3 triggers, written before OQ-1, measure refusals that no longer
   exist (a threshold breach is a direct appeal; after the window there is no button), so restate
@@ -985,7 +985,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-21 — Priority review
 - **Stage:** specification (Functional requirements "Priority", FR-P20)
-- **Context the AI had:** the Priority table, FR-P2a, FR-P10, FR-P20, FS-5, FS-14, S2 in `decisions.md`
+- **Context the AI had:** the Priority table, FR-P2a, FR-P10, FR-P20, FS-5, FS-14, S2 in `3-alternatives.md`
 - **AI proposed:** disputes were P2 although the table's own P1 definition (money still leaks) fits
   them; payout monitoring FR-A8–A10 belongs in P1 because FS-5/FS-14 rely on its alert; P1–P3 are an
   importance ranking, not separately shippable releases; FR-P20 named only the hold and FR-P19/P19a
@@ -999,7 +999,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-21 — Scope/M0 review: M4 scored in the A1 matrix
 - **Stage:** specification (Alternatives, Trade-offs, Decision for A1)
-- **Context the AI had:** the Scope/M0 row and Decision bullet, A1 in `decisions.md` (options,
+- **Context the AI had:** the Scope/M0 row and Decision bullet, A1 in `3-alternatives.md` (options,
   matrix, sensitivity)
 - **AI proposed:** M0 duplicated M4 (manual review of every request), which A1 had rejected in one
   word without scoring; the admin-load argument depends on a request volume that does not exist; the
@@ -1082,7 +1082,7 @@ The IDP review needs 2–3 vivid examples:
 - **Context the AI had:** the section, `payment.service.ts`, `lesson.service.ts`,
   `lessonProgress.repository.ts`, `vercel.service.ts`
 - **AI proposed:** replace the preconditions list with a pointer to the Release checklist (one list,
-  not two); one note for where `decisions.md` is older than the spec; refunds are recovered by
+  not two); one note for where `3-alternatives.md` is older than the spec; refunds are recovered by
   `payment_intent`, not `transfer_group`; add gotchas seen in code: two transfer calls in
   `finalizeCheckout`, `touchLastAccessed` fails open, `CourseProgress` is dead, archive day bucketing
   must match the chart query
@@ -1100,8 +1100,8 @@ The IDP review needs 2–3 vivid examples:
 - **Raised by me:** the spec should look like the IDP list; move discovery and the rest into
   separate files
 - **AI proposed:** keep the IDP sections (plus Description, Unsupported use cases, Test & eval, Agent
-  notes, Source of truth) in `spec.md`; Discovery + Ambiguities → `discovery/findings.md`;
-  Alternatives + Trade-offs + Decision → `discovery/decision-summary.md`; one-line stubs in the spec,
+  notes, Source of truth) in `spec.md`; Discovery + Ambiguities → `design/findings.md`;
+  Alternatives + Trade-offs + Decision → `design/decision-summary.md`; one-line stubs in the spec,
   or a contract-test change. Also: expand Non-functional requirements with numbers, and frame Agent
   notes as the context an AI would not know
 - **My decisions:** change the test (sibling files count when they carry the heading) instead of
@@ -1114,7 +1114,7 @@ The IDP review needs 2–3 vivid examples:
 ### 2026-11-22 — Slice 1 plan: six decisions the spec did not make (P1–P6)
 - **Stage:** implementation (planning)
 - **Context the AI had:** the approved `spec.md`, `security.md`, the constitution, and codebase
-  anchors gathered by a code-explorer agent (`build/plan.md` → Codebase anchors)
+  anchors gathered by a code-explorer agent (`build/slice-1-auto-decision.md` → Codebase anchors)
 - **Raised by me:** cut the slice to the automatic decision only (no Stripe, hold, cron, UI) for the
   IDP review
 - **AI proposed:** P1 stop at `auto_approved` (no money moves); P2 `hasOpenDispute` always false until
@@ -1148,7 +1148,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 1 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-1-auto-decision.md`, executed task by task with TDD
 - **AI found while implementing:**
   - `BaseRepository.transaction` wraps every error into a plain `Error`, so `NOT_FOUND`/`CONFLICT`
     were lost (5 tests red) → the service uses `db.$transaction` directly;
@@ -1158,7 +1158,7 @@ The IDP review needs 2–3 vivid examples:
     would drop → the migration was generated with `prisma migrate diff` from the committed schema;
   - break-it check: with the per-student lock removed, AC-C4 (three concurrent requests at the
     account limit) fails; AC-C3 still passes on the unique key alone
-- **How I verified:** *Not verified by me* (the tests named in `build/plan.md` ran red, then green)
+- **How I verified:** *Not verified by me* (the tests named in `build/slice-1-auto-decision.md` ran red, then green)
 - **Verdict:** `accepted`
 - **Why:** *(drafted by AI, edited by me)* each change was forced by a fact in the code that a
   failing test revealed, not by preference: error codes were lost, the flag was always off, and
@@ -1167,7 +1167,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 1 /qa: what the review and the audits changed
 - **Stage:** validation
-- **Context the AI had:** the branch diff (26b9716..590d41a), `build/plan.md`, `spec.md`,
+- **Context the AI had:** the branch diff (26b9716..590d41a), `build/slice-1-auto-decision.md`, `spec.md`,
   `security.md`, the contract tests; one code reviewer and two security auditors
   (`security-auditor`, `llm-security-auditor`), each in a fresh context
 - **AI found:**
@@ -1201,7 +1201,7 @@ The IDP review needs 2–3 vivid examples:
 - **Stage:** validation
 - **Context the AI had:** the sealed archive `~/Downloads/refund-archive-2026-11-02/` (opened today
   for the first time: `epics/refund-self-service.md`, `ai-decision-log.md`), `spec.md`,
-  `decision-summary.md`, `decisions.md`, `findings.md`, `discovery.md`
+  `decision-summary.md`, `3-alternatives.md`, `findings.md`, `1-discovery.md`
 - **AI proposed (on 2026-11-02, before my discovery):** an epic of six specs with eight cross-cutting
   decisions X1–X8. The comparison:
 
@@ -1229,15 +1229,15 @@ The IDP review needs 2–3 vivid examples:
   `controller.losses.payments: "application"` (Q25), under which the reversal goes through and the
   platform covers the negative balance (Q9). X6's design rested on the false premise.
 - **How I verified:** *Not verified by me* — the table and the missed list were drafted by the AI;
-  X5 and X6 were re-checked by the AI against `spec.md:173,341,400`, `decisions.md:412,1017`,
-  `discovery.md:140,156` after I questioned them
+  X5 and X6 were re-checked by the AI against `spec.md:173,341,400`, `3-alternatives.md:412,1017`,
+  `1-discovery.md:140,156` after I questioned them
 - **Verdict:** see the table
 - **Why:** *TODO (me): in my own words — why X1 and X8 flipped, why opened and not completed lessons
   (X4), and what X6 taught me about trusting "AI + a docs link"*
 
 ### 2026-11-22 — Validation: slice 1 acceptance criteria against the tests
 - **Stage:** validation
-- **Context the AI had:** `spec.md` (AC-F2–F6, AC-C1–C4, C9, C22, C24), `build/plan.md` (Self-review,
+- **Context the AI had:** `spec.md` (AC-F2–F6, AC-C1–C4, C9, C22, C24), `build/slice-1-auto-decision.md` (Self-review,
   Final verification), the nine test files of the slice
 - **AI did:** mapped each slice-1 AC to the tests that prove it and ran them — 9 files, 93/93 green
   (unit + integration on `learnix_test`, 2026-11-22)
@@ -1324,7 +1324,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 2 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan-slice-2.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-2-hold-and-release.md`, executed task by task with TDD
 - **AI found while implementing:**
   - the candidate query had to use the same predicate as the claim, or payments blocked by an
     approved request (H2) would fill every batch of 50 and starve the rest;
@@ -1346,7 +1346,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 2 final review and /qa: what the reviews and the audits changed
 - **Stage:** validation
-- **Context the AI had:** the slice-2 diff (4f13627..), `build/plan-slice-2.md`, `spec.md`,
+- **Context the AI had:** the slice-2 diff (4f13627..), `build/slice-2-hold-and-release.md`, `spec.md`,
   `security.md`, ADR-037; one fresh code reviewer (Opus) and two auditors (`security-auditor`,
   `llm-security-auditor`), each in its own context
 - **AI found:**
@@ -1400,7 +1400,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 3 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan-slice-3.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-3-refund-effects.md`, executed task by task with TDD
 - **AI found while implementing:**
   - the "correct quiz answers" achievements count quiz attempts, which a refund deletes — the archive
     gained a `correct_answers` column (a second migration) so A11 holds;
@@ -1420,7 +1420,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 3 /qa: what the review and the audits changed
 - **Stage:** validation
-- **Context the AI had:** the slice-3 diff (676d718..984a906), `build/plan-slice-3.md`, `spec.md`,
+- **Context the AI had:** the slice-3 diff (676d718..984a906), `build/slice-3-refund-effects.md`, `spec.md`,
   `security.md`, ADR-037; one fresh code reviewer (Opus) and two auditors, each in its own context
 - **AI found:**
   - security audit, **High** — `course.enroll` re-activated a refunded paid course for free, and since
@@ -1468,7 +1468,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 4 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan-slice-4.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-4-disputes.md`, executed task by task with TDD
 - **AI found while implementing:**
   - one parameter carries both the revocation reason and the refund source — the two enums have the
     same four values;
@@ -1481,7 +1481,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 4 /qa: what the review and the audits changed
 - **Stage:** validation
-- **Context the AI had:** the slice-4 diff (28bc29b..fd7fc92), `build/plan-slice-4.md`, `spec.md`,
+- **Context the AI had:** the slice-4 diff (28bc29b..fd7fc92), `build/slice-4-disputes.md`, `spec.md`,
   `security.md`; one fresh code reviewer (Opus), `security-auditor`, a narrow `llm-security-auditor`
 - **AI found:**
   - review + audit (Important / Low) — two dispute events in the same second (e.g. `updated` and
@@ -1525,7 +1525,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 5 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan-slice-5.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-5-payout-monitoring.md`, executed task by task with TDD
 - **AI found while implementing:**
   - one entry point, `refundOverdue(requestId)`, sends both the admin reminders and the student's
     notice (the plan listed two);
@@ -1538,7 +1538,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 5 /qa: what the review and the audits changed
 - **Stage:** validation
-- **Context the AI had:** the slice-5 diff (a637b2c..df1a931), `build/plan-slice-5.md`, `spec.md`,
+- **Context the AI had:** the slice-5 diff (a637b2c..df1a931), `build/slice-5-payout-monitoring.md`, `spec.md`,
   `security.md`; one fresh code reviewer (Opus), `security-auditor`, a narrow `llm-security-auditor`
 - **AI found:**
   - review (Important) — the last run's per-payment failures were computed but never shown, though M2
@@ -1580,7 +1580,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 6 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan-slice-6.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-6-content-gate.md`, executed task by task with TDD
 - **AI found while implementing:**
   - the tutor route's opened check is a nested select inside the existing authorizing query (one
     statement), so an unopened lesson (403) stays distinct from a missing one (404);
@@ -1600,7 +1600,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 6 /qa: what the review and the audit changed
 - **Stage:** validation
-- **Context the AI had:** the slice-6 diff (4b0a749..3b60dad), `build/plan-slice-6.md`, `spec.md`,
+- **Context the AI had:** the slice-6 diff (4b0a749..3b60dad), `build/slice-6-content-gate.md`, `spec.md`,
   `security.md`; one fresh code reviewer (Opus) and one `llm-security-auditor` (the slice changed
   controls but added no route, procedure or model, so one auditor)
 - **AI found:**
@@ -1651,7 +1651,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 7 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan-slice-7.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-7-student-ui.md`, executed task by task with TDD
 - **AI found while implementing:**
   - a payment refunded on the Dashboard (no request) needed its own page state, `payment_refunded`;
   - the read returns the course title with the state, for the page header;
@@ -1670,7 +1670,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 7 /qa: what the review and the audit changed
 - **Stage:** validation
-- **Context the AI had:** the slice-7 diff (975c801..a2f2b1c), `build/plan-slice-7.md`, `spec.md`,
+- **Context the AI had:** the slice-7 diff (975c801..a2f2b1c), `build/slice-7-student-ui.md`, `spec.md`,
   `security.md`; one fresh code reviewer (Opus) and `security-auditor` (no AI surface, so no LLM audit)
 - **AI found:**
   - review (Important) — the row's status was a plain badge, so the refund page (denied conditions,
@@ -1716,7 +1716,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 8 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan-slice-8.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-8-appeals.md`, executed task by task with TDD
 - **AI found while implementing:**
   - the request, the refund page and the appeal each gathered the same facts; one `gatherRefundFacts`
     now serves all three (and the purchases list reuses the shared dispute check);
@@ -1736,7 +1736,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 8 /qa: what the review and the audit changed
 - **Stage:** validation
-- **Context the AI had:** the slice-8 diff (41140d5..82c3919), `build/plan-slice-8.md`, `spec.md`,
+- **Context the AI had:** the slice-8 diff (41140d5..82c3919), `build/slice-8-appeals.md`, `spec.md`,
   `security.md`; one fresh code reviewer (Opus) and `security-auditor` (no AI surface)
 - **AI found:**
   - audit (High H-1, blocking C11) + review (I4) — an appeal after a late denial was filed under its
@@ -1781,7 +1781,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-22 — Slice 9 implementation: where the code disagreed with the plan
 - **Stage:** implementation
-- **Context the AI had:** `build/plan-slice-9.md`, executed task by task with TDD
+- **Context the AI had:** `build/slice-9-rest.md`, executed task by task with TDD
 - **AI found while implementing:**
   - only partial Dashboard refunds are recorded, so `amount − refunded` stays the remainder after a
     later full refund too;
@@ -1800,7 +1800,7 @@ The IDP review needs 2–3 vivid examples:
 
 ### 2026-11-23 — Slice 9 /qa: what the review and the audit changed
 - **Stage:** validation
-- **Context the AI had:** the slice-9 diff (586a907..f01057f), `build/plan-slice-9.md`, `spec.md`,
+- **Context the AI had:** the slice-9 diff (586a907..f01057f), `build/slice-9-rest.md`, `spec.md`,
   `security.md`; one fresh code reviewer (Opus) and `security-auditor` (no AI surface, so no
   `llm-security-auditor`)
 - **AI found:**

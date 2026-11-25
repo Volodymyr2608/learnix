@@ -2,7 +2,7 @@
 
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session (ADR-030).
 > Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
-> criteria. Earlier slices: [`plan.md`](plan.md) … [`plan-slice-6.md`](plan-slice-6.md).
+> criteria. Earlier slices: [`slice-1-auto-decision.md`](slice-1-auto-decision.md) … [`slice-6-content-gate.md`](slice-6-content-gate.md).
 
 **Goal:** A student sees, on the Purchases page and on a refund page per purchase, whether and how
 they can ask for a refund, can request it, and sees its outcome; `/pricing` states the new policy
@@ -57,7 +57,7 @@ with the admin emails); a partial-refund remainder (no partial amount is stored;
 | U12 | The refund page shows the student's submitted reason and text in the status view as plain React text; a contract test forbids `dangerouslySetInnerHTML` under `app/_components/Billing/` | AC-C22 student half | — |
 | U13 | Touching `BillingHistoryList` splits it per the conventions: `PurchaseRow`, `StatusBadge`, `RefundRowAction` each in a folder with `types.ts`, arrow functions, formatters in `utils.ts` | CLAUDE.md "one component per folder"; the file has two `function` sub-components today | — |
 
-Each is logged in `discovery/ai-decision-log.md` in Task 9.
+Each is logged in `journal/ai-decision-log.md` in Task 9.
 
 **Codebase anchors (verified during planning):**
 - Request path: `refundRouter.request` (`server/api/routers/refund.ts:8-16`, only procedure);

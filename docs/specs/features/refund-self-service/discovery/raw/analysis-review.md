@@ -3,8 +3,8 @@
 **Date:** 2026-11-08
 **Model:** Claude (a separate agent, with no access to the code, the repo, the web, or the conversation)
 **Context the AI had:** the Problem section + the Q1–Q25 table + the ambiguities A1–A8 from
-`../discovery.md` **in its state before Analysis**: the annotations dated 2026-11-08, added during Analysis
-(Q8, Q13, Q18, Q19, A2, A4, A5), were cut out. The AI did not see `../analysis.md`.
+`../1-discovery.md` **in its state before Analysis**: the annotations dated 2026-11-08, added during Analysis
+(Q8, Q13, Q18, Q19, A2, A4, A5), were cut out. The AI did not see `../2-analysis.md`.
 **Prompt:** verbatim from the SDD guide (stage 3). The only additions: numbering findings by category, "do not
 repeat Confirmed", and at the end "the 5 most important questions for the PO".
 

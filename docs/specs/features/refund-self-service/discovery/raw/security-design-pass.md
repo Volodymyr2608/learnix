@@ -2,7 +2,7 @@
 
 *Raw output of the `security-auditor` agent, dispatched at the end of the Functional requirements
 draft (spec commit `89581d9`). Kept as evidence, not design: what is accepted lands in `spec.md`
-and `decisions.md`. Spot-checked by the main session: `paidAt` is indeed absent from `Payment`
+and `3-alternatives.md`. Spot-checked by the main session: `paidAt` is indeed absent from `Payment`
 (the schema file is `prisma/schema/payments.prisma`, not `payment.prisma` as the report says); the
 webhook dedup is indeed check-then-record (`app/api/stripe/webhook/route.ts:44`, `:85`).*
 
@@ -12,7 +12,7 @@ webhook dedup is indeed check-then-record (`app/api/stripe/webhook/route.ts:44`,
 `connect.service.ts`, `app/api/stripe/webhook/route.ts`, `server/api/routers/payment.ts`,
 `server/api/trpc.ts`, `app/api/certificates/[enrollmentId]/route.ts`, `app/api/uploads/route.ts`,
 `server/services/vercel/vercel.service.ts`, `server/services/notifications/auth.ts`,
-`certificate.service.ts`, the Payment schema, `decisions.md` §D2–§OQ-2. Sampled: `messaging.service.ts:100-154`,
+`certificate.service.ts`, the Payment schema, `3-alternatives.md` §D2–§OQ-2. Sampled: `messaging.service.ts:100-154`,
 `review.service.ts`, `lesson.service.ts:113-225`, `app/api/chat/lesson/route.ts`, `user.repository.ts`
 anonymise, the email renderer, `@vercel/blob` typings.
 

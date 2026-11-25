@@ -1,6 +1,6 @@
 # Refund — Analysis
 
-← [Spec](../spec.md) · Previous stage: [Discovery](discovery.md)
+← [Spec](../spec.md) · Previous stage: [Discovery](1-discovery.md)
 
 The goal of this stage is to check whether the decisions gathered in Discovery hold together: contradictions, missing
 requirements, ambiguities, edge cases, failure scenarios, security / consistency risks. I don't invent
@@ -16,7 +16,7 @@ behavior; I only surface situations and decide which of them are real requiremen
 ## A2 — what the system can count as progress
 
 *2026-11-08. The analysis of the code and dev DB was done by AI at my request; the decision "count by number of lessons"
-is mine (see [AI log](ai-decision-log.md), entry 2026-11-08 "A2").*
+is mine (see [AI log](../journal/ai-decision-log.md), entry 2026-11-08 "A2").*
 
 **Decision (PO):** progress for the Q13 threshold is counted **by the number of completed lessons in the course**, not by
 duration.
@@ -62,7 +62,7 @@ The argument "duration is not filled in" **doesn't hold** — the data is there 
 ## A4 — what "refund" means in the product
 
 *2026-11-08. The inventory and code check were done by AI at my request; decisions D1–D4 are mine
-(see [AI log](ai-decision-log.md), entry 2026-11-08 "A4").*
+(see [AI log](../journal/ai-decision-log.md), entry 2026-11-08 "A4").*
 
 **What refund does now.** `handleRefund` (`server/services/payments/payment.service.ts:167-195`)
 does only three things: payment → `refunded`, enrollment → `cancelled`, reversal of the transfer. Everything else
@@ -98,7 +98,7 @@ moves `cancelled → active` and clears `completedAt` (`enrollment.service.ts:73
 
 | # | Question | Decision | Why (my words) | Open |
 |---|---|---|---|---|
-| D1 | Can the student write to the instructor after a refund (I6)? | **No**, communication about this course is forbidden | The course didn't suit the student, and so neither did the instructor and their style | Block only the student or the conversation in both directions? History — read-only or hidden? (Specification) *(decided 2026-11-16: both directions, history read-only, [decisions §D1](decisions.md))*. The channel about the refund itself is the admin via the request (Q21) |
+| D1 | Can the student write to the instructor after a refund (I6)? | **No**, communication about this course is forbidden | The course didn't suit the student, and so neither did the instructor and their style | Block only the student or the conversation in both directions? History — read-only or hidden? (Specification) *(decided 2026-11-16: both directions, history read-only, [decisions §D1](3-alternatives.md))*. The channel about the refund itself is the admin via the request (Q21) |
 | D2 | What does a repeat purchase do with old progress (R1, R2)? | **Start from zero**, clean up the leftover data | The student may never return to the course | **When to clean up — Open (Alternatives):** deletion at refund is irreversible and destroys the evidence for the admin's decision (Q19) and statistics data (`getCompletedMinutesTotals`); the alternative is to reset at repeat purchase |
 | D3 | How many refunds for the same course (R3)? | **One**, then we block | — | What do we block: the second request (purchase allowed, no guarantee — then a warning at checkout) or the purchase itself? Does a manual refund via Stripe (A5) count? |
 | D4 | Recompute recommendations after refund (I8)? | **Yes** | — | — |
@@ -110,7 +110,7 @@ only", they disappear; otherwise we need to decide whether to revoke the certifi
 
 ## A5 — does the manual path via the Stripe Dashboard remain
 
-*2026-11-08. Facts M1–M5 were gathered by AI; decisions E1–E4 are mine (see [AI log](ai-decision-log.md),
+*2026-11-08. Facts M1–M5 were gathered by AI; decisions E1–E4 are mine (see [AI log](../journal/ai-decision-log.md),
 entry 2026-11-08 "A5").*
 
 ### Facts
@@ -132,8 +132,8 @@ without a request?*
 | # | Question | Decision | Open |
 |---|---|---|---|
 | E1 | Manual refund via Dashboard — allowed? | **Yes, as an emergency path.** The main one is refund from the platform: the admin reviews the request and returns the money right there (consistent with Q21) | Whether two paths are optimal — investigate at Alternatives (together with A1) |
-| E2 | Consequences of a refund without a request | **The same** as for a request (D1–D4), and it **counts as the one allowed refund** (D3) *(changed 2026-11-16: does not count, [decisions §OQ-3](decisions.md))*. The certificate **is revoked**; the review — TBD *(decided 2026-11-16: hidden, replaced on a new review, [decisions §E2-R](decisions.md))* | There is **no** mechanism to revoke a certificate (certificate = `completedAt`, A2 F7) — a new capability, approach at Alternatives. The review has soft-delete (`deletedAt`), the rating will filter it out (`courseReview.repository.ts:43`) — cheap to remove |
-| E3 | Partial refund in the Dashboard (M3) | **TBD** *(decided 2026-11-16: (c), [decisions §OQ-7a](decisions.md))*. Options: (a) ignore — access remains, payment partially refunded; (b) treat as full — as now; (c) don't change access and notify the admin | Specification |
+| E2 | Consequences of a refund without a request | **The same** as for a request (D1–D4), and it **counts as the one allowed refund** (D3) *(changed 2026-11-16: does not count, [decisions §OQ-3](3-alternatives.md))*. The certificate **is revoked**; the review — TBD *(decided 2026-11-16: hidden, replaced on a new review, [decisions §E2-R](3-alternatives.md))* | There is **no** mechanism to revoke a certificate (certificate = `completedAt`, A2 F7) — a new capability, approach at Alternatives. The review has soft-delete (`deletedAt`), the rating will filter it out (`courseReview.repository.ts:43`) — cheap to remove |
+| E3 | Partial refund in the Dashboard (M3) | **TBD** *(decided 2026-11-16: (c), [decisions §OQ-7a](3-alternatives.md))*. Options: (a) ignore — access remains, payment partially refunded; (b) treat as full — as now; (c) don't change access and notify the admin | Specification |
 | E4 | Dispute / chargeback (M4) | **A separate task, out of Refund's scope** | Record in the spec as a non-goal with accepted risk: chargeback after the window — the instructor has already received the money, the platform bears the loss (Q9, Q25); the student's access is not closed |
 
 ### New requirement following from E1
@@ -149,7 +149,7 @@ guaranteed technically.*
 ## Part 1 — scenarios
 
 *2026-11-08. Mapping the SDD guide's scenarios onto Learnix and the facts — AI; decisions — mine (see
-[AI log](ai-decision-log.md), entry 2026-11-08 "Scenarios").*
+[AI log](../journal/ai-decision-log.md), entry 2026-11-08 "Scenarios").*
 
 **Additional facts**
 
@@ -181,7 +181,7 @@ can change during review, and admin review speed remains a requirement.
 
 ## Part 2 — contradictions
 
-*2026-11-08. Decision pairs and the breakdown — AI; decisions — mine (see [AI log](ai-decision-log.md),
+*2026-11-08. Decision pairs and the breakdown — AI; decisions — mine (see [AI log](../journal/ai-decision-log.md),
 entry 2026-11-08 "Contradictions").*
 
 ### C1 — request filed within the window, decision after it closes (Q14 ↔ Q18 ↔ Q19, S6c)
@@ -289,7 +289,7 @@ Closes A9.
 ## Part 4 — comparison with AI without code
 
 *2026-11-08. An AI agent without the code, repo, or conversation received Problem + Q1–Q25 + A1–A8 in their state **before**
-Analysis and the SDD guide's prompt. The response verbatim: [`ai-raw/analysis-review.md`](ai-raw/analysis-review.md).
+Analysis and the SDD guide's prompt. The response verbatim: [`raw/analysis-review.md`](raw/analysis-review.md).
 The comparison was made by the AI mentor (it sees the code and all of our analysis) at my request. So this is not "me vs AI" but
 "analysis with code and context vs analysis from the document alone".*
 
@@ -338,7 +338,7 @@ fully, 3 partially.
 |---|---|---|
 | **S2** | **Transition period:** Q15 applies the new rules to old purchases, but Q18 doesn't act on them — their shares are already `transferred`. For them, within the window, reversal and the Q9 risk remain | **Real, important.** We analyzed C1–C2 only for new purchases |
 | **N4** | **Empty course and few lessons:** in a course with 3 lessons the first lesson = 33% — a percentage threshold may block exactly the "empty course", the most legitimate reason (Q1) | **Real, strong.** Hits the A2 "by count" decision directly → Alternatives (Q13) |
-| **E8 (part)** | Dispute **and** refund on the same payment → the platform returns the money twice | *(decided 2026-11-16: V1, [decisions §OQ-7b](decisions.md))* **Real.** E4 puts disputes out of scope, but "don't refund twice" is already Refund. C2.3 checks dispute only before payout, not before refund |
+| **E8 (part)** | Dispute **and** refund on the same payment → the platform returns the money twice | *(decided 2026-11-16: V1, [decisions §OQ-7b](3-alternatives.md))* **Real.** E4 puts disputes out of scope, but "don't refund twice" is already Refund. C2.3 checks dispute only before payout, not before refund |
 | **E7** | The instructor disconnected Stripe / lost `payouts_enabled` during the hold | Real → Specification |
 | **F6** | The admin is unavailable: under C1.2 the instructor's money is held **without a limit** | Real; related to V2 (SLA) |
 | **F7** | `losses.payments` was verified only in the sandbox (Q25) — verify the production account before launch | Real, cheap |

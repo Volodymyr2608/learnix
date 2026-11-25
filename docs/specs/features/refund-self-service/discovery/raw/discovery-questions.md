@@ -3,7 +3,7 @@
 **Date:** 2026-11-04
 **Model:** Claude (separate agent, no access to the code, the repo or the conversation)
 **Context the AI had:** the prompt from the SDD guide (section "How to use AI here") + the
-Problem section and the Q1–Q12 table from `../discovery.md`. The AI did not see my list 2a.
+Problem section and the Q1–Q12 table from `../1-discovery.md`. The AI did not see my list 2a.
 **Changes:** the prompt was adapted: instead of "ask questions one at a time" → "give the 5 most important at the end"
 (non-interactive mode); "do not repeat Confirmed".
 

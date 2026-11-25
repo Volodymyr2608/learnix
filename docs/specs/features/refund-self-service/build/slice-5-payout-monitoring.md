@@ -2,8 +2,8 @@
 
 > **For agentic workers:** execute with `superpowers:executing-plans` in this session (ADR-030).
 > Steps use checkbox (`- [ ]`) syntax. See [`../spec.md`](../spec.md) for the design and Acceptance
-> criteria. Earlier slices: [`plan.md`](plan.md), [`plan-slice-2.md`](plan-slice-2.md),
-> [`plan-slice-3.md`](plan-slice-3.md), [`plan-slice-4.md`](plan-slice-4.md).
+> criteria. Earlier slices: [`slice-1-auto-decision.md`](slice-1-auto-decision.md), [`slice-2-hold-and-release.md`](slice-2-hold-and-release.md),
+> [`slice-3-refund-effects.md`](slice-3-refund-effects.md), [`slice-4-disputes.md`](slice-4-disputes.md).
 
 **Goal:** The admin can see whether payouts are working — last run, history, held funds, problem
 payments with "Retry" — and is emailed when a run fails, when no run has succeeded for 48 h, and
@@ -48,7 +48,7 @@ of admin actions (C18, slice 8).
 | M9 | Held funds = sum of the instructor's net over `succeeded` payments with `transferStatus = pending`: total, and due in the next 7 days by `releaseEligibleAt` | FR-A8 "total and due in the coming days" | "Coming days" = 7 |
 | M10 | Every admin email and the student's day-3 email are `CRITICAL` (no unsubscribe) and carry no Stripe text | Operational and money notices; C23 | Template class |
 
-Each is logged in `discovery/ai-decision-log.md` in Task 9. The day-3 reminders live only in the
+Each is logged in `journal/ai-decision-log.md` in Task 9. The day-3 reminders live only in the
 watchdog (Task 5), so the release run stays about money.
 
 **Codebase anchors (verified during planning):**
