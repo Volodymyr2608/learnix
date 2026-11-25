@@ -462,3 +462,45 @@ describe("POST /api/chat/course — the turn L2 judges a reply against", () => {
 		expect(l2UserContent()).not.toContain("model_output");
 	});
 });
+
+/**
+ * The next turn replays history ordered by createdAt, so a reply stored before
+ * the message that elicited it is read back as reply-then-question. Seen on
+ * production (ai-input-trust-boundary spec, "Reopened 2026-11-25").
+ */
+describe("POST /api/chat/course — turn order", () => {
+	it("stores the user turn before the reply it elicited", async () => {
+		mockRunChat.mockReset();
+		mockRunChat.mockResolvedValue(streamOf(CLEAN));
+		mockL2Invoke.mockReset();
+		mockL2Invoke.mockResolvedValue({ onTopic: true, reason: "in scope" });
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		mockGetSession.mockResolvedValue({
+			user: { id: instructor.id, role: "INSTRUCTOR" },
+		});
+		const generation = await testDb.courseGeneration.create({
+			data: {
+				instructorId: instructor.id,
+				step: DraftStep.basic,
+				content: {},
+				status: "active",
+			},
+		});
+
+		await readSse(
+			await post({
+				courseGenerationId: generation.id,
+				userMessage: "Course about oRPC",
+			}),
+		);
+
+		const rows = await testDb.courseGenerationMessage.findMany({
+			where: { generationId: generation.id },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(rows.map((r) => r.role)).toEqual(["user", "assistant"]);
+		expect(rows[0]?.createdAt.getTime()).toBeLessThan(
+			rows[1]?.createdAt.getTime() ?? 0,
+		);
+	});
+});

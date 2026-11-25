@@ -290,6 +290,32 @@ export async function POST(req: Request) {
 					send({ type: "retract", message: NEUTRAL_REFUSAL_MESSAGE });
 				}
 
+				// Save user message after the graph so state.history never contains
+				// the current-turn message during this request (avoids duplication in
+				// every node that appends state.userMessage to the history it builds).
+				//
+				// And BEFORE the assistant row: the next turn replays history by
+				// createdAt, so a reply written first is read back as
+				// reply-then-question — on production every stored turn was reversed
+				// (ai-input-trust-boundary, "Reopened 2026-11-25").
+				if (mode === "chat" && body.userMessage) {
+					await courseAIService
+						.saveMessage(courseGeneration.id, {
+							role: "user",
+							content: body.userMessage,
+							step: courseGeneration.step,
+							// The turn that elicited a retracted reply stays in the thread
+							// and leaves the model's context.
+							contextEligible: !isRejected,
+						})
+						.catch((err) =>
+							logger.error(
+								{ feature: "courseAI", err },
+								"[courseAI] failed to save the user message",
+							),
+						);
+				}
+
 				// `failed` is not cosmetic: the assistant write used to sit inside the
 				// try, so a mid-stream provider error skipped it. Gating only on
 				// !aborted && !isRejected would persist the TRUNCATED reply, send done
@@ -310,27 +336,6 @@ export async function POST(req: Request) {
 						);
 				}
 				if (persistable) send({ type: "done" });
-
-				// Save user message after the graph so state.history never contains
-				// the current-turn message during this request (avoids duplication in
-				// every node that appends state.userMessage to the history it builds).
-				if (mode === "chat" && body.userMessage) {
-					await courseAIService
-						.saveMessage(courseGeneration.id, {
-							role: "user",
-							content: body.userMessage,
-							step: courseGeneration.step,
-							// The turn that elicited a retracted reply stays in the thread
-							// and leaves the model's context.
-							contextEligible: !isRejected,
-						})
-						.catch((err) =>
-							logger.error(
-								{ feature: "courseAI", err },
-								"[courseAI] failed to save the user message",
-							),
-						);
-				}
 				abortSignal.removeEventListener("abort", onAbort);
 				try {
 					controller.close();
