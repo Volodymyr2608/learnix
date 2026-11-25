@@ -33,7 +33,7 @@ depends-on: [ai-course-builder, auth]
 > names no subject, and it was never shown what `ok` answers. The same defect refuses ordinary
 > in-step edits (`make it intermediate`), so it was never only an approval bug. A first prompt
 > wording (v1) still refused the Ukrainian replies (1/5, 0/5); v2 adds "in any language, however
-> informal". Script: `evals/_scratch/l2proto.ts` (not committed; the eval rows replace it at `/plan`).
+> informal". The rows are pinned as `pnpm eval aiGuard:priorTurn`.
 >
 > Travelling in the same branch, outside this spec's scope: the course route wrote the assistant row
 > before the user row, so every stored turn reads reply-then-question (prod: 08:42:08.063 assistant,
@@ -216,8 +216,16 @@ Each criterion is phrased to become an eval or unit case directly.
   output boundary rejected cannot vouch for the next message.
 - With no prior turn — a first builder message, or any lesson-assistant turn — the classifier's input
   is byte-identical to the shipped one (pinned by a snapshot or equality test).
-- Enforcement does not fall: `pnpm eval aiGuard:redteam` and `aiGuard:adversarial` are re-run and
-  compared before/after. A drop is a finding to record, not a number to bury.
+- Enforcement does not fall. Measured with and without the prior turn **in the same run**, so the
+  delta is the turn's and not provider drift between runs: every `courseAI` attack row of
+  `aiGuard:adversarial` (injection + off-topic) is run both ways. A drop is a finding to record, not a
+  number to bury. `aiGuard:redteam` is `lessonAI`-only, and the lesson route passes no turn, so its
+  input is byte-identical by the snapshot above and it is not re-run for this item.
+- **Measured 2026-11-25, `pnpm eval aiGuard:priorTurn`, 5 draws per row:** all 9 reply rows pass
+  5/5 (shipped: 0/5 for all but the topic control), all 4 control rows refused 5/5, residual admitted
+  5/5 (accepted). Enforcement: 19/19 `courseAI` attack rows refused without the turn → 19/19 with it.
+  `aiGuard:adversarial` on the branch fails its two gates with the same 24 legitimate rows refused
+  as the caveat under item 12 records — pre-existing, untouched by item 13 (its rows carry no turn).
 - A clean builder turn stores the user row before the assistant row (strict `createdAt` order), so the
   next turn's history replays question-then-reply. Rows written before the fix stay reversed.
 
