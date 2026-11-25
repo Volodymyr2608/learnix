@@ -1,0 +1,26 @@
+import { formatUtcDate } from "@/app/_components/Billing/utils";
+import { REFUND_POLICY_PATH } from "@/server/entities/refund/refundPolicy";
+import type { RefundRequestStatus } from "@/server/entities/refund/refundView.dto";
+
+/** FR-P21: the refund policy page the row links to. */
+export const REFUND_POLICY_HREF = REFUND_POLICY_PATH;
+
+const STATUS_LABEL: Record<RefundRequestStatus, string> = {
+	processing: "Refund processing",
+	// The row's own badge already says "Refunded" (review M6).
+	refunded: "Refund details",
+	denied: "Refund denied",
+	under_review: "Under review",
+	refund_failed: "Refund failed",
+};
+
+/** FR-S12: the status a row shows instead of the action — a link to its details (review I1). */
+export const refundStatusLabel = (status: RefundRequestStatus): string =>
+	STATUS_LABEL[status];
+
+/** FR-S1: the window's end date, shown as visible text next to the action (review I3). */
+export const refundDeadlineText = (windowEndsAt: Date): string =>
+	`Refundable until ${formatUtcDate(windowEndsAt)} (UTC)`;
+
+export const refundPageHref = (paymentId: string): string =>
+	`/dashboard/billing/${paymentId}/refund`;

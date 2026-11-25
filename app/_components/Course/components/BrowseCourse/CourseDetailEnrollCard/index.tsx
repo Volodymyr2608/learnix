@@ -15,6 +15,7 @@ import { Badge } from "@/app/_components/_shared/ui/badge";
 import { Button } from "@/app/_components/_shared/ui/button";
 import { Card, CardContent } from "@/app/_components/_shared/ui/card";
 import { Separator } from "@/app/_components/_shared/ui/separator";
+import { useStudentRefundEnabled } from "@/app/_components/Billing/RefundFlagProvider";
 import type {
 	CourseDetailEnrollCardProps,
 	EnrollActionProps,
@@ -81,6 +82,8 @@ const CourseDetailEnrollCard = ({
 }: CourseDetailEnrollCardProps) => {
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
 	const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+	// UI-1 / U11: with self-service refunds on, the course page says nothing about refunds.
+	const refundsEnabled = useStudentRefundEnabled();
 
 	return (
 		<>
@@ -137,9 +140,11 @@ const CourseDetailEnrollCard = ({
 						/>
 					)}
 
-					<p className="text-center text-muted-foreground text-xs">
-						30-Day Money-Back Guarantee
-					</p>
+					{!refundsEnabled && (
+						<p className="text-center text-muted-foreground text-xs">
+							30-Day Money-Back Guarantee
+						</p>
+					)}
 
 					<Separator />
 

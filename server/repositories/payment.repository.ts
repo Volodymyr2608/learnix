@@ -1,4 +1,9 @@
-import type { Payment, Prisma, ProcessedStripeEvent } from "@/generated/prisma";
+import type {
+	DisputeState,
+	Payment,
+	Prisma,
+	ProcessedStripeEvent,
+} from "@/generated/prisma";
 import { getMonthWindows } from "@/lib/stats/monthWindows";
 import { BaseRepository } from "./base/base.repository";
 
@@ -40,6 +45,312 @@ class PaymentRepository extends BaseRepository<
 
 	findBySessionId(stripeCheckoutSessionId: string) {
 		return this.findFirst({ where: { stripeCheckoutSessionId } });
+	}
+
+	/** C28: the session is looked up by id AND its student in one query. */
+	findBySessionIdForStudent(
+		stripeCheckoutSessionId: string,
+		studentId: string,
+	) {
+		return this.findFirst({ where: { stripeCheckoutSessionId, studentId } });
+	}
+
+	/**
+	 * FR-P18a (D2): stores a dispute state from a Stripe event unless a newer event already set
+	 * one — webhook and replay deliver out of order. Returns the payment id when it applied.
+	 */
+	async recordDisputeState(
+		stripePaymentIntentId: string,
+		state: DisputeState,
+		eventCreated: number,
+	): Promise<string | null> {
+		const rows = await this.db.$queryRaw<{ id: string }[]>`
+			UPDATE payments
+			   SET dispute_state = ${state}::"DisputeState", dispute_updated_at = ${eventCreated}
+			 WHERE stripe_payment_intent_id = ${stripePaymentIntentId}
+			   AND (
+			     dispute_updated_at IS NULL
+			     OR dispute_updated_at < ${eventCreated}
+			     -- qa #1: in the same second a closed state is never replaced by open; an equal
+			     -- event is still re-applied, so a lost dispute whose effects failed is retried.
+			     OR (dispute_updated_at = ${eventCreated}
+			         AND (dispute_state = 'open' OR ${state}::"DisputeState" <> 'open'))
+			   )
+			RETURNING id`;
+		return rows[0]?.id ?? null;
+	}
+
+	/** FR-P18: Stripe says the charge is disputed before its dispute event arrived. */
+	async markDisputeOpen(paymentId: string): Promise<void> {
+		await this.db.payment.updateMany({
+			where: { id: paymentId, disputeState: null },
+			data: { disputeState: "open" },
+		});
+	}
+
+	/** U10: what the student's "refund done" email needs — no Stripe fields. */
+	findForRefundEmail(paymentId: string) {
+		return this.db.payment.findUnique({
+			where: { id: paymentId },
+			select: {
+				id: true,
+				amountCents: true,
+				refundedAmountCents: true,
+				currency: true,
+				student: { select: { id: true, email: true, name: true } },
+				course: { select: { title: true } },
+				refundRequest: { select: { approval: true } },
+			},
+		});
+	}
+
+	/**
+	 * W3 / FR-P16: a partial Dashboard refund's total so far. Only partial refunds are recorded, so
+	 * `amount − refunded_amount` stays what a later refund returns (EC-19).
+	 */
+	recordPartialRefund(paymentId: string, refundedCents: number) {
+		return this.db.payment.updateMany({
+			// qa F6: Stripe does not order events — the recorded total only grows.
+			where: {
+				id: paymentId,
+				status: "succeeded",
+				OR: [
+					{ refundedAmountCents: null },
+					{ refundedAmountCents: { lt: refundedCents } },
+				],
+			},
+			data: { refundedAmountCents: refundedCents },
+		});
+	}
+
+	/**
+	 * FR-P17 / AC-C13 (W4): marks a paid checkout succeeded in one transaction under a per-(student,
+	 * course) advisory lock, so two finalizes of two sessions for one course run one after the other.
+	 * The later one finds the course already paid for: it is the duplicate and is never held for
+	 * transfer. "already" when another finalize got there first.
+	 */
+	claimCheckout(input: {
+		paymentId: string;
+		studentId: string;
+		courseId: string;
+		data: {
+			stripePaymentIntentId: string | null;
+			paidAt: Date | null;
+			stripeFeeCents: number | null;
+			platformFeeCents: number;
+			instructorNetCents: number;
+		};
+	}): Promise<"already" | "paid" | "duplicate"> {
+		return this.db.$transaction(async (tx) => {
+			await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`checkout:${input.studentId}:${input.courseId}`}))`;
+			const current = await tx.payment.findUniqueOrThrow({
+				where: { id: input.paymentId },
+				select: { status: true },
+			});
+			if (current.status !== "pending") return "already";
+			const alreadyPaid = await tx.payment.count({
+				where: {
+					studentId: input.studentId,
+					courseId: input.courseId,
+					status: "succeeded",
+					id: { not: input.paymentId },
+				},
+			});
+			const duplicate = alreadyPaid > 0;
+			await tx.payment.update({
+				where: { id: input.paymentId },
+				data: {
+					...input.data,
+					status: "succeeded",
+					// FR-P1, ADR-037 §1: held until the window closes; a duplicate is never held.
+					transferStatus: duplicate ? "none" : "pending",
+					// qa F1 (C13): the duplicate is marked before its refund, so a crash, a retry or
+					// its own charge.refunded webhook cannot lose or mislabel it.
+					...(duplicate ? { refundSource: "duplicate_charge" as const } : {}),
+				},
+			});
+			return duplicate ? "duplicate" : "paid";
+		});
+	}
+
+	/**
+	 * FR-P27 (W5): marks a refunded payment's bank failure once per failed Stripe refund; a
+	 * cancelled share goes back to held. False when the payment is not refunded, the failure is
+	 * already open, or this refund's failure was already recorded (qa F5: a redelivered event
+	 * cannot reopen a case the admin closed).
+	 */
+	async markBankFailureInTx(
+		tx: Prisma.TransactionClient,
+		paymentId: string,
+		stripeRefundId: string,
+		now: Date,
+	): Promise<boolean> {
+		const { count } = await tx.payment.updateMany({
+			where: {
+				id: paymentId,
+				status: "refunded",
+				bankFailureAt: null,
+				OR: [
+					{ bankFailureRefundId: null },
+					{ bankFailureRefundId: { not: stripeRefundId } },
+				],
+			},
+			data: { bankFailureAt: now, bankFailureRefundId: stripeRefundId },
+		});
+		if (count === 0) return false;
+		await tx.payment.updateMany({
+			where: { id: paymentId, transferStatus: "cancelled" },
+			data: { transferStatus: "pending" },
+		});
+		return true;
+	}
+
+	/** FR-P27 (W6): payments whose refund failed at the bank and is not closed yet. */
+	findOpenBankFailures() {
+		return this.db.payment.findMany({
+			where: { bankFailureAt: { not: null } },
+			orderBy: { bankFailureAt: "asc" },
+			select: {
+				id: true,
+				amountCents: true,
+				currency: true,
+				bankFailureAt: true,
+				course: { select: { title: true } },
+				student: { select: { name: true } },
+			},
+		});
+	}
+
+	/**
+	 * FR-P27 (W6): closes an open bank failure exactly once, in the transaction of its audit row.
+	 * Returns the payment as it was, or null when it was not open. The share is not touched here
+	 * (qa F3): "sale_stands" leaves a held share to the normal release rule and a transferred or
+	 * reversed one to the admin; "refunded_elsewhere" cancels a held one through the effects.
+	 */
+	async resolveBankFailureInTx(
+		tx: Prisma.TransactionClient,
+		paymentId: string,
+		outcome: "refunded_elsewhere" | "sale_stands",
+	): Promise<Payment | null> {
+		const payment = await tx.payment.findFirst({
+			where: { id: paymentId, bankFailureAt: { not: null } },
+		});
+		if (!payment) return null;
+		const { count } = await tx.payment.updateMany({
+			where: { id: paymentId, bankFailureAt: { not: null } },
+			data:
+				outcome === "refunded_elsewhere"
+					? { bankFailureAt: null }
+					: {
+							bankFailureAt: null,
+							status: "succeeded",
+							refundedAt: null,
+							refundSource: null,
+						},
+		});
+		if (count !== 1) return null;
+		// qa #1: the student's refund did not happen — the request stops holding the share and
+		// stops counting (D3). "refunded_elsewhere" re-applies the refund's effects in the service.
+		if (outcome === "sale_stands")
+			await tx.refundRequest.updateMany({
+				where: { paymentId, refundState: "refunded" },
+				data: { refundState: "reversed" },
+			});
+		return payment;
+	}
+
+	/** EC-17 (W9): an earlier payment of this course with a dispute still open at the bank. */
+	async hasOpenDispute(studentId: string, courseId: string): Promise<boolean> {
+		return (
+			(await this.db.payment.count({
+				where: { studentId, courseId, disputeState: "open" },
+			})) > 0
+		);
+	}
+
+	/**
+	 * W2 / FR-P28: recent paid payments saved without their Stripe fee — refunded ones too, since
+	 * Stripe keeps the fee (qa #6).
+	 */
+	async findMissingFees(paidSince: Date, limit: number) {
+		const rows = await this.db.payment.findMany({
+			where: {
+				status: { in: ["succeeded", "refunded"] },
+				stripeFeeCents: null,
+				stripePaymentIntentId: { not: null },
+				paidAt: { gte: paidSince },
+			},
+			orderBy: { paidAt: "asc" },
+			take: limit,
+			select: { id: true, stripePaymentIntentId: true },
+		});
+		return rows.map((r) => ({
+			id: r.id,
+			stripePaymentIntentId: r.stripePaymentIntentId as string,
+		}));
+	}
+
+	/** V15 / FR-A7: flag a payment refunded in the Stripe Dashboard for an admin to look at. */
+	markNeedsReview(paymentId: string, now: Date) {
+		return this.db.payment.updateMany({
+			where: { id: paymentId, needsReviewAt: null },
+			data: { needsReviewAt: now },
+		});
+	}
+
+	clearNeedsReview(paymentId: string) {
+		return this.db.payment.updateMany({
+			where: { id: paymentId },
+			data: { needsReviewAt: null },
+		});
+	}
+
+	/** V15: flagged payments, oldest flag first — what the admin list shows. */
+	findNeedsReview() {
+		return this.db.payment.findMany({
+			where: { needsReviewAt: { not: null } },
+			orderBy: { needsReviewAt: "asc" },
+			select: {
+				id: true,
+				status: true,
+				amountCents: true,
+				currency: true,
+				needsReviewAt: true,
+				refundedAt: true,
+				course: { select: { title: true } },
+				student: { select: { name: true } },
+			},
+		});
+	}
+
+	/** V16: what a payment notice names — the course, the amount and the student's contact. */
+	findForNotice(paymentId: string) {
+		return this.db.payment.findUnique({
+			where: { id: paymentId },
+			select: {
+				id: true,
+				amountCents: true,
+				currency: true,
+				course: { select: { title: true } },
+				student: { select: { id: true, email: true, name: true } },
+			},
+		});
+	}
+
+	/** V14: what the exception refund checks before it touches Stripe. */
+	findForException(paymentId: string) {
+		return this.db.payment.findUnique({
+			where: { id: paymentId },
+			select: {
+				id: true,
+				status: true,
+				stripePaymentIntentId: true,
+				disputeState: true,
+				refundRequest: {
+					select: { refundState: true, appeal: { select: { status: true } } },
+				},
+			},
+		});
 	}
 
 	findByPaymentIntentId(stripePaymentIntentId: string) {
@@ -171,6 +482,14 @@ class PaymentRepository extends BaseRepository<
 			include: {
 				course: { select: { id: true, title: true } },
 				instructor: { select: { name: true } },
+				// U7: the refund row state needs the request's status, never its text or Stripe ids.
+				refundRequest: {
+					select: {
+						decision: true,
+						refundState: true,
+						appeal: { select: { status: true } },
+					},
+				},
 			},
 			orderBy: { createdAt: "desc" },
 		});

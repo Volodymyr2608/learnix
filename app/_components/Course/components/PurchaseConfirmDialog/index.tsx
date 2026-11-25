@@ -11,15 +11,24 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/app/_components/_shared/ui/dialog";
+import { useStudentRefundEnabled } from "@/app/_components/Billing/RefundFlagProvider";
 import type { PurchaseConfirmDialogProps } from "@/app/_components/Course/components/PurchaseConfirmDialog/types";
 import { formatPrice } from "@/lib/formatPrice";
 import { api } from "@/trpc/client";
+import { REPURCHASE_NOT_REFUNDABLE_TEXT } from "./utils";
 
 const PurchaseConfirmDialog = ({
 	open,
 	onOpenChange,
 	course,
 }: PurchaseConfirmDialogProps) => {
+	// UI-1 / U11: no refund promise in the purchase dialog once self-service refunds are on.
+	const refundsEnabled = useStudentRefundEnabled();
+	// FR-S23 (W9): the server decides with the counting-refund definition; asked when the dialog opens.
+	const repurchase = api.refund.repurchaseWarning.useQuery(
+		{ courseId: course.id },
+		{ enabled: open && refundsEnabled, retry: false },
+	);
 	const checkout = api.payment.createCheckoutSession.useMutation({
 		onSuccess: ({ url }) => {
 			window.location.href = url;
@@ -77,11 +86,19 @@ const PurchaseConfirmDialog = ({
 						<Award className="h-4 w-4 text-green-500" />
 						<span>Certificate of completion</span>
 					</div>
-					<div className="flex items-center gap-2 text-muted-foreground text-sm">
-						<ShieldCheck className="h-4 w-4 text-green-500" />
-						<span>30-day money-back guarantee</span>
-					</div>
+					{!refundsEnabled && (
+						<div className="flex items-center gap-2 text-muted-foreground text-sm">
+							<ShieldCheck className="h-4 w-4 text-green-500" />
+							<span>30-day money-back guarantee</span>
+						</div>
+					)}
 				</div>
+
+				{repurchase.data?.notRefundable && (
+					<p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-amber-800 text-sm dark:text-amber-300">
+						{REPURCHASE_NOT_REFUNDABLE_TEXT}
+					</p>
+				)}
 
 				<div className="flex gap-3 pt-4">
 					<Button

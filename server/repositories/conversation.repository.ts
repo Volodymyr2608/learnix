@@ -9,6 +9,8 @@ export type ConversationWithParticipants = {
 	studentName: string;
 	instructorName: string;
 	courseTitle: string;
+	/** FR-P11: set when a refund closed it; nobody can send, history stays readable. */
+	closedAt: Date | null;
 };
 
 export type ConversationInboxRow = {
@@ -55,6 +57,7 @@ export default class ConversationRepository extends BaseRepository<
 		}
 	}
 
+	/** R5: a repurchase reopens the student's conversations about the course. */
 	async findWithParticipants(
 		id: string,
 	): Promise<ConversationWithParticipants | null> {
@@ -65,6 +68,7 @@ export default class ConversationRepository extends BaseRepository<
 				studentId: true,
 				instructorId: true,
 				courseId: true,
+				closedAt: true,
 				student: { select: { name: true } },
 				instructor: { select: { name: true } },
 				course: { select: { title: true } },
@@ -79,6 +83,7 @@ export default class ConversationRepository extends BaseRepository<
 			studentName: row.student.name,
 			instructorName: row.instructor.name,
 			courseTitle: row.course.title,
+			closedAt: row.closedAt,
 		};
 	}
 

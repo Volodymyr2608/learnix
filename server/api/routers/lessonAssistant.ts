@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { conceptCheckRepository } from "@/server/repositories/conceptCheck.repository";
+import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { aiRateLimit } from "@/server/services/_shared/aiLimits/aiRateLimit.middleware";
 import { conceptCheckService } from "@/server/services/conceptCheck/conceptCheck.service";
@@ -11,6 +12,16 @@ export const lessonAssistantRouter = createTRPCRouter({
 		.input(z.object({ lessonId: z.string().max(64) }))
 		.query(async ({ input, ctx }) => {
 			try {
+				// Not only deletion: a tutor turn in flight can write after a refund cleared the
+				// thread, so a refunded student reads nothing back.
+				if (
+					!(await enrollmentRepository.hasAccessToLesson(
+						ctx.session.user.id,
+						input.lessonId,
+					))
+				) {
+					return [];
+				}
 				return await lessonAssistantRepository.getMessages(
 					input.lessonId,
 					ctx.session.user.id,
@@ -37,6 +48,14 @@ export const lessonAssistantRouter = createTRPCRouter({
 		.input(z.object({ lessonId: z.string().max(64) }))
 		.query(async ({ input, ctx }) => {
 			try {
+				if (
+					!(await enrollmentRepository.hasAccessToLesson(
+						ctx.session.user.id,
+						input.lessonId,
+					))
+				) {
+					return null;
+				}
 				return await conceptCheckRepository.findPendingPublic(
 					ctx.session.user.id,
 					input.lessonId,

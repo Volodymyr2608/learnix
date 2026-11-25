@@ -180,6 +180,7 @@ export function makePayment(
 			instructorNetCents: 3999,
 			status: "succeeded",
 			transferStatus: "none",
+			paidAt: new Date(),
 			...overrides,
 		},
 	});
@@ -214,5 +215,125 @@ export function makeMessage(
 ) {
 	return testDb.message.create({
 		data: { body: "Hello, I have a question about lesson 2.", ...overrides },
+	});
+}
+
+export function makeRefundRequest(
+	overrides: Partial<Prisma.RefundRequestUncheckedCreateInput> & {
+		paymentId: string;
+		studentId: string;
+		courseId: string;
+	},
+) {
+	const decision = overrides.decision ?? "auto_approved";
+	return testDb.refundRequest.create({
+		data: {
+			reason: "too_easy",
+			failedConditions: [],
+			snapshot: {},
+			// V2: an automatic approval carries approval = automatic, as the request path writes it.
+			approval: decision === "auto_approved" ? "automatic" : null,
+			approvedAt:
+				decision === "auto_approved"
+					? (overrides.createdAt ?? new Date())
+					: null,
+			...overrides,
+			decision,
+		},
+	});
+}
+
+export function makeOpenedLesson(
+	overrides: Partial<Prisma.OpenedLessonUncheckedCreateInput> & {
+		studentId: string;
+		lessonId: string;
+	},
+) {
+	return testDb.openedLesson.create({ data: { ...overrides } });
+}
+
+export function makeConceptCheck(
+	overrides: Partial<Prisma.ConceptCheckUncheckedCreateInput> & {
+		studentId: string;
+		lessonId: string;
+		courseId: string;
+	},
+) {
+	return testDb.conceptCheck.create({
+		data: {
+			concept: "Recursion",
+			conceptKey: "recursion",
+			question: "What stops a recursion?",
+			questionKey: "what stops a recursion",
+			options: ["A base case", "A loop"],
+			correct: "A base case",
+			expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+			...overrides,
+		},
+	});
+}
+
+export function makeLearningPathCache(
+	overrides: Partial<Prisma.LearningPathCacheUncheckedCreateInput> & {
+		studentId: string;
+		courseId: string;
+	},
+) {
+	return testDb.learningPathCache.create({
+		data: {
+			steps: [],
+			summary: "Keep going",
+			weakConcepts: [],
+			model: "test-model",
+			...overrides,
+		},
+	});
+}
+
+export function makeLessonAssistantConversation(
+	overrides: Partial<Prisma.LessonAssistantConversationUncheckedCreateInput> & {
+		lessonId: string;
+		studentId: string;
+	},
+) {
+	return testDb.lessonAssistantConversation.create({
+		data: {
+			...overrides,
+			messages: { create: [{ role: "user", content: "Why?" }] },
+		},
+	});
+}
+
+export function makeAppeal(
+	overrides: Partial<Prisma.RefundAppealUncheckedCreateInput> & {
+		requestId: string;
+	},
+) {
+	return testDb.refundAppeal.create({
+		data: {
+			kind: "after_denial",
+			exceededCondition: "window",
+			reason: "other",
+			text: "The course did not match its description.",
+			deadlineAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+			...overrides,
+		},
+	});
+}
+
+export function makeEvidenceFile(
+	overrides: Partial<Prisma.RefundEvidenceFileUncheckedCreateInput> & {
+		appealId: string;
+	},
+) {
+	return testDb.refundEvidenceFile.create({
+		data: {
+			uploadedBy: "student",
+			blobPathname: `refund-evidence/${Math.random().toString(36).slice(2)}`,
+			fileName: "proof.png",
+			contentType: "image/png",
+			sizeBytes: 10,
+			...overrides,
+		},
 	});
 }

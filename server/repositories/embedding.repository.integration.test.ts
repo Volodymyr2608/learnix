@@ -3,6 +3,7 @@ import { testDb } from "@/test/db";
 import {
 	makeCourse,
 	makeLesson,
+	makeOpenedLesson,
 	makeSection,
 	makeUser,
 } from "@/test/factories";
@@ -55,5 +56,60 @@ describe("embeddingRepository lesson-chunk scoping", () => {
 		);
 
 		expect(rows).toEqual([]);
+	});
+});
+
+describe("embeddingRepository.searchCourseChunks — opened lessons only (AI-C2, AC-L2)", () => {
+	let courseId: string;
+	let studentId: string;
+	let otherId: string;
+	let opened: string;
+	let unopened: string;
+
+	beforeEach(async () => {
+		const instructor = await makeUser({ role: "INSTRUCTOR" });
+		studentId = (await makeUser()).id;
+		otherId = (await makeUser()).id;
+		courseId = (await makeCourse({ instructorId: instructor.id })).id;
+		const section = await makeSection({ courseId });
+		opened = (await makeLesson({ sectionId: section.id, order: 1, title: "A" }))
+			.id;
+		unopened = (
+			await makeLesson({ sectionId: section.id, order: 2, title: "B" })
+		).id;
+		await embeddingRepository.replaceLessonChunks(
+			opened,
+			[{ content: "From A.", index: 0 }],
+			[VECTOR],
+		);
+		await embeddingRepository.replaceLessonChunks(
+			unopened,
+			[{ content: "From B.", index: 0 }],
+			[VECTOR],
+		);
+		await makeOpenedLesson({ studentId, lessonId: opened });
+		await makeOpenedLesson({ studentId: otherId, lessonId: unopened });
+	});
+
+	it("returns chunks of the lessons this student opened, none of the others", async () => {
+		const rows = await embeddingRepository.searchCourseChunks(
+			courseId,
+			studentId,
+			VECTOR,
+			8,
+		);
+
+		expect(rows.map((r) => r.content)).toEqual(["From A."]);
+	});
+
+	it("does not count another student's opens", async () => {
+		const rows = await embeddingRepository.searchCourseChunks(
+			courseId,
+			otherId,
+			VECTOR,
+			8,
+		);
+
+		expect(rows.map((r) => r.content)).toEqual(["From B."]);
 	});
 });

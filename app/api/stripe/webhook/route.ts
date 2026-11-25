@@ -1,11 +1,9 @@
 import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { env } from "@/lib/env";
-import { instructorRepository } from "@/server/repositories/instructor.repository";
 import { processedStripeEventRepository } from "@/server/repositories/payment.repository";
-import { connectService } from "@/server/services/payments/connect.service";
-import { paymentService } from "@/server/services/payments/payment.service";
 import { stripe } from "@/server/services/payments/stripe.client";
+import { stripeEventService } from "@/server/services/payments/stripeEvent.service";
 import { logger } from "@/server/utils/logger";
 
 export const runtime = "nodejs";
@@ -46,37 +44,7 @@ export async function POST(req: NextRequest) {
 	}
 
 	try {
-		switch (event.type) {
-			case "checkout.session.completed": {
-				const session = event.data.object as Stripe.Checkout.Session;
-				await paymentService.finalizeCheckout(session.id);
-				break;
-			}
-			case "charge.refunded": {
-				const charge = event.data.object as Stripe.Charge;
-				const paymentIntentId =
-					typeof charge.payment_intent === "string"
-						? charge.payment_intent
-						: charge.payment_intent?.id;
-				if (paymentIntentId) {
-					await paymentService.handleRefund(paymentIntentId);
-				}
-				break;
-			}
-			case "account.updated": {
-				const account = event.data.object as Stripe.Account;
-				await connectService.syncAccountStatus(account);
-				if (account.payouts_enabled) {
-					const profile = await instructorRepository.findFirst({
-						where: { stripeAccountId: account.id },
-					});
-					if (profile) {
-						await connectService.sweepPendingTransfers(profile.userId);
-					}
-				}
-				break;
-			}
-		}
+		await stripeEventService.handle(event, new Date());
 	} catch (err) {
 		logger.error("Webhook handler error:", err);
 		return new Response("webhook handler failed", { status: 500 });

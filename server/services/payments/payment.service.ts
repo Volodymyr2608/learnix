@@ -1,3 +1,4 @@
+import type Stripe from "stripe";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { env } from "@/lib/env";
 import { computeSplit } from "@/lib/platformFee";
@@ -15,16 +16,88 @@ import type {
 import { courseRepository } from "@/server/repositories/course.repository";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { paymentRepository } from "@/server/repositories/payment.repository";
+import { payoutRepository } from "@/server/repositories/payout.repository";
 import { enrollmentService } from "@/server/services/enrollment/enrollment.service";
 import {
 	AlreadyEnrolledError,
 	CourseIsFreeError,
 	CourseNotPurchasableError,
+	RepurchaseDisputedError,
 } from "@/server/services/payments/payment.errors";
-import { connectService } from "./connect.service";
+import { refundService } from "@/server/services/refund/refund.service";
+import { refundEffectsService } from "@/server/services/refund/refundEffects.service";
+import { refundNotificationsService } from "@/server/services/refund/refundNotifications.service";
+import { logger } from "@/server/utils/logger";
+import { adminAlertService } from "./adminAlert.service";
 import { stripe } from "./stripe.client";
 
+/**
+ * The Stripe charge's creation time, or null when the charge is not expanded on
+ * the session. A null paidAt is outside the refund window (P4, fail closed).
+ */
+const chargeCreatedAt = (
+	paymentIntent: Stripe.Checkout.Session["payment_intent"],
+): Date | null => {
+	if (!paymentIntent || typeof paymentIntent === "string") return null;
+	const charge = paymentIntent.latest_charge;
+	if (!charge || typeof charge === "string") return null;
+	return new Date(charge.created * 1000);
+};
+
+/**
+ * FR-P28 (W2): the Stripe processing fee from the charge's balance transaction, or null when it is
+ * not available yet. A measurement: it never fails the checkout (FS-15).
+ */
+const chargeFeeCents = (charge: unknown): number | null => {
+	if (!charge || typeof charge !== "object") return null;
+	const txn = (charge as { balance_transaction?: unknown }).balance_transaction;
+	if (!txn || typeof txn !== "object") return null;
+	const fee = (txn as { fee?: unknown }).fee;
+	return typeof fee === "number" ? fee : null;
+};
+
+const sessionCharge = (
+	paymentIntent: Stripe.Checkout.Session["payment_intent"],
+): unknown =>
+	paymentIntent && typeof paymentIntent === "object"
+		? paymentIntent.latest_charge
+		: null;
+
+/** W2: missing fees are filled for payments of the last 30 days, 50 per daily run. */
+const FEE_FILL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const FEE_FILL_BATCH = 50;
+
 class PaymentService {
+	/**
+	 * FR-P28 / FS-15 (W2): fills the Stripe fee of recent payments that were saved without one. Each
+	 * read stands alone — a failing one is left for the next run. Returns how many it filled.
+	 */
+	async fillMissingFees(now: Date): Promise<number> {
+		const missing = await paymentRepository.findMissingFees(
+			new Date(now.getTime() - FEE_FILL_WINDOW_MS),
+			FEE_FILL_BATCH,
+		);
+		let filled = 0;
+		for (const payment of missing) {
+			try {
+				const pi = await stripe.paymentIntents.retrieve(
+					payment.stripePaymentIntentId,
+					{ expand: ["latest_charge.balance_transaction"] },
+				);
+				const fee = chargeFeeCents(pi.latest_charge);
+				if (fee === null) continue;
+				await paymentRepository.update(payment.id, { stripeFeeCents: fee });
+				filled++;
+			} catch (error) {
+				logger.warn("Stripe fee read failed; retried next run", {
+					paymentId: payment.id,
+					error,
+				});
+			}
+		}
+		return filled;
+	}
+
 	async createCheckoutSession(
 		studentId: string,
 		courseId: string,
@@ -68,6 +141,11 @@ class PaymentService {
 			throw new AlreadyEnrolledError({ courseId, studentId });
 		}
 
+		// EC-17 (W9): no repurchase while a dispute on an earlier payment of the course is open.
+		if (await paymentRepository.hasOpenDispute(studentId, courseId)) {
+			throw new RepurchaseDisputedError({ courseId, studentId });
+		}
+
 		// 5. Create a pending Payment record
 		const payment = await paymentRepository.create({
 			studentId,
@@ -109,89 +187,127 @@ class PaymentService {
 		return { url: session.url };
 	}
 
-	async finalizeCheckout(sessionId: string): Promise<{ status: string }> {
-		// 1. Find payment by sessionId
+	/**
+	 * FR-P26 / C28 — the status a student polls after checkout. Only the student who owns the
+	 * session may finalize it; anyone else gets "not_found" and nothing changes. The signed
+	 * webhook calls finalizeCheckout directly.
+	 */
+	async finalizeCheckoutForStudent(
+		sessionId: string,
+		studentId: string,
+	): Promise<{ status: string }> {
+		const owned = await paymentRepository.findBySessionIdForStudent(
+			sessionId,
+			studentId,
+		);
+		if (!owned) return { status: "not_found" };
+		return this.finalizeCheckout(sessionId);
+	}
+
+	async finalizeCheckout(
+		sessionId: string,
+	): Promise<{ status: string; duplicate?: true }> {
 		const payment = await paymentRepository.findBySessionId(sessionId);
+		if (!payment) return { status: "not_found" };
 
-		if (!payment) {
-			return { status: "not_found" };
+		// Idempotency. No transfer here (H9): the release job pays it later. A double charge keeps
+		// telling the student what happened (FR-P17); one whose refund has not happened yet is
+		// refunded now — list-then-create and the effects CAS make a repeat harmless (qa F1).
+		if (payment.refundSource === "duplicate_charge") {
+			if (payment.status === "succeeded")
+				await this.refundDuplicate(payment.id, payment.stripePaymentIntentId);
+			return { status: "succeeded", duplicate: true };
 		}
-
-		// 3. Idempotency — already succeeded
-		if (payment.status === "succeeded") {
-			// Retry transfer if it was never attempted (e.g., prior run threw after marking succeeded)
-			if (payment.transferStatus === "none" && payment.instructorNetCents) {
-				await connectService.transferToInstructor(payment);
-			}
+		if (payment.status === "succeeded" || payment.status === "refunded")
 			return { status: "succeeded" };
-		}
+		// qa #8: any other settled status is final — never re-enter the claim.
+		if (payment.status !== "pending") return { status: payment.status };
 
-		// 2. Retrieve session from Stripe
-		const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-		// 4. Not paid yet
-		if (session.payment_status !== "paid") {
-			return { status: "pending" };
-		}
-
-		// 5. Mark payment succeeded + store stripePaymentIntentId
-		const updatedPayment = await paymentRepository.update(payment.id, {
-			status: "succeeded",
-			stripePaymentIntentId:
-				typeof session.payment_intent === "string"
-					? session.payment_intent
-					: (session.payment_intent?.id ?? null),
+		// The charge and its balance transaction are expanded, so paidAt (the refund window start)
+		// and the Stripe fee (FR-P28) come from the same call.
+		const session = await stripe.checkout.sessions.retrieve(sessionId, {
+			expand: ["payment_intent.latest_charge.balance_transaction"],
 		});
+		if (session.payment_status !== "paid") return { status: "pending" };
 
-		// 6. Enroll the student
-		await enrollmentService.enrollInCourse(payment.studentId, payment.courseId);
-
-		// 7. Compute the platform/instructor split
 		const { platformFeeCents, instructorNetCents } = computeSplit(
 			payment.amountCents,
 			env.STRIPE_PLATFORM_FEE_PERCENT,
 		);
+		const stripePaymentIntentId =
+			typeof session.payment_intent === "string"
+				? session.payment_intent
+				: (session.payment_intent?.id ?? null);
 
-		// 8. Persist split amounts
-		const paymentWithSplit = await paymentRepository.update(updatedPayment.id, {
-			platformFeeCents,
-			instructorNetCents,
+		// FR-P17 / AC-C13 (W4): the later of two paid checkouts for a course is the duplicate.
+		const outcome = await paymentRepository.claimCheckout({
+			paymentId: payment.id,
+			studentId: payment.studentId,
+			courseId: payment.courseId,
+			data: {
+				stripePaymentIntentId,
+				paidAt: chargeCreatedAt(session.payment_intent),
+				stripeFeeCents: chargeFeeCents(sessionCharge(session.payment_intent)),
+				platformFeeCents,
+				instructorNetCents,
+			},
 		});
 
-		// 9. Attempt transfer to instructor (handles onboarding check internally)
-		await connectService.transferToInstructor(paymentWithSplit);
+		if (outcome === "already") return this.finalizeCheckout(sessionId);
+		if (outcome === "duplicate") {
+			await this.refundDuplicate(payment.id, stripePaymentIntentId);
+			return { status: "succeeded", duplicate: true };
+		}
 
+		await enrollmentService.enrollInCourse(payment.studentId, payment.courseId);
 		return { status: "succeeded" };
 	}
 
-	async handleRefund(paymentIntentId: string): Promise<void> {
-		// 1. Find payment by paymentIntentId
-		const payment =
-			await paymentRepository.findByPaymentIntentId(paymentIntentId);
-
-		if (!payment) return;
-
-		// 2. Mark refunded + set refundedAt
-		await paymentRepository.update(payment.id, {
-			status: "refunded",
-			refundedAt: new Date(),
-		});
-
-		// 3. Cancel enrollment
-		const enrollment = await enrollmentRepository.findFirst({
-			where: { studentId: payment.studentId, courseId: payment.courseId },
-			select: { id: true },
-		});
-
-		if (enrollment) {
-			await enrollmentRepository.update(enrollment.id, {
-				status: EnrollmentStatus.cancelled,
+	/**
+	 * FR-P17 (W4): refunds a double charge at once — Stripe first (shared list-then-create, one
+	 * idempotency key), then the effects on path `duplicate_charge` (the other paid purchase keeps the
+	 * course; no request row, so it counts for nothing). A Stripe failure flags the payment for the
+	 * admin instead of failing the checkout.
+	 */
+	private async refundDuplicate(
+		paymentId: string,
+		stripePaymentIntentId: string | null,
+	): Promise<void> {
+		const now = new Date();
+		try {
+			if (!stripePaymentIntentId) throw new Error("no payment intent");
+			await refundService.refundAtStripe({
+				paymentId,
+				stripePaymentIntentId,
+				disputeState: null,
 			});
-		}
-
-		// 4. Reverse transfer if already transferred
-		if (payment.transferStatus === "transferred") {
-			await connectService.reverseTransfer(payment);
+			await refundEffectsService.apply({
+				paymentId,
+				path: "duplicate_charge",
+				now,
+			});
+			await refundNotificationsService
+				.duplicateCharge(paymentId)
+				.catch((error) =>
+					logger.error("Duplicate-charge email failed", { paymentId, error }),
+				);
+		} catch (error) {
+			logger.error(
+				"Duplicate charge could not be refunded; flagged for the admin",
+				{
+					paymentId,
+					error,
+				},
+			);
+			// qa #3: flagged and emailed as a double charge; the next status check retries it.
+			await adminAlertService
+				.duplicateChargeFailed(paymentId, now)
+				.catch((alertError) =>
+					logger.error("Duplicate-charge admin alert failed", {
+						paymentId,
+						error: alertError,
+					}),
+				);
 		}
 	}
 
@@ -236,14 +352,17 @@ class PaymentService {
 	}
 
 	async getRevenueSummary(instructorId: string): Promise<RevenueSummary> {
-		const [earnings, monthStats] = await Promise.all([
+		const [earnings, monthStats, held] = await Promise.all([
 			this.getInstructorEarnings(instructorId),
 			paymentRepository.getInstructorRevenueStats(instructorId),
+			payoutRepository.heldForInstructor(instructorId, new Date()),
 		]);
 		return {
 			totalGrossCents: earnings.lifetimeGrossCents,
 			paidOutCents: earnings.availableCents,
-			pendingCents: earnings.owedCents,
+			// FR-I1 (W7): the two held amounts, from the release predicate.
+			onHoldCents: held.onHoldCents,
+			waitingForStripeCents: held.waitingForStripeCents,
 			thisMonth: {
 				grossCents: monthStats.thisMonthGrossCents,
 				delta: computeDelta(

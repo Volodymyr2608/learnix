@@ -143,6 +143,11 @@ const days = Number(searchParams.get("inactiveDays") ?? 7);
 
 Upload endpoints must:
 1. Require an authenticated session (Rule 1) and verify the caller's role (`INSTRUCTOR` or `ADMIN`). Students must not be able to upload files.
+   *Amended 2026-11-16 (`refund-self-service`):* one exception. A `STUDENT` may upload refund-appeal
+   evidence through the dedicated private-blob handler only. That handler binds the upload to the
+   student's own payment, checks magic bytes against the allowlist, stores the file as **private**
+   (never `access: "public"`), and serves it only through an authorizing route to that student or an
+   `ADMIN`. No other student upload path is allowed.
 2. Validate `file.type` against an explicit allowlist before uploading.
 3. Never trust the file extension from the original filename for security decisions.
 

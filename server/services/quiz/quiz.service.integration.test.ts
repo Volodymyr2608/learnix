@@ -20,6 +20,7 @@ import {
 	makeEnrollment,
 	makeLesson,
 	makeLessonInsights,
+	makeOpenedLesson,
 	makeQuiz,
 	makeQuizAttempt,
 	makeSection,
@@ -38,6 +39,8 @@ describe("quizService.submit — mastery promotion", () => {
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		// G10: normal use opens the lesson before its quizzes.
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		if (opts.withInsights) await makeLessonInsights({ lessonId: lesson.id });
 		studentId = student.id;
 		lessonId = lesson.id;
@@ -236,6 +239,8 @@ describe("quizService.submit — grading reads the key through a different door"
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		// G10: normal use opens the lesson before its quizzes.
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		await makeLessonInsights({ lessonId: lesson.id });
 		studentId = student.id;
 		lessonId = lesson.id;
@@ -298,6 +303,8 @@ describe("quizService.submit — the attempt cap", () => {
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		// G10: normal use opens the lesson before its quizzes.
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		await makeLessonInsights({ lessonId: lesson.id });
 		studentId = student.id;
 		lessonId = lesson.id;
@@ -592,6 +599,8 @@ describe("quizService.submit — promotion follows the tag, not the lesson", () 
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		// G10: normal use opens the lesson before its quizzes.
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		await makeLessonInsights({ lessonId: lesson.id, concepts });
 		studentId = student.id;
 		lessonId = lesson.id;

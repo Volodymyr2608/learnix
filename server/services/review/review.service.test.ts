@@ -6,6 +6,7 @@ const mockEnrollmentRepo = { findByStudentCourse: vi.fn() };
 const mockReviewRepo = {
 	findByStudentAndCourse: vi.fn(),
 	create: vi.fn(),
+	restoreHidden: vi.fn().mockResolvedValue(null),
 };
 const mockCourseRepo = { findFirst: vi.fn() };
 

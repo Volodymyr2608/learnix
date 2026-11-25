@@ -1,0 +1,26 @@
+/// FR-P9 / A11: completed minutes and lessons moved out of a refunded course's records, per UTC day,
+/// with no course — so every study statistic (live rows + archive) is unchanged by a refund.
+/// Deleted with the student's account (ADR-025).
+model StudyArchive {
+  studentId      String   @map("student_id")
+  /// UTC midnight of the day the lessons were completed.
+  day            DateTime @db.Timestamp(3)
+  minutes        Int
+  lessons        Int
+  /// Correct quiz answers of the refunded course (the "correct answers" achievements). Filed under
+  /// the refund day with minutes = lessons = 0, so it never adds a study day.
+  correctAnswers Int      @default(0) @map("correct_answers")
+
+  @@id([studentId, day])
+  @@map("study_archive")
+}
+
+/// FR-P15: how far the daily job has replayed one Stripe event type.
+model StripeReplayCursor {
+  /// The event type, e.g. "charge.refunded".
+  id               String   @id
+  lastEventCreated Int      @map("last_event_created")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("stripe_replay_cursors")
+}

@@ -35,7 +35,7 @@ model ConceptCheck {
   /// budget counts and what the mastery write binds to.
   conceptKey String
 
-  question String   @db.Text
+  question    String   @db.Text
   /// `conceptKey()` of `question`, by the same rule that keys concept identity.
   /// A question is asked once: the model cannot remember what it asked — the
   /// design keeps the authored check out of `toolCalls` and replays content only
@@ -43,11 +43,11 @@ model ConceptCheck {
   questionKey String
   /// Shuffled by the server's CSPRNG before the row is written. Grading reads
   /// option text, never an index into the order the model authored.
-  options  String[]
+  options     String[]
   /// The answer key. It leaves the server through exactly one channel — the
   /// terminal response of a successful `answerConceptCheck` claim — so every
   /// read path here selects an explicit field list that omits it.
-  correct  String
+  correct     String
 
   status         ConceptCheckStatus @default(PENDING)
   selectedAnswer String?

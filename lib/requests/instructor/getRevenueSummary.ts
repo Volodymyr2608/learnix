@@ -6,7 +6,8 @@ const EMPTY: RevenueSummary = {
 	totalGrossCents: 0,
 	thisMonth: { grossCents: 0, delta: { kind: "none" } },
 	paidOutCents: 0,
-	pendingCents: 0,
+	onHoldCents: 0,
+	waitingForStripeCents: 0,
 };
 
 const getRevenueSummary = async (): Promise<RevenueSummary> => {

@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { EnrollmentStatus } from "@/generated/prisma";
 import { getSession } from "@/server/better-auth/server";
+import { lessonOpenedSelect } from "@/server/repositories/contentGate";
 import { enrollmentRepository } from "@/server/repositories/enrollment.repository";
 import { lessonAssistantRepository } from "@/server/repositories/lessonAssistant.repository";
 import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
 import { guardUserInput } from "@/server/services/_shared/aiGuard/guardUserInput";
+import { logContentGateRefusal } from "@/server/services/_shared/aiGuard/securityLog";
 import {
 	checkAiRateLimit,
 	validateMessageLength,
@@ -72,6 +74,9 @@ export async function POST(req: Request) {
 									// the statement that proved enrollment, not from a lookup
 									// keyed by an id the request supplied.
 									lessonInsights: { select: { concepts: true } },
+									// FR-P19a / AI-C1: read from the same authorizing statement — has
+									// this student opened the lesson?
+									...lessonOpenedSelect(session.user.id),
 								},
 							},
 						},
@@ -90,6 +95,15 @@ export async function POST(req: Request) {
 	const lesson = enrollment.course.sections.flatMap((s) => s.lessons)[0];
 	if (!lesson) {
 		return new Response("Lesson not found", { status: 404 });
+	}
+	// AI-C1 (G2): only an opened lesson reaches the guard and the model; nothing is stored.
+	if (lesson.openedBy.length === 0) {
+		logContentGateRefusal({
+			feature: "lessonAI",
+			userId: session.user.id,
+			lessonId: lesson.id,
+		});
+		return new Response("Lesson not opened", { status: 403 });
 	}
 
 	const courseTitle = enrollment.course.title;

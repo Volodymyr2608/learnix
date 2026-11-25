@@ -11,6 +11,11 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
+import {
+	REFUND_POLICY_PATH,
+	refundFaqAnswer,
+} from "@/server/entities/refund/refundPolicy";
+import { isStudentRefundEnabled } from "@/server/services/refund/refundFlag";
 
 const plans = [
 	{
@@ -79,14 +84,25 @@ const faqs = [
 		answer:
 			"We accept all major credit cards, PayPal, and bank transfers for Enterprise plans.",
 	},
-	{
-		question: "Can I get a refund?",
-		answer:
-			"Yes, we offer a 30-day money-back guarantee. If you're not satisfied, contact us for a full refund.",
-	},
 ];
 
+/** Review I4: the refund policy follows the flag at request time, never the build-time value. */
+export const dynamic = "force-dynamic";
+
 export default function PricingPage() {
+	// U11: the policy changes with the student flag; until then today's promise stands.
+	const refundsEnabled = isStudentRefundEnabled();
+	const allFaqs = [
+		...faqs,
+		{
+			question: "Can I get a refund?",
+			answer: refundFaqAnswer(refundsEnabled),
+			// FR-P21: the full rules live on their own page, which exists only with the flag on.
+			link: refundsEnabled
+				? { href: REFUND_POLICY_PATH, label: "Read the full refund policy" }
+				: undefined,
+		},
+	];
 	return (
 		<PageLayout>
 			{/* Hero Section */}
@@ -249,13 +265,21 @@ export default function PricingPage() {
 						</div>
 
 						<div className="space-y-6">
-							{faqs.map((faq) => (
+							{allFaqs.map((faq) => (
 								<Card key={faq.question}>
 									<CardHeader>
 										<CardTitle className="text-lg">{faq.question}</CardTitle>
 									</CardHeader>
-									<CardContent>
+									<CardContent className="space-y-3">
 										<p className="text-muted-foreground">{faq.answer}</p>
+										{"link" in faq && faq.link && (
+											<Link
+												className="inline-block font-medium text-primary text-sm underline-offset-4 hover:underline"
+												href={faq.link.href}
+											>
+												{faq.link.label} →
+											</Link>
+										)}
 									</CardContent>
 								</Card>
 							))}

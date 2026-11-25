@@ -4,17 +4,25 @@ import { embeddingRepository } from "@/server/repositories/embedding.repository"
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 
-export const buildSearchAcrossCourseTool = (courseId: string) =>
+/**
+ * AI-C2 (G6): the student is bound by closure — the model never sees or chooses it — and the
+ * search returns only lessons that student opened.
+ */
+export const buildSearchAcrossCourseTool = (
+	courseId: string,
+	studentId: string,
+) =>
 	tool(
 		async ({ query, k = 4 }: { query: string; k?: number }) => {
 			const vector = await embeddingsService.embedQuery(query);
 			const chunks = await embeddingRepository.searchCourseChunks(
 				courseId,
+				studentId,
 				vector,
 				k,
 			);
 			if (chunks.length === 0)
-				return "No relevant content found across this course.";
+				return "No relevant content in the lessons opened so far; later lessons may cover it.";
 			// The lesson titles in the prefix are instructor-authored too, so the
 			// whole assembled blob goes inside one wrapper — not just the bodies.
 			return wrapUntrustedContent(
@@ -27,7 +35,7 @@ export const buildSearchAcrossCourseTool = (courseId: string) =>
 		{
 			name: "search_across_course",
 			description:
-				"Searches all lessons in this course for relevant excerpts. Use for questions like 'where did we cover X' or to surface prerequisite material.",
+				"Searches the lessons of this course the student has already opened for relevant excerpts. Use for questions like 'where did we cover X' or to surface prerequisite material. Later lessons are not searched, so an empty result does not mean the course lacks the topic.",
 			schema: z.object({
 				query: z
 					.string()

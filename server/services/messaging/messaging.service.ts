@@ -120,7 +120,11 @@ class MessagingService {
 		userId: string,
 		input: SendMessageInput,
 	): Promise<{ id: string; createdAt: string }> {
-		await this.assertParticipant(input.conversationId, userId);
+		const convo = await this.assertParticipant(input.conversationId, userId);
+		// C26 / D1: a refund closes the conversation for both sides; history stays readable.
+		if (convo.closedAt) {
+			throw new MessagingError("This conversation is closed", "FORBIDDEN");
+		}
 		const message = await messageRepository.createWithBump(
 			input.conversationId,
 			userId,

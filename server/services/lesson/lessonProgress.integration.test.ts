@@ -92,3 +92,41 @@ describe("LessonService progress", () => {
 		expect(after?.lastAccessedAt).not.toBeNull();
 	});
 });
+
+describe("progress sync never revives a refunded enrollment (R9)", () => {
+	it("leaves a cancelled enrollment cancelled and fires no certificate event", async () => {
+		const { student, lesson } = await seedLesson();
+		await testDb.lessonProgress.create({
+			data: {
+				lessonId: lesson.id,
+				studentId: student.id,
+				isCompleted: true,
+				completedAt: new Date(),
+			},
+		});
+		await testDb.enrollment.updateMany({
+			where: { studentId: student.id },
+			data: { status: EnrollmentStatus.cancelled },
+		});
+		const { notificationService } = await import(
+			"@/server/services/notifications/notification.service"
+		);
+		vi.mocked(notificationService.fireCertificateEarned).mockClear();
+
+		await (
+			lessonService as unknown as {
+				syncProgressAndFireEvents: (
+					lessonId: string,
+					studentId: string,
+				) => Promise<void>;
+			}
+		).syncProgressAndFireEvents(lesson.id, student.id);
+
+		const enrollment = await testDb.enrollment.findFirstOrThrow({
+			where: { studentId: student.id },
+		});
+		expect(enrollment.status).toBe(EnrollmentStatus.cancelled);
+		expect(enrollment.completedAt).toBeNull();
+		expect(notificationService.fireCertificateEarned).not.toHaveBeenCalled();
+	});
+});

@@ -1,6 +1,8 @@
 import type { Prisma } from "@/generated/prisma";
+import { lessonOpenedBy } from "@/server/repositories/contentGate";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonInsightsRepository } from "@/server/repositories/lessonInsights.repository";
+import { logContentGateRefusal } from "@/server/services/_shared/aiGuard/securityLog";
 import { wrapUntrustedContent } from "@/server/services/_shared/aiGuard/wrapUntrusted";
 import {
 	aiMetricsHandler,
@@ -144,13 +146,18 @@ class LessonInsightsAIService {
 								},
 							},
 						},
+						// AI-C3 / FR-P19a: a student gets the guide only for a lesson they opened.
+						...lessonOpenedBy(userId),
 					},
 				],
 			},
 			select: { id: true, content: true },
 		});
 
-		if (!lesson) return null;
+		if (!lesson) {
+			await this.logIfUnopened(lessonId, userId);
+			return null;
+		}
 
 		const insights = await lessonInsightsRepository.findByLessonId(lessonId);
 		if (!insights) return null;
@@ -176,6 +183,28 @@ class LessonInsightsAIService {
 			insights.concepts.length > 0;
 
 		return { ...insights, matchesCurrentContent };
+	}
+
+	/** G3: an enrolled student asking for an unopened lesson's guide is a gate refusal. */
+	private async logIfUnopened(lessonId: string, userId: string): Promise<void> {
+		const enrolledButUnopened = await lessonRepository.findFirst({
+			where: {
+				id: lessonId,
+				deletedAt: null,
+				section: {
+					course: {
+						enrollments: {
+							some: { studentId: userId, status: { not: "cancelled" } },
+						},
+					},
+				},
+				NOT: lessonOpenedBy(userId),
+			},
+			select: { id: true },
+		});
+		if (enrolledButUnopened) {
+			logContentGateRefusal({ feature: "lessonInsightsAI", userId, lessonId });
+		}
 	}
 }
 

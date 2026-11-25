@@ -4,6 +4,7 @@ import {
 	makeCourse,
 	makeEnrollment,
 	makeLesson,
+	makeOpenedLesson,
 	makeSection,
 	makeUser,
 } from "@/test/factories";
@@ -99,6 +100,8 @@ describe("POST /api/chat/lesson — access control on lessonId", () => {
 			order: 1,
 		});
 		await makeEnrollment({ studentId: student.id, courseId: courseA.id });
+		// G10: normal use opens the lesson before the tutor is reachable.
+		await makeOpenedLesson({ studentId: student.id, lessonId: ownLesson.id });
 
 		studentId = student.id;
 		ownLessonId = ownLesson.id;
@@ -174,6 +177,21 @@ describe("POST /api/chat/lesson — access control on lessonId", () => {
 
 		expect(res.status).toBe(403);
 		expect(capturedCalls).toEqual([]);
+	});
+
+	// FR-P19a / AI-C1: the tutor answers only on an opened lesson — refused before the guard and
+	// any model call, with nothing stored.
+	it("refuses a lesson the student has not opened, before the guard and the model (AC-L1)", async () => {
+		await testDb.openedLesson.deleteMany({ where: { studentId } });
+		const before = await testDb.lessonAssistantMessage.count();
+
+		const res = await post(ownLessonId);
+
+		expect(res.status).toBe(403);
+		expect(await res.text()).toBe("Lesson not opened");
+		expect(mockCheckTopicRelevance).not.toHaveBeenCalled();
+		expect(capturedCalls).toEqual([]);
+		expect(await testDb.lessonAssistantMessage.count()).toBe(before);
 	});
 
 	// The branch whose mechanism changed: a soft-deleted lesson used to be a

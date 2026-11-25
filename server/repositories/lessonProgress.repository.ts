@@ -35,8 +35,16 @@ class LessonProgressRepository extends BaseRepository<
 		} as Prisma.LessonProgressWhereInput);
 	}
 
-	countCompletedTotal(studentId: string): Promise<number> {
-		return this.count({ studentId, isCompleted: true });
+	/** A11: live completions + lessons archived by refunds. */
+	async countCompletedTotal(studentId: string): Promise<number> {
+		const [live, archived] = await Promise.all([
+			this.count({ studentId, isCompleted: true }),
+			this.db.studyArchive.aggregate({
+				where: { studentId },
+				_sum: { lessons: true },
+			}),
+		]);
+		return live + (archived._sum.lessons ?? 0);
 	}
 
 	async findCompletedIds(
@@ -64,15 +72,21 @@ class LessonProgressRepository extends BaseRepository<
 			[{ lifetime: number; this_week: number; prior_week: number }]
 		>`
 			SELECT
-				COALESCE(SUM(l.duration_minutes), 0)::int AS lifetime,
-				COALESCE(SUM(l.duration_minutes) FILTER (
+				COALESCE(SUM(lp.duration_minutes), 0)::int AS lifetime,
+				COALESCE(SUM(lp.duration_minutes) FILTER (
 					WHERE lp."completedAt" >= ${startThisWeek}), 0)::int AS this_week,
-				COALESCE(SUM(l.duration_minutes) FILTER (
+				COALESCE(SUM(lp.duration_minutes) FILTER (
 					WHERE lp."completedAt" >= ${startPriorWeek}
 						AND lp."completedAt" < ${startThisWeek}), 0)::int AS prior_week
-			FROM lesson_progress lp
-			JOIN lessons l ON l.id = lp."lessonId"
-			WHERE lp."studentId" = ${studentId} AND lp."isCompleted" = true
+			FROM (
+				SELECT l.duration_minutes, lp."completedAt"
+				  FROM lesson_progress lp
+				  JOIN lessons l ON l.id = lp."lessonId"
+				 WHERE lp."studentId" = ${studentId} AND lp."isCompleted" = true
+				UNION ALL
+				-- A11: minutes archived by refunds, filed at the UTC day they were earned.
+				SELECT a.minutes, a.day FROM study_archive a WHERE a.student_id = ${studentId}
+			) AS lp ("duration_minutes", "completedAt")
 		`;
 		const r = rows[0];
 		return {
@@ -93,16 +107,21 @@ class LessonProgressRepository extends BaseRepository<
 			[{ lifetime: number; this_month: number; last_month: number }]
 		>`
 			SELECT
-				COALESCE(SUM(l.duration_minutes), 0)::int AS lifetime,
-				COALESCE(SUM(l.duration_minutes) FILTER (
+				COALESCE(SUM(lp.duration_minutes), 0)::int AS lifetime,
+				COALESCE(SUM(lp.duration_minutes) FILTER (
 					WHERE lp."completedAt" >= ${startThisMonth}
 						AND lp."completedAt" < ${startNextMonth}), 0)::int AS this_month,
-				COALESCE(SUM(l.duration_minutes) FILTER (
+				COALESCE(SUM(lp.duration_minutes) FILTER (
 					WHERE lp."completedAt" >= ${startLastMonth}
 						AND lp."completedAt" < ${startThisMonth}), 0)::int AS last_month
-			FROM lesson_progress lp
-			JOIN lessons l ON l.id = lp."lessonId"
-			WHERE lp."studentId" = ${studentId} AND lp."isCompleted" = true
+			FROM (
+				SELECT l.duration_minutes, lp."completedAt"
+				  FROM lesson_progress lp
+				  JOIN lessons l ON l.id = lp."lessonId"
+				 WHERE lp."studentId" = ${studentId} AND lp."isCompleted" = true
+				UNION ALL
+				SELECT a.minutes, a.day FROM study_archive a WHERE a.student_id = ${studentId}
+			) AS lp ("duration_minutes", "completedAt")
 		`;
 		const r = rows[0];
 		return {
@@ -117,13 +136,19 @@ class LessonProgressRepository extends BaseRepository<
 		since: Date,
 	): Promise<{ day: Date; minutes: number }[]> {
 		const rows = await this.db.$queryRaw<{ day: Date; minutes: number }[]>`
-			SELECT date_trunc('day', lp."completedAt") AS day,
-			       COALESCE(SUM(l.duration_minutes), 0)::int AS minutes
-			FROM lesson_progress lp
-			JOIN lessons l ON l.id = lp."lessonId"
-			WHERE lp."studentId" = ${studentId}
-			  AND lp."isCompleted" = true
-			  AND lp."completedAt" >= ${since}
+			SELECT date_trunc('day', d."completedAt") AS day,
+			       COALESCE(SUM(d.minutes), 0)::int AS minutes
+			FROM (
+				SELECT lp."completedAt", l.duration_minutes AS minutes
+				  FROM lesson_progress lp
+				  JOIN lessons l ON l.id = lp."lessonId"
+				 WHERE lp."studentId" = ${studentId}
+				   AND lp."isCompleted" = true
+				   AND lp."completedAt" >= ${since}
+				UNION ALL
+				SELECT a.day, a.minutes FROM study_archive a
+				 WHERE a.student_id = ${studentId} AND a.lessons > 0 AND a.day >= ${since}
+			) AS d
 			GROUP BY 1
 		`;
 		return rows.map((r) => ({ day: r.day, minutes: Number(r.minutes) }));
@@ -131,11 +156,17 @@ class LessonProgressRepository extends BaseRepository<
 
 	async getCompletionDays(studentId: string): Promise<Date[]> {
 		const rows = await this.db.$queryRaw<{ day: Date }[]>`
-			SELECT DISTINCT date_trunc('day', lp."completedAt") AS day
-			FROM lesson_progress lp
-			WHERE lp."studentId" = ${studentId}
-			  AND lp."isCompleted" = true
-			  AND lp."completedAt" IS NOT NULL
+			SELECT DISTINCT day FROM (
+				SELECT date_trunc('day', lp."completedAt") AS day
+				  FROM lesson_progress lp
+				 WHERE lp."studentId" = ${studentId}
+				   AND lp."isCompleted" = true
+				   AND lp."completedAt" IS NOT NULL
+				UNION ALL
+				-- A11: days archived by refunds; a correct-answers-only row is not a study day.
+				SELECT a.day FROM study_archive a
+				 WHERE a.student_id = ${studentId} AND a.lessons > 0
+			) AS days
 			ORDER BY day DESC
 		`;
 		return rows.map((r) => r.day);

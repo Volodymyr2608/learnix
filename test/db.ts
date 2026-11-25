@@ -4,10 +4,18 @@ export const testDb = new PrismaClient();
 
 // SQL table names (from @@map in Prisma schema), ordered leaf-to-root so CASCADE handles FKs.
 const TABLES = [
+	"refund_audit",
+	"refund_evidence_files",
+	"refund_appeals",
+	"refund_requests",
+	"opened_lessons",
 	"messages",
 	"conversations",
 	"lesson_progress",
 	"course_progress",
+	"study_archive",
+	"stripe_replay_cursors",
+	"payout_runs",
 	"payments",
 	"processed_stripe_events",
 	"enrollments",

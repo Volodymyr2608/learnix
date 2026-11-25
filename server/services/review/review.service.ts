@@ -86,6 +86,13 @@ class ReviewService {
 				);
 			}
 
+			const restoredId = await courseReviewRepository.restoreHidden(
+				studentId,
+				input.courseId,
+				{ rating: input.rating, comment: input.comment, tags: input.tags },
+			);
+			if (restoredId) return { id: restoredId };
+
 			const created = await courseReviewRepository.create({
 				studentId,
 				courseId: input.courseId,

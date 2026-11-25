@@ -114,8 +114,16 @@ class QuizAttemptRepository extends BaseRepository<
 		return { outcome: "capped", attempt: existing };
 	}
 
-	countCorrect(studentId: string): Promise<number> {
-		return this.count({ studentId, isCorrect: true });
+	/** A11: live correct answers + those archived by refunds. */
+	async countCorrect(studentId: string): Promise<number> {
+		const [live, archived] = await Promise.all([
+			this.count({ studentId, isCorrect: true }),
+			this.db.studyArchive.aggregate({
+				where: { studentId },
+				_sum: { correctAnswers: true },
+			}),
+		]);
+		return live + (archived._sum.correctAnswers ?? 0);
 	}
 
 	/**

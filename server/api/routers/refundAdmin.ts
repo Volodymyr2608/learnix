@@ -1,0 +1,98 @@
+import { z } from "zod";
+import { bankFailureService } from "@/server/services/refund/bankFailure.service";
+import { refundAppealAdminService } from "@/server/services/refund/refundAppealAdmin.service";
+import { handleServiceError } from "@/server/utils/handleServiceError";
+import { adminProcedure, createTRPCRouter } from "../trpc";
+
+/** FR-A1–A3 (C17): every procedure is admin-only. Denials go through a multipart route (files). */
+export const refundAdminRouter = createTRPCRouter({
+	listOpenAppeals: adminProcedure.query(async () => {
+		try {
+			return await refundAppealAdminService.listOpenAppeals();
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+
+	approveAppeal: adminProcedure
+		.input(z.object({ appealId: z.string().min(1).max(64) }).strict())
+		.mutation(async ({ ctx, input }) => {
+			try {
+				return await refundAppealAdminService.approveAppeal(
+					ctx.session.user.id,
+					input.appealId,
+				);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
+	/** FR-A7 (V15): payments refunded in the Stripe Dashboard, waiting for a look. */
+	listNeedsReview: adminProcedure.query(async () => {
+		try {
+			return await refundAppealAdminService.listNeedsReview();
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+
+	markReviewed: adminProcedure
+		.input(z.object({ paymentId: z.string().min(1).max(64) }).strict())
+		.mutation(async ({ input }) => {
+			try {
+				await refundAppealAdminService.markReviewed(input.paymentId);
+				return { ok: true };
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
+	/** FR-P27 (W6): refunds that failed at the bank, waiting for the admin. */
+	listBankFailures: adminProcedure.query(async () => {
+		try {
+			return await bankFailureService.listOpen();
+		} catch (error) {
+			handleServiceError(error);
+		}
+	}),
+
+	resolveBankFailure: adminProcedure
+		.input(
+			z
+				.object({
+					paymentId: z.string().min(1).max(64),
+					outcome: z.enum(["refunded_elsewhere", "sale_stands"]),
+					note: z.string().max(2000),
+				})
+				.strict(),
+		)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await bankFailureService.resolve(ctx.session.user.id, input);
+				return { ok: true };
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+
+	/** FR-A6 (V14): refund any succeeded payment as an exception, with a reason. */
+	refundException: adminProcedure
+		.input(
+			z
+				.object({
+					paymentId: z.string().min(1).max(64),
+					reason: z.string().max(2000),
+				})
+				.strict(),
+		)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				return await refundAppealAdminService.refundException(
+					ctx.session.user.id,
+					input,
+				);
+			} catch (error) {
+				handleServiceError(error);
+			}
+		}),
+});

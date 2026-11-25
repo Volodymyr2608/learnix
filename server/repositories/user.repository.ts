@@ -51,6 +51,15 @@ export default class UserRepository extends BaseRepository<
 > {
 	protected readonly modelName = "user" as const;
 
+	/** FR-A10 / M4: the people who receive payout alerts. */
+	findAdmins(): Promise<{ id: string; email: string; name: string }[]> {
+		return this.db.user.findMany({
+			// Audit L2: an anonymised admin keeps the role but has no mailbox.
+			where: { role: "ADMIN", ...NOT_ANONYMISED },
+			select: { id: true, email: true, name: true },
+		});
+	}
+
 	/**
 	 * Irreversibly anonymises an account in place.
 	 *
@@ -126,7 +135,30 @@ export default class UserRepository extends BaseRepository<
 				DELETE FROM user_interest_embeddings WHERE "userId" = ${userId}
 			`;
 				await tx.learningPathCache.deleteMany({ where: { studentId: userId } });
+				// FR-P9: minutes a refund moved out of a course's records, kept per day for the
+				// student's own statistics — deleted with the account (ADR-025).
+				await tx.studyArchive.deleteMany({ where: { studentId: userId } });
 				await tx.notificationLog.deleteMany({ where: { userId } });
+				// FR-P23 / C29 (W11): the student's refund free text and file names are erased; an
+				// open appeal closes with no decision (no approval, so it counts for nothing and the
+				// hold lifts). Amounts, states, snapshot numbers and the audit stay. A refund already
+				// processing is left to complete. The files themselves are deleted after commit.
+				await tx.refundRequest.updateMany({
+					where: { studentId: userId },
+					data: { text: null },
+				});
+				await tx.refundAppeal.updateMany({
+					where: { request: { studentId: userId }, status: "open" },
+					data: { status: "closed_account_deleted", decidedAt: new Date() },
+				});
+				await tx.refundAppeal.updateMany({
+					where: { request: { studentId: userId } },
+					data: { text: "" },
+				});
+				await tx.refundEvidenceFile.updateMany({
+					where: { appeal: { request: { studentId: userId } } },
+					data: { fileName: "deleted" },
+				});
 
 				// The instructor profile is scrubbed rather than destroyed: it carries
 				// `stripeAccountId`, which the payout sweep needs to pay out money already

@@ -1,0 +1,160 @@
+enum RefundReason {
+  too_easy
+  too_hard
+  thin_content
+  other
+}
+
+enum RefundDecision {
+  auto_approved
+  auto_denied
+  /// V1: a direct appeal (FR-S13) — no automatic decision; the appeal decides.
+  direct_appeal
+}
+
+/// V2: how a refund was approved — decides what it counts toward (D3, account limit).
+enum RefundApproval {
+  automatic
+  appeal
+  overdue
+}
+
+enum AppealKind {
+  direct
+  after_denial
+}
+
+enum AppealStatus {
+  open
+  approved
+  denied
+  overdue_approved
+  /// Review I2 / EC-16, AC-F22: the payment was refunded another way (Dashboard, lost dispute,
+  /// exception) while the appeal waited; nothing left to decide.
+  closed_refunded
+  /// W11 / EC-12: the student deleted their account while the appeal waited.
+  closed_account_deleted
+}
+
+enum EvidenceUploader {
+  student
+  admin
+}
+
+/// C18: what an audit row records.
+enum RefundAuditKind {
+  appeal_approved
+  appeal_denied
+  appeal_overdue
+  exception
+  /// W6 / FR-P27: the admin's two outcomes for a refund that failed at the bank.
+  bank_failure_refunded_elsewhere
+  bank_failure_sale_stands
+}
+
+/// R1: where an approved request's Stripe refund stands. Null for a denial.
+enum RefundState {
+  processing
+  refunded
+  /// D5: the bank returned the money (a lost dispute); no Stripe refund is made.
+  refunded_by_bank
+  /// qa #1 / FR-P27: the refund failed at the bank and the admin decided the sale stands; the
+  /// request no longer holds the share and no longer counts (D3).
+  reversed
+}
+
+// A student's refund request (FR-S5). One per payment (FR-S7); the snapshot
+// freezes every condition at submission. Shape: RefundSnapshot in
+// server/entities/refund.ts.
+model RefundRequest {
+  id                String          @id @default(cuid())
+  paymentId         String          @unique @map("payment_id")
+  payment           Payment         @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  studentId         String          @map("student_id")
+  student           User            @relation("StudentRefundRequests", fields: [studentId], references: [id], onDelete: Restrict)
+  courseId          String          @map("course_id")
+  course            Course          @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  reason            RefundReason
+  text              String?         @db.VarChar(2000)
+  decision          RefundDecision
+  failedConditions  String[]        @map("failed_conditions")
+  snapshot          Json
+  /// FR-S20: `processing` until Stripe confirms; failures stay `processing` with refundError.
+  refundState       RefundState?    @map("refund_state")
+  stripeRefundId    String?         @unique @map("stripe_refund_id")
+  /// Stripe's message, for the admin only — never shown to the student (FR-S20, C23).
+  refundError       String?         @map("refund_error")
+  refundedAt        DateTime?       @map("refunded_at")
+  /// Audit M-2a: the last Stripe attempt; the retry takes the least recently tried first.
+  refundAttemptedAt DateTime?       @map("refund_attempted_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  /// V2: set when the refund is approved — automatically, on appeal, or overdue (FR-A5).
+  approval          RefundApproval?
+  /// Review I1 / FR-A11: when the refund was approved — the "3 days after approval" clock.
+  approvedAt        DateTime?       @map("approved_at")
+  appeal            RefundAppeal?
+
+  @@index([studentId, decision, createdAt])
+  @@index([studentId, courseId, decision])
+  @@map("refund_requests")
+}
+
+// V3: the one appeal of a purchase (FR-S7, FR-S13–S18). Its request row always exists: a direct
+// appeal creates it with decision `direct_appeal`.
+model RefundAppeal {
+  id                String               @id @default(cuid())
+  requestId         String               @unique @map("request_id")
+  request           RefundRequest        @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  kind              AppealKind
+  /// C11: the condition from the server snapshot — FR-A5 reads it, never input.
+  exceededCondition String               @map("exceeded_condition")
+  reason            RefundReason
+  text              String               @db.VarChar(2000)
+  deadlineAt        DateTime             @map("deadline_at")
+  status            AppealStatus         @default(open)
+  decidedAt         DateTime?            @map("decided_at")
+  decidedBy         String?              @map("decided_by")
+  denialReason      String?              @map("denial_reason") @db.VarChar(2000)
+  createdAt         DateTime             @default(now()) @map("created_at")
+  files             RefundEvidenceFile[]
+  audits            RefundAudit[]
+
+  @@index([status, createdAt])
+  @@map("refund_appeals")
+}
+
+// V5: metadata of a file in the private evidence store; the bytes are never public.
+model RefundEvidenceFile {
+  id           String           @id @default(cuid())
+  appealId     String           @map("appeal_id")
+  appeal       RefundAppeal     @relation(fields: [appealId], references: [id], onDelete: Restrict)
+  uploadedBy   EvidenceUploader @map("uploaded_by")
+  blobPathname String           @map("blob_pathname")
+  fileName     String           @map("file_name") @db.VarChar(255)
+  contentType  String           @map("content_type")
+  sizeBytes    Int              @map("size_bytes")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  deletedAt    DateTime?        @map("deleted_at")
+  /// qa #9: the last failed delete; the retention job takes the least recently tried first.
+  deleteAttemptedAt DateTime?   @map("delete_attempted_at")
+
+  @@index([appealId])
+  @@map("refund_evidence_files")
+}
+
+// V4 / C18: append-only. The repository has no update or delete; a trigger rejects both.
+model RefundAudit {
+  id        String          @id @default(cuid())
+  kind      RefundAuditKind
+  paymentId String          @map("payment_id")
+  payment   Payment         @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  appealId  String?         @map("appeal_id")
+  appeal    RefundAppeal?   @relation(fields: [appealId], references: [id], onDelete: Restrict)
+  /// The deciding admin; null for an overdue approval made by the job.
+  adminId   String?         @map("admin_id")
+  reason    String?         @db.VarChar(2000)
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  @@index([paymentId])
+  @@map("refund_audit")
+}

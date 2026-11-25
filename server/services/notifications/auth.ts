@@ -5,13 +5,18 @@ import { env } from "@/lib/env";
 const certificateSecret = () =>
 	new TextEncoder().encode(env.CERTIFICATE_SECRET);
 
+/**
+ * Constant-time `Authorization: Bearer <secret>` check (H8). The length check short-circuits, which
+ * leaks only the length; timingSafeEqual requires equal lengths anyway.
+ */
+export const bearerMatches = (req: Request, secret: string): boolean => {
+	const expected = Buffer.from(`Bearer ${secret}`);
+	const actual = Buffer.from(req.headers.get("authorization") ?? "");
+	return expected.length === actual.length && timingSafeEqual(expected, actual);
+};
+
 export function requireBearer(req: Request): void {
-	const h = req.headers.get("authorization") ?? "";
-	const expected = Buffer.from(`Bearer ${env.N8N_API_TOKEN}`);
-	const actual = Buffer.from(h);
-	const valid =
-		expected.length === actual.length && timingSafeEqual(expected, actual);
-	if (!valid) {
+	if (!bearerMatches(req, env.N8N_API_TOKEN)) {
 		throw new Response("Unauthorized", { status: 401 });
 	}
 }

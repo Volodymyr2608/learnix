@@ -6,6 +6,7 @@ import {
 	makeEnrollment,
 	makeLesson,
 	makeLessonInsights,
+	makeOpenedLesson,
 	makeSection,
 	makeUser,
 } from "@/test/factories";
@@ -42,10 +43,11 @@ describe("getForLesson is instructor-or-enrolled (AC 11)", () => {
 		expect(row?.lessonId).toBe(lesson.id);
 	});
 
-	it("returns the guide to a student with an active enrollment", async () => {
+	it("returns the guide to an enrolled student who opened the lesson", async () => {
 		const { course, lesson } = await seed();
 		const student = await makeUser({ role: Role.STUDENT });
 		await makeEnrollment({ courseId: course.id, studentId: student.id });
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 
 		const row = await lessonInsightsAIService.getForLesson(
 			lesson.id,
@@ -67,6 +69,8 @@ describe("getForLesson is instructor-or-enrolled (AC 11)", () => {
 	it("denies a student with no enrollment", async () => {
 		const { lesson } = await seed();
 		const stranger = await makeUser({ role: Role.STUDENT });
+		// opened, so the missing enrollment is the only reason left for null
+		await makeOpenedLesson({ studentId: stranger.id, lessonId: lesson.id });
 
 		expect(
 			await lessonInsightsAIService.getForLesson(lesson.id, stranger.id),
@@ -81,9 +85,39 @@ describe("getForLesson is instructor-or-enrolled (AC 11)", () => {
 			status: EnrollmentStatus.cancelled,
 			studentId: student.id,
 		});
+		// a refunded student who did open the lesson: the cancelled status alone must deny
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 
 		expect(
 			await lessonInsightsAIService.getForLesson(lesson.id, student.id),
 		).toBe(null);
+	});
+});
+
+describe("getForLesson serves a student only an opened lesson (AI-C3, AC-L3)", () => {
+	it("returns nothing for an unopened lesson, then the guide once it is opened", async () => {
+		const { course, lesson } = await seed();
+		const student = await makeUser({ role: Role.STUDENT });
+		await makeEnrollment({ courseId: course.id, studentId: student.id });
+
+		expect(
+			await lessonInsightsAIService.getForLesson(lesson.id, student.id),
+		).toBeNull();
+
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
+
+		expect(
+			(await lessonInsightsAIService.getForLesson(lesson.id, student.id))
+				?.lessonId,
+		).toBe(lesson.id);
+	});
+
+	it("always serves the course's instructor, who never opens lessons", async () => {
+		const { instructor, lesson } = await seed();
+
+		expect(
+			(await lessonInsightsAIService.getForLesson(lesson.id, instructor.id))
+				?.lessonId,
+		).toBe(lesson.id);
 	});
 });

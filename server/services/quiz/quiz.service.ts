@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma";
 import { EnrollmentStatus, MasteryEvidence } from "@/generated/prisma";
 import { conceptMasteryRepository } from "@/server/repositories/conceptMastery.repository";
+import { lessonOpenedSelect } from "@/server/repositories/contentGate";
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { parseStoredConcepts } from "@/server/repositories/lessonInsights.conceptsSchema";
@@ -10,7 +11,10 @@ import {
 	type AttemptPolicy,
 	quizAttemptRepository,
 } from "@/server/repositories/quizAttempt.repository";
-import { logSecurityEvent } from "@/server/services/_shared/aiGuard/securityLog";
+import {
+	logContentGateRefusal,
+	logSecurityEvent,
+} from "@/server/services/_shared/aiGuard/securityLog";
 import {
 	canonicalConceptSpelling,
 	conceptKey,
@@ -198,7 +202,11 @@ class QuizService {
 					},
 				},
 			},
-			select: { id: true },
+			select: {
+				id: true,
+				// AI-C4 / FR-P19a: same statement — has this student opened the lesson?
+				...lessonOpenedSelect(studentId),
+			},
 		});
 
 		if (!lesson) {
@@ -206,6 +214,11 @@ class QuizService {
 				"Access denied — not enrolled in this course",
 				"FORBIDDEN",
 			);
+		}
+		// G5: the student is enrolled, so naming the reason reveals nothing.
+		if (lesson.openedBy.length === 0) {
+			logContentGateRefusal({ feature: "quizAI", userId: studentId, lessonId });
+			throw new QuizForbiddenError("Open the lesson first", "FORBIDDEN");
 		}
 	}
 

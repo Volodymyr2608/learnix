@@ -6,6 +6,7 @@ import { enrollmentRepository } from "@/server/repositories/enrollment.repositor
 import { learningPathRepository } from "@/server/repositories/learningPath.repository";
 import { lessonRepository } from "@/server/repositories/lesson.repository";
 import { lessonProgressRepository } from "@/server/repositories/lessonProgress.repository";
+import { openedLessonRepository } from "@/server/repositories/openedLesson.repository";
 import { quizRepository } from "@/server/repositories/quiz.repository";
 import { embeddingsService } from "@/server/services/embeddings/embeddings.service";
 import { notificationService } from "@/server/services/notifications/notification.service";
@@ -111,6 +112,19 @@ class LessonService {
 	}
 
 	async getStudentLesson(lessonId: string, studentId: string) {
+		return this.loadStudentLesson(lessonId, studentId, { recordOpen: true });
+	}
+
+	/**
+	 * The student's access check + read. `recordOpen` is false for the mark
+	 * complete/incomplete callers, which return no content: FR-P19 leaves marking
+	 * unchanged, so it must not count toward the refund threshold.
+	 */
+	private async loadStudentLesson(
+		lessonId: string,
+		studentId: string,
+		{ recordOpen }: { recordOpen: boolean },
+	) {
 		try {
 			const lesson = await lessonRepository.findFirst({
 				where: {
@@ -148,6 +162,13 @@ class LessonService {
 				throw new LessonError("Lesson not found or access denied", "NOT_FOUND");
 			}
 
+			// FR-P19: the refund threshold counts opened lessons, so the record is
+			// written before the content is returned and is NOT tolerated like the
+			// touch below — if it fails, the student gets no content (fail closed).
+			if (recordOpen) {
+				await openedLessonRepository.record(studentId, lesson.id);
+			}
+
 			// Opening a lesson is the student's "last active" signal, powering the
 			// instructor Students table and its Active Learners count. Tolerate a
 			// touch failure so it never blocks loading the lesson.
@@ -175,7 +196,7 @@ class LessonService {
 
 	async markLessonComplete(lessonId: string, studentId: string) {
 		try {
-			await this.getStudentLesson(lessonId, studentId);
+			await this.loadStudentLesson(lessonId, studentId, { recordOpen: false });
 			await db.lessonProgress.upsert({
 				where: { lessonId_studentId: { lessonId, studentId } },
 				create: {
@@ -224,7 +245,8 @@ class LessonService {
 			const enrollment = await enrollmentRepository.findFirst({
 				where: { studentId, courseId },
 			});
-			if (!enrollment) return;
+			// R9: this runs unawaited; a refund may have cancelled the enrollment meanwhile.
+			if (!enrollment || enrollment.status === "cancelled") return;
 
 			if (progressPct === 100) {
 				await enrollmentRepository.update(enrollment.id, {
@@ -275,7 +297,7 @@ class LessonService {
 
 	async markLessonIncomplete(lessonId: string, studentId: string) {
 		try {
-			await this.getStudentLesson(lessonId, studentId);
+			await this.loadStudentLesson(lessonId, studentId, { recordOpen: false });
 			await db.lessonProgress.upsert({
 				where: { lessonId_studentId: { lessonId, studentId } },
 				create: { lessonId, studentId, isCompleted: false },

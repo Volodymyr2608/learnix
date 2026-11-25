@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { AiFeature } from "@/server/services/_shared/aiGuard/types";
 import { AI_SURFACES } from "./aiSurfaces";
@@ -35,6 +35,110 @@ const FEATURES_DIR = "docs/specs/features";
  * heading is worse than no heading (§4).
  */
 const OPTIONAL_ON_AI_SURFACE = "Unsupported use cases";
+
+/**
+ * Sections the 2026-11-02 Spec Driven Development standard added (§4). They are
+ * about how a decision was reached, not about what a model is allowed to do, so
+ * the AI-surface rule does not owe them — the new-standard ratchet below does.
+ * `Constraints` and the two new NFR subsections are conditional even there.
+ */
+const NEW_STANDARD_SECTIONS = [
+	"Problem statement",
+	"Discovery",
+	"Ambiguities",
+	"Assumptions",
+	"Constraints",
+	"User flow",
+	"Non-functional requirements",
+	"Accessibility",
+	"Maintainability",
+	"Alternatives",
+	"Trade-offs",
+	"Decision",
+];
+
+/**
+ * Renames made by the same standard, new name → the name older specs carry.
+ * Either heading satisfies the section, so the rename does not turn every
+ * AI-surface spec red overnight; a reopened spec picks up the new name.
+ */
+const LEGACY_NAME: Record<string, string> = {
+	"Business / user value": "Business goal",
+	"Functional requirements": "Supported use cases",
+	"Failure scenarios": "Failure & fallback",
+};
+
+/**
+ * Required in every spec written under the new standard (§4 rows marked `R`).
+ * Retyped rather than parsed from template prose, and kept honest by a test
+ * asserting each one is still a template heading.
+ */
+const REQUIRED_ON_NEW_STANDARD = [
+	"Description",
+	"Problem statement",
+	"Business / user value",
+	"Discovery",
+	"Ambiguities",
+	"Assumptions",
+	"User flow",
+	"Functional requirements",
+	"Alternatives",
+	"Trade-offs",
+	"Decision",
+	"Acceptance criteria",
+	"Source of truth",
+	"Agent notes",
+];
+
+/**
+ * Specs that predate the standard. Not backfilled (§4): one leaves this list
+ * when it is reopened and rewritten to the new sections. The list can shrink and
+ * never grow — a new spec is held to the standard from its first commit, and a
+ * legacy spec that already complies must be dropped from here.
+ */
+const LEGACY_SPECS = [
+	"account-deletion-data-retention",
+	"achievements",
+	"ai-chat-route-authorization",
+	"ai-course-builder",
+	"ai-defence-layers",
+	"ai-evaluation-harness",
+	"ai-flow-contracts",
+	"ai-guard-encoding-coverage",
+	"ai-guard-multilingual-coverage",
+	"ai-input-trust-boundary",
+	"ai-observability",
+	"ai-tutor-guardrails",
+	"billing",
+	"certificates",
+	"distributed-ai-rate-limiter",
+	"error-observability",
+	"instructor-mobile",
+	"learning-path",
+	"messages",
+	"mobile-responsive",
+	"payments",
+	"quiz-answer-key",
+	"quiz-generation",
+	"semantic-search-recommendations",
+	"skill-progress",
+	"study-guide",
+];
+
+/**
+ * Sections a spec may keep in a sibling design-record file instead of in
+ * `spec.md` (documentation-process.md §2, since 2026-11-21): `spec.md` then holds
+ * the requirements alone, and the record of how they were reached sits beside
+ * it. The sibling must carry the heading itself, so moving a section never
+ * quietly deletes it.
+ */
+const SIBLING_SECTIONS: Record<string, string> = {
+	Discovery: "discovery/findings.md",
+	Ambiguities: "discovery/findings.md",
+	Alternatives: "discovery/decision-summary.md",
+	"Trade-offs": "discovery/decision-summary.md",
+	Decision: "discovery/decision-summary.md",
+};
 
 /**
  * Satisfied by a sibling `security.md` instead of a section, which is what
@@ -83,26 +187,61 @@ const SPEC_FOR: Record<AiFeature, SpecBinding> = {
  */
 const PENDING: Record<string, string[]> = {};
 
+/**
+ * `##` and `###` both count: the new standard nests Performance / Security /
+ * Observability under Non-functional requirements, while older specs carry them
+ * as top-level sections. Either placement satisfies the section.
+ */
 const headings = (markdown: string): string[] =>
-	[...markdown.matchAll(/^## (.+)$/gm)].map((match) => (match[1] ?? "").trim());
+	[...markdown.matchAll(/^#{2,3} (.+)$/gm)].map((match) =>
+		(match[1] ?? "").trim(),
+	);
 
 const templateSections = (): string[] =>
 	headings(readFileSync(TEMPLATE, "utf-8"));
 
 const requiredOnAiSurface = (): string[] =>
-	templateSections().filter((section) => section !== OPTIONAL_ON_AI_SURFACE);
+	templateSections().filter(
+		(section) =>
+			section !== OPTIONAL_ON_AI_SURFACE &&
+			!NEW_STANDARD_SECTIONS.includes(section),
+	);
 
 const specPath = (slug: string): string => `${FEATURES_DIR}/${slug}/spec.md`;
 
-const missingSections = (slug: string): string[] => {
+const hasSection = (present: string[], section: string): boolean => {
+	const legacy = LEGACY_NAME[section];
+	return present.includes(section) || (!!legacy && present.includes(legacy));
+};
+
+const inSibling = (slug: string, section: string): boolean => {
+	const sibling = SIBLING_SECTIONS[section];
+	if (!sibling) return false;
+	const path = `${FEATURES_DIR}/${slug}/${sibling}`;
+	return (
+		existsSync(path) && headings(readFileSync(path, "utf-8")).includes(section)
+	);
+};
+
+const missingFrom = (slug: string, required: string[]): string[] => {
 	const present = headings(readFileSync(specPath(slug), "utf-8"));
 	const hasSecurityDoc = existsSync(`${FEATURES_DIR}/${slug}/security.md`);
 
-	return requiredOnAiSurface().filter((section) => {
+	return required.filter((section) => {
 		if (section === SECURITY && hasSecurityDoc) return false;
-		return !present.includes(section);
+		if (hasSection(present, section)) return false;
+		return !inSibling(slug, section);
 	});
 };
+
+const missingSections = (slug: string): string[] =>
+	missingFrom(slug, requiredOnAiSurface());
+
+const allSpecSlugs = (): string[] =>
+	readdirSync(FEATURES_DIR, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name)
+		.filter((slug) => existsSync(specPath(slug)));
 
 describe("AI-surface specs carry the sections §4 makes mandatory", () => {
 	it("reads a section list from the template", () => {
@@ -159,5 +298,52 @@ describe("AI-surface specs carry the sections §4 makes mandatory", () => {
 				"Write the section, then delete it from PENDING — a spec that gained one but lost " +
 				"another must not net out to green.",
 		).toEqual(PENDING);
+	});
+});
+
+describe("specs written under the 2026-11-02 standard carry its sections", () => {
+	it("requires only sections the template still has", () => {
+		// Guards the retyped list: a renamed template heading would otherwise
+		// make every new spec fail on a section nobody can write any more.
+		const sections = templateSections();
+		const stale = [
+			...REQUIRED_ON_NEW_STANDARD,
+			...NEW_STANDARD_SECTIONS,
+			...Object.keys(SIBLING_SECTIONS),
+		].filter((section) => !sections.includes(section));
+
+		expect(stale).toEqual([]);
+	});
+
+	it("holds every non-legacy spec to the required sections", () => {
+		const actual: Record<string, string[]> = {};
+
+		for (const slug of allSpecSlugs()) {
+			if (LEGACY_SPECS.includes(slug)) continue;
+			const missing = missingFrom(slug, REQUIRED_ON_NEW_STANDARD);
+			if (missing.length > 0) actual[slug] = missing;
+		}
+
+		expect(
+			actual,
+			"A spec written under the new standard is missing a required section " +
+				"(documentation-process.md §4). Write it — new specs do not join LEGACY_SPECS.",
+		).toEqual({});
+	});
+
+	it("lets the legacy list only shrink", () => {
+		const existing = allSpecSlugs();
+		const gone = LEGACY_SPECS.filter((slug) => !existing.includes(slug));
+		const migrated = LEGACY_SPECS.filter(
+			(slug) =>
+				existing.includes(slug) &&
+				missingFrom(slug, REQUIRED_ON_NEW_STANDARD).length === 0,
+		);
+
+		expect(
+			{ gone, migrated },
+			"Drop these from LEGACY_SPECS: `gone` no longer exist, `migrated` already meet " +
+				"the standard and must now be held to it.",
+		).toEqual({ gone: [], migrated: [] });
 	});
 });

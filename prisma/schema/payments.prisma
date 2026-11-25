@@ -8,8 +8,33 @@ enum PaymentStatus {
 enum TransferStatus {
   none
   pending
+  transferring
   transferred
+  cancelled
   reversed
+}
+
+/// FR-P18a (D1): a payment's dispute, from Stripe's dispute events. Null = never disputed.
+enum DisputeState {
+  open
+  won
+  lost
+}
+
+/// FR-P18b (D3): which path refunded the payment.
+enum RefundSource {
+  refund_request
+  dashboard_refund
+  admin_exception
+  lost_dispute
+  /// W4 / FR-P17: the second charge of a course already paid for, refunded at once.
+  duplicate_charge
+}
+
+enum PayoutRunTrigger {
+  cron
+  manual
+  account_updated
 }
 
 model Payment {
@@ -21,9 +46,9 @@ model Payment {
   instructorId String
   instructor   User   @relation("InstructorPayments", fields: [instructorId], references: [id], onDelete: Restrict)
 
-  amountCents        Int           @map("amount_cents")
-  currency           String        @default("usd")
-  status             PaymentStatus @default(pending)
+  amountCents Int           @map("amount_cents")
+  currency    String        @default("usd")
+  status      PaymentStatus @default(pending)
 
   platformFeeCents   Int?           @map("platform_fee_cents")
   instructorNetCents Int?           @map("instructor_net_cents")
@@ -34,13 +59,32 @@ model Payment {
   stripeCheckoutSessionId String? @unique @map("stripe_checkout_session_id")
   stripePaymentIntentId   String? @unique @map("stripe_payment_intent_id")
 
-  refundedAt DateTime? @map("refunded_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt       @map("updated_at")
+  paidAt           DateTime?     @map("paid_at")
+  disputeState     DisputeState? @map("dispute_state")
+  /// D2: Stripe `created` (seconds) of the last dispute event applied; older events are ignored.
+  disputeUpdatedAt Int?          @map("dispute_updated_at")
+  refundSource     RefundSource? @map("refund_source")
+  refundedAt       DateTime?     @map("refunded_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  refundRequest RefundRequest?
+  refundAudits  RefundAudit[]
+  /// V15 / FR-A7: a Dashboard refund (full or partial) waiting for an admin to look at it.
+  needsReviewAt DateTime?      @map("needs_review_at")
+  /// W2 / FR-P28: the Stripe processing fee from the balance transaction (USD cents); NULL until read.
+  stripeFeeCents      Int?      @map("stripe_fee_cents")
+  /// W3 / FR-P16: the total of partial Dashboard refunds so far; a full refund is not recorded here.
+  refundedAmountCents Int?      @map("refunded_amount_cents")
+  /// W5 / FR-P27: the refund failed at the bank; set until an admin closes it.
+  bankFailureAt       DateTime? @map("bank_failure_at")
+  /// qa F5: the Stripe refund whose failure was recorded; a redelivered event cannot reopen it.
+  bankFailureRefundId String?   @map("bank_failure_refund_id")
 
   @@index([instructorId])
   @@index([studentId])
   @@index([courseId])
+  @@index([transferStatus, paidAt])
   @@map("payments")
 }
 
@@ -50,4 +94,26 @@ model ProcessedStripeEvent {
   processedAt DateTime @default(now()) @map("processed_at")
 
   @@map("processed_stripe_events")
+}
+
+/// One run of the payout release job (ADR-037 §3, FR-P5). Hobby keeps logs for one hour, so the
+/// outcome lives here.
+model PayoutRun {
+  id             String           @id @default(cuid())
+  trigger        PayoutRunTrigger
+  startedAt      DateTime         @default(now()) @map("started_at")
+  finishedAt     DateTime?        @map("finished_at")
+  processed      Int              @default(0)
+  released       Int              @default(0)
+  /// Slice 3: processing refunds retried and Stripe events replayed in this run.
+  refundsRetried Int              @default(0) @map("refunds_retried")
+  eventsReplayed Int              @default(0) @map("events_replayed")
+  /// [{ paymentId, error }]
+  failures       Json             @default("[]")
+  paymentIds     String[]         @map("payment_ids")
+  /// M1: the message of a run that threw; a run with no finishedAt 15 min after start crashed.
+  error          String?
+
+  @@index([startedAt])
+  @@map("payout_runs")
 }

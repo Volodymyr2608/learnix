@@ -395,7 +395,7 @@ Offline, in `pnpm test:unit` — no network, no key:
 | The `aiGuard:indirect` denominator is the rows `INDIRECT_MEASURED` records the run covering; the corpus size quoted beside it is `indirect.jsonl`'s row count; and while the two differ, the documents must carry the growth note | `evals/_shared/docFigures.contract.test.ts` |
 | A registered retired tool name cites *its own* ADR in the same sentence; another ADR does not satisfy it, an abbreviation does not split the sentence, and a longer identifier containing the name is not the tool | `evals/_shared/docFigures.contract.test.ts` |
 
-Online, `pnpm eval`, never in CI: `lessonAI:tutor` (54 rows × 3 samples, 15 categories),
+Online, `pnpm eval`, never in CI: `lessonAI:tutor` (58 rows × 3 samples, 16 categories),
 `quizAI:quizGeneration`, `learningPathAI:learningPath`, `lessonInsightsAI:lessonInsights`,
 `courseAI:*`, `aiGuard:*`, `aiOutput:*`.
 
@@ -403,7 +403,7 @@ Online, `pnpm eval`, never in CI: `lessonAI:tutor` (54 rows × 3 samples, 15 cat
 
 - Behavior now: this file.
 - **Figures:** every count and score quoted above was last reconciled with
-  `evals/baselines/lessonAI-tutor.json` on 2026-09-02. Re-recording the baseline or growing the
+  `evals/baselines/lessonAI-tutor.json` on 2026-11-22. Re-recording the baseline or growing the
   golden set without moving that date fails
   [`docFigures.contract.test.ts`](../../../../evals/_shared/docFigures.contract.test.ts) — the
   measured figures in this spec drifted three times in two weeks before that check existed.

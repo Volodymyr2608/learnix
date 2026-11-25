@@ -603,3 +603,25 @@ describe("NOT_ANONYMISED", () => {
 		expect(ids).not.toContain(leaving.id);
 	});
 });
+
+describe("userRepository.anonymiseAccount — study archive (FR-P9, ADR-025)", () => {
+	it("deletes the student's study-archive rows and keeps another student's", async () => {
+		const student = await makeUser();
+		const other = await makeUser();
+		const day = new Date("2026-11-20T00:00:00.000Z");
+		for (const studentId of [student.id, other.id]) {
+			await testDb.studyArchive.create({
+				data: { studentId, day, minutes: 30, lessons: 2 },
+			});
+		}
+
+		await userRepository.anonymiseAccount(student.id);
+
+		expect(
+			await testDb.studyArchive.count({ where: { studentId: student.id } }),
+		).toBe(0);
+		expect(
+			await testDb.studyArchive.count({ where: { studentId: other.id } }),
+		).toBe(1);
+	});
+});

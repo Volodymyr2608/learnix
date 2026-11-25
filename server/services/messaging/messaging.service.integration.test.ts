@@ -81,3 +81,60 @@ describe("MessagingService.send + getThread + getUnreadCount", () => {
 		).rejects.toThrow(/forbidden|not found/i);
 	});
 });
+
+describe("MessagingService — a conversation closed by a refund (C26, D1)", () => {
+	it("refuses messages from both sides but keeps the history readable", async () => {
+		const { instructor, student, course } = await seed();
+		const { conversationId } = await messagingService.getOrCreateConversation(
+			{ id: student.id, role: Role.STUDENT },
+			{ courseId: course.id },
+		);
+		await messagingService.send(student.id, { conversationId, body: "Before" });
+		const { testDb } = await import("@/test/db");
+		await testDb.conversation.update({
+			where: { id: conversationId },
+			data: { closedAt: new Date() },
+		});
+
+		for (const userId of [student.id, instructor.id]) {
+			await expect(
+				messagingService.send(userId, { conversationId, body: "After" }),
+			).rejects.toMatchObject({
+				code: "FORBIDDEN",
+				message: "This conversation is closed",
+			});
+		}
+		for (const userId of [student.id, instructor.id]) {
+			const thread = await messagingService.getThread(userId, {
+				conversationId,
+			});
+			expect(thread.messages.map((m) => m.body)).toEqual(["Before"]);
+		}
+	});
+
+	it("reopens when the student buys the course again (R5)", async () => {
+		const { student, course } = await seed();
+		const { conversationId } = await messagingService.getOrCreateConversation(
+			{ id: student.id, role: Role.STUDENT },
+			{ courseId: course.id },
+		);
+		const { testDb } = await import("@/test/db");
+		await testDb.conversation.update({
+			where: { id: conversationId },
+			data: { closedAt: new Date() },
+		});
+		await testDb.enrollment.updateMany({
+			where: { studentId: student.id, courseId: course.id },
+			data: { status: EnrollmentStatus.cancelled },
+		});
+		const { enrollmentService } = await import(
+			"@/server/services/enrollment/enrollment.service"
+		);
+
+		await enrollmentService.enrollInCourse(student.id, course.id);
+
+		await expect(
+			messagingService.send(student.id, { conversationId, body: "Back again" }),
+		).resolves.toMatchObject({ id: expect.any(String) });
+	});
+});

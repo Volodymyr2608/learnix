@@ -17,7 +17,10 @@ export type RevenueSummary = {
 	totalGrossCents: number;
 	thisMonth: { grossCents: number; delta: StatDelta };
 	paidOutCents: number;
-	pendingCents: number;
+	/** FR-I1: held — the window, an open request or appeal, or a bank failure. */
+	onHoldCents: number;
+	/** FR-I1: eligible except that the instructor's Stripe account cannot receive payouts. */
+	waitingForStripeCents: number;
 };
 
 export type RevenueTimeSeriesPoint = {

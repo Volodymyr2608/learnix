@@ -46,6 +46,33 @@ class EnrollmentRepository extends BaseRepository<
 > {
 	protected readonly modelName = "enrollment" as const;
 
+	/**
+	 * LLM audit (slice 3): does the student hold a live enrollment for the lesson's course?
+	 * Soft-deleted lessons count — the history of a lesson that was removed is still theirs.
+	 */
+	async hasAccessToLesson(
+		studentId: string,
+		lessonId: string,
+	): Promise<boolean> {
+		const count = await this.db.enrollment.count({
+			where: {
+				studentId,
+				status: { not: EnrollmentStatus.cancelled },
+				course: { sections: { some: { lessons: { some: { id: lessonId } } } } },
+			},
+		});
+		return count > 0;
+	}
+
+	/** REC: every course the student ever enrolled in — a refunded (cancelled) one included. */
+	async findAnyEnrollmentCourseIds(userId: string): Promise<string[]> {
+		const rows = await this.findMany({
+			where: { studentId: userId },
+			select: { courseId: true },
+		});
+		return rows.map((r) => (r as { courseId: string }).courseId);
+	}
+
 	async findEnrolledCourseIds(userId: string): Promise<string[]> {
 		const rows = await this.findMany({
 			where: {
@@ -96,7 +123,12 @@ class EnrollmentRepository extends BaseRepository<
 
 	findCompletedByStudent(studentId: string) {
 		return this.findMany({
-			where: { studentId, completedAt: { not: null } },
+			// C25: a certificate revoked by a refund is not listed (FR-P10).
+			where: {
+				studentId,
+				completedAt: { not: null },
+				certificateRevokedAt: null,
+			},
 			orderBy: { completedAt: "desc" },
 			select: {
 				id: true,
@@ -498,6 +530,37 @@ class EnrollmentRepository extends BaseRepository<
 			enrolled: Number(r.enrolled),
 			completed: Number(r.completed),
 		}));
+	}
+
+	/**
+	 * R5 / FR-P27: a cancelled enrollment becomes active again and the conversation a refund closed
+	 * reopens — for a repurchase and for a refund that failed at the bank (W5). Cleared learning
+	 * records are not restored (FS-3). Runs in the caller's transaction; false when nothing was
+	 * cancelled.
+	 */
+	async reactivateCancelledInTx(
+		tx: Prisma.TransactionClient,
+		studentId: string,
+		courseId: string,
+		now: Date,
+	): Promise<boolean> {
+		const { count } = await tx.enrollment.updateMany({
+			where: { studentId, courseId, status: EnrollmentStatus.cancelled },
+			data: {
+				status: EnrollmentStatus.active,
+				enrolledAt: now,
+				completedAt: null,
+				// R5: a repurchase starts clean — a new certificate must not stay hidden.
+				certificateRevokedAt: null,
+				certificateRevokedReason: null,
+			},
+		});
+		if (count === 0) return false;
+		await tx.conversation.updateMany({
+			where: { studentId, courseId, closedAt: { not: null } },
+			data: { closedAt: null },
+		});
+		return true;
 	}
 }
 

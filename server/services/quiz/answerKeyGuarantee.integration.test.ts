@@ -11,6 +11,7 @@ import {
 	makeEnrollment,
 	makeLesson,
 	makeLessonInsights,
+	makeOpenedLesson,
 	makeQuiz,
 	makeSection,
 	makeUser,
@@ -42,6 +43,8 @@ describe("level 3 requires knowledge, not enumeration", () => {
 		const section = await makeSection({ courseId: course.id });
 		const lesson = await makeLesson({ sectionId: section.id });
 		await makeEnrollment({ studentId: student.id, courseId: course.id });
+		// G10: normal use opens the lesson before its quizzes.
+		await makeOpenedLesson({ studentId: student.id, lessonId: lesson.id });
 		await makeLessonInsights({ lessonId: lesson.id });
 		const quizzes = await Promise.all([
 			makeQuiz({ lessonId: lesson.id, options: OPTIONS, correct: CORRECT }),

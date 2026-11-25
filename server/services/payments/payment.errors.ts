@@ -30,3 +30,18 @@ export class ConnectNotReadyError extends PaymentError {
 		super("Stripe account is not ready", "BAD_REQUEST", undefined, ctx);
 	}
 }
+
+/** AC-F11: an admin "Retry" on a payment that does not exist or is not in a retryable state. */
+export class PayoutRetryError extends DomainError {}
+
+/** EC-17 (W9): a dispute on an earlier payment of this course is still open at the bank. */
+export class RepurchaseDisputedError extends PaymentError {
+	constructor(ctx?: Record<string, unknown>) {
+		super(
+			"A dispute about your earlier payment for this course is still open with your bank",
+			"CONFLICT",
+			undefined,
+			ctx,
+		);
+	}
+}

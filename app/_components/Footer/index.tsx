@@ -1,7 +1,11 @@
 import { Facebook, Instagram, Linkedin, Twitter, Youtube } from "lucide-react";
 import Link from "next/link";
+import { REFUND_POLICY_PATH } from "@/server/entities/refund/refundPolicy";
+import { isStudentRefundEnabled } from "@/server/services/refund/refundFlag";
 
 const Footer = () => {
+	// FR-P21: the refund policy page exists only with the student flag on.
+	const refundsEnabled = isStudentRefundEnabled();
 	return (
 		<footer className="border-t bg-muted/50">
 			<div className="container mx-auto max-w-7xl px-4 py-12">
@@ -139,6 +143,16 @@ const Footer = () => {
 									Privacy Policy
 								</Link>
 							</li>
+							{refundsEnabled && (
+								<li>
+									<Link
+										className="text-muted-foreground transition-colors hover:text-foreground"
+										href={REFUND_POLICY_PATH}
+									>
+										Refund Policy
+									</Link>
+								</li>
+							)}
 							<li>
 								<Link
 									className="text-muted-foreground transition-colors hover:text-foreground"

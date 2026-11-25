@@ -1,4 +1,5 @@
 import { DollarSign } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
 	Card,
@@ -6,7 +7,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/app/_components/_shared/ui/card";
-import { SweepButton } from "@/app/(admin)/admin/SweepButton";
+import { RunPayoutJobButton } from "@/app/(admin)/admin/_components/RunPayoutJobButton";
 import { Role } from "@/generated/prisma";
 import { formatPrice } from "@/lib/formatPrice";
 import { getSession } from "@/server/better-auth/server";
@@ -53,7 +54,21 @@ export default async function AdminPage() {
 
 			<div>
 				<h2 className="mb-3 font-semibold text-lg">Operations</h2>
-				<SweepButton />
+				<div className="flex flex-wrap items-center gap-3">
+					<RunPayoutJobButton />
+					<Link
+						className="text-primary text-sm underline"
+						href="/admin/payouts"
+					>
+						Open the payouts panel
+					</Link>
+					<Link
+						className="text-primary text-sm underline"
+						href="/admin/refunds"
+					>
+						Open refunds and appeals
+					</Link>
+				</div>
 			</div>
 		</div>
 	);

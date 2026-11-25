@@ -73,6 +73,21 @@ export default async function CheckoutSuccessPage({
 		);
 	}
 
+	// FR-P17 (W4): a second charge for a course already paid for was refunded at once.
+	if ("duplicate" in result && result.duplicate) {
+		return (
+			<StatusCard
+				description="You were charged twice; the second charge was refunded. Your access to the course is unchanged."
+				icon={<CheckCircle2 className="h-12 w-12 text-green-500" />}
+				title="You already own this course"
+			>
+				<Button asChild className="w-full">
+					<Link href="/dashboard/courses">Go to my courses</Link>
+				</Button>
+			</StatusCard>
+		);
+	}
+
 	return (
 		<StatusCard
 			description="You now have full access to your new course. Start learning whenever you're ready."

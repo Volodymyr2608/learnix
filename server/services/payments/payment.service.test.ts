@@ -19,6 +19,8 @@ vi.mock("./stripe.client", () => ({
 // Mock payment repository
 const mockPaymentRepo = {
 	findBySessionId: vi.fn(),
+	claimCheckout: vi.fn(),
+	hasOpenDispute: vi.fn().mockResolvedValue(false),
 	findByPaymentIntentId: vi.fn(),
 	create: vi.fn(),
 	update: vi.fn(),
@@ -38,6 +40,10 @@ const mockCourseRepo = {
 	findFirst: vi.fn(),
 	findMany: vi.fn(),
 };
+const mockHeldForInstructor = vi.hoisted(() => vi.fn());
+vi.mock("@/server/repositories/payout.repository", () => ({
+	payoutRepository: { heldForInstructor: mockHeldForInstructor },
+}));
 vi.mock("@/server/repositories/course.repository", () => ({
 	courseRepository: mockCourseRepo,
 }));
@@ -61,7 +67,6 @@ vi.mock("@/server/services/enrollment/enrollment.service", () => ({
 
 // Mock connect service
 const mockConnectService = {
-	transferToInstructor: vi.fn(),
 	reverseTransfer: vi.fn(),
 };
 vi.mock("@/server/services/payments/connect.service", () => ({
@@ -130,6 +135,15 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
 		transferredAt: null,
 		stripeCheckoutSessionId: SESSION_ID,
 		stripePaymentIntentId: null,
+		paidAt: null,
+		disputeState: null,
+		disputeUpdatedAt: null,
+		refundSource: null,
+		needsReviewAt: null,
+		stripeFeeCents: null,
+		refundedAmountCents: null,
+		bankFailureAt: null,
+		bankFailureRefundId: null,
 		refundedAt: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
@@ -256,8 +270,19 @@ describe("PaymentService.finalizeCheckout — idempotency", () => {
 
 		expect(result).toEqual({ status: "succeeded" });
 		expect(mockEnrollmentService.enrollInCourse).not.toHaveBeenCalled();
-		expect(mockConnectService.transferToInstructor).not.toHaveBeenCalled();
 		expect(mockPaymentRepo.update).not.toHaveBeenCalled();
+	});
+
+	it("makes no transfer for an already-succeeded payment that was never transferred (H9)", async () => {
+		mockPaymentRepo.findBySessionId.mockResolvedValue(
+			makePayment({ status: "succeeded", transferStatus: "none" }),
+		);
+
+		const result = await paymentService.finalizeCheckout(SESSION_ID);
+
+		expect(result).toEqual({ status: "succeeded" });
+		expect(mockPaymentRepo.update).not.toHaveBeenCalled();
+		expect(mockCheckoutSessionsRetrieve).not.toHaveBeenCalled();
 	});
 
 	it("returns pending when Stripe payment_status is not paid", async () => {
@@ -274,18 +299,15 @@ describe("PaymentService.finalizeCheckout — idempotency", () => {
 		expect(mockEnrollmentService.enrollInCourse).not.toHaveBeenCalled();
 	});
 
-	it("enrolls student and triggers transfer when Stripe payment_status is paid", async () => {
+	it("enrolls the student and holds the instructor's net — no transfer at sale (FR-P1)", async () => {
 		const pendingPayment = makePayment({ status: "pending" });
 		mockPaymentRepo.findBySessionId.mockResolvedValue(pendingPayment);
 		mockCheckoutSessionsRetrieve.mockResolvedValue({
 			payment_status: "paid",
 			payment_intent: PAYMENT_INTENT_ID,
 		});
-		mockPaymentRepo.update.mockResolvedValue(
-			makePayment({ status: "succeeded" }),
-		);
+		mockPaymentRepo.claimCheckout.mockResolvedValue("paid");
 		mockEnrollmentService.enrollInCourse.mockResolvedValue(undefined);
-		mockConnectService.transferToInstructor.mockResolvedValue(undefined);
 
 		const result = await paymentService.finalizeCheckout(SESSION_ID);
 
@@ -294,101 +316,83 @@ describe("PaymentService.finalizeCheckout — idempotency", () => {
 			STUDENT_ID,
 			COURSE_ID,
 		);
-		expect(mockConnectService.transferToInstructor).toHaveBeenCalled();
-	});
-});
-
-// -----------------------------------------------------------------------
-// handleRefund
-// -----------------------------------------------------------------------
-
-describe("PaymentService.handleRefund", () => {
-	it("calls reverseTransfer AND cancels enrollment for a transferred payment", async () => {
-		const transferredPayment = makePayment({
-			status: "succeeded",
-			transferStatus: "transferred",
-			stripePaymentIntentId: PAYMENT_INTENT_ID,
-			stripeTransferId: "tr_test",
-		});
-		mockPaymentRepo.findByPaymentIntentId.mockResolvedValue(transferredPayment);
-		mockPaymentRepo.update.mockResolvedValue(
-			makePayment({ status: "refunded" }),
-		);
-		mockEnrollmentRepo.findFirst.mockResolvedValue({
-			id: "enroll-1",
-			status: "active",
-		});
-		mockEnrollmentRepo.update.mockResolvedValue(undefined);
-		mockConnectService.reverseTransfer.mockResolvedValue(undefined);
-
-		await paymentService.handleRefund(PAYMENT_INTENT_ID);
-
-		expect(mockConnectService.reverseTransfer).toHaveBeenCalledWith(
-			transferredPayment,
-		);
-		expect(mockEnrollmentRepo.update).toHaveBeenCalledWith(
-			"enroll-1",
-			expect.objectContaining({ status: "cancelled" }),
-		);
-	});
-
-	it("does NOT call reverseTransfer for a pending (owed) payment, just marks refunded and cancels", async () => {
-		const pendingTransferPayment = makePayment({
-			status: "succeeded",
-			transferStatus: "pending",
-			stripePaymentIntentId: PAYMENT_INTENT_ID,
-		});
-		mockPaymentRepo.findByPaymentIntentId.mockResolvedValue(
-			pendingTransferPayment,
-		);
-		mockPaymentRepo.update.mockResolvedValue(
-			makePayment({ status: "refunded" }),
-		);
-		mockEnrollmentRepo.findFirst.mockResolvedValue({
-			id: "enroll-1",
-			status: "active",
-		});
-		mockEnrollmentRepo.update.mockResolvedValue(undefined);
-
-		await paymentService.handleRefund(PAYMENT_INTENT_ID);
-
-		expect(mockConnectService.reverseTransfer).not.toHaveBeenCalled();
-		expect(mockPaymentRepo.update).toHaveBeenCalledWith(
-			PAYMENT_ID,
+		expect(mockPaymentRepo.claimCheckout).toHaveBeenCalledWith(
 			expect.objectContaining({
-				status: "refunded",
-				refundedAt: expect.any(Date),
+				paymentId: PAYMENT_ID,
+				data: expect.objectContaining({
+					platformFeeCents: expect.any(Number),
+					instructorNetCents: expect.any(Number),
+				}),
 			}),
 		);
-		expect(mockEnrollmentRepo.update).toHaveBeenCalledWith(
-			"enroll-1",
-			expect.objectContaining({ status: "cancelled" }),
-		);
 	});
 });
 
-// -----------------------------------------------------------------------
-// Transfer decision
-// -----------------------------------------------------------------------
+describe("PaymentService.finalizeCheckout — paidAt (refund window start)", () => {
+	const CHARGE_CREATED = 1_763_800_000;
 
-describe("PaymentService.finalizeCheckout — transfer decision", () => {
-	it("calls transferToInstructor (which handles onboarding check internally)", async () => {
-		const pendingPayment = makePayment({ status: "pending" });
-		mockPaymentRepo.findBySessionId.mockResolvedValue(pendingPayment);
+	beforeEach(() => {
+		mockPaymentRepo.findBySessionId.mockResolvedValue(
+			makePayment({ status: "pending" }),
+		);
+		mockPaymentRepo.claimCheckout.mockResolvedValue("paid");
+		mockEnrollmentService.enrollInCourse.mockResolvedValue(undefined);
+	});
+
+	it("stores paidAt from the Stripe charge's created time", async () => {
+		mockCheckoutSessionsRetrieve.mockResolvedValue({
+			payment_status: "paid",
+			payment_intent: {
+				id: PAYMENT_INTENT_ID,
+				latest_charge: { id: "ch_1", created: CHARGE_CREATED },
+			},
+		});
+
+		await paymentService.finalizeCheckout(SESSION_ID);
+
+		expect(mockPaymentRepo.claimCheckout).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					stripePaymentIntentId: PAYMENT_INTENT_ID,
+					paidAt: new Date(CHARGE_CREATED * 1000),
+					stripeFeeCents: null,
+				}),
+			}),
+		);
+	});
+
+	it("reads the charge in the same single Stripe call, by expanding it", async () => {
 		mockCheckoutSessionsRetrieve.mockResolvedValue({
 			payment_status: "paid",
 			payment_intent: PAYMENT_INTENT_ID,
 		});
-		const succeededPayment = makePayment({ status: "succeeded" });
-		mockPaymentRepo.update.mockResolvedValue(succeededPayment);
-		mockEnrollmentService.enrollInCourse.mockResolvedValue(undefined);
-		mockConnectService.transferToInstructor.mockResolvedValue(undefined);
 
 		await paymentService.finalizeCheckout(SESSION_ID);
 
-		// connectService.transferToInstructor is always called — it handles the
-		// onboarding check internally (pending vs transferred)
-		expect(mockConnectService.transferToInstructor).toHaveBeenCalled();
+		expect(mockCheckoutSessionsRetrieve).toHaveBeenCalledTimes(1);
+		expect(mockCheckoutSessionsRetrieve).toHaveBeenCalledWith(SESSION_ID, {
+			expand: ["payment_intent.latest_charge.balance_transaction"],
+		});
+	});
+
+	it("leaves paidAt null and still succeeds when the charge is not on the session", async () => {
+		mockCheckoutSessionsRetrieve.mockResolvedValue({
+			payment_status: "paid",
+			payment_intent: PAYMENT_INTENT_ID,
+		});
+
+		const result = await paymentService.finalizeCheckout(SESSION_ID);
+
+		expect(result).toEqual({ status: "succeeded" });
+		expect(mockPaymentRepo.claimCheckout).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					stripePaymentIntentId: PAYMENT_INTENT_ID,
+					paidAt: null,
+					stripeFeeCents: null,
+				}),
+			}),
+		);
 	});
 });
 
@@ -452,11 +456,17 @@ describe("paymentService.getRevenueSummary", () => {
 			lastMonthGrossCents: 11500,
 		});
 
+		mockHeldForInstructor.mockResolvedValue({
+			onHoldCents: 1500,
+			waitingForStripeCents: 680,
+		});
+
 		const summary = await paymentService.getRevenueSummary("inst_1");
 
 		expect(summary.totalGrossCents).toBe(95150);
 		expect(summary.paidOutCents).toBe(8420);
-		expect(summary.pendingCents).toBe(2180);
+		expect(summary.onHoldCents).toBe(1500);
+		expect(summary.waitingForStripeCents).toBe(680);
 		expect(summary.thisMonth.grossCents).toBe(12450);
 		expect(summary.thisMonth.delta).toEqual({
 			kind: "percent",

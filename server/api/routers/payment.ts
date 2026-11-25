@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createCheckoutSessionInput } from "@/server/entities/payment";
 import {
@@ -7,6 +8,9 @@ import {
 import { paymentRepository } from "@/server/repositories/payment.repository";
 import { connectService } from "@/server/services/payments/connect.service";
 import { paymentService } from "@/server/services/payments/payment.service";
+import { payoutJobService } from "@/server/services/payments/payoutJob.service";
+import { payoutMonitorService } from "@/server/services/payments/payoutMonitor.service";
+import { refundService } from "@/server/services/refund/refund.service";
 import { handleServiceError } from "@/server/utils/handleServiceError";
 import {
 	adminProcedure,
@@ -32,9 +36,12 @@ export const paymentRouter = createTRPCRouter({
 
 	getSessionStatus: studentProcedure
 		.input(z.object({ sessionId: z.string() }))
-		.query(async ({ input }) => {
+		.query(async ({ ctx, input }) => {
 			try {
-				return await paymentService.finalizeCheckout(input.sessionId);
+				return await paymentService.finalizeCheckoutForStudent(
+					input.sessionId,
+					ctx.session.user.id,
+				);
 			} catch (error) {
 				throw handleServiceError(error);
 			}
@@ -130,19 +137,76 @@ export const paymentRouter = createTRPCRouter({
 		}
 	}),
 
-	sweepAllPendingTransfers: adminProcedure.mutation(async () => {
-		try {
-			const pending = await paymentRepository.findMany({
-				where: { transferStatus: "pending" },
-				select: { instructorId: true },
+	/**
+	 * "Run job now" (ADR-037 §3.7): the same job, lock and predicate as the daily cron. Replaces the
+	 * old Sweep, which paid every pending sale, held and refunded ones included (C14).
+	 */
+	runPayoutJobNow: adminProcedure.mutation(async () => {
+		const summary = await payoutJobService.run({
+			trigger: "manual",
+			now: new Date(),
+		});
+		if (summary.status === "already_running") {
+			throw new TRPCError({
+				code: "CONFLICT",
+				message: "The payout job is already running",
 			});
-			const instructorIds = [...new Set(pending.map((p) => p.instructorId))];
-			for (const instructorId of instructorIds) {
-				await connectService.sweepPendingTransfers(instructorId);
-			}
-			return { instructorsSwept: instructorIds.length };
+		}
+		return summary;
+	}),
+
+	/** FR-A8 / AC-F11: the admin Payouts panel (C17: admin only). */
+	getPayoutStatus: adminProcedure.query(async () => {
+		try {
+			return await payoutMonitorService.getStatus(new Date());
 		} catch (error) {
 			throw handleServiceError(error);
 		}
 	}),
+
+	/** AC-F11 / M8: Retry for an overdue refund — the same executeRefund the job uses. */
+	retryRefund: adminProcedure
+		.input(z.object({ requestId: z.string().min(1).max(64) }))
+		.mutation(async ({ input }) => {
+			try {
+				if (!(await refundService.requestExists(input.requestId))) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Refund request not found",
+					});
+				}
+				const status = await refundService.executeRefund(
+					input.requestId,
+					new Date(),
+				);
+				return { status };
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
+
+	retryRelease: adminProcedure
+		.input(z.object({ paymentId: z.string().min(1).max(64) }))
+		.mutation(async ({ input }) => {
+			try {
+				const outcome = await payoutJobService.retryRelease(
+					input.paymentId,
+					new Date(),
+				);
+				return { outcome };
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
+
+	retryReversal: adminProcedure
+		.input(z.object({ paymentId: z.string().min(1).max(64) }))
+		.mutation(async ({ input }) => {
+			try {
+				const outcome = await payoutJobService.retryReversal(input.paymentId);
+				return { outcome };
+			} catch (error) {
+				throw handleServiceError(error);
+			}
+		}),
 });

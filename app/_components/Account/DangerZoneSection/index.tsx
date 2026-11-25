@@ -22,10 +22,18 @@ import {
 import { Input } from "@/app/_components/_shared/ui/input";
 import { Label } from "@/app/_components/_shared/ui/label";
 import useDangerZone from "@/app/_components/Account/DangerZoneSection/hooks/useDangerZone";
+import { api } from "@/trpc/client";
+import { openAppealWarning } from "./utils";
 
 const DangerZoneSection = () => {
 	const { open, setOpen, isPending, deleteAccount } = useDangerZone();
 	const [password, setPassword] = useState("");
+	// EC-12 (W12): asked when the dialog opens; empty for instructors and with refunds off.
+	const openAppeals = api.refund.openAppeals.useQuery(undefined, {
+		enabled: open,
+		retry: false,
+	});
+	const appealWarning = openAppealWarning(openAppeals.data ?? []);
 
 	const handleDelete = () => {
 		if (!password) return;
@@ -60,6 +68,12 @@ const DangerZoneSection = () => {
 								confirm.
 							</DialogDescription>
 						</DialogHeader>
+
+						{appealWarning && (
+							<p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+								{appealWarning}
+							</p>
+						)}
 
 						<div className="space-y-2">
 							<Label htmlFor="confirm-password">Password</Label>

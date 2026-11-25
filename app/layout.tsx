@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/app/_components/_shared/ui/sonner";
+import { RefundFlagProvider } from "@/app/_components/Billing/RefundFlagProvider";
+import { isStudentRefundEnabled } from "@/server/services/refund/refundFlag";
 import { TRPCReactProvider } from "@/trpc/client";
 
 import "styles/globals.css";
@@ -60,7 +62,11 @@ export default function RootLayout({
 				/>
 			</head>
 			<body>
-				<TRPCReactProvider>{children}</TRPCReactProvider>
+				<TRPCReactProvider>
+					<RefundFlagProvider enabled={isStudentRefundEnabled()}>
+						{children}
+					</RefundFlagProvider>
+				</TRPCReactProvider>
 				<Toaster />
 			</body>
 		</html>
