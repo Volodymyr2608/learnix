@@ -25,6 +25,6 @@ describe("RefundRowAction utils (FR-S1, FR-S12)", () => {
 
 	it("links the action to the purchase's refund page and the tooltip to the policy", () => {
 		expect(refundPageHref("pay_1")).toBe("/dashboard/billing/pay_1/refund");
-		expect(REFUND_POLICY_HREF).toBe("/pricing#refund-policy");
+		expect(REFUND_POLICY_HREF).toBe("/refund-policy");
 	});
 });

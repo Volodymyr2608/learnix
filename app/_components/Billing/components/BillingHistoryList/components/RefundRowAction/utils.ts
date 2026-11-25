@@ -1,8 +1,9 @@
 import { formatUtcDate } from "@/app/_components/Billing/utils";
+import { REFUND_POLICY_PATH } from "@/server/entities/refund/refundPolicy";
 import type { RefundRequestStatus } from "@/server/entities/refund/refundView.dto";
 
-/** FR-P21: the refund policy the tooltip links to. */
-export const REFUND_POLICY_HREF = "/pricing#refund-policy";
+/** FR-P21: the refund policy page the row links to. */
+export const REFUND_POLICY_HREF = REFUND_POLICY_PATH;
 
 const STATUS_LABEL: Record<RefundRequestStatus, string> = {
 	processing: "Refund processing",

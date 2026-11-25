@@ -25,12 +25,8 @@ export const PAYMENT_REFUNDED_TEXT = "This payment has already been refunded.";
 export const REFUND_FAILED_TEXT =
 	"Your bank could not accept this refund, so your access to the course is restored. We will contact you about the money.";
 
-/** FR-S4. */
-export const REFUND_CONSEQUENCES = [
-	"Your access to the course closes.",
-	"Your progress in the course is erased.",
-	"A course can be refunded only once.",
-] as const;
+/** FR-S4 — the same list the refund policy page shows. */
+export { REFUND_CONSEQUENCES } from "@/server/entities/refund/refundPolicy";
 
 const money = (amountCents: number, currency: string): string =>
 	new Intl.NumberFormat("en-US", {

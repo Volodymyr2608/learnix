@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
 	LEGACY_REFUND_FAQ_ANSWER,
-	REFUND_POLICY_POINTS,
+	REFUND_POLICY_SECTIONS,
 	refundFaqAnswer,
 } from "./refundPolicy";
 
 describe("the refund policy text (FR-P21, AC-F19)", () => {
-	const policy = REFUND_POLICY_POINTS.join(" ");
+	const policy = REFUND_POLICY_SECTIONS.flatMap((s) => s.points).join(" ");
 
 	it("states every term", () => {
 		expect(policy).toContain("14 days");

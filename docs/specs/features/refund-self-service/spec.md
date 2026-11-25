@@ -242,7 +242,7 @@ about refunds (UI-1).
 - **FR-S1.** A student with a `succeeded` payment sees, in that purchase's row, a quiet "Request a
   refund" action while every request condition holds except possibly the threshold and the account
   limit (those lead to FR-S13). Its tooltip shows the window's end date and links to the refund
-  policy on `/pricing` (A3, S2, UI-1).
+  policy page `/refund-policy` (A3, S2, UI-1).
 - **FR-S2.** Request conditions are:
   - inside the window;
   - opened lessons ≤ threshold;
@@ -496,16 +496,20 @@ Dashboard webhook, lost bank dispute or daily event replay)
     and the Dashboard-path special cases. The opened-lesson record ships here so every purchase still
     in its window on day 14 has complete opened counts (AI-C8);
   - **Day 14, behind a feature flag:** the student request and appeal, the admin appeal queue and
-    exception, and the `/pricing` text. The flag is enforced on the server: with it off, the request
-    and appeal endpoints do not exist for a student (C24).
-- **FR-P21.** `/pricing` states the new terms:
+    exception, the `/pricing` FAQ text and the `/refund-policy` page. The flag is enforced on the
+    server: with it off, the request and appeal endpoints do not exist for a student and
+    `/refund-policy` is a 404 (C24).
+- **FR-P21.** The refund policy has its own page, `/refund-policy`, which states the new terms:
   - 14 days;
   - the opened-lesson limit;
   - no refund after a certificate;
-  - one refund per course (Q20).
+  - one refund per course (Q20);
 
-  This text is the refund policy the Purchases tooltip links to; it points to the Purchases page,
-  not to "contact us" (D-2, UI-1).
+  then how to ask, the one appeal, and what a refund takes away (FR-S4). It is the page the
+  Purchases row and the footer link to; it points to the Purchases page, not to "contact us" (D-2,
+  UI-1). The `/pricing` FAQ answers "Can I get a refund?" in one sentence and links to it.
+  *Amended 2026-11-23:* the policy moved from a section on `/pricing` to its own page, as other
+  course platforms keep a short line or FAQ entry and the full rules on a separate page.
 
 **Account deletion**
 - **FR-P23.** Deleting a student's account (ADR-025) erases their refund free text and file names
@@ -755,8 +759,9 @@ Applies: [`docs/constitution.md`](../../../constitution.md), plus the criteria b
   reversed share is left unchanged; a redelivered failure event does not reopen a closed problem.
 - **AC-F18** (FR-P22). Appeal and denial files are deleted 30 days after the final decision and not
   before; texts, snapshot and audit remain.
-- **AC-F19** (FR-P21). `/pricing` states 14 days, the opened-lesson limit, no refund after a
-  certificate and one refund per course, and points to the Purchases page, not "contact us".
+- **AC-F19** (FR-P21). `/refund-policy` states 14 days, the opened-lesson limit, no refund after a
+  certificate and one refund per course, and points to the Purchases page, not "contact us"; the
+  `/pricing` FAQ links to it; with the flag off the page is a 404 and `/pricing` keeps today's text.
 - **AC-F20** (EC-12, FR-P23). The account-deletion page warns about an open appeal; after deletion
   the appeal is closed without a decision and a processing refund completes.
 - **AC-F22** (FR-P18b, EC-18). A dispute closed lost on a held payment applies the effects once,
@@ -912,7 +917,7 @@ component or end-to-end tests.
 | Contract (`*.contract.test.ts`) | `transfers.create` in one function and no Sweep; instructor outputs carry no refund data; AI content readers listed; no AI entry point reads refund data; no tutor tool reaches opened or refund state | AC-C14, C19, AC-L7, L9, L10 | A new reader or tool added without listing |
 | Route tests | Job endpoint auth; evidence file serving and upload checks; a revoked certificate | AC-C15, C20, C21, C25 | Wrong or short secret; IDOR on files; SVG renamed `.png`; > 4 MB; a valid 30-day token for a revoked certificate |
 | Eval (`evals/lessonAI`) | The tutor leaks no unopened content and no refund terms | AC-L2, L11 | "Summarise lessons 4–10" with lesson 1 opened; refund-term questions |
-| Manual at `/qa` (running app) | The course page has no refund element; the Purchases row, tooltip and refund page match the state; a reason with markup renders as text; `/pricing` states the policy | AC-F1, F19, F24, AC-C22 | `<img src=x onerror=alert(1)>` as the reason |
+| Manual at `/qa` (running app) | The course page has no refund element; the Purchases row, tooltip and refund page match the state; a reason with markup renders as text; `/refund-policy` states the policy and the `/pricing` FAQ links to it | AC-F1, F19, F24, AC-C22 | `<img src=x onerror=alert(1)>` as the reason |
 | Release checklist (before the flag is turned on) | The hold shipped with FR-P19 and FR-P19a (code ✓ 2026-11-22: hold slice 2, FR-P19 slice 1, FR-P19a slice 6 — closes when they deploy together); tracing off in production; AS-6 (`losses.payments` on the live account), AS-7 (Vercel terms or Pro), AS-8 (courses with purchases cannot be deleted); the private Blob store (`REFUND_EVIDENCE_BLOB_TOKEN`) and `CRON_SECRET` configured; the refund migrations applied to the production database; `REVOKE TRUNCATE ON refund_audit` from the application role; `REFUND_STUDENT_ENABLED` flipped by a redeploy, so every page reads the new value; the three slice-1 items in `security.md` → "Accepted for slice 1 only" (lock-wait limiter, refund text erased on account deletion, access revoked on approval); the flag goes on at least 14 days after the code that records `paidAt` reached production (P4) | AC-L8, AC-L14, AC-C29 | — |
 
 ## Agent notes
